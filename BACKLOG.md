@@ -42,7 +42,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - each source's terms and rate limits.
   - Decide how the Python tools build the catalog file, and what the backend reads.
   - Output: a design doc plus C- items.
-- [ ] **C-001** data: normalize, trailing qualifiers, scripts (from design 014)
+- [~] **C-001** data: normalize, trailing qualifiers, scripts (from design 014)
   - `data/songrush_data/titles.py`.
   - `normalize(s)` (D-015): ignores spaces, punctuation, symbols, case and width, and keeps spelling. The exact Unicode steps are fixed in the spec.
   - `strip_qualifier(s)` removes one trailing qualifier: `Season N`, `, season N`, `Nth Season`, `Part N`, `(The) Final Season`, `第N期`, `N기`, `시즌 N`, `N화`, `(YYYY)`, `(TV)`, `(...애니메이션)`. It does not strip when fewer than 4 characters would remain.
@@ -188,6 +188,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Letter-like math symbols in titles are removed by normalize (`∀ Gundam` becomes `gundam`), which could accept a bare "Gundam" for *Turn A Gundam*. Fix it through the manual supplement or a specific mapping, once the real catalog shows the cases (critic, cycle 015).
 - Data test network guard (critic, cycle 013):
   - Let loopback (`127.0.0.1`, `::1`, `localhost`) through, because on Windows `socket.socketpair()` and `asyncio.new_event_loop()` connect over loopback and currently fail.
   - Install the guard at session start (`pytest_configure` or conftest module level), not per test function, so fixtures and import-time code are guarded too.

@@ -108,7 +108,7 @@ This cycle's explorer made every live request below one at a time, with the Song
      - `第N期`, `N기`, `시즌 N`, `N화`;
      - a trailing year `(YYYY)` and parenthetical qualifiers such as `(TV)` or `(애니메이션)`.
 
-     Both forms are accepted. A strip that would leave fewer than 4 characters is not applied.
+     Both forms are accepted. A strip is not applied if it would leave fewer than 2 characters (text with Hangul, kana or CJK) or fewer than 4 (other text); this was refined in cycle 015.
    - **Series pooling** (D-007/D-008, D-020, D-041, D-042). A series group is the connected components of catalog anime over the AniList edges SEQUEL, PREQUEL, SIDE_STORY, PARENT, ALTERNATIVE, SUMMARY and SPIN_OFF. **Every edge type joins only when the two entries share a title**, which the user's examples define:
      - **Base title.** An official romaji or English title, with its trailing qualifier removed, normalized. If the base has fewer than 4 characters, the title is not used for joining.
      - **Head.** The part of the official title before the first `/` or `:`, if there is one, normalized and at least 4 characters.
