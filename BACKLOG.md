@@ -63,7 +63,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - Any other 4xx fails at once, with no retry.
     - The file cache (`data/cache/`) holds responses by key and is written atomically. A corrupt entry is fetched again once. `clear("")` is rejected.
     - The test network guard is extended to let loopback through (Follow-up from cycle 013).
-- [ ] **C-003** data: AnimeThemes crawl and theme selection (from design 014)
+- [~] **C-003** data: AnimeThemes crawl and theme selection (from design 014)
   - Pages through GraphQL `animePagination` with the saved query, using C-002 with a 3 s gap.
   - Keeps OP/ED themes that have audio, choosing the audio deterministically: entries by version, null first, then id; videos by id.
   - Acceptance (offline, on `gql_page1.json`):
