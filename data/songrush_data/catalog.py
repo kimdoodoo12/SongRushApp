@@ -129,11 +129,16 @@ def build_catalog(anime, media, wikidata, korean, *, draw_size=DRAW_SET_SIZE) ->
     for r in records:
         if r["group"] is not None and r["titles"]["ko"]:
             groups_with_korean.setdefault(r["group"], set()).add(r["id"])
-    korean_gaps = []
+    korean_gaps, gap_anilist = [], set()
     for anime_id in sorted(draw_anime, key=lambda a: (-popularity[a], a)):
         r = by_id[anime_id]
         if r["titles"]["ko"]:
             continue
+        # One entry per AniList id: the first in this order wins (cycle 023).
+        if r["anilistId"] is not None:
+            if r["anilistId"] in gap_anilist:
+                continue
+            gap_anilist.add(r["anilistId"])
         others = groups_with_korean.get(r["group"], set()) - {anime_id}
         korean_gaps.append({
             "animeId": anime_id,
@@ -176,6 +181,7 @@ def build_catalog(anime, media, wikidata, korean, *, draw_size=DRAW_SET_SIZE) ->
             "drawSet": len(from_synonyms & draw_anime),
         },
         "largestGroups": largest_groups,
+        "drawSetNoReveal": sum(1 for anime_id in draw_anime if by_id[anime_id]["reveal"] is None),
     }
     return catalog, report
 
