@@ -39,3 +39,12 @@ Make the AniList cache hold the raw AniList media, normalized on read, so later 
 
 ## Out of scope
 Cache expiry and the refresh option (C-007). Grouping and title rules (C-006).
+
+## Result
+- Tests `f81376d` (locked with `test_anilist.py`, `test_aod.py`, `conftest.py`); implementation `b96e2bc` (attempt 1).
+- Red phase (verifier): 7 failed, 2 passed (the two 5b cases, allowed); every failure an `AssertionError` on the old behaviour.
+- Verifier: full suite exit 0, `420 passed in 12.70s`; `git diff f81376d HEAD -- data/tests/` empty; on the real release `korean_by_anilist` gives 2662 ids with 157295 present and every string NFC.
+
+## Code review (critic)
+No Blocker, High or Medium. Probes: fetch and cache-hit paths return identical results; omitted ids are stored as `{"media": null}`; the returned lists do not alias the cache; the aod input document is not mutated.
+- **N1 (Follow-up).** `_read_cached` accepts any object as `media`, so a cycle 018-shaped normalized record or a record with another id would be a silent hit. No such cache exists yet. Fix: require `media["id"] == media_id`.
