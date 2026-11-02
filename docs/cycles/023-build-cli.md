@@ -78,3 +78,14 @@ Make the AnimeThemes crawl notice source changes (total check, last-page freshne
 
 ## Out of scope
 AniDB (C-008), the manual supplement (C-009), the Java loader (S-003).
+
+## Result
+- Tests `a4940ba`; fixture correction `20c0ee7` (the `streams` fixture swapped stdout in setup, and pytest's capture undid it before the test body, so no implementation could pass three CLI tests; the implementer reported it with a `-s` run as evidence, the lead unlocked only `test_build.py`, and the test writer moved the swap into the test body without changing any assertion). Implementation `521f82a` (attempt 1).
+- Red phase (verifier): 11 failed and 17 errors, all in new or replaced tests (old crawl behaviour, missing `refresh_all`, missing `drawSetNoReveal`, missing `build` module).
+- Verifier: full suite exit 0, `514 passed in 14.87s`; `git diff 20c0ee7 HEAD -- data/tests/` empty; `python -m songrush_data.build stray` and `--nope` exit 2, `--help` exits 0; `git check-ignore` matches `data/.build.lock` and `data/~tmp-*`. Criteria 1-13, 11b, 11c confirmed.
+
+## Code review (critic)
+No Blocker or High. External source rules hold in `build.run` (gaps 3/2/3/3 s, AnimeThemes timeout 120 s, others 60 s, AniList only receives crawl ids).
+- **F1, F2 (Medium, queued as C-012).** With real 100-item pages, a new anime that spills onto a new page, or a total change during a resumed or first crawl, still clears the whole AnimeThemes cache and restarts; the has-more continuation branch cannot be reached with consistent pages, and its test uses a page shape the source never sends.
+- **F3 (Medium, follow-up).** `main` does not enable line buffering, so a background build's log file stays empty until the buffer fills; the first real build is run with `python -u`.
+- **F4 (Medium, follow-up).** No test pins the per-source gaps and timeouts.
