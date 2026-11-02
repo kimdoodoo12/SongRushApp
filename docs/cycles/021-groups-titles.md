@@ -81,3 +81,14 @@ Popularity and the draw set, the catalog file and the Korean-gap report (C-007).
 
 ## Test correction (attempt 1)
 Criterion 14 first said Kizumonogatari III accepts `normalize("Kizumonogatari")`. No anime in the group has that title: the only such string is the manga (`SOURCE` node 143701, type `MANGA`), and "Kizumonogatari" is the front part of "Kizumonogatari I: Tekketsu-hen", which D-038 does not accept. The implementer reported the contradiction with criterion 7 instead of editing the locked test. The lead corrected the criterion, unlocked only `test_groups.py`, and the test writer changed only that assertion.
+
+## Result
+- Tests `293a9d8`, corrected `8c7e5b0` (one assertion, see "Test correction"); implementation `a684bf5` (attempt 1, unchanged by the correction).
+- Red phase (verifier): `33 errors`, all `ImportError` for the missing `songrush_data.groups`.
+- Verifier: full suite exit 0, `453 passed in 12.92s`; `git diff 8c7e5b0 HEAD -- data/tests/` empty; criteria 1-15 confirmed. `build_titles` on the 124-record fixture takes about 11 ms.
+
+## Code review (critic)
+No Blocker or High. The critic compared the implementer's prefix-index join against a naive pairwise implementation of the spec's three share conditions: identical groups on the full fixture, on 200 random catalog subsets and on 3,000 random adversarial inputs. Largest fixture groups: Fate 21, Attack on Titan 15, Gintama 13, Sword Art Online 10; no anime has an empty accepted list.
+- **M1 (queued in C-007).** A catalog anime whose AniList media is `None` (a deleted or merged id) gets no accepted titles, and the titles another anime lists for it as a relation node are not used. Its songs would be unanswerable, so C-007 leaves such anime out of the draw set and reports them.
+- **N1 (Follow-up).** Reveal step 5 ("first string of any slot") can return a `ko` episode label that step 1 skipped, when an anime has no AniList data.
+- **Noted.** When an anime has no official English title, every Latin-script synonym is accepted (D-035); C-007's first real build should count how often that happens in the top 1,500.

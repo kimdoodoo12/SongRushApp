@@ -92,7 +92,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
     - Every cycle 018 behaviour still holds; the cycle 018 tests keep passing (only the tests that pin the stored record's format may change).
     - aod: a synonym stored in NFD (decomposed jamo) counts as Korean and is returned in NFC; AniList 157295 in the real release keeps its Korean title (pin with an inline record).
-- [~] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
+- [x] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
   - The title-sharing join rule (D-041, D-042), the per-slot titles (D-037), Korean taking every collected title (D-039), official-only English, Japanese and romaji with the D-035 fallback, trailing-qualifier forms (D-038), and the reveal order.
   - Acceptance (on the saved relation fixtures):
     - Fate/Zero and Fate/stay night join.
@@ -116,6 +116,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - The draw-set order and deduplication are checked.
     - The Korean-gap report lists the expected anime.
   - The build log lists the 20 largest series groups (size and titles), so an over-join such as a whole franchise under one generic head can be reviewed (cycle 021 review).
+  - Anime whose accepted list is empty (for example AniList media `None`) are left out of the draw set and listed in the build log (cycle 021 review M1).
+  - The build log counts the anime whose English slot came from the synonym fallback (D-035), so the share in the top 1,500 is known.
   - **The lead then runs the first real build and records the counts.**
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
@@ -204,6 +206,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Reveal fallback (critic, cycle 021): step 5 can return a `ko` episode label (`… 1화`) that step 1 skips, when an anime has no AniList data. Skip episode labels there too.
 - AniList cache read (critic, cycle 020): `_read_cached` should treat a record whose `media.id` differs from the requested id (or that lacks `id`, the cycle 018 shape) as damaged. Test first.
 - AniList enrichment (critic, cycle 018):
   - The cache stores the normalized record while the key hashes only the query fields. Queued as C-010.
