@@ -72,7 +72,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - The AniList id comes from `resources`.
     - Artists may be empty.
     - A shifted page on resume restarts the crawl from page 1.
-- [ ] **C-004** data: AniList enrichment (from design 014)
+- [~] **C-004** data: AniList enrichment (from design 014)
   - Only for the ids that AnimeThemes lists (D-036): batches of 50, at least 2 s apart, at most 30/min.
   - Selects `popularity`, `title{romaji english native}`, `synonyms` and `relations{edges{relationType node{id type format title{romaji english}}}}`.
   - Acceptance (offline, with fixtures and an injected client):
@@ -109,7 +109,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - The draw-set order and deduplication are checked.
     - The Korean-gap report lists the expected anime.
   - **The lead then runs the first real build and records the counts.**
-- [ ] **C-008** data: AniDB Korean titles (from design 014, D-040)
+- [?] **C-008** data: AniDB Korean titles (from design 014, D-040). **Waiting on a user decision: the AniDB license is unclear** (see Needs decision).
   - **Before the spec:** check AniDB's dump license and usage terms. If they are unclear, Needs decision.
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
@@ -145,6 +145,15 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty.
 
 ## Needs decision
+
+- [?] **D-043** AniDB titles dump terms (C-008).
+  - AniDB's official policy pages could not be read directly: anidb.net answered every fetch with a Cloudflare 403.
+  - Search snippets and a third-party mirror say AniDB content is under **CC BY-NC-SA 4.0** (non-commercial, attribution, share-alike). One snippet of a policy text (possibly a draft) also says "AniDB data cannot be extracted in bulk, and database dumps are not offered". The daily titles dump exists anyway.
+  - **Options:**
+    - (a) Use the titles dump for Korean titles under CC BY-NC-SA. The game is free and friends-only; credit AniDB with a link, and share AniDB-derived catalog data alike if it is ever published.
+    - (b) Skip AniDB. Korean titles then come from Wikidata, aod and the manual supplement only.
+    - (c) The user checks https://anidb.net/policy in a browser first.
+  - **Recommendation:** (c), then (a) if the policy page matches the snippets.
 
 - [?] **D-010** Hosting. It is decided before M-4, after S-002 settles what the server needs (a JVM, disk for the audio cache, ffmpeg or not). Options are researched then.
 
