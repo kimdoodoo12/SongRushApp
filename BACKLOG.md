@@ -34,7 +34,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - One smoke test passes.
     - `.venv\Scripts\python.exe -m pytest` exits 0 from `data/`.
     - The Stop hook runs the `data` area.
-- [ ] **S-001** design: song data and catalog (new research for this stack)
+- [x] **S-001** design: song data and catalog (new research for this stack)
   - Re-research from the sources:
     - which songs and anime exist, and how to fetch them (AnimeThemes API);
     - popularity and series relations (AniList);
@@ -42,6 +42,80 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - each source's terms and rate limits.
   - Decide how the Python tools build the catalog file, and what the backend reads.
   - Output: a design doc plus C- items.
+- [ ] **C-001** data: normalize, trailing qualifiers, scripts (from design 014)
+  - `data/songrush_data/titles.py`.
+  - `normalize(s)` (D-015): ignores spaces, punctuation, symbols, case and width, and keeps spelling. The exact Unicode steps are fixed in the spec.
+  - `strip_qualifier(s)` removes one trailing qualifier: `Season N`, `, season N`, `Nth Season`, `Part N`, `(The) Final Season`, `第N期`, `N기`, `시즌 N`, `N화`, `(YYYY)`, `(TV)`, `(...애니메이션)`. It does not strip when fewer than 4 characters would remain.
+  - `has_hangul(s)` uses U+AC00-U+D7A3.
+  - `head(s)` is the part before the first `/` or `:`.
+  - Acceptance:
+    - `contracts/normalize-vectors.json` is hand-written from D-015 and design 014, never from program output. It has at least 40 input/expected pairs and covers full-width characters, case, punctuation, spaces, symbols such as ☆ and ×, Hangul, kana and the edge characters (NBSP, ideographic space, zero-width space, soft hyphen).
+    - pytest runs every vector.
+    - The qualifier cases have tests, including the no-strip cases (`Steins;Gate 0`, `Mob Psycho 100`, `86`).
+- [ ] **C-002** data: polite HTTP client and file cache (from design 014)
+  - `songrush_data/http.py`.
+  - Acceptance (all with an injected transport and clock, offline):
+    - Every request sends `USER_AGENT`.
+    - Requests run one at a time, with at least the configured gap counted from the end of the previous response.
+    - The per-attempt timeout is at least 60 s.
+    - 5xx and network errors are retried up to 3 times with backoff.
+    - 429 waits for `Retry-After`, including on the final attempt, and the next request waits too.
+    - Any other 4xx fails at once, with no retry.
+    - The file cache (`data/cache/`) holds responses by key and is written atomically. A corrupt entry is fetched again once. `clear("")` is rejected.
+    - The test network guard is extended to let loopback through (Follow-up from cycle 013).
+- [ ] **C-003** data: AnimeThemes crawl and theme selection (from design 014)
+  - Pages through GraphQL `animePagination` with the saved query, using C-002 with a 3 s gap.
+  - Keeps OP/ED themes that have audio, choosing the audio deterministically: entries by version, null first, then id; videos by id.
+  - Acceptance (offline, on `gql_page1.json`):
+    - Theme count and the selected audio per theme are computed in the test from the fixture with the stated rule.
+    - Themes with no audio and non-OP/ED types are excluded.
+    - The AniList id comes from `resources`.
+    - Artists may be empty.
+    - A shifted page on resume restarts the crawl from page 1.
+- [ ] **C-004** data: AniList enrichment (from design 014)
+  - Only for the ids that AnimeThemes lists (D-036): batches of 50, at least 2 s apart, at most 30/min.
+  - Selects `popularity`, `title{romaji english native}`, `synonyms` and `relations{edges{relationType node{id type format title{romaji english}}}}`.
+  - Acceptance (offline, with fixtures and an injected client):
+    - 120 ids make 3 requests.
+    - Missing ids give `null`.
+    - Per-id caching means a rerun makes 0 requests.
+- [ ] **C-005** data: Wikidata labels and aod Korean strings (from design 014)
+  - Wikidata SPARQL by AniList id (P8729) for the `ko`, `en` and `ja` labels.
+  - aod release `2026-27` (pinned URL) for Hangul strings per AniList id.
+  - Acceptance (offline fixtures saved in this cycle's spec step):
+    - Labels are keyed by AniList id and language.
+    - Only strings with Hangul syllables count as Korean from aod.
+    - A source that fails is skipped with a warning, and the build continues.
+- [ ] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
+  - The title-sharing join rule (D-041, D-042), the per-slot titles (D-037), Korean taking every collected title (D-039), official-only English, Japanese and romaji with the D-035 fallback, trailing-qualifier forms (D-038), and the reveal order.
+  - Acceptance (on the saved relation fixtures):
+    - Fate/Zero and Fate/stay night join.
+    - Bakemonogatari and Nisemonogatari stay separate, and Koyomimonogatari stays separate.
+    - The Attack on Titan movies and the Re:Zero OVAs join.
+    - "Demon Slayer" alone is not accepted, while "Kimetsu no Yaiba" and "Demon Slayer: Kimetsu no Yaiba" are.
+    - "Attack on Titan" is accepted for a Season 3 theme.
+    - "OP" is not accepted for One Piece.
+    - Every accepted string equals `normalize` of some source string or of its stripped form.
+- [ ] **C-007** data: catalog build CLI and draw set (from design 014)
+  - Writes `data/catalog.json`: UTF-8, LF, sorted keys, one record per line, under a size cap set in the spec.
+  - The draw set is sorted by popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500 (D-034).
+  - Also writes the list of popular anime that still have no Korean title (D-040).
+  - Uses a lock file and atomic writes.
+  - Acceptance:
+    - An end-to-end build with injected sources over the fixtures gives byte-identical output on two runs.
+    - The draw-set order and deduplication are checked.
+    - The Korean-gap report lists the expected anime.
+  - **The lead then runs the first real build and records the counts.**
+- [ ] **C-008** data: AniDB Korean titles (from design 014, D-040)
+  - **Before the spec:** check AniDB's dump license and usage terms. If they are unclear, Needs decision.
+  - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
+  - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
+- [ ] **C-009** data: manual Korean supplement (from design 014, D-040)
+  - `data/korean_titles_manual.json` maps an AniList id to Korean titles. It is merged as Korean titles.
+  - Acceptance:
+    - The merge is tested.
+    - An empty file is fine.
+    - The Korean-gap report from C-007 drops an anime once the user adds it.
 - [ ] **S-002** design: audio delivery (new research for this stack)
   - Re-research how to fetch, cache and serve the songs (D-009, D-018, D-019, D-021, D-026, D-027), including what browsers can play and how every player starts at the same moment.
   - Output: a design doc plus C-, B- and F- items.
@@ -91,7 +165,7 @@ Decided:
 - **D-019** Caching: pre-fetch the popular top ~1500 themes.
 - **D-020** Series grouping: automatic, from the sources' series and sequel/prequel relations, with no manual splits. The revealed answer is the entry's own title, but the accepted range is the whole series.
 - **D-021** Long files: play at most the first 90 s; if nobody answers, reveal.
-- **D-022** Aliases: accept every alias from the sources for now. Filtering rules come later.
+- **D-022** Aliases: accept every alias from the sources. *Replaced by D-035.*
 - **D-023** Attribution: one line in the footer or an about page: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata". Update it if S-001 changes the sources.
 - **D-024** Chat flood limit: a token bucket with a burst of 5 messages and 2 per second.
 - **D-025** Prefetch fairness: a modified client listening ahead to the next prefetched song is accepted for now (friends-only play). Revisit before M-4.
@@ -101,6 +175,15 @@ Decided:
 - **D-029** Stack: a Java Spring Boot backend, a React frontend in plain JavaScript with no TypeScript, and Python data processing. The same stack as BlueArchiveBriefingApp.
 - **D-030** Layout: the folders are `frontend/`, `backend/` and `data/`. The backend uses Java 17.
 - **D-031** Fresh start: discard the TypeScript attempt, its git history and every artifact it produced.
+- **D-042** Sequels with different titles (user, 2026-11-02): sequel entries whose real titles differ stay separate. Bakemonogatari and Nisemonogatari are different ("엄연히 다른거"), but Fate/Zero and Fate/stay night share the "Fate/" name, so they group ("Fate는 묶어도 되지"). Every relation type, sequel included, joins only when the titles share a base or head (design 014 decision 3).
+- **D-038** Full titles (user, 2026-11-02): an answer must be the full title ("기본은 전체 제목"). Trailing qualifiers after the original title, such as the season, year, `(TV)` or `(애니메이션)`, need not be typed ("원제목 뒤에 이상한 글자까지 붙는것은 굳이 안쳐도"). A front part such as "Demon Slayer" alone is not accepted.
+- **D-039** Korean titles (user, 2026-11-02): Korean has no single official title, so every Korean title collected from the sources counts.
+- **D-040** Korean gaps (user, 2026-11-02): add the AniDB titles dump (after a license check, not before 2026-11-03 18:34 KST). Popular anime that still lack a Korean title are filled in by the user in a small manual file, from a list the build produces.
+- **D-041** Series scope (user, 2026-11-02): group side stories, spin-offs and movies with the main series, but keep entries whose real title differs separate ("진짜 제목마저도 달라지는 케이스는 구분"). The rule is in design 014 decision 3.
+- **D-037** Multilingual titles (user, 2026-11-02): the game is multilingual by design. Titles are collected and accepted separately for **Korean, English, Japanese and romaji**, so each country's players can answer with the title they know (design 014 decision 3).
+- **D-034** Draw set (user, 2026-11-02): pure popularity order. The top 1500 OP/ED themes by their anime's popularity, with no per-series cap (design 014).
+- **D-035** Accepted answers (user, 2026-11-02): by default only the original, official titles count ("기본은 원 제목 그대로"). When the data has no official title and only an alias exists, that alias counts ("어쩔수없이 별칭만 나오는 경우 그건 정답 처리"). This replaces D-022's "accept every alias". The rule is in design 014 decision 3.
+- **D-036** AniList scope (user, 2026-11-02): request AniList only for the anime that AnimeThemes lists, and cache what the code needs. This keeps clear of AniList's terms against mass collection.
 - **D-033** Order (user, 2026-11-02): data first. The data bootstrap, the song data design and its tools, then the audio design and the top-1500 audio run come before game-protocol design, backend features and the frontend. The backend bootstrap (B-001) was already done.
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
