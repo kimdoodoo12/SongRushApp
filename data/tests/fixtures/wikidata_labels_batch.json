@@ -1,0 +1,118 @@
+{
+  "head" : {
+    "vars" : [ "id", "item", "ko", "en", "ja" ]
+  },
+  "results" : {
+    "bindings" : [ {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q105847391"
+      },
+      "ja" : {
+        "xml:lang" : "ja",
+        "type" : "literal",
+        "value" : "鬼滅の刃 竈門炭治郎 立志編"
+      },
+      "en" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Demon Slayer: Kimetsu no Yaiba, season 1"
+      },
+      "id" : {
+        "type" : "literal",
+        "value" : "101922"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q135277875"
+      },
+      "ja" : {
+        "xml:lang" : "ja",
+        "type" : "literal",
+        "value" : "3月のライオン 第1期"
+      },
+      "en" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "March Comes In Like a Lion, season 1"
+      },
+      "id" : {
+        "type" : "literal",
+        "value" : "21366"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q437808"
+      },
+      "ja" : {
+        "xml:lang" : "ja",
+        "type" : "literal",
+        "value" : "鋼の錬金術師 FULLMETAL ALCHEMIST"
+      },
+      "en" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Fullmetal Alchemist: Brotherhood"
+      },
+      "id" : {
+        "type" : "literal",
+        "value" : "5114"
+      },
+      "ko" : {
+        "xml:lang" : "ko",
+        "type" : "literal",
+        "value" : "강철의 연금술사 BROTHERHOOD"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q710324"
+      },
+      "ja" : {
+        "xml:lang" : "ja",
+        "type" : "literal",
+        "value" : "ONE PIECE"
+      },
+      "en" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "One Piece"
+      },
+      "id" : {
+        "type" : "literal",
+        "value" : "21"
+      },
+      "ko" : {
+        "xml:lang" : "ko",
+        "type" : "literal",
+        "value" : "원피스"
+      }
+    }, {
+      "item" : {
+        "type" : "uri",
+        "value" : "http://www.wikidata.org/entity/Q718624"
+      },
+      "ja" : {
+        "xml:lang" : "ja",
+        "type" : "literal",
+        "value" : "DEATH NOTE"
+      },
+      "en" : {
+        "xml:lang" : "en",
+        "type" : "literal",
+        "value" : "Death Note"
+      },
+      "id" : {
+        "type" : "literal",
+        "value" : "1535"
+      },
+      "ko" : {
+        "xml:lang" : "ko",
+        "type" : "literal",
+        "value" : "데스노트"
+      }
+    } ]
+  }
+}
