@@ -86,3 +86,29 @@ The critic ran probes on Python 3.12, where `unicodedata.unidata_version` is 15.
   - NFC runs again after removal.
   - The IVS and Mongolian variation selectors are removed.
   - Iteration is by code point, and the Unicode version is stated.
+
+## Code review (critic) and attempt 2
+No Blocker. The critic recomputed a sample of the vectors from the Unicode rules alone and found none that passes only because the implementation mirrors a mistake.
+
+- **H1.** Mutation testing: 11 of 12 injected bugs survived the locked tests. The survivors:
+  - the boundary rule was removed;
+  - the `(TV)`, `Part N`, `시즌 N` and `N화` alternatives were removed;
+  - `head` used the last or a preferred separator, or a minimum of 2;
+  - no-match returned a trimmed string, or the qualifier was stripped repeatedly;
+  - the script check ran on the whole string.
+- **M1.** `strip_qualifier` relied on Python-only Unicode behaviour that the spec never stated: `\s`, `\d`, `strip()` and length in code points. Java's defaults differ.
+
+### Rules made explicit (attempt 2)
+- **Whitespace** in `strip_qualifier` is exactly U+0020, U+0009, U+00A0 and U+3000.
+- **Separators** for the boundary and the trailing trim are those whitespace characters plus `:` and `,`.
+- **Digits** (N) are ASCII `0-9` or full-width `０-９`.
+- **Spaces inside a qualifier:**
+  - Latin qualifiers need at least one whitespace between the words and the number.
+  - Korean and Japanese qualifiers (`시즌 N`, `N기`, `N화`, `第N期`) allow zero or more.
+- **No match** returns `s` unchanged, untrimmed. Only one qualifier is removed.
+- **Lengths** are counted in code points.
+- **Script check:** the "Hangul, kana or CJK" check counts only Letter-category code points (Lo/Lm) in Hangul syllables, Hiragana, Katakana and CJK ideographs. Jamo and punctuation such as `・` do not count.
+- **`head`** uses the first `/` or `:` in the string.
+- Step 3's range U+0300-U+036F also affects Cyrillic (`й` becomes `и`); the spec accepts this.
+
+A new locked test file, `data/tests/test_titles_rules.py`, pins every survivor and these rules.
