@@ -28,7 +28,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `songrush.data-dir` defaults to `../data`.
     - From `backend/`, `gradlew.bat test` and `gradlew.bat build` exit 0, and they also pass `--offline`.
   - The lead updates the CLAUDE.md Commands row. Spec: `docs/cycles/012-backend-bootstrap.md`.
-- [ ] **I-002** data: Python bootstrap
+- [~] **I-002** data: Python bootstrap
   - `data/`: package `songrush_data/`, a `tests/` folder run by pytest, `requirements.txt` with pinned versions, and a `.venv` created by a documented command.
   - Acceptance:
     - One smoke test passes.
