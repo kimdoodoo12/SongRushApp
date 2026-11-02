@@ -92,7 +92,7 @@ If the same kind of failure happened twice in this cycle, append one line to "Pi
 Then update section "기록" of `docs/vibe-coding-system.md`. It is the user's portfolio record, so write facts only and cite a commit SHA or a PROGRESS entry for each one.
 - Keep these counts current: total cycles, cycles that passed on the first attempt, BLOCKED cycles.
 - Add any case where a hook blocked something, and any bug the critic caught.
-- If hooks, agents, settings, or this skill changed, describe the change and why.
+- If hooks, agents, or this skill changed in a way that alters how the system works, describe the change and why. Routine permission allowlist edits are not recorded there (user, 2026-11-03).
 
 ## Design cycle (`S-` items)
 A design item answers open questions and turns the answers into implementation items. Its output is a design doc and new backlog items, not product code, so there is no test-first step and no lock.

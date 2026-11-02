@@ -109,8 +109,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - The draw-set order and deduplication are checked.
     - The Korean-gap report lists the expected anime.
   - **The lead then runs the first real build and records the counts.**
-- [?] **C-008** data: AniDB Korean titles (from design 014, D-040). **Waiting on a user decision: the AniDB license is unclear** (see Needs decision).
-  - **Before the spec:** check AniDB's dump license and usage terms. If they are unclear, Needs decision.
+- [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
 - [ ] **C-009** data: manual Korean supplement (from design 014, D-040)
@@ -146,18 +145,15 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 ## Needs decision
 
-- [?] **D-043** AniDB titles dump terms (C-008).
-  - AniDB's official policy pages could not be read directly: anidb.net answered every fetch with a Cloudflare 403.
-  - Search snippets and a third-party mirror say AniDB content is under **CC BY-NC-SA 4.0** (non-commercial, attribution, share-alike). One snippet of a policy text (possibly a draft) also says "AniDB data cannot be extracted in bulk, and database dumps are not offered". The daily titles dump exists anyway.
-  - **Options:**
-    - (a) Use the titles dump for Korean titles under CC BY-NC-SA. The game is free and friends-only; credit AniDB with a link, and share AniDB-derived catalog data alike if it is ever published.
-    - (b) Skip AniDB. Korean titles then come from Wikidata, aod and the manual supplement only.
-    - (c) The user checks https://anidb.net/policy in a browser first.
-  - **Recommendation:** (c), then (a) if the policy page matches the snippets.
-
 - [?] **D-010** Hosting. It is decided before M-4, after S-002 settles what the server needs (a JVM, disk for the audio cache, ffmpeg or not). Options are researched then.
 
 Decided:
+- **D-043** AniDB (user, 2026-11-03): use the AniDB titles dump. AniDB forbids bulk extraction from the site, so take only the official titles dump, at most once per 24 h, and never crawl anidb.net pages ("대량 추출만 하지말고 조금씩"). Credit AniDB with a small line on the site, already part of D-023.
+- **D-044** Audio prefetch (user, 2026-11-03): once S-002 is designed, the top-1500 audio download may start automatically on this PC, in the background, into a gitignored folder. Download a few files first to measure the real size, and stop and ask if the projected total exceeds 10 GB.
+- **D-045** Compilations (user, 2026-11-03): AniList `COMPILATION` and `CONTAINS` relations (recap films that re-edit a TV series) always join the original series, even when the titles differ, so the original title is accepted for a recap film's theme. Every other relation keeps the title-sharing rule (D-041, D-042).
+- **D-046** Room size (user, 2026-11-03): at most 8 players per room.
+- **D-047** Game length (user, 2026-11-03): a game is a single round made of N songs; the host chooses N when creating the room ("한 라운드에 게임이 끝나게 해. 대신 그 라운드에 몇 곡을 할건지 선택"). This refines D-014. The allowed range is set in S-003 (lead's default proposal: 5-50, default 10).
+- **D-048** Duplicate nicknames (user, 2026-11-03): a nickname already used in the room gets a number appended automatically ("철수" becomes "철수(2)").
 - **D-001** GitHub remote: private repo `kimdoodoo12/SongRushApp`.
 - **D-003** Answer target: the anime title.
 - **D-006** Dataset: do not use `nonlooped/anime-op-ed-dataset`. Build our own catalog from AnimeThemes and AniList, with Korean titles from public sources.

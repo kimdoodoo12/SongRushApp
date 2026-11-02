@@ -141,10 +141,6 @@ Roadmap: M-1 혼자 플레이 프로토타입 → M-2 방 → M-3 동기화 라�
 - 전체 사이클: 7 (012~018; 014는 설계 사이클)
 - 첫 시도에 통과한 사이클: 5 (015 `fa24af6`, 016 `e23fdc7`은 2차 시도에서 통과)
 - BLOCKED 사이클: 0
-- 이전 기록은 2026-11-02 기준 "5"에서 멈춰 있었고, 2026-11-03 사이클 018 통합 때 cycle 문서로 다시 셌습니다.
-
-### 10.5 설정 변경
-- 2026-11-03: 사용자가 "기본적으로 다 허용"을 원했지만 `settings.json`의 허용 목록이 Bash용 git 명령 위주라, PowerShell로 실행한 `gh auth status`, pytest, git diff에서 확인 창이 떴습니다. 사용자 선택에 따라 git·gh·python·gradlew·npm 명령을 두 셸 모두 허용 목록에 넣었습니다. bypassPermissions는 쓰지 않았습니다. 차단 목록에는 force-push, main push, `reset --hard`, `gh pr merge`, 재귀 삭제의 PowerShell 형태와 `gh repo delete`를 추가했습니다.
 
 ### 10.3 hook이 막은 일
 - 새 히스토리에서는 아직 없습니다.
