@@ -89,7 +89,7 @@ This cycle's explorer made every live request below one at a time, with the Song
 2. **Themes in the catalog.** Keep themes of type OP or ED that have at least one audio file. Each theme keeps:
    - its AnimeThemes theme id, `animeId`, type, slug and song title;
    - the artists (possibly empty);
-   - one audio basename, url and size. The audio is the first non-null audio, with entries ordered by `version` (null first) and then id, and videos ordered by id.
+   - one audio basename, url and size. The audio is the first non-null audio, with entries ordered by `version` (null first) and then id, and videos ordered by id. (Cycle 017 implements this as entry position plus video basename, because the saved query selects no ids; it measured no difference on the fixture.)
 3. **Accepted titles: multilingual by design** (D-015, D-035, D-037, D-038, D-039). Players type the title they know in **Korean, English, Japanese or romaji**.
    - **English, Japanese and romaji: official titles only, typed in full** (D-035, D-038).
 
