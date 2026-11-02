@@ -52,7 +52,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `contracts/normalize-vectors.json` is hand-written from D-015 and design 014, never from program output. It has at least 40 input/expected pairs and covers full-width characters, case, punctuation, spaces, symbols such as ☆ and ×, Hangul, kana and the edge characters (NBSP, ideographic space, zero-width space, soft hyphen).
     - pytest runs every vector.
     - The qualifier cases have tests, including the no-strip cases (`Steins;Gate 0`, `Mob Psycho 100`, `86`).
-- [ ] **C-002** data: polite HTTP client and file cache (from design 014)
+- [x] **C-002** data: polite HTTP client and file cache (from design 014)
   - `songrush_data/http.py`.
   - Acceptance (all with an injected transport and clock, offline):
     - Every request sends `USER_AGENT`.
@@ -188,6 +188,10 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- HTTP client (critic, cycle 016):
+  - The stored 429 not-before lives in memory only, so a rerun forgets it. Persist it in the cache dir if a source ever sends a long `Retry-After`.
+  - The source fetchers (C-003..C-005) must not cache a 200 response that carries GraphQL `errors`.
+  - A 503's `Retry-After` is ignored today, and backoff applies instead.
 - Letter-like math symbols in titles are removed by normalize (`∀ Gundam` becomes `gundam`), which could accept a bare "Gundam" for *Turn A Gundam*. Fix it through the manual supplement or a specific mapping, once the real catalog shows the cases (critic, cycle 015).
 - Data test network guard (critic, cycle 013):
   - Let loopback (`127.0.0.1`, `::1`, `localhost`) through, because on Windows `socket.socketpair()` and `asyncio.new_event_loop()` connect over loopback and currently fail.

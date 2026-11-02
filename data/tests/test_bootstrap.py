@@ -53,13 +53,13 @@ def test_getaddrinfo_is_blocked():
 def test_socket_connect_is_blocked():
     with socket.socket() as sock:
         with pytest.raises(RuntimeError, match="network disabled"):
-            sock.connect(("127.0.0.1", 9))
+            sock.connect(("10.0.0.1", 9))
 
 
 def test_socket_connect_ex_is_blocked():
     with socket.socket() as sock:
         with pytest.raises(RuntimeError, match="network disabled"):
-            sock.connect_ex(("127.0.0.1", 9))
+            sock.connect_ex(("10.0.0.1", 9))
 
 
 def test_urlopen_is_blocked():
