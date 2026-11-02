@@ -100,3 +100,29 @@ Changes:
 - **M3.** The crawl ends with a count check against `total` and a summary.
 - **M4.** The hit check and the refresh path are explicit.
 - **Nits:** `audio.link` maps to `url`; a null `externalId` gives null.
+
+## Test commit and result
+- Test commit: `113a8c9` test(017), 32 tests. Red phase: an ImportError only; the 267 existing tests pass.
+- Implementation: `28cef70`.
+- The verifier ran 299 data tests, all passing. The locked tests are unchanged. The query file is ASCII and LF, with no trailing newline and one `{page}`.
+
+## Code review (critic)
+No Blocker or High findings. Mutation run: 13 of 16 caught.
+
+The critic simulated failure modes:
+- the shift restart terminates;
+- re-validating cached bytes cannot loop;
+- a 500 on page 2 leaves only page 1 cached, and a rerun resumes cleanly;
+- Ctrl+C leaves the same state.
+
+Findings:
+- **M1:** an anime deleted upstream mid-crawl drops one item silently, and the count check against `total` still passes. Fix: record `total` per page and restart on a change. Moved into C-007's acceptance.
+- **M2:** a fully cached crawl never sees new anime. Fix: refetch the last page at the end, plus a `refresh_all` option exposed by the C-007 CLI. Moved into C-007's acceptance.
+- **M3:** three surviving mutations need tests. Recorded as Follow-ups:
+  - read-time validation;
+  - deletion of a corrupt entry;
+  - the "first ANILIST" rule.
+- **Nits:**
+  - the reference audio helper mirrors the implementation's sort;
+  - a refreshed page is logged as `(cached)`;
+  - `HttpError` messages lack the page number.

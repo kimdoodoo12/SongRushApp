@@ -63,7 +63,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - Any other 4xx fails at once, with no retry.
     - The file cache (`data/cache/`) holds responses by key and is written atomically. A corrupt entry is fetched again once. `clear("")` is rejected.
     - The test network guard is extended to let loopback through (Follow-up from cycle 013).
-- [~] **C-003** data: AnimeThemes crawl and theme selection (from design 014)
+- [x] **C-003** data: AnimeThemes crawl and theme selection (from design 014)
   - Pages through GraphQL `animePagination` with the saved query, using C-002 with a 3 s gap.
   - Keeps OP/ED themes that have audio, choosing the audio deterministically: entries by version, null first, then id; videos by id.
   - Acceptance (offline, on `gql_page1.json`):
@@ -101,6 +101,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - The draw set is sorted by popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500 (D-034).
   - Also writes the list of popular anime that still have no Korean title (D-040).
   - Uses a lock file and atomic writes.
+  - From the cycle 017 review, the crawl gains two behaviours:
+    - **Total check:** it records `paginatorInfo.total` per page. If it changes mid-crawl, it clears the prefix and restarts, at most twice.
+    - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page.
   - Acceptance:
     - An end-to-end build with injected sources over the fixtures gives byte-identical output on two runs.
     - The draw-set order and deduplication are checked.
@@ -188,6 +191,12 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- AnimeThemes crawl tests (critic, cycle 017):
+  - Pin read-time validation and the deletion of a corrupt entry: pre-seed corrupt bytes or bytes with the wrong `currentPage`, then expect one transport call and a replaced entry.
+  - Pin the "first ANILIST resource" rule with two ANILIST nodes.
+  - Make the fixture comparison helper independent of the implementation's sort.
+  - Add the page number to `HttpError` messages from the crawl.
+  - Log a refreshed page as fetched, not `(cached)`.
 - HTTP client (critic, cycle 016):
   - The stored 429 not-before lives in memory only, so a rerun forgets it. Persist it in the cache dir if a source ever sends a long `Retry-After`.
   - The source fetchers (C-003..C-005) must not cache a 200 response that carries GraphQL `errors`.

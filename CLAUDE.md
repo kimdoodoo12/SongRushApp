@@ -24,7 +24,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
   - **Never block on the answer.** Until it arrives, and whenever the user is absent (for example in `/loop`), record the question in `PROGRESS.md` under "Needs decision", mark the item `[?]`, and move on.
   - Items that need the user's own devices or accounts go to Needs decision rather than being run.
 - **The work queue is `BACKLOG.md`.** Take the first unchecked item under "Ready". When Ready is empty, the next **Roadmap** milestone is planned into Ready (see the skill).
-- **The audit trail.** Every cycle writes `docs/cycles/NNN-slug.md`, and design or planning cycles write `docs/design/NNN-slug.md`. `PROGRESS.md` is the owner's progress report in plain Korean, not notes for the AI.
+- **The audit trail.** Every cycle writes `docs/cycles/NNN-slug.md`, and design or planning cycles write `docs/design/NNN-slug.md`. `PROGRESS.md` is the owner's progress report in plain Korean, not notes for the AI. Its Log is chronological: new entries go at the bottom.
 - **Design is part of the cycle.** `S-` items investigate, write a design doc, and append the resulting items to Ready. Only policy, legal, cost, external-account, or product-direction choices go to "Needs decision".
 - **Confirm before choosing.** Stack, folder layout and any product-direction choice are the user's; ask before deciding them.
 - **The main session is the lead.** It specifies, delegates, and integrates. It does not write product code itself.

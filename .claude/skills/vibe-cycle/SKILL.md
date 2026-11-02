@@ -80,9 +80,9 @@ Blocker and High findings send the cycle back to step 4, and the attempt counter
 4. If `origin` exists, make sure a PR from dev to main is open (`gh pr list --base main --head dev`; if none, `gh pr create --base main --head dev --title "dev -> main" --body "<PROGRESS summary>"`). **Never merge it.**
 5. In BACKLOG.md, change the item to `[x]`.
 6. Update PROGRESS.md, **the owner's progress report** (user, 2026-11-02: it must read as the owner's report, not as notes for the AI).
-   - Prepend one entry under `## Log`: `### <date> · <plain Korean title> — 완료|막힘|결정 필요`, then 2-4 plain Korean sentences covering what now exists in game terms, why it matters, and at most one notable problem caught. End with one line `기록: docs/cycles/NNN-slug.md`.
+   - **Append** one entry at the **end** of `## Log`, so the log reads oldest first and newest last (user, 2026-11-03): `### <date> · <plain Korean title> — 완료|막힘|결정 필요`, then 2-4 plain Korean sentences covering what now exists in game terms, why it matters, and at most one notable problem caught. End with one line `기록: docs/cycles/NNN-slug.md`.
    - Refresh `## 현재 상태` when the picture changes.
-   - **Rewrite `## 다음 진행 예정` every time** (user, 2026-11-02). Delete the previous plan entirely and write the next 3-5 items in plain words, plus any long background job. Old plans are never kept.
+   - **Rewrite `## 다음 진행 예정` every time; it is the last section of the file, after the Log** (user, 2026-11-03) (user, 2026-11-02). Delete the previous plan entirely and write the next 3-5 items in plain words, plus any long background job. Old plans are never kept.
    - **No commit SHAs, severity labels, agent names, attempt counts, test counts or file paths** in PROGRESS.md. That evidence goes to the cycle doc and to `docs/vibe-coding-system.md`.
    - Keep the `## Needs decision` and `## Log` headings in English, verbatim: `notify_discord.py` matches `## Needs decision`. Write each Needs decision line as a question to the owner.
 
