@@ -54,3 +54,24 @@ The critic ran a scratch venv with pytest 9.2.0.
 - **Nits:**
   - The Commands row already existed.
   - `backend/bin/` is now gitignored.
+
+## Test commit and result
+- Test commit: `b32ccec` test(013). Red phase verified: only the two criterion-1 tests failed, with `ModuleNotFoundError: songrush_data`. The other 18 passed. Without the guard, the connect and connect_ex tests fail, so the guard tests depend on it.
+- Implementation: `24015e3`.
+- The verifier ran pytest from `data/` and, with `-I`, from the root: 20 passed both ways. It loaded `runners()["data"]` from the hook: ready is True, and running its command in its working directory exits 0. The locked tests are unchanged.
+
+## Code review (critic)
+No Blocker or High findings. The critic probed the guard on loopback:
+- `create_connection`, ssl, http.client and urllib are blocked;
+- a function cached at import, `_socket`, UDP `sendto`, and asyncio on a loop created earlier bypass it.
+
+Findings:
+- **M1**: the guard blocks loopback, so on Windows `socket.socketpair()` and `asyncio.new_event_loop()` fail.
+- **M2**: the guard is function-scoped and narrower than "no test can reach the network".
+
+Both go to Follow-ups, to fix when a data tool first needs asyncio or a local fake server.
+
+Fixed at integration:
+- **M3**: `requirements.txt` now pins the full `pip freeze`.
+- **M4**: the venv commands are in the CLAUDE.md Commands row.
+- **Nit**: CLAUDE.md no longer calls every fixture a raw response.

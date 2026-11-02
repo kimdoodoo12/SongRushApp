@@ -51,7 +51,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 |---|---|---|
 | backend | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
 | frontend (verified once bootstrapped) | `npm test` (from `frontend/`) | `npm run lint`; build `npm run build` |
-| data (verified once bootstrapped) | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet |
+| data | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet. Setup once from `data/`: `python -m venv .venv`, then `.venv\Scripts\python.exe -m pip install -r requirements.txt` |
 
 Drop "(verified once bootstrapped)" from a row only after its bootstrap cycle has run that command successfully.
 
@@ -67,7 +67,7 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
   - Use timeouts of at least 60 s, honor 429 `Retry-After`, and cache responses so a rebuild does not refetch.
   - The research cycles (S- items) confirm each source's exact limits and write them here.
 - **AniDB:** download the titles dump at most once per 24 h. The last request was 2026-11-02 18:34 KST, so the next is allowed from **2026-11-03 18:34 KST**.
-- Live requests to external sources happen only in design cycles and the data tools, and later in the backend's lobby fetch; never in tests. Tests use saved fixtures (`data/tests/fixtures/`, raw API responses), so they run offline and deterministically.
+- Live requests to external sources happen only in design cycles and the data tools, and later in the backend's lobby fetch; never in tests. Tests use saved fixtures (`data/tests/fixtures/`: saved external responses and samples) and a conftest guard that blocks DNS and socket connects, so they run offline and deterministically.
 
 ## Multiplayer rules
 

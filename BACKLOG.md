@@ -28,7 +28,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `songrush.data-dir` defaults to `../data`.
     - From `backend/`, `gradlew.bat test` and `gradlew.bat build` exit 0, and they also pass `--offline`.
   - The lead updates the CLAUDE.md Commands row. Spec: `docs/cycles/012-backend-bootstrap.md`.
-- [~] **I-002** data: Python bootstrap
+- [x] **I-002** data: Python bootstrap
   - `data/`: package `songrush_data/`, a `tests/` folder run by pytest, `requirements.txt` with pinned versions, and a `.venv` created by a documented command.
   - Acceptance:
     - One smoke test passes.
@@ -105,6 +105,10 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Data test network guard (critic, cycle 013):
+  - Let loopback (`127.0.0.1`, `::1`, `localhost`) through, because on Windows `socket.socketpair()` and `asyncio.new_event_loop()` connect over loopback and currently fail.
+  - Install the guard at session start (`pytest_configure` or conftest module level), not per test function, so fixtures and import-time code are guarded too.
+  - Add tests that pin the coverage of `create_connection` and ssl.
 - Backend bootstrap (critic, cycle 012):
   - `SongrushPropertiesTest` runs without Tomcat, so only HealthTest catches the `../data` binding failure. Run it on `RANDOM_PORT`, or bind a String and expose a `Path` accessor.
   - The `StringToPathConverter` applies to every `@ConfigurationProperties` Path. Narrow it if a library or Boot property ever needs `classpath:` paths.
