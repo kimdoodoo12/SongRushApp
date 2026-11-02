@@ -106,7 +106,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-007** data: catalog assembly and draw set (from design 014; part 1 of 2, cycle 022)
   - `songrush_data/catalog.py`: builds `data/catalog.json` (UTF-8, LF, sorted keys, one record per line, 12 MB cap) from the source outputs, the draw set (popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500, D-034), the Korean-gap list (D-040) and the build report (unplayable anime, synonym-fallback English counts, 20 largest groups with titles).
   - Acceptance: see `docs/cycles/022-catalog-build.md`.
-- [ ] **C-011** data: crawl freshness, build CLI and the first real build (from design 014; part 2 of C-007)
+- [~] **C-011** data: crawl freshness, build CLI and the first real build (from design 014; part 2 of C-007)
   - From the cycle 017 review, the crawl gains two behaviours:
     - **Total check:** it records `paginatorInfo.total` per page. If it changes mid-crawl, it clears the prefix and restarts, at most twice.
     - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page and also clears the AniList (`al-`) and Wikidata (`wd-`) caches (cycle 019 review: an empty Wikidata result is otherwise cached for good).
