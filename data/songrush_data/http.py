@@ -26,6 +26,8 @@ from songrush_data.common import USER_AGENT
 
 MIN_TIMEOUT_S = 60.0
 DEFAULT_RETRY_AFTER_S = 30.0
+# Retry-After values are clamped to this before any arithmetic (no OverflowError).
+MAX_RETRY_AFTER_VALUE_S = 10_000_000
 
 
 @dataclass
@@ -47,6 +49,14 @@ class HttpError(Exception):
         self.status = status
         self.url = url
         self.attempts = attempts
+
+
+class BackedOffError(HttpError):
+    """Refused before sending: a stored Retry-After wait exceeds max_retry_after_s."""
+
+    def __init__(self, url: str, wait_s: float):
+        super().__init__(429, url, 0)
+        self.wait_s = wait_s
 
 
 class Clock(Protocol):
@@ -131,7 +141,10 @@ def _retry_after_s(value: str | None, wall: float) -> float:
         return DEFAULT_RETRY_AFTER_S
     value = value.strip()
     if value.isascii() and value.isdigit():
-        return float(int(value))
+        # Long strings skip int() so huge values cannot hit the digit limit.
+        if len(value.lstrip("0")) > len(str(MAX_RETRY_AFTER_VALUE_S)):
+            return float(MAX_RETRY_AFTER_VALUE_S)
+        return float(min(int(value), MAX_RETRY_AFTER_VALUE_S))
     try:
         when = email.utils.parsedate_to_datetime(value)
     except (TypeError, ValueError, IndexError):
@@ -140,7 +153,7 @@ def _retry_after_s(value: str | None, wall: float) -> float:
         return DEFAULT_RETRY_AFTER_S
     if when.tzinfo is None:
         when = when.replace(tzinfo=timezone.utc)
-    return max(0.0, when.timestamp() - wall)
+    return min(max(0.0, when.timestamp() - wall), float(MAX_RETRY_AFTER_VALUE_S))
 
 
 class PoliteClient:
@@ -175,13 +188,15 @@ class PoliteClient:
         self._lock = threading.Lock()
         # Earliest monotonic time the next attempt may start; None before the first.
         self._not_before: float | None = None
+        # True when the stored wait is longer than the gap and no retry line announced it.
+        self._wait_unannounced = False
 
     def request(self, method: str, url: str, *, headers=None, body=None) -> Response:
         sent = {k: v for k, v in (headers or {}).items() if k.lower() != "user-agent"}
         sent["User-Agent"] = USER_AGENT
         with self._lock:
             for attempt in range(1, self._max_attempts + 1):
-                self._wait_turn()
+                self._wait_turn(method, url)
                 last = attempt == self._max_attempts
                 # Every attempt counts as "previous", whatever its outcome.
                 self._not_before = None
@@ -194,6 +209,7 @@ class PoliteClient:
                     self._schedule(wait)
                     self._note("retry %d/%d for %s %s after transport error (%s), waiting %g s"
                                % (attempt, self._max_attempts, method, url, error, wait))
+                    self._wait_unannounced = False
                     continue
                 finally:
                     if self._not_before is None:
@@ -207,9 +223,12 @@ class PoliteClient:
                     # Store the full not-before time, even over the cap.
                     self._schedule(wait)
                     if wait > self._max_retry_after_s or last:
+                        # The next request waits (or refuses) and logs it then.
+                        self._wait_unannounced = wait > self._gap_s
                         raise HttpError(status, url, attempt)
                     self._note("retry %d/%d for %s %s after 429, waiting %g s"
                                % (attempt, self._max_attempts, method, url, wait))
+                    self._wait_unannounced = False
                     continue
                 if 500 <= status < 600:
                     if last:
@@ -218,20 +237,28 @@ class PoliteClient:
                     self._schedule(wait)
                     self._note("retry %d/%d for %s %s after %d, waiting %g s"
                                % (attempt, self._max_attempts, method, url, status, wait))
+                    self._wait_unannounced = False
                     continue
                 raise HttpError(status, url, attempt)
         raise AssertionError("unreachable: the retry loop always returns or raises")
 
-    def _wait_turn(self) -> None:
+    def _wait_turn(self, method: str, url: str) -> None:
         if self._not_before is None:
             return
         delay = self._not_before - self._clock.now()
+        if delay > self._max_retry_after_s:
+            # Refuse instead of sleeping silently for hours; the stored time stays.
+            raise BackedOffError(url, delay)
         if delay > 0:
+            if self._wait_unannounced:
+                self._note("backed off for %s %s after an earlier 429, waiting %g s" % (method, url, delay))
+            self._wait_unannounced = False
             self._clock.sleep(delay)
 
     def _schedule(self, wait: float) -> None:
         """Set the next start to this attempt's end plus max(gap, wait)."""
         self._not_before = self._clock.now() + max(self._gap_s, wait)
+        self._wait_unannounced = False
 
     def _backoff(self, attempt: int) -> float:
         return self._backoff_s[min(attempt - 1, len(self._backoff_s) - 1)]
