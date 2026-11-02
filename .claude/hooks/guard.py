@@ -64,7 +64,7 @@ def current_branch():
 
 
 def main():
-    data = json.load(sys.stdin)
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     tool = data.get("tool_name", "")
     ti = data.get("tool_input", {}) or {}
 

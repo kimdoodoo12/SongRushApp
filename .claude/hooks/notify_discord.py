@@ -262,7 +262,7 @@ def main():
             pass
         sys.exit(0)
     try:
-        data = json.load(sys.stdin)
+        data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except Exception:
         data = {}
     try:
