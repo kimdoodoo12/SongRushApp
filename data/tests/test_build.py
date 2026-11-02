@@ -422,20 +422,29 @@ def test_run_log_lines(env):
 
 @pytest.fixture
 def streams(monkeypatch):
-    """Replace stdout and stderr with cp949 streams over byte buffers."""
-    out = io.TextIOWrapper(io.BytesIO(), encoding="cp949")
-    err = io.TextIOWrapper(io.BytesIO(), encoding="cp949")
-    monkeypatch.setattr(sys, "stdout", out)
-    monkeypatch.setattr(sys, "stderr", err)
+    """Return install(), which replaces stdout and stderr with cp949 streams over byte buffers.
 
-    def captured():
-        text = ""
-        for stream in (out, err):
-            stream.flush()
-            text += stream.buffer.getvalue().decode("utf-8")
-        return text
+    Tests call install() in the test body: pytest's capture reinstalls its own streams
+    when the body starts, so a swap made during fixture setup would be undone.
+    install() returns a reader that flushes both streams and decodes their bytes as UTF-8.
+    """
 
-    return captured
+    def install():
+        out = io.TextIOWrapper(io.BytesIO(), encoding="cp949")
+        err = io.TextIOWrapper(io.BytesIO(), encoding="cp949")
+        monkeypatch.setattr(sys, "stdout", out)
+        monkeypatch.setattr(sys, "stderr", err)
+
+        def captured():
+            text = ""
+            for stream in (out, err):
+                stream.flush()
+                text += stream.buffer.getvalue().decode("utf-8")
+            return text
+
+        return captured
+
+    return install
 
 
 @pytest.fixture
@@ -452,6 +461,7 @@ def recorded_run(build, monkeypatch):
 
 @pytest.mark.parametrize("argv", [["unexpected"], ["--nope"]], ids=["positional", "unknown-flag"])
 def test_main_usage_error_returns_2(build, streams, recorded_run, argv):
+    streams()
     assert build.main(argv) == 2
     assert recorded_run == []
 
@@ -459,6 +469,7 @@ def test_main_usage_error_returns_2(build, streams, recorded_run, argv):
 def test_main_passes_parsed_arguments(build, http, streams, recorded_run, tmp_path):
     cache_dir = tmp_path / "c"
     out_dir = tmp_path / "o"
+    streams()
     argv = ["--refresh-all", "--cache", str(cache_dir), "--out", str(out_dir), "--anilist-batch", "25"]
     assert build.main(argv) == 0
     assert len(recorded_run) == 1
@@ -472,6 +483,7 @@ def test_main_passes_parsed_arguments(build, http, streams, recorded_run, tmp_pa
 
 
 def test_main_defaults_resolve_from_module_location(build, streams, recorded_run):
+    streams()
     assert build.main([]) == 0
     kwargs = recorded_run[0]
     data_dir = Path(build.__file__).resolve().parent.parent
@@ -486,6 +498,7 @@ def test_main_build_locked_returns_3(build, streams, monkeypatch):
         raise build.BuildLocked("lock held")
 
     monkeypatch.setattr(build, "run", locked_run)
+    streams()
     assert build.main([]) == 3
 
 
@@ -494,8 +507,9 @@ def test_main_other_exception_returns_1(build, streams, monkeypatch):
         raise RuntimeError("source failed")
 
     monkeypatch.setattr(build, "run", failing_run)
+    captured = streams()
     assert build.main([]) == 1
-    assert "source failed" in streams()
+    assert "source failed" in captured()
 
 
 def test_main_console_output_is_utf8(build, streams, monkeypatch):
@@ -507,8 +521,9 @@ def test_main_console_output_is_utf8(build, streams, monkeypatch):
         return {}
 
     monkeypatch.setattr(build, "run", logging_run)
+    captured = streams()
     assert build.main([]) == 0
-    text = streams()
+    text = captured()
     assert ACCENTED in text
     assert KOREAN in text
 
@@ -520,5 +535,6 @@ def test_main_non_ascii_error_returns_1(build, streams, monkeypatch):
         raise ValueError(message)
 
     monkeypatch.setattr(build, "run", failing_run)
+    captured = streams()
     assert build.main([]) == 1
-    assert message in streams()
+    assert message in captured()
