@@ -56,7 +56,7 @@ Implement the title rules that every later data tool and the Java backend share:
    - `86 Season 2` stays unchanged (`86` has 2 characters, below the Latin minimum of 4).
    - `Monogatari Second Season` stays unchanged (word ordinal).
    - These stay unchanged: `Steins;Gate 0`, `Mob Psycho 100`, `86`, `Kaguya-sama: Love is War`.
-   - A strip that would leave fewer than 4 normalized characters is not applied.
+   - A strip that would leave less than the minimum remainder (2 for Hangul, kana or CJK; 4 otherwise) is not applied: `ABC Season 2` stays unchanged.
 3. **`has_hangul`** is true for `귀멸`, and false for `ㄱ` (a jamo, not a syllable), `ガ` and `abc`.
 4. **`head`:**
    - `Fate/Zero` gives `fate`.
