@@ -246,14 +246,22 @@ def test_429_invalid_retry_after_waits_30(http):
 
 def test_429_over_cap_refuses_and_stores_full_wait(http):
     script = [(resp(http, 429, {"retry-after": "99999"}), 0), (resp(http, 200), 0)]
-    client, transport, _ = make(http, script)
+    client, transport, clock = make(http, script)
     with pytest.raises(http.HttpError) as info:
         client.request("GET", URL)
     assert info.value.status == 429
     assert info.value.attempts == 1
     assert len(transport.calls) == 1
     end = transport.calls[0].end
-    client.request("GET", URL)
+    # Attempt-2 rule: while backed off, the next request refuses at once.
+    sleeps_before = len(clock.sleeps)
+    with pytest.raises(http.BackedOffError) as refused:
+        client.request("GET", URL)
+    assert refused.value.attempts == 0
+    assert len(transport.calls) == 1
+    assert [s for s in clock.sleeps[sleeps_before:] if s > 0] == []
+    clock.advance(99999)
+    assert client.request("GET", URL).status == 200
     assert transport.calls[1].start >= end + 99999 - 1e-6
 
 
