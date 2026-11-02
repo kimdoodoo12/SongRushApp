@@ -52,7 +52,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `contracts/normalize-vectors.json` is hand-written from D-015 and design 014, never from program output. It has at least 40 input/expected pairs and covers full-width characters, case, punctuation, spaces, symbols such as ☆ and ×, Hangul, kana and the edge characters (NBSP, ideographic space, zero-width space, soft hyphen).
     - pytest runs every vector.
     - The qualifier cases have tests, including the no-strip cases (`Steins;Gate 0`, `Mob Psycho 100`, `86`).
-- [ ] **C-002** data: polite HTTP client and file cache (from design 014)
+- [~] **C-002** data: polite HTTP client and file cache (from design 014)
   - `songrush_data/http.py`.
   - Acceptance (all with an injected transport and clock, offline):
     - Every request sends `USER_AGENT`.
