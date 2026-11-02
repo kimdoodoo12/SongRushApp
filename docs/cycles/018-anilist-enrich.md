@@ -77,3 +77,12 @@ The critic counted the fixtures offline.
 - **M1.** Missing ids are logged by id. The cache never expires, and refresh happens by clearing the prefix through C-007's `refresh_all`.
 - **M2.** The reason for version 2 is now the fixture evidence (`SOURCE`). `COMPILATION` and `CONTAINS` are flagged for C-006.
 - **Nit.** Ids are type-checked before they enter the query.
+
+## Test commit and result
+- Tests: `0b2815a` (locked). Implementation: `2711fad` (attempt 1).
+- Verifier: `.venv\Scripts\python.exe -m pytest` from `data/` gave `336 passed in 6.31s`; `tests/test_anilist.py -v` gave `37 passed`. `git diff 0b2815a HEAD -- data/tests/test_anilist.py data/tests/conftest.py` was empty. `git diff --stat 0b2815a HEAD`: only `data/songrush_data/anilist.py` (177 insertions). Criteria 1-8 and 7b confirmed.
+
+## Code review (critic)
+No Blocker or High. The critic ran a probe against a fake transport (dedupe, null cache hit, log lines, failed batch caches nothing, User-Agent `SongRushBot/0.1.0 (+https://github.com/kimdoodoo12/SongRushApp)`, timeout 60.0).
+- **M1 (Follow-up).** The cache stores the normalized record, but the key hashes only `MEDIA_FIELDS`. A later fix to `_normalize` would leave old-shape records in the cache unnoticed. Store the raw media and normalize on read (the cycle 017 convention), or add a record version to the key.
+- **N1 (Follow-up).** Commit `c322bcd` also recorded the unrelated D-043 question for C-008. Record questions for other items in a separate commit.

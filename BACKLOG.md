@@ -72,7 +72,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - The AniList id comes from `resources`.
     - Artists may be empty.
     - A shifted page on resume restarts the crawl from page 1.
-- [~] **C-004** data: AniList enrichment (from design 014)
+- [x] **C-004** data: AniList enrichment (from design 014)
   - Only for the ids that AnimeThemes lists (D-036): batches of 50, at least 2 s apart, at most 30/min.
   - Selects `popularity`, `title{romaji english native}`, `synonyms` and `relations{edges{relationType node{id type format title{romaji english}}}}`.
   - Acceptance (offline, with fixtures and an injected client):
@@ -200,6 +200,9 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- AniList enrichment (critic, cycle 018):
+  - The cache stores the normalized record while the key hashes only the query fields, so a later `_normalize` fix leaves old-shape records unnoticed. Before C-006/C-007 rely on it, store the raw media and normalize on read (as in cycle 017), or add a record version to the key.
+  - Record questions about other items in a separate commit, not in a cycle's spec commit.
 - AnimeThemes crawl tests (critic, cycle 017):
   - Pin read-time validation and the deletion of a corrupt entry: pre-seed corrupt bytes or bytes with the wrong `currentPage`, then expect one transport call and a replaced entry.
   - Pin the "first ANILIST resource" rule with two ANILIST nodes.
