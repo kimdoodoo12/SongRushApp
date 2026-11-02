@@ -148,3 +148,15 @@ No Blocker. The critic's mutation run caught 12 of 19 mutations, and its probes 
 - **N3:** the `wait >= cap` boundary and a naive HTTP-date read as UTC are pinned.
 - **N4:** the thread test checks completion.
 - **M2:** the guard docstring now states what it actually blocks: DNS for non-loopback names, and `connect`/`connect_ex` to non-loopback addresses. asyncio connects to IP literals and UDP `sendto` are not intercepted. The data tools use hostnames over urllib, which stay blocked.
+
+### Result
+- **Test commits:**
+  - `ed4120f`: the first suite. Red phase: 79 errors on the missing module; the other 162 tests pass.
+  - `61ed580`: the hardening suite. Red phase: 6 failures, all for the missing `BackedOffError`, the missing wait log, or `OverflowError`.
+  - `3baed5d`: aligns one attempt-1 test with the attempt-2 rule. That test had pinned "the next request sleeps the full 99999 s", which attempt 2 replaces with `BackedOffError`. The implementer reported the conflict instead of editing the locked test; the lead unlocked only that file, and the test writer changed only that function.
+- **Implementation:** `2081cbe` (attempt 1) and `e23fdc7` (attempt 2).
+- **Final state:** all 267 data tests pass.
+- **Recorded as Follow-ups:**
+  - the stored not-before lives only in memory, so a rerun of the process forgets it;
+  - a GraphQL 200 response carrying `errors` could be cached;
+  - a 503's `Retry-After` is ignored.
