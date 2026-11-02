@@ -49,7 +49,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 
 | Area | Test | Lint / build |
 |---|---|---|
-| backend (verified once bootstrapped) | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
+| backend | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
 | frontend (verified once bootstrapped) | `npm test` (from `frontend/`) | `npm run lint`; build `npm run build` |
 | data (verified once bootstrapped) | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet |
 

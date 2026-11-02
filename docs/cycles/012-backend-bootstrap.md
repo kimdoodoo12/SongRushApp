@@ -55,3 +55,28 @@ The critic generated the Initializr project, opened the Spring Boot 4.1.2 jars, 
   - Initializr's default is 4.1.2.
   - `backend/.gitattributes` is committed.
   - `POST /health` is pinned to 405.
+
+## Test commit
+- `b55230c` test(012).
+- Red phase verified: the full suite fails to compile only because `SongrushProperties` is missing. HealthTest alone fails all 5 tests for the right reasons: 404 instead of 200, Boot's default JSON body, Whitelabel HTML, and 404 instead of 405.
+
+## Result
+- Implementation: `55ff752`.
+- The verifier ran `.\gradlew.bat test --offline --rerun-tasks` and `build --offline`, both exit 0: 8 tests, 0 failures. The locked tests are unchanged, and `gradlew` is LF and tracked.
+- The `StringToPathConverter` is needed. Without it, Spring's `PathEditor` resolves `../data` through Tomcat's resource root and the web context fails to start; the critic confirmed this by removing it.
+
+## Code review (critic)
+No Blocker or High findings. The critic probed a scratch copy:
+- a thrown exception gives 500 JSON with no stack trace or message, also with `Accept: text/html`;
+- HEAD and OPTIONS behave as expected;
+- 400, 415 and 406 are JSON;
+- MVC path parameters are unaffected by the converter;
+- the wrapper jar matches the official 9.8.2 jar.
+
+Medium and Nit findings are recorded as Follow-ups in BACKLOG:
+- the property test runs without Tomcat, so it cannot catch the binding failure;
+- the converter is global;
+- `../data` depends on the working directory;
+- non-standard status codes become 500;
+- a direct `/error` call returns 500;
+- the hook runs areas in sequence, so two areas can exceed 900 s in total.

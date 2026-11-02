@@ -18,7 +18,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 ## Ready
 
-- [~] **B-001** backend: Spring Boot bootstrap
+- [x] **B-001** backend: Spring Boot bootstrap
   - `backend/`: Spring Boot 4.1.x on Java 17, the Gradle wrapper committed, JUnit 5. No database.
   - Acceptance:
     - `GET /health` returns 200 `application/json` `{"ok":true}`.
@@ -28,12 +28,6 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `songrush.data-dir` defaults to `../data`.
     - From `backend/`, `gradlew.bat test` and `gradlew.bat build` exit 0, and they also pass `--offline`.
   - The lead updates the CLAUDE.md Commands row. Spec: `docs/cycles/012-backend-bootstrap.md`.
-- [ ] **F-001** frontend: React JavaScript bootstrap
-  - `frontend/`: React with JSX, Vite, Vitest with jsdom and Testing Library, ESLint with a flat config. No `.ts` or `.tsx` files, and no TypeScript dependency.
-  - Acceptance:
-    - The app renders an `h1` "SongRush". A test pins it.
-    - `npm test`, `npm run lint` and `npm run build` exit 0 from `frontend/`.
-    - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 - [ ] **I-002** data: Python bootstrap
   - `data/`: package `songrush_data/`, a `tests/` folder run by pytest, `requirements.txt` with pinned versions, and a `.venv` created by a documented command.
   - Acceptance:
@@ -55,6 +49,13 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **S-003** design: game protocol and rounds (new research for this stack)
   - Design the realtime connection between the Spring Boot backend and the React frontend, the room flow, the round timing, chat matching, skip and scoring. These follow D-011..D-017, D-024 and D-025.
   - Output: a design doc plus B- and F- items.
+
+- [ ] **F-001** frontend: React JavaScript bootstrap
+  - `frontend/`: React with JSX, Vite, Vitest with jsdom and Testing Library, ESLint with a flat config. No `.ts` or `.tsx` files, and no TypeScript dependency.
+  - Acceptance:
+    - The app renders an `h1` "SongRush". A test pins it.
+    - `npm test`, `npm run lint` and `npm run build` exit 0 from `frontend/`.
+    - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 
 ## Roadmap
 
@@ -100,6 +101,13 @@ Decided:
 - **D-029** Stack: a Java Spring Boot backend, a React frontend in plain JavaScript with no TypeScript, and Python data processing. The same stack as BlueArchiveBriefingApp.
 - **D-030** Layout: the folders are `frontend/`, `backend/` and `data/`. The backend uses Java 17.
 - **D-031** Fresh start: discard the TypeScript attempt, its git history and every artifact it produced.
+- **D-033** Order (user, 2026-11-02): data first. The data bootstrap, the song data design and its tools, then the audio design and the top-1500 audio run come before game-protocol design, backend features and the frontend. The backend bootstrap (B-001) was already done.
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Backend bootstrap (critic, cycle 012):
+  - `SongrushPropertiesTest` runs without Tomcat, so only HealthTest catches the `../data` binding failure. Run it on `RANDOM_PORT`, or bind a String and expose a `Path` accessor.
+  - The `StringToPathConverter` applies to every `@ConfigurationProperties` Path. Narrow it if a library or Boot property ever needs `classpath:` paths.
+  - `../data` resolves against the working directory: `backend/` under Gradle, the repo's parent under `java -jar` from the root. Log the absolute data dir at startup.
+  - `JsonErrorController` turns non-standard status codes into 500; use `HttpStatusCode.valueOf`. A direct `/error` call returns 500; return 404 when there is no status attribute.
+  - The Stop hook runs areas one after another, each up to 850 s, so two changed areas can exceed the 900 s cap. Share one deadline across runners.
