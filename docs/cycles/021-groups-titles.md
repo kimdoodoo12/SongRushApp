@@ -59,7 +59,7 @@ The fixture `anilist_relations_franchises.json` (124 raw records with `title`, `
     - no data at all gives `None`.
 12. **Determinism:** running on the fixture twice, and once with the catalog ids, `media` and relation lists in reversed order, gives identical output; every group id is the smallest catalog id of its group.
 13. `.venv\Scripts\python.exe -m pytest` exits 0 from `data/`.
-14. **Series that must join** (fixture run): Owarimonogatari 21262 and Owarimonogatari (Ge) 21745; Kizumonogatari II 21399, III 21400 and Koyomi Vamp 181970; Sword Art Online 11757 with Ordinal Scale 21403 and Alicization 100182; Railgun 6213 and Railgun T 104462; Isekai Quartet 104454 and Isekai Quartet 3 194447; Haikyuu!! 20464 and TO THE TOP 106625. Kizumonogatari III 21400 accepts `normalize("Kizumonogatari")`, and Alicization 100182 accepts `normalize("Sword Art Online")`.
+14. **Series that must join** (fixture run): Owarimonogatari 21262 and Owarimonogatari (Ge) 21745; Kizumonogatari II 21399, III 21400 and Koyomi Vamp 181970; Sword Art Online 11757 with Ordinal Scale 21403 and Alicization 100182; Railgun 6213 and Railgun T 104462; Isekai Quartet 104454 and Isekai Quartet 3 194447; Haikyuu!! 20464 and TO THE TOP 106625. Kizumonogatari III 21400 accepts `normalize("Kizumonogatari I: Tekketsu-hen")` (a title of its group), and Alicization 100182 accepts `normalize("Sword Art Online")`.
 15. **Series that must stay separate** (fixture run): Toaru Majutsu no Index 4654 and Toaru Kagaku no Railgun 6213; Isekai Quartet 104454 and Re:Zero 21355; Bakemonogatari 5081 and Monogatari Series: Second Season 17074; plus criterion 2.
 
 ## Test list
@@ -78,3 +78,6 @@ The critic simulated the rule on the 124-record fixture outside the repo.
 
 ## Out of scope
 Popularity and the draw set, the catalog file and the Korean-gap report (C-007). AniDB (C-008) and the manual supplement (C-009) feed `korean` later without changing this function.
+
+## Test correction (attempt 1)
+Criterion 14 first said Kizumonogatari III accepts `normalize("Kizumonogatari")`. No anime in the group has that title: the only such string is the manga (`SOURCE` node 143701, type `MANGA`), and "Kizumonogatari" is the front part of "Kizumonogatari I: Tekketsu-hen", which D-038 does not accept. The implementer reported the contradiction with criterion 7 instead of editing the locked test. The lead corrected the criterion, unlocked only `test_groups.py`, and the test writer changed only that assertion.

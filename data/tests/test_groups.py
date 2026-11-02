@@ -326,7 +326,8 @@ def test_series_that_must_join(fixture_run, ids):
 
 
 def test_joined_series_accept_series_title(fixture_run):
-    assert normalize("Kizumonogatari") in fixture_run[21400]["accepted"]
+    assert normalize("Kizumonogatari I: Tekketsu-hen") in fixture_run[21400]["accepted"]
+    assert normalize("Kizumonogatari") not in fixture_run[21400]["accepted"]
     assert normalize("Sword Art Online") in fixture_run[100182]["accepted"]
 
 
