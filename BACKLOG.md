@@ -92,7 +92,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
     - Every cycle 018 behaviour still holds; the cycle 018 tests keep passing (only the tests that pin the stored record's format may change).
     - aod: a synonym stored in NFD (decomposed jamo) counts as Korean and is returned in NFC; AniList 157295 in the real release keeps its Korean title (pin with an inline record).
-- [ ] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
+- [~] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
   - The title-sharing join rule (D-041, D-042), the per-slot titles (D-037), Korean taking every collected title (D-039), official-only English, Japanese and romaji with the D-035 fallback, trailing-qualifier forms (D-038), and the reveal order.
   - Acceptance (on the saved relation fixtures):
     - Fate/Zero and Fate/stay night join.
@@ -115,6 +115,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - An end-to-end build with injected sources over the fixtures gives byte-identical output on two runs.
     - The draw-set order and deduplication are checked.
     - The Korean-gap report lists the expected anime.
+  - The build log lists the 20 largest series groups (size and titles), so an over-join such as a whole franchise under one generic head can be reviewed (cycle 021 review).
   - **The lead then runs the first real build and records the counts.**
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
