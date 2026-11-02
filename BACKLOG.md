@@ -86,7 +86,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - Labels are keyed by AniList id and language.
     - Only strings with Hangul syllables count as Korean from aod.
     - A source that fails is skipped with a warning, and the build continues.
-- [ ] **C-010** data: AniList cache keeps the raw media; aod Hangul check on NFC (from the cycle 018 and 019 reviews)
+- [~] **C-010** data: AniList cache keeps the raw media; aod Hangul check on NFC (from the cycle 018 and 019 reviews)
   - `fetch_media` stores the raw AniList media object (`{"media": <raw or null>}`) and normalizes it when reading, as the AnimeThemes crawl does. A later fix to the normalization then applies to records already cached.
   - Acceptance (offline):
     - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
