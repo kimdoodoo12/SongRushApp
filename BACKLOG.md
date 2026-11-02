@@ -42,7 +42,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - each source's terms and rate limits.
   - Decide how the Python tools build the catalog file, and what the backend reads.
   - Output: a design doc plus C- items.
-- [~] **C-001** data: normalize, trailing qualifiers, scripts (from design 014)
+- [x] **C-001** data: normalize, trailing qualifiers, scripts (from design 014)
   - `data/songrush_data/titles.py`.
   - `normalize(s)` (D-015): ignores spaces, punctuation, symbols, case and width, and keeps spelling. The exact Unicode steps are fixed in the spec.
   - `strip_qualifier(s)` removes one trailing qualifier: `Season N`, `, season N`, `Nth Season`, `Part N`, `(The) Final Season`, `第N期`, `N기`, `시즌 N`, `N화`, `(YYYY)`, `(TV)`, `(...애니메이션)`. It does not strip when fewer than 4 characters would remain.

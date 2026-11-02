@@ -112,3 +112,12 @@ No Blocker. The critic recomputed a sample of the vectors from the Unicode rules
 - Step 3's range U+0300-U+036F also affects Cyrillic (`й` becomes `и`); the spec accepts this.
 
 A new locked test file, `data/tests/test_titles_rules.py`, pins every survivor and these rules.
+
+### Result
+- Tests:
+  - `c615316`: the 79 hand-written vectors and the rule tables.
+  - `2d6343d`: the explicit rules and the mutation killers.
+  - Red phases were verified: first ModuleNotFoundError only; then exactly 4 rule failures (U+001C, Arabic-Indic digit, `・`, jamo).
+- Implementation: `181ebe1` (attempt 1) and `fa24af6` (attempt 2). Attempt 2 also uses ASCII-only case folding in the qualifier regex, matching Java's default `CASE_INSENSITIVE`.
+- The verifier reports `normalize(expected) == expected` for all 79 vectors.
+- All 149 data tests pass.
