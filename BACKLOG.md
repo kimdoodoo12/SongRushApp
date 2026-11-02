@@ -103,22 +103,21 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - "OP" is not accepted for One Piece.
     - A `COMPILATION` or `CONTAINS` edge joins the two entries even when their titles differ (D-045); every other edge keeps the title-sharing rule.
     - Every accepted string equals `normalize` of some source string or of its stripped form.
-- [ ] **C-007** data: catalog build CLI and draw set (from design 014)
-  - Writes `data/catalog.json`: UTF-8, LF, sorted keys, one record per line, under a size cap set in the spec.
-  - The draw set is sorted by popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500 (D-034).
-  - Also writes the list of popular anime that still have no Korean title (D-040).
-  - Uses a lock file and atomic writes.
+- [x] **C-007** data: catalog assembly and draw set (from design 014; part 1 of 2, cycle 022)
+  - `songrush_data/catalog.py`: builds `data/catalog.json` (UTF-8, LF, sorted keys, one record per line, 12 MB cap) from the source outputs, the draw set (popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500, D-034), the Korean-gap list (D-040) and the build report (unplayable anime, synonym-fallback English counts, 20 largest groups with titles).
+  - Acceptance: see `docs/cycles/022-catalog-build.md`.
+- [ ] **C-011** data: crawl freshness, build CLI and the first real build (from design 014; part 2 of C-007)
   - From the cycle 017 review, the crawl gains two behaviours:
     - **Total check:** it records `paginatorInfo.total` per page. If it changes mid-crawl, it clears the prefix and restarts, at most twice.
     - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page and also clears the AniList (`al-`) and Wikidata (`wd-`) caches (cycle 019 review: an empty Wikidata result is otherwise cached for good).
+  - A CLI (`python -m songrush_data.build`) runs crawl, AniList, Wikidata and aod with the CLAUDE.md gaps, then C-007's assembly; it writes `data/catalog.json` and `data/korean_gaps.json`, logs the report, and uses a lock file so two builds cannot run at once.
   - Acceptance:
     - An end-to-end build with injected sources over the fixtures gives byte-identical output on two runs.
-    - The draw-set order and deduplication are checked.
+    - The draw-set order and deduplication are checked end to end.
     - The Korean-gap report lists the expected anime.
-  - The build log lists the 20 largest series groups (size and titles), so an over-join such as a whole franchise under one generic head can be reviewed (cycle 021 review).
-  - Anime whose accepted list is empty (for example AniList media `None`) are left out of the draw set and listed in the build log (cycle 021 review M1).
-  - The build log counts the anime whose English slot came from the synonym fallback (D-035), so the share in the top 1,500 is known.
-  - **The lead then runs the first real build and records the counts.**
+    - A second build while the lock is held fails at once without touching the outputs.
+    - From the cycle 022 review: the build report counts draw-set anime whose reveal title is missing; the Korean-gap file lists each AniList id once; an over-cap build leaves an existing `catalog.json` unchanged (test).
+  - **The lead then runs the first real build and records the counts** (anime, themes, draw set, Korean gaps, unplayable, synonym-fallback English, largest groups, catalog size).
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
@@ -133,6 +132,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Output: a design doc plus C-, B- and F- items.
   - Real-device checks need the user (Needs decision).
 - [ ] **S-003** design: game protocol and rounds (new research for this stack)
+  - From the cycle 022 review: `data/catalog.json` theme records (`audio.basename`/`url` carry the anime slug, plus `song`, `artists`) and anime titles reveal the answer. Audio must be proxied under opaque per-round ids, and none of these fields may reach a client before the round ends.
   - Design the realtime connection between the Spring Boot backend and the React frontend, the room flow, the round timing, chat matching, skip and scoring. These follow D-011..D-017, D-024 and D-025.
   - Output: a design doc plus B- and F- items.
 
