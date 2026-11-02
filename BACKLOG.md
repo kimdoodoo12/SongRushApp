@@ -79,18 +79,19 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - 120 ids make 3 requests.
     - Missing ids give `null`.
     - Per-id caching means a rerun makes 0 requests.
-- [~] **C-005** data: Wikidata labels and aod Korean strings (from design 014)
+- [x] **C-005** data: Wikidata labels and aod Korean strings (from design 014)
   - Wikidata SPARQL by AniList id (P8729) for the `ko`, `en` and `ja` labels.
   - aod release `2026-27` (pinned URL) for Hangul strings per AniList id.
   - Acceptance (offline fixtures saved in this cycle's spec step):
     - Labels are keyed by AniList id and language.
     - Only strings with Hangul syllables count as Korean from aod.
     - A source that fails is skipped with a warning, and the build continues.
-- [ ] **C-010** data: AniList cache keeps the raw media (from the cycle 018 review)
+- [ ] **C-010** data: AniList cache keeps the raw media; aod Hangul check on NFC (from the cycle 018 and 019 reviews)
   - `fetch_media` stores the raw AniList media object (`{"media": <raw or null>}`) and normalizes it when reading, as the AnimeThemes crawl does. A later fix to the normalization then applies to records already cached.
   - Acceptance (offline):
     - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
     - Every cycle 018 behaviour still holds; the cycle 018 tests keep passing (only the tests that pin the stored record's format may change).
+    - aod: a synonym stored in NFD (decomposed jamo) counts as Korean and is returned in NFC; AniList 157295 in the real release keeps its Korean title (pin with an inline record).
 - [ ] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
   - The title-sharing join rule (D-041, D-042), the per-slot titles (D-037), Korean taking every collected title (D-039), official-only English, Japanese and romaji with the D-035 fallback, trailing-qualifier forms (D-038), and the reveal order.
   - Acceptance (on the saved relation fixtures):
@@ -109,7 +110,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Uses a lock file and atomic writes.
   - From the cycle 017 review, the crawl gains two behaviours:
     - **Total check:** it records `paginatorInfo.total` per page. If it changes mid-crawl, it clears the prefix and restarts, at most twice.
-    - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page.
+    - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page and also clears the AniList (`al-`) and Wikidata (`wd-`) caches (cycle 019 review: an empty Wikidata result is otherwise cached for good).
   - Acceptance:
     - An end-to-end build with injected sources over the fixtures gives byte-identical output on two runs.
     - The draw-set order and deduplication are checked.

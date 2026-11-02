@@ -86,7 +86,7 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
 - `C:\Users\GRAM` (home) is itself a git repo with no commits. This project has its own repo; run git only inside it.
 - **Discord notifications** go through `.claude/hooks/notify_discord.py`.
   - Only `stop` mode is wired here; it reports new Needs decision or BLOCKED entries.
-  - The other modes are wired globally, so do not wire them here too: `notification`, `failure` (API errors), `halt` (every idle stop) and `end` (session closed).
+  - The other modes are wired globally, so do not wire them here too: `notification` (permission prompt or idle input), `failure` (API errors) and `end` (session closed). There is no per-turn alert (user, 2026-11-03).
   - The webhook comes only from `BA_DEV_DISCORD_WEBHOOK`; never write it to a file.
   - An alert that cannot be sent is queued in `~/.claude/state/discord-outbox.jsonl` and resent every 30 s for up to 12 h.
 

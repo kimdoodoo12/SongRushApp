@@ -90,3 +90,21 @@ The critic loaded the fixtures and the full cached release offline. Every expect
 - **M4.** Damaged Wikidata cache entries are deleted and refetched.
 - **N1, N2.** The myanimelist record now carries a Hangul synonym so the source check means something; criterion 1 compares both sides with `rstrip`.
 - **Scope.** The unrelated BACKLOG and portfolio edits went into their own commit (`7776e5e`) before the spec commit.
+
+## Test commit
+- Tests: `58bb755` (`test_wikidata.py` 39 tests, `test_aod.py` 33 tests), locked together with `test_bootstrap.py` and `conftest.py`.
+- Red phase (verifier): `72 errors`, all `ImportError` for the missing `songrush_data.wikidata` (39) and `songrush_data.aod` (33); `--collect-only` collects 72.
+- The verifier also found that cycle 013's fixture check ran `json.loads` on every fixture, so the plain-text `wikidata_labels_batch.rq` failed it. The check now requires every fixture to be UTF-8 without a BOM, and only `.json` fixtures to parse (`test_bootstrap.py`, same commit). The rest of the suite then gave `339 passed`.
+- The lead's attempt to read the lock state file directly was blocked by `guard.py` ("do not touch the lock file directly; only the lead uses lock.py").
+
+## Result
+- Implementation: `da82efa` (attempt 1).
+- Verifier: `.venv/Scripts/python.exe -m pytest` from `data/` exit 0, `411 passed in 13.38s`; the two new files `72 passed`. `git diff 58bb755 HEAD -- data/tests/` empty. Criteria 1-12 confirmed.
+- On the real cached release, `load_korean` made no request (the pinned hash matched) and logged `aod release=2026-27 records=41537 anilist_ids_with_korean=2661`.
+- The lead ended a turn twice while the tests were locked and red, and the Stop hook counted those stops (attempt 2/3). It then waited in-turn until green, as the CLAUDE.md pitfall says.
+
+## Code review (critic)
+No Blocker or High. Probes on the real 62 MB file: 3.49 s, 478 MB peak; a damaged file plus a damaged download makes exactly 1 GET and leaves an empty folder; validate-before-cache holds when batch 2 fails after batch 1.
+- **M1 (Follow-up, queued in C-010).** `has_hangul` sees only precomposed syllables, so 4 NFD (decomposed jamo) synonyms in the release are missed; AniList 157295 loses its only Korean title. Fix: NFC-normalize before the check and store NFC.
+- **M2 (Follow-up, queued in C-007).** The Wikidata cache never expires, so an empty result stays "no label" for good. C-007's `refresh_all` also clears `wd-`.
+- **N1.** Commit `e2ab8e0` (narrowing the allowlist) is also on this branch and unrelated to C-005, like `7776e5e`.
