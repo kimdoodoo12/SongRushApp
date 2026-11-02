@@ -79,13 +79,18 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - 120 ids make 3 requests.
     - Missing ids give `null`.
     - Per-id caching means a rerun makes 0 requests.
-- [ ] **C-005** data: Wikidata labels and aod Korean strings (from design 014)
+- [~] **C-005** data: Wikidata labels and aod Korean strings (from design 014)
   - Wikidata SPARQL by AniList id (P8729) for the `ko`, `en` and `ja` labels.
   - aod release `2026-27` (pinned URL) for Hangul strings per AniList id.
   - Acceptance (offline fixtures saved in this cycle's spec step):
     - Labels are keyed by AniList id and language.
     - Only strings with Hangul syllables count as Korean from aod.
     - A source that fails is skipped with a warning, and the build continues.
+- [ ] **C-010** data: AniList cache keeps the raw media (from the cycle 018 review)
+  - `fetch_media` stores the raw AniList media object (`{"media": <raw or null>}`) and normalizes it when reading, as the AnimeThemes crawl does. A later fix to the normalization then applies to records already cached.
+  - Acceptance (offline):
+    - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
+    - Every cycle 018 behaviour still holds; the cycle 018 tests keep passing (only the tests that pin the stored record's format may change).
 - [ ] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
   - The title-sharing join rule (D-041, D-042), the per-slot titles (D-037), Korean taking every collected title (D-039), official-only English, Japanese and romaji with the D-035 fallback, trailing-qualifier forms (D-038), and the reveal order.
   - Acceptance (on the saved relation fixtures):
@@ -95,6 +100,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - "Demon Slayer" alone is not accepted, while "Kimetsu no Yaiba" and "Demon Slayer: Kimetsu no Yaiba" are.
     - "Attack on Titan" is accepted for a Season 3 theme.
     - "OP" is not accepted for One Piece.
+    - A `COMPILATION` or `CONTAINS` edge joins the two entries even when their titles differ (D-045); every other edge keeps the title-sharing rule.
     - Every accepted string equals `normalize` of some source string or of its stripped form.
 - [ ] **C-007** data: catalog build CLI and draw set (from design 014)
   - Writes `data/catalog.json`: UTF-8, LF, sorted keys, one record per line, under a size cap set in the spec.
@@ -197,7 +203,7 @@ Decided:
 
 ## Follow-ups
 - AniList enrichment (critic, cycle 018):
-  - The cache stores the normalized record while the key hashes only the query fields, so a later `_normalize` fix leaves old-shape records unnoticed. Before C-006/C-007 rely on it, store the raw media and normalize on read (as in cycle 017), or add a record version to the key.
+  - The cache stores the normalized record while the key hashes only the query fields. Queued as C-010.
   - Record questions about other items in a separate commit, not in a cycle's spec commit.
 - AnimeThemes crawl tests (critic, cycle 017):
   - Pin read-time validation and the deletion of a corrupt entry: pre-seed corrupt bytes or bytes with the wrong `currentPage`, then expect one transport call and a replaced entry.
