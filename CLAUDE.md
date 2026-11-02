@@ -49,7 +49,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 
 | Area | Test | Lint / build |
 |---|---|---|
-| backend (verified once bootstrapped) | `gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `gradlew.bat build` |
+| backend (verified once bootstrapped) | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
 | frontend (verified once bootstrapped) | `npm test` (from `frontend/`) | `npm run lint`; build `npm run build` |
 | data (verified once bootstrapped) | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet |
 
@@ -93,4 +93,4 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
 - guard.py regex-matches the whole command text; a test command that merely contains a forbidden string is blocked. Put hook test inputs in a script file.
 - Backticks inside a double-quoted bash string are executed as commands. Pass such text through a quoted heredoc (`<<'EOF'`) or a file.
 - npm and Gradle wrappers swallow flags meant for the script (`npm run x --limit 3` loses `--limit`). Put `--` before script arguments, and make CLIs reject a bare positional argument.
-- Spring Boot 4 moved classes: `TestRestTemplate` is in `org.springframework.boot.resttestclient` (and needs `@AutoConfigureTestRestTemplate`), `ErrorController` is in `org.springframework.boot.webmvc.error`, and JSON is Jackson 3 (`tools.jackson.*`). Run `gradlew.bat` from `backend/`.
+- Spring Boot 4 moved classes: `TestRestTemplate` is in `org.springframework.boot.resttestclient` (and needs `@AutoConfigureTestRestTemplate`), `ErrorController` is in `org.springframework.boot.webmvc.error`, and JSON is Jackson 3 (`tools.jackson.*`). Run `.\gradlew.bat` from `backend/`: a bare `gradlew.bat` is not found here (`NoDefaultCurrentDirectoryInExePath` is set).
