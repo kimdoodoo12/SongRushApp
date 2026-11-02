@@ -1,0 +1,321 @@
+{
+  "version": 1,
+  "vectors": [
+    {
+      "input": "\uff21\uff22\uff23",
+      "expected": "abc"
+    },
+    {
+      "input": "\uff76\uff9e",
+      "expected": "\u30ac"
+    },
+    {
+      "input": "\uff76\uff9e\uff9d\uff80\uff9e\uff91",
+      "expected": "\u30ac\u30f3\u30c0\u30e0"
+    },
+    {
+      "input": "\uff11\uff12\uff13",
+      "expected": "123"
+    },
+    {
+      "input": "\uff28\uff55\uff4e\uff54\uff45\uff52\u00d7\uff28\uff55\uff4e\uff54\uff45\uff52",
+      "expected": "hunterxhunter"
+    },
+    {
+      "input": "\u30e9\u30d6\u30e9\u30a4\u30d6\uff01",
+      "expected": "\u30e9\u30d6\u30e9\u30a4\u30d6"
+    },
+    {
+      "input": "\ufb01re",
+      "expected": "fire"
+    },
+    {
+      "input": "Hello World",
+      "expected": "helloworld"
+    },
+    {
+      "input": "Stra\u00dfe",
+      "expected": "strasse"
+    },
+    {
+      "input": "GRO\u1e9eE",
+      "expected": "grosse"
+    },
+    {
+      "input": "\u03c2",
+      "expected": "\u03c3"
+    },
+    {
+      "input": "\u03c3\u03bf\u03c6\u03bf\u03c2",
+      "expected": "\u03c3\u03bf\u03c6\u03bf\u03c3"
+    },
+    {
+      "input": "\u03a3\u039f\u03a6\u039f\u03a3",
+      "expected": "\u03c3\u03bf\u03c6\u03bf\u03c3"
+    },
+    {
+      "input": "\u041f\u0420\u0418\u0412\u0415\u0422",
+      "expected": "\u043f\u0440\u0438\u0432\u0435\u0442"
+    },
+    {
+      "input": "\u0130stanbul",
+      "expected": "istanbul"
+    },
+    {
+      "input": "Hunter \u00d7 Hunter",
+      "expected": "hunterxhunter"
+    },
+    {
+      "input": "Hunter x Hunter",
+      "expected": "hunterxhunter"
+    },
+    {
+      "input": "HUNTER\u00d7HUNTER",
+      "expected": "hunterxhunter"
+    },
+    {
+      "input": "SPY\u00d7FAMILY",
+      "expected": "spyxfamily"
+    },
+    {
+      "input": "Steins;Gate",
+      "expected": "steinsgate"
+    },
+    {
+      "input": "Re:Zero kara Hajimeru Isekai Seikatsu",
+      "expected": "rezerokarahajimeruisekaiseikatsu"
+    },
+    {
+      "input": "Kaguya-sama: Love is War",
+      "expected": "kaguyasamaloveiswar"
+    },
+    {
+      "input": "Fate/stay night",
+      "expected": "fatestaynight"
+    },
+    {
+      "input": "K-On!!",
+      "expected": "kon"
+    },
+    {
+      "input": "JoJo's Bizarre Adventure",
+      "expected": "jojosbizarreadventure"
+    },
+    {
+      "input": "JoJo\u2019s Bizarre Adventure",
+      "expected": "jojosbizarreadventure"
+    },
+    {
+      "input": "Dr. STONE",
+      "expected": "drstone"
+    },
+    {
+      "input": "  Naruto  ",
+      "expected": "naruto"
+    },
+    {
+      "input": "\u300c\u9032\u6483\u306e\u5de8\u4eba\u300d",
+      "expected": "\u9032\u6483\u306e\u5de8\u4eba"
+    },
+    {
+      "input": "\u30bd\u30fc\u30c9\u30a2\u30fc\u30c8\u30fb\u30aa\u30f3\u30e9\u30a4\u30f3",
+      "expected": "\u30bd\u30fc\u30c9\u30a2\u30fc\u30c8\u30aa\u30f3\u30e9\u30a4\u30f3"
+    },
+    {
+      "input": "Oshi no Ko \u3010\u63a8\u3057\u306e\u5b50\u3011",
+      "expected": "oshinoko\u63a8\u3057\u306e\u5b50"
+    },
+    {
+      "input": "Lucky\u2606Star",
+      "expected": "luckystar"
+    },
+    {
+      "input": "\u307e\u3069\u304b\u2606\u30de\u30ae\u30ab",
+      "expected": "\u307e\u3069\u304b\u30de\u30ae\u30ab"
+    },
+    {
+      "input": "Uta no\u2606Prince-sama\u266a",
+      "expected": "utanoprincesama"
+    },
+    {
+      "input": "Fate/Zero \u2665",
+      "expected": "fatezero"
+    },
+    {
+      "input": "100% Love",
+      "expected": "100love"
+    },
+    {
+      "input": "A+B=C",
+      "expected": "abc"
+    },
+    {
+      "input": "\u2200 Gundam",
+      "expected": "gundam"
+    },
+    {
+      "input": "\u2606\u00d7\u266a",
+      "expected": "x"
+    },
+    {
+      "input": "\uadc0\uba78\uc758 \uce7c\ub0a0",
+      "expected": "\uadc0\uba78\uc758\uce7c\ub0a0"
+    },
+    {
+      "input": "\ub098\ub8e8\ud1a0",
+      "expected": "\ub098\ub8e8\ud1a0"
+    },
+    {
+      "input": "\u9032\u6483\u306e\u5de8\u4eba",
+      "expected": "\u9032\u6483\u306e\u5de8\u4eba"
+    },
+    {
+      "input": "\u3072\u3089\u304c\u306a",
+      "expected": "\u3072\u3089\u304c\u306a"
+    },
+    {
+      "input": "\u30ef\u30f3\u30d4\u30fc\u30b9",
+      "expected": "\u30ef\u30f3\u30d4\u30fc\u30b9"
+    },
+    {
+      "input": "\u9b3c\u6ec5\u306e\u5203 Kimetsu no Yaiba",
+      "expected": "\u9b3c\u6ec5\u306e\u5203kimetsunoyaiba"
+    },
+    {
+      "input": "\u014ckami",
+      "expected": "okami"
+    },
+    {
+      "input": "Shingeki no Kyojin: K\u014dhen",
+      "expected": "shingekinokyojinkohen"
+    },
+    {
+      "input": "Pok\u00e9mon",
+      "expected": "pokemon"
+    },
+    {
+      "input": "Poke\u0301mon",
+      "expected": "pokemon"
+    },
+    {
+      "input": "Na\u00efve",
+      "expected": "naive"
+    },
+    {
+      "input": "\u00c5ngstr\u00f6m",
+      "expected": "angstrom"
+    },
+    {
+      "input": "\u30ac\u30f3\u30c0\u30e0",
+      "expected": "\u30ac\u30f3\u30c0\u30e0"
+    },
+    {
+      "input": "\u304b\u3099",
+      "expected": "\u304c"
+    },
+    {
+      "input": "\u304b\u200b\u3099",
+      "expected": "\u304c"
+    },
+    {
+      "input": "\u304b\u309b",
+      "expected": "\u304c"
+    },
+    {
+      "input": "Naruto\u00a0Shippuden",
+      "expected": "narutoshippuden"
+    },
+    {
+      "input": "\u9032\u6483\u3000\u306e\u5de8\u4eba",
+      "expected": "\u9032\u6483\u306e\u5de8\u4eba"
+    },
+    {
+      "input": "Zero\u200bTwo",
+      "expected": "zerotwo"
+    },
+    {
+      "input": "a\u200db",
+      "expected": "ab"
+    },
+    {
+      "input": "Soft\u00adHyphen",
+      "expected": "softhyphen"
+    },
+    {
+      "input": "\ufeffBOM Title",
+      "expected": "bomtitle"
+    },
+    {
+      "input": "Tab\tTitle\n",
+      "expected": "tabtitle"
+    },
+    {
+      "input": "AB\u115fCD",
+      "expected": "abcd"
+    },
+    {
+      "input": "AB\u1160CD",
+      "expected": "abcd"
+    },
+    {
+      "input": "AB\u3164CD",
+      "expected": "abcd"
+    },
+    {
+      "input": "AB\uffa0CD",
+      "expected": "abcd"
+    },
+    {
+      "input": "\ub098\u3164\ub8e8\ud1a0",
+      "expected": "\ub098\ub8e8\ud1a0"
+    },
+    {
+      "input": "Love\ufe0fLive",
+      "expected": "lovelive"
+    },
+    {
+      "input": "AB\u180bCD",
+      "expected": "abcd"
+    },
+    {
+      "input": "\u845b\udb40\udd00\u98fe",
+      "expected": "\u845b\u98fe"
+    },
+    {
+      "input": "86",
+      "expected": "86"
+    },
+    {
+      "input": "Steins;Gate 0",
+      "expected": "steinsgate0"
+    },
+    {
+      "input": "Mob Psycho 100",
+      "expected": "mobpsycho100"
+    },
+    {
+      "input": "Overlord \u2163",
+      "expected": "overlordiv"
+    },
+    {
+      "input": "Mob Psycho 100 \u2161",
+      "expected": "mobpsycho100ii"
+    },
+    {
+      "input": "",
+      "expected": ""
+    },
+    {
+      "input": "!!!",
+      "expected": ""
+    },
+    {
+      "input": "\u2606 \u266a \u30fb",
+      "expected": ""
+    },
+    {
+      "input": "\u3000\u200b\ufeff",
+      "expected": ""
+    }
+  ]
+}
