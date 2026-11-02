@@ -6,10 +6,16 @@ cannot wrap it as a URLError and a test cannot mistake it for an offline
 machine.
 
 Cycle 016 lets loopback through, so tests can use socket.socketpair(),
-asyncio on Windows and a local http.server:
-- getaddrinfo for localhost, 127.0.0.1 and ::1 is allowed;
-- connect and connect_ex to 127.0.0.0/8 and ::1 are allowed;
-- everything else still raises RuntimeError.
+asyncio on Windows and a local http.server. What the guard intercepts:
+- socket.getaddrinfo: allowed for localhost, 127.0.0.1 and ::1; any other
+  name raises RuntimeError;
+- socket.socket.connect and connect_ex: allowed to 127.0.0.0/8 and ::1;
+  any other address raises RuntimeError.
+
+What it does not intercept: asyncio connects to IP literals (the event loop
+uses sock_connect, not socket.connect) and UDP sendto. The data tools use
+hostnames over urllib, which need getaddrinfo and connect, so they stay
+blocked.
 """
 
 import ipaddress
