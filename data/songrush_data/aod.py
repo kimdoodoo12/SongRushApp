@@ -9,6 +9,7 @@ skipped with a warning. docs/cycles/019-korean-titles.md is the specification.
 import hashlib
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Callable
 
@@ -48,7 +49,11 @@ def korean_by_anilist(document) -> dict:
                 ids.append(int(match.group(1)))
         korean = []
         for text in [title] + synonyms:
-            if isinstance(text, str) and has_hangul(text) and text not in korean:
+            if not isinstance(text, str):
+                continue
+            # Decomposed (NFD) Hangul is jamo, which has_hangul does not see.
+            text = unicodedata.normalize("NFC", text)
+            if has_hangul(text) and text not in korean:
                 korean.append(text)
         if not korean:
             continue
