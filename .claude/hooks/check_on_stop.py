@@ -74,7 +74,7 @@ def counter_path(session):
 
 
 def main():
-    data = json.load(sys.stdin)
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     session = (data.get("session_id") or "nosession")[:40]
     agent = data.get("agent_type") or ""
     if agent in READ_ONLY_AGENTS:
