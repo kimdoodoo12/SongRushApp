@@ -1,0 +1,41 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# claude local state
+.claude/state/
+.claude/settings.local.json
+
+# frontend (node)
+node_modules/
+dist/
+coverage/
+
+# backend (gradle)
+backend/build/
+backend/.gradle/
+.gradle/
+
+# data (python); data/catalog.json stays tracked
+data/.venv/
+.venv/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# data: API caches and media never go into git
+data/cache/
+*.mp3
+*.ogg
+*.webm
+*.m4a
+*.mp4
+
+# misc
+*.log
+.DS_Store
+.idea/
+.vscode/
