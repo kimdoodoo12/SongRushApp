@@ -47,7 +47,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 
 | Area | Test | Lint / typecheck |
 |---|---|---|
-| backend (verified once bootstrapped) | `backend\gradlew.bat test` (from the repo root; `./gradlew test` off Windows) | compile is part of `test` |
+| backend (verified once bootstrapped) | `gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `gradlew.bat build` |
 | frontend (verified once bootstrapped) | `npm test` (from `frontend/`) | `npm run lint`; build `npm run build` (from `frontend/`) |
 | data (verified once bootstrapped) | `.venv\Scripts\python.exe -m pytest` (from `data/`; `.venv/bin/python` off Windows) | none yet |
 

@@ -62,10 +62,11 @@ def runners():
     data_ready = os.path.exists(py) and os.path.isdir(os.path.join(data, "tests"))
 
     return {
-        "frontend": (frontend_ready, [npm, "test", "--silent"], frontend, 900),
-        # A cold Gradle daemon plus Spring context tests can take minutes.
-        "backend": (os.path.exists(gradlew), [gradlew, "test", "--console=plain", "-q"], backend, 1500),
-        "data": (data_ready, [py, "-m", "pytest", "-q"], data, 900),
+        # settings.json caps the whole Stop hook at 900 s, so each runner stays below it.
+        # The first Gradle download is done manually in the bootstrap cycle, never here.
+        "frontend": (frontend_ready, [npm, "test", "--silent"], frontend, 850),
+        "backend": (os.path.exists(gradlew), [gradlew, "test", "--console=plain", "-q"], backend, 850),
+        "data": (data_ready, [py, "-m", "pytest", "-q"], data, 850),
     }
 
 
