@@ -43,7 +43,7 @@ def changed_files():
 
 
 # A change under these top-level folders also runs these areas' tests
-# (contracts/normalize-vectors.json is checked by both JUnit and pytest, design 011).
+# (shared cross-language contracts are checked by both JUnit and pytest).
 EXTRA_AREAS = {"contracts": {"backend", "data"}}
 
 

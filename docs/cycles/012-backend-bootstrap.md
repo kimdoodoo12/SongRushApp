@@ -1,7 +1,7 @@
 # 012 backend-bootstrap (B-001)
 
 ## Goal
-Stand up `backend/` as a Spring Boot 4.1.x application on Java 17 with the Gradle wrapper, so later backend items have a tested base. It serves `/health`, answers unknown paths with 404 JSON, and reads `songrush.data-dir` (design 011 decisions 1 and 6).
+Stand up `backend/` as a Spring Boot 4.1.x application on Java 17 with the Gradle wrapper, so later backend items have a tested base. It serves `/health`, answers unknown paths with 404 JSON, and reads `songrush.data-dir`. There is no database (D-029, D-030).
 
 ## Setup (before tests)
 - Generate the skeleton from start.spring.io: Gradle Groovy DSL, Java 17, group `com.songrush`, artifact `backend`, package `com.songrush`, dependencies `web` and `websocket`. There is no database starter.
