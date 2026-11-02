@@ -10,10 +10,10 @@ A multiplayer anime OP/ED guessing website. Players join a room by code, hear th
 
 ## Product decisions (user, 2026-11-02)
 
-- **Players guess the anime title by chat, like the StarCraft use-map quiz** (D-015). A chat message is correct when it matches one of the accepted titles of the anime's series, in Korean, English, Japanese or romaji (D-020, D-022). Spaces, punctuation, case and width are ignored, but spelling must match. Attempts are unlimited, within a flood limit of burst 5 and 2 per second (D-024). Wrong guesses show as normal chat to everyone; a correct message is hidden and announced as "<name> 정답!". No autocomplete.
+- **Players guess the anime title by chat, like the StarCraft use-map quiz** (D-015). A chat message is correct when it matches one of the accepted titles of the anime's series, in Korean, English, Japanese or romaji (D-020). By default only official titles count; an alias counts only when the data has no official title (D-035). Spaces, punctuation, case and width are ignored, but spelling must match. Attempts are unlimited, within a flood limit of burst 5 and 2 per second (D-024). Wrong guesses show as normal chat to everyone; a correct message is hidden and announced as "<name> 정답!". No autocomplete.
 - **A round is the whole TV-size song from the start, at most 90 s** (D-018, D-021). It ends at the first correct answer, a passed skip vote, or the end of the song. Everyone hears it from the same moment. The reveal shows the entry's own title.
 - **Only the first correct answer scores, by server arrival order** (D-011, D-016). A skip passes with a majority of connected players (D-012, D-017). The host sets the number of rounds when creating the room (D-014). No hints for now (D-013).
-- **Songs:** AnimeThemes is the audio source (D-009). The top ~1500 OP/ED themes by popularity are cached ahead of time, and rooms draw from them (D-019, D-027). Uncached draws are fetched while the lobby waits (D-026).
+- **Songs:** AnimeThemes is the audio source (D-009). The top ~1500 OP/ED themes by popularity, with no per-series cap, are cached ahead of time, and rooms draw from them (D-019, D-027, D-034). Uncached draws are fetched while the lobby waits (D-026).
 - UI language: Korean. Credit line: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata" (D-023).
 
 ## How work happens here
@@ -65,7 +65,12 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
   - Send a `SongRushBot/<version> (+repo contact)` User-Agent.
   - Make one request at a time, with a gap of at least 2-3 s.
   - Use timeouts of at least 60 s, honor 429 `Retry-After`, and cache responses so a rebuild does not refetch.
-  - The research cycles (S- items) confirm each source's exact limits and write them here.
+  - Confirmed limits (design 014):
+    - AnimeThemes GraphQL is 90 requests/min. Keep a gap of at least 3 s; a full page takes 8-30 s.
+    - AniList is 30 requests/min in its current degraded state. Keep a gap of at least 2 s and batch 50 ids.
+    - Request only the ids AnimeThemes lists (D-036).
+    - Wikidata SPARQL: batch the ids.
+    - aod: use the pinned release `2026-27`; the repository is archived.
 - **AniDB:** download the titles dump at most once per 24 h. The last request was 2026-11-02 18:34 KST, so the next is allowed from **2026-11-03 18:34 KST**.
 - Live requests to external sources happen only in design cycles and the data tools, and later in the backend's lobby fetch; never in tests. Tests use saved fixtures (`data/tests/fixtures/`: saved external responses and samples) and a conftest guard that blocks DNS and socket connects, so they run offline and deterministically.
 
