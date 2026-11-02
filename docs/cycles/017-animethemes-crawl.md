@@ -18,7 +18,7 @@ Fetch every anime and its OP/ED themes from AnimeThemes GraphQL with the polite 
     - `paginatorInfo.perPage != 100`.
   - **Hit check:** a hit is judged with `cache.get`.
   - **`refresh=True`** bypasses the read, fetches, validates, then overwrites the cache entry with `cache.put` and returns the fresh result.
-- **`crawl(client, cache, *, log=print) -> list[dict]`** returns the raw anime items of all pages in page order.
+- **`crawl(client, cache, *, log=print) -> CrawlResult`** returns the raw anime items of all pages, in page order, as `CrawlResult.items`.
   - It fetches page 1, 2, ... while `paginatorInfo.hasMorePages` is true.
   - **Resume check:** when page k was a cache hit and page k+1 is not cached, it refetches page k with `refresh=True` (after the gap) and compares the lists of anime ids.
     - If they differ, the source changed: it clears the `at-<hash>-` prefix, logs one line containing `shifted`, and restarts from page 1.
@@ -28,7 +28,7 @@ Fetch every anime and its OP/ED themes from AnimeThemes GraphQL with the polite 
   - **Summary:** at the end it compares the item count with the last page's `paginatorInfo.total`, warns if they differ, and logs `crawl pages=P anime=A total=T`.
   - It returns `CrawlResult(items, pages, total)`.
 - **`select_themes(item) -> dict`** converts one raw anime item into
-  `{id, slug, name, year, season, anilistId, anidbId, themes: [...]}`:
+  `{id, slug, name, year, season, anilistId, anidbIds, themes: [...]}`:
   - `name` is `title.romaji`.
   - `anilistId` is the `externalId` of the first `resources.nodes` entry with `site` `ANILIST`, as an int, or null; a null `externalId` gives null.
   - `anidbIds` lists every ANIDB `externalId` as ints, in response order, without duplicates or nulls (critic M2: one fixture anime has three).
