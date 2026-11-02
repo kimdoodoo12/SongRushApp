@@ -162,3 +162,6 @@ This cycle's explorer made every live request below one at a time, with the Song
 - **Later, from S-003:** the Java normalize and catalog loader, which run the same vectors.
 - **CLAUDE.md:** the lead records the confirmed limits (AnimeThemes 90/min, AniList 30/min, Wikidata, aod pinned) in the external source rules.
 - **Needs decision:** the D-023 credit line, once the final source list is known.
+
+## Addendum (cycle 021, 2026-11-03)
+Decision 3's join rule compared titles only across a direct relation edge. Simulated on the saved relation fixture, that split seven same-title series (Sword Art Online and Alicization, Kizumonogatari II/III, Owarimonogatari and its second season, Railgun and Railgun T, and others). Cycle 021 compares titles for every pair of members inside a relation component, adds "one title's head is a prefix of the other's base", and always joins `COMPILATION`/`CONTAINS` edges (D-045). The user's rule is unchanged: entries that share a title group, entries whose real title differs stay separate. See `docs/cycles/021-groups-titles.md`.
