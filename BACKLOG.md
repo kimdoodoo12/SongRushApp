@@ -86,7 +86,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - Labels are keyed by AniList id and language.
     - Only strings with Hangul syllables count as Korean from aod.
     - A source that fails is skipped with a warning, and the build continues.
-- [ ] **C-010** data: AniList cache keeps the raw media; aod Hangul check on NFC (from the cycle 018 and 019 reviews)
+- [x] **C-010** data: AniList cache keeps the raw media; aod Hangul check on NFC (from the cycle 018 and 019 reviews)
   - `fetch_media` stores the raw AniList media object (`{"media": <raw or null>}`) and normalizes it when reading, as the AnimeThemes crawl does. A later fix to the normalization then applies to records already cached.
   - Acceptance (offline):
     - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
@@ -203,6 +203,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- AniList cache read (critic, cycle 020): `_read_cached` should treat a record whose `media.id` differs from the requested id (or that lacks `id`, the cycle 018 shape) as damaged. Test first.
 - AniList enrichment (critic, cycle 018):
   - The cache stores the normalized record while the key hashes only the query fields. Queued as C-010.
   - Record questions about other items in a separate commit, not in a cycle's spec commit.

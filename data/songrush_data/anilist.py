@@ -1,9 +1,11 @@
 """AniList media fetch by id, batched and cached per id (cycle 018).
 
 fetch_media posts id_in queries with literal ids, validates each batch
-response before caching anything from it, and stores one normalized record
-per id, including a null record for ids AniList did not return.
-docs/cycles/018-anilist-enrich.md is the specification.
+response before caching anything from it, and stores the raw AniList media
+object per id, including a null record for ids AniList did not return.
+Records are normalized on read, so normalizer changes apply to cached
+records (cycle 020). docs/cycles/018-anilist-enrich.md and
+docs/cycles/020-raw-cache-nfc.md are the specification.
 """
 
 import hashlib
@@ -67,7 +69,7 @@ def _normalize(raw: dict) -> dict:
 
 
 def _read_cached(cache: FileCache, media_id: int) -> tuple[bool, dict | None]:
-    """Return (hit, media). A corrupt entry is deleted and counts as a miss."""
+    """Return (hit, raw media). A corrupt entry is deleted and counts as a miss."""
     key = _key(media_id)
     data = cache.get(key)
     if data is None:
@@ -151,9 +153,9 @@ def fetch_media(
     result = {}
     uncached = []
     for media_id in unique:
-        hit, media = _read_cached(cache, media_id)
+        hit, raw = _read_cached(cache, media_id)
         if hit:
-            result[media_id] = media
+            result[media_id] = _normalize(raw) if raw is not None else None
         else:
             uncached.append(media_id)
     hits = len(unique) - len(uncached)
@@ -165,9 +167,8 @@ def fetch_media(
         # Validation passed for the whole batch; only now is anything stored.
         for media_id in batch:
             raw = found.get(media_id)
-            media = _normalize(raw) if raw is not None else None
-            cache.put(_key(media_id), json.dumps({"media": media}, ensure_ascii=False).encode("utf-8"))
-            result[media_id] = media
+            cache.put(_key(media_id), json.dumps({"media": raw}, ensure_ascii=False).encode("utf-8"))
+            result[media_id] = _normalize(raw) if raw is not None else None
 
     ordered = {media_id: result[media_id] for media_id in unique}
     missing = [media_id for media_id, media in ordered.items() if media is None]
