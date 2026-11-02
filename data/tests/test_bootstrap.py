@@ -30,17 +30,23 @@ def test_user_agent_names_bot_and_repo():
     assert REPO_URL in common.USER_AGENT
 
 
-# Criterion 2: fixtures are UTF-8 JSON without a BOM.
+# Criterion 2: every fixture is strict UTF-8 without a BOM, and every `.json`
+# fixture also parses as JSON. Other fixtures (e.g. the `.rq` SPARQL query)
+# are plain text.
 
-def test_fixtures_dir_is_not_empty():
-    assert FIXTURE_FILES, f"no fixture files found in {FIXTURES_DIR}"
+def test_fixtures_dir_has_json_fixture():
+    assert any(p.suffix == ".json" for p in FIXTURE_FILES), (
+        f"no .json fixture files found in {FIXTURES_DIR}"
+    )
 
 
 @pytest.mark.parametrize("path", FIXTURE_FILES, ids=lambda p: p.name)
-def test_fixture_is_utf8_json_without_bom(path):
+def test_fixture_is_utf8_without_bom_and_json_parses(path):
     raw = path.read_bytes()
     assert not raw.startswith(UTF8_BOM), f"{path.name} starts with a UTF-8 BOM"
-    json.loads(raw.decode("utf-8"))
+    text = raw.decode("utf-8")
+    if path.suffix == ".json":
+        json.loads(text)
 
 
 # Criterion 3: no test can reach the network.
