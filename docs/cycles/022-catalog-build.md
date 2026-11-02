@@ -84,3 +84,14 @@ No Blocker or High. The critic estimated the real catalog at 5.5-7 MB from fixtu
 
 ## Out of scope
 The crawl total check, freshness and `refresh_all`, the CLI, the lock file, logging the report, and the real build (cycle 023). The Java catalog loader (from S-003).
+
+## Result
+- Tests `d8e682c` (locked); implementation `de92055` (attempt 1).
+- Red phase (verifier): `33 errors`, all `ImportError` for the missing `songrush_data.catalog`.
+- Verifier: full suite exit 0, `486 passed in 14.02s`; `git diff d8e682c HEAD -- data/tests/` empty; criteria 1-13 confirmed. On `gql_page1.json` with minimal synthetic titles the file was 102,858 bytes for 358 themes (287 B per theme); extrapolated 4.2 MB as a lower bound and about 6.5-8.5 MB with real titles, under the 12 MB cap.
+
+## Code review (critic)
+No Blocker, High or Medium. Probes: several AnimeThemes anime sharing one AniList id share one group and are both playable; the size check runs before the write, so an over-cap build leaves no temp file.
+- **Queued in C-011.** An anime with no AniList media can still be playable when a `COMPILATION`/`CONTAINS` edge joins it to a group, and its reveal is then `None`. The build report counts draw-set anime with no reveal title.
+- **Queued in C-011.** Two AnimeThemes anime with one AniList id give two Korean-gap lines with the same id; the gap file should show each AniList id once.
+- **Nit (queued in C-011).** The size-cap test only checks an empty folder; add a case that an existing `catalog.json` is left unchanged when the cap is exceeded.
