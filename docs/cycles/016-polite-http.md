@@ -131,3 +131,20 @@ The critic ran three probes on Python 3.12.10.
 - **M3.** Keys are lowercase, with a 120-character limit, and Windows reserved names and a trailing `.` are rejected. Temp names never match the key pattern.
 - **M4.** The `os.replace` retry sleeps between attempts and cleans up its temp file.
 - **Nits:** `HttpError` naming and fields; a note on gzip; redirects keep the User-Agent.
+
+## Code review (critic) and attempt 2
+No Blocker. The critic's mutation run caught 12 of 19 mutations, and its probes checked the wait math, the lock scope, the exception order, redirects, proxies, the cache and the guard.
+
+- **H1.** After a refusal over the cap, the next request on the same client slept the whole stored time with no log; the probe showed 86400 s. A build that catches the error and moves on would then hang silently.
+- **Attempt 2 rule:** before sending, if the stored not-before is more than `max_retry_after_s` in the future, `request` raises `BackedOffError` (a subclass of `HttpError`, status 429, attempts 0) without sending or sleeping.
+  - Any wait the client does take is logged once (`waiting N s`).
+  - `Retry-After` values are clamped to 10^7 s before any arithmetic, so a 400-digit value cannot raise `OverflowError`.
+- **M1:** the `TransportError` backoff timing is pinned with `gap_s=3`, at +10 and then +20.
+- **N2:**
+  - `cached_json` validates before it stores;
+  - a fetch that raises leaves the cache untouched;
+  - `clear` never removes temp files;
+  - `delete` validates the key.
+- **N3:** the `wait >= cap` boundary and a naive HTTP-date read as UTC are pinned.
+- **N4:** the thread test checks completion.
+- **M2:** the guard docstring now states what it actually blocks: DNS for non-loopback names, and `connect`/`connect_ex` to non-loopback addresses. asyncio connects to IP literals and UDP `sendto` are not intercepted. The data tools use hostnames over urllib, which stay blocked.
