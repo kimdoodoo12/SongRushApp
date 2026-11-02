@@ -40,3 +40,7 @@ data/cache/
 .DS_Store
 .idea/
 .vscode/
+
+# data: a killed build can leave its lock and temp files next to the catalog
+data/.build.lock
+data/~tmp-*

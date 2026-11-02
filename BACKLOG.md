@@ -106,7 +106,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-007** data: catalog assembly and draw set (from design 014; part 1 of 2, cycle 022)
   - `songrush_data/catalog.py`: builds `data/catalog.json` (UTF-8, LF, sorted keys, one record per line, 12 MB cap) from the source outputs, the draw set (popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500, D-034), the Korean-gap list (D-040) and the build report (unplayable anime, synonym-fallback English counts, 20 largest groups with titles).
   - Acceptance: see `docs/cycles/022-catalog-build.md`.
-- [ ] **C-011** data: crawl freshness, build CLI and the first real build (from design 014; part 2 of C-007)
+- [x] **C-011** data: crawl freshness, build CLI and the first real build (from design 014; part 2 of C-007)
   - From the cycle 017 review, the crawl gains two behaviours:
     - **Total check:** it records `paginatorInfo.total` per page. If it changes mid-crawl, it clears the prefix and restarts, at most twice.
     - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page and also clears the AniList (`al-`) and Wikidata (`wd-`) caches (cycle 019 review: an empty Wikidata result is otherwise cached for good).
@@ -118,6 +118,10 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - A second build while the lock is held fails at once without touching the outputs.
     - From the cycle 022 review: the build report counts draw-set anime whose reveal title is missing; the Korean-gap file lists each AniList id once; an over-cap build leaves an existing `catalog.json` unchanged (test).
   - **The lead then runs the first real build and records the counts** (anime, themes, draw set, Korean gaps, unplayable, synonym-fallback English, largest groups, catalog size).
+- [ ] **C-012** data: incremental AnimeThemes crawl (from the cycle 023 review)
+  - With real 100-item pages, an anime added at the end that spills onto a new page is treated as an append (the fresh last page is full and keeps the old ids as a prefix; the following pages are fetched; at the end the item count must equal the new total, else restart).
+  - A total change during a resumed or first crawl where every page already read keeps its ids updates the remembered total and continues instead of clearing the cache.
+  - Acceptance (offline, 100-item synthetic pages): +1 anime on a full last page makes requests [last, next] only and clears nothing; +1 during a resumed crawl clears nothing; a changed id in an earlier page still clears and restarts.
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
@@ -206,6 +210,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Build CLI (critic, cycle 023): `main` should reconfigure stdout with `line_buffering=True` so a background build's log shows progress (until then run it with `python -u`); add a test that pins each source's gap and timeout (AnimeThemes 3 s/120 s, AniList 2 s/60 s, Wikidata and aod 3 s/60 s).
 - Reveal fallback (critic, cycle 021): step 5 can return a `ko` episode label (`… 1화`) that step 1 skips, when an anime has no AniList data. Skip episode labels there too.
 - AniList cache read (critic, cycle 020): `_read_cached` should treat a record whose `media.id` differs from the requested id (or that lacks `id`, the cycle 018 shape) as damaged. Test first.
 - AniList enrichment (critic, cycle 018):

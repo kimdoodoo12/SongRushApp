@@ -326,13 +326,20 @@ def test_crawl_fetches_all_pages(at, http, tmp_path):
     assert result.total == 9
 
 
-def test_crawl_rerun_fully_cached_makes_no_calls(at, http, tmp_path):
+# Cycle 023 criterion 1 replaces cycle 017's test_crawl_rerun_fully_cached_makes_no_calls:
+# a fully cached rerun now refetches the last page once to see source changes.
+
+def test_crawl_rerun_fully_cached_refetches_only_last_page(at, http, tmp_path):
     client, transport, cache = crawl_setup(at, http, tmp_path, three_pages())
-    run_crawl(at, client, cache)
+    first, _ = run_crawl(at, client, cache)
     client2, transport2, _ = crawl_setup(at, http, tmp_path, three_pages())
-    result, _ = run_crawl(at, client2, cache)
-    assert transport2.calls == []
+    result, logs = run_crawl(at, client2, cache)
+    assert transport2.called_pages() == [3]
     assert item_ids(result) == list(range(1, 10))
+    assert result.items == first.items
+    assert result.pages == 3
+    assert result.total == 9
+    assert not any("cleared" in line for line in logs), logs
 
 
 def _prime_pages_1_2(at, http, tmp_path):
@@ -426,6 +433,161 @@ def test_crawl_result_type(at, http, tmp_path):
     client, _, cache = crawl_setup(at, http, tmp_path, three_pages())
     result, _ = run_crawl(at, client, cache)
     assert isinstance(result, at.CrawlResult)
+
+
+# Cycle 023 criteria 2-4: last-page freshness, total check, refresh_all.
+# docs/cycles/023-build-cli.md is the specification.
+
+class SequenceTransport(PageTransport):
+    """Serves pages[n] as a list of bodies: one per request, the last one repeats."""
+
+    def send(self, method, url, headers, body, timeout):
+        call = Call(method, url, dict(headers or {}), body, timeout, self.clock.now())
+        self.calls.append(call)
+        page = call.page()
+        if page not in self.pages:
+            raise AssertionError("page %d was not expected" % page)
+        bodies = self.pages[page]
+        chosen = bodies.pop(0) if len(bodies) > 1 else bodies[0]
+        data = json.dumps(chosen).encode("utf-8")
+        return self.http.Response(status=200, headers={"content-type": "application/json"}, body=data)
+
+
+def _cached_three_pages(at, http, tmp_path):
+    """Run a full crawl of three_pages() and return its cache."""
+    client, _, cache = crawl_setup(at, http, tmp_path, three_pages())
+    run_crawl(at, client, cache)
+    for page in (1, 2, 3):
+        assert cache.get(page_key(at, page)) is not None
+    return cache
+
+
+def test_crawl_last_page_gained_one_anime_keeps_cache(at, http, tmp_path):
+    cache = _cached_three_pages(at, http, tmp_path)
+    page1_before = cache.get(page_key(at, 1))
+    page2_before = cache.get(page_key(at, 2))
+    grown = {
+        1: synthetic_body(1, [1, 2, 3], True, total=10),
+        2: synthetic_body(2, [4, 5, 6], True, total=10),
+        3: synthetic_body(3, [7, 8, 9, 10], False, total=10),
+    }
+    client, transport, _ = crawl_setup(at, http, tmp_path, grown)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [3]
+    assert item_ids(result) == list(range(1, 11))
+    assert sum(1 for line in logs if "gained 1 anime" in line) == 1, logs
+    assert not any("cleared" in line for line in logs), logs
+    assert not any("changed since it was cached" in line for line in logs), logs
+    assert not any("total changed" in line for line in logs), logs
+    # Nothing was cleared: pages 1 and 2 keep their entries, page 3 holds the fresh page.
+    assert cache.get(page_key(at, 1)) == page1_before
+    assert cache.get(page_key(at, 2)) == page2_before
+    cached3 = json.loads(cache.get(page_key(at, 3)))
+    assert [item["id"] for item in cached3["data"]["animePagination"]["data"]] == [7, 8, 9, 10]
+    assert result.total == 10
+
+
+def test_crawl_last_page_gained_and_has_more_fetches_next_page(at, http, tmp_path):
+    cache = _cached_three_pages(at, http, tmp_path)
+    # Page 3 gained id 10 and now says more pages follow; total grew by exactly
+    # the one new id, so page 4 is empty and carries the same total.
+    grown = {
+        1: synthetic_body(1, [1, 2, 3], True, total=10),
+        2: synthetic_body(2, [4, 5, 6], True, total=10),
+        3: synthetic_body(3, [7, 8, 9, 10], True, total=10),
+        4: synthetic_body(4, [], False, total=10),
+    }
+    client, transport, _ = crawl_setup(at, http, tmp_path, grown)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [3, 4]
+    assert item_ids(result) == list(range(1, 11))
+    assert sum(1 for line in logs if "gained 1 anime" in line) == 1, logs
+    assert not any("cleared" in line for line in logs), logs
+    assert result.pages == 4
+    assert cache.get(page_key(at, 1)) is not None
+    assert cache.get(page_key(at, 4)) is not None
+
+
+@pytest.mark.parametrize(
+    "last_ids, total",
+    [([7, 9], 8), ([7, 9, 8], 9)],
+    ids=["lost-id", "reordered"],
+)
+def test_crawl_last_page_changed_clears_and_restarts(at, http, tmp_path, last_ids, total):
+    cache = _cached_three_pages(at, http, tmp_path)
+    # Every fresh page carries the same new total, so the restarted pass is consistent.
+    changed = {
+        1: synthetic_body(1, [1, 2, 3], True, total=total),
+        2: synthetic_body(2, [4, 5, 6], True, total=total),
+        3: synthetic_body(3, last_ids, False, total=total),
+    }
+    client, transport, _ = crawl_setup(at, http, tmp_path, changed)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [3, 1, 2, 3]
+    assert item_ids(result) == [1, 2, 3, 4, 5, 6] + last_ids
+    assert sum(1 for line in logs if "changed since it was cached" in line) == 1, logs
+    assert not any("gained" in line for line in logs), logs
+    assert result.total == total
+
+
+def test_crawl_total_changed_mid_pass_clears_and_restarts(at, http, tmp_path):
+    pages = {
+        1: [synthetic_body(1, [1, 2, 3], True, total=9), synthetic_body(1, [1, 2, 3], True, total=10)],
+        2: [synthetic_body(2, [4, 5, 6], True, total=10)],
+        3: [synthetic_body(3, [7, 8, 9, 10], False, total=10)],
+    }
+    clock = FakeClock()
+    transport = SequenceTransport(clock, http, pages)
+    client = make_client(http, transport, clock)
+    cache = http.FileCache(tmp_path)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [1, 2, 1, 2, 3]
+    assert item_ids(result) == list(range(1, 11))
+    assert result.total == 10
+    assert sum(1 for line in logs if "total changed" in line) == 1, logs
+
+
+class DriftingTotalTransport(PageTransport):
+    """Every request reports a larger total than the one before."""
+
+    def send(self, method, url, headers, body, timeout):
+        call = Call(method, url, dict(headers or {}), body, timeout, self.clock.now())
+        self.calls.append(call)
+        page = call.page()
+        if page not in (1, 2, 3):
+            raise AssertionError("page %d was not expected" % page)
+        ids = [3 * (page - 1) + k for k in (1, 2, 3)]
+        reply = synthetic_body(page, ids, page < 3, total=100 + len(self.calls))
+        data = json.dumps(reply).encode("utf-8")
+        return self.http.Response(status=200, headers={"content-type": "application/json"}, body=data)
+
+
+def test_crawl_total_keeps_changing_raises_after_two_restarts(at, http, tmp_path):
+    clock = FakeClock()
+    transport = DriftingTotalTransport(clock, http, {})
+    client = make_client(http, transport, clock)
+    cache = http.FileCache(tmp_path)
+    logs = []
+    with pytest.raises(ValueError) as info:
+        at.crawl(client, cache, log=logs.append)
+    assert "total" in str(info.value).lower(), str(info.value)
+    # Three passes at most; each pass stops at page 2, where the total differs.
+    assert transport.called_pages() == [1, 2, 1, 2, 1, 2]
+    assert sum(1 for line in logs if "total changed" in str(line)) >= 2, logs
+
+
+def test_crawl_refresh_all_fetches_every_page_once(at, http, tmp_path):
+    cache = _cached_three_pages(at, http, tmp_path)
+    # The source changed page 3; refresh_all reads no cache, so the result is fresh.
+    fresh = three_pages()
+    fresh[3] = synthetic_body(3, [7, 8, 10], False)
+    client, transport, _ = crawl_setup(at, http, tmp_path, fresh)
+    logs = []
+    result = at.crawl(client, cache, refresh_all=True, log=logs.append)
+    assert transport.called_pages() == [1, 2, 3]
+    assert item_ids(result) == [1, 2, 3, 4, 5, 6, 7, 8, 10]
+    assert result.pages == 3
+    assert not any("cleared" in str(line) for line in logs), logs
 
 
 # Criterion 4: select_themes. The reference below applies the stated rules

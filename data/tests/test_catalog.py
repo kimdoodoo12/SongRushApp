@@ -609,3 +609,51 @@ def test_fixture_smoke(catalog):
     assert len(built["themes"]) == sum(len(a["themes"]) for a in anime)
     assert report["counts"]["playableAnime"] == 0
     assert report["koreanGaps"] == []
+
+
+# Cycle 023 criterion 6: the cycle 022 review items.
+# docs/cycles/023-build-cli.md is the specification.
+
+def test_draw_set_no_reveal_counts_anime_without_media(catalog):
+    # AniList 20 has no media, so its reveal is None; the COMPILATION edge from
+    # 10 joins it into a group with accepted titles, so it is playable.
+    anime = [_anime(1, 10, [_theme(11)]), _anime(2, 20, [_theme(21)])]
+    media = {10: _media(50, "Kanon", relations=[_edge("COMPILATION", 20, "Kanon Recap")])}
+    built, report = catalog.build_catalog(anime, media, {}, {})
+    records = _by_id(built["anime"])
+    assert records[2]["reveal"] is None
+    assert records[2]["group"] == records[1]["group"]
+    assert 21 in built["drawSet"]
+    assert report["drawSetNoReveal"] == 1
+    assert set(report["counts"]) == {"anime", "themes", "groups", "playableAnime", "drawSet", "drawSetAnime"}
+
+
+def test_draw_set_no_reveal_zero_when_every_reveal_is_set(catalog):
+    built, report = catalog.build_catalog(*_report_input())
+    assert built["drawSet"]
+    assert report["drawSetNoReveal"] == 0
+
+
+def test_korean_gaps_one_entry_per_anilist_id(catalog):
+    anime = [
+        _anime(5, 10, [_theme(51)]),
+        _anime(3, 10, [_theme(31)]),
+    ]
+    media = {10: _media(40, "Kanon")}
+    built, report = catalog.build_catalog(anime, media, {}, {})
+    assert sorted(built["drawSet"]) == [31, 51]
+    assert [(g["animeId"], g["anilistId"]) for g in report["koreanGaps"]] == [(3, 10)]
+
+
+def test_size_cap_leaves_existing_catalog_unchanged(catalog, tmp_path):
+    small, _ = catalog.build_catalog(*_draw_input())
+    big, _ = catalog.build_catalog(*_report_input())
+    path = tmp_path / "catalog.json"
+    small_size = catalog.write_catalog(path, small)
+    before = path.read_bytes()
+    big_size = catalog.write_catalog(tmp_path / "probe" / "catalog.json", big)
+    assert big_size > small_size
+    with pytest.raises(ValueError):
+        catalog.write_catalog(path, big, size_cap=big_size - 1)
+    assert path.read_bytes() == before
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["catalog.json", "probe"]
