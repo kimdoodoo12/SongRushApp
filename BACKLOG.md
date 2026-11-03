@@ -137,13 +137,29 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - The merge is tested.
     - An empty file is fine.
     - The Korean-gap report from C-007 drops an anime once the user adds it.
-- [ ] **S-002** design: audio delivery (new research for this stack)
+- [x] **S-002** design: audio delivery (new research for this stack)
   - Re-research how to fetch, cache and serve the songs (D-009, D-018, D-019, D-021, D-026, D-027), including what browsers can play and how every player starts at the same moment.
   - Output: a design doc plus C-, B- and F- items.
   - Real-device checks need the user (Needs decision).
+- [ ] **C-015** data: audio prefetch (from S-002, design 029)
+  - `python -m songrush_data.audio` downloads every draw-set theme's audio from `audio.url` to `data/audio-cache/<basename>` (folder gitignored): `GET` only (`HEAD` is 403), the SongRush User-Agent, one request at a time, at least 3 s apart, timeout of at least 60 s, `Retry-After` honoured; each file is written to `<basename>.part`, checked against the catalog's `audio.size` and the Ogg `OpusHead` header, then renamed; leftover `.part` files are overwritten; files already present and listed in the index are skipped, so a rerun resumes.
+  - It writes `data/audio-cache/index.json`: theme id -> `{basename, size, durationMs}`, duration from the last granule position minus pre-skip at 48 kHz.
+  - It stops at once on a local write error (removing the `.part`) and after 5 consecutive failed downloads; a lock file prevents two runs, and a stale lock gives a clear message to delete it; a summary logs done/skipped/failed counts and bytes.
+  - Acceptance (offline, fake transport, small real Ogg Opus fixture built in the test): sizes, headers and durations (within one 20 ms frame) are verified; a size mismatch or a non-Opus body leaves no final file and is reported; a rerun makes no request for complete files; a 404 is reported and the run continues; 5 consecutive failures and a write error stop the run; the gap and User-Agent are pinned; nothing is written outside the cache folder; the folder is gitignored.
+  - **Then the lead starts the real prefetch in the background (D-054) and records the result.**
+- [ ] **C-016** data: size padding of cached audio (D-055, design 029)
+  - After verification, rewrite the OpusTags packet of each cached file with an extra comment `SONGRUSH_PAD=<random bytes>` of random length (1-64 KiB), fixing the Ogg page segment table and CRC; record `paddedSize` in the index. Idempotent on rerun (a padded file is not padded again).
+  - Acceptance (offline, fixture Ogg Opus files): the padded file decodes to the same audio packets (all pages after OpusTags byte-identical apart from page sequence numbers if they change, and every page CRC valid); the size differs from the original by the padding; two runs give different padding lengths across files; a rerun leaves padded files unchanged.
+- [ ] **B-002** backend: catalog loader (from S-002, design 029)
+  - Reads `data/catalog.json` (path from `songrush.data-dir`) at startup into immutable lookups: anime by id, theme by id, group accepted strings by group id, and the ordered draw set; also reads `data/audio-cache/index.json` and keeps as draw candidates only draw-set themes with an indexed file present (D-056), with their `durationMs`. A missing or malformed catalog fails startup with a clear message; a missing index gives zero candidates and a warning.
+  - Acceptance (JUnit, small fixture catalog under `backend/src/test/resources`): every lookup returns the fixture values; the draw-set order is kept; a malformed file and a missing file each fail with a message naming the path.
+- [ ] **B-003** backend: opaque audio endpoint (from S-002, design 029)
+  - `AudioTokens.issue(themeId, ttl)` returns a random 128-bit URL-safe token (the TTL is chosen by the caller, S-003); `GET /audio/{token}` returns the whole cached file as `200` with only `Content-Type: audio/ogg`, `Content-Length` and `Cache-Control: no-store` among the content headers; a `Range` header is ignored; unknown or expired tokens and missing files return 404 JSON without the basename; expired tokens are removed.
+  - Acceptance (JUnit with a temp cache folder): the response bytes equal the file; a Range request still gets `200` with the whole file; `Last-Modified`, `ETag`, `Content-Disposition`, `Content-Range` and `Accept-Ranges` are absent; no header or body contains the basename or theme id; expired and unknown tokens give 404; two tokens for one theme differ; expired entries are purged.
 - [ ] **S-003** design: game protocol and rounds (new research for this stack)
   - From the cycle 022 review: `data/catalog.json` theme records (`audio.basename`/`url` carry the anime slug, plus `song`, `artists`) and anime titles reveal the answer. Audio must be proxied under opaque per-round ids, and none of these fields may reach a client before the round ends.
   - Design the realtime connection between the Spring Boot backend and the React frontend, the room flow, the round timing, chat matching, skip and scoring. These follow D-011..D-017, D-024 and D-025.
+  - From S-002 (design 029): include the clock-offset exchange, the server-announced `startAt`, Web Audio scheduling with full decode before start, the audio-unlock click, and the round end at `min(duration, 90 s)`.
   - Output: a design doc plus B- and F- items.
 
 - [ ] **F-001** frontend: React JavaScript bootstrap
@@ -161,13 +177,19 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [ ] **M-2** Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
 - [ ] **M-3** Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
 - [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 before planning.
-- [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty.
+- [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
 
 ## Needs decision
 
-- [?] **D-010** Hosting. It is decided before M-4, after S-002 settles what the server needs (a JVM, disk for the audio cache, ffmpeg or not). Options are researched then.
+- [?] **I-003** Real-device audio check (from S-002): once a test page exists (after F-001), the owner opens it on their iPhone (iOS 18.4+) and confirms that a decoded Ogg Opus file plays through Web Audio. Agents cannot run this.
+
+- [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-055** Size fingerprint (user, 2026-11-03): prevent identifying a song by its file size (the public AnimeThemes sizes identify 94% of the draw set). After download, each cached file gets a random-length padding tag in its OpusTags packet; the audio is unchanged (design 029).
+- **D-056** Failed downloads (user, 2026-11-03): themes whose audio could not be prefetched are left out of the draw candidates, so the draw set may be slightly under 1,500.
+- **D-053** Browser support (user, 2026-11-03): serve the original Ogg Opus audio and support only browsers that play it (Chrome, Firefox, Edge, and Safari on iOS/macOS 18.4 or later); older devices get an "update your browser/iOS" notice. No transcoding, so no ffmpeg on the server (design 029).
+- **D-054** Prefetch start (user, 2026-11-03): start the top-1,500 audio prefetch (about 5.4 GB) on this PC as soon as the prefetch tool passes review, in the background.
 - **D-052** Several separators (user, 2026-11-03; refines D-049): when a title has several separators, the part before **each** of them is accepted, not only the part before the first (`Chainsaw Man – The Movie: Reze Arc` accepts `Chainsaw Man` and `Chainsaw Man – The Movie`), so adding separators never removes an answer. A wave dash used inside a word (`ぬ〜べ〜`, `トロピカル〜ジュ！`) is accepted as a side effect (about 12 odd strings); only a wave dash between digits (`13話～16話`) is not a separator.
 - **D-051** Front-part follow-ups (user, 2026-11-03):
   - The dash separator stays ` -` (a space before the dash, as in `Re:ZERO -Starting Life in Another World-`, `DARKER THAN BLACK -黒の契約者-`, `CLANNAD -クラナド-`); the user confirmed the lead's correction of D-049 after seeing examples.
