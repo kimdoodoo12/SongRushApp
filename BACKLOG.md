@@ -228,7 +228,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 ## Needs decision
 
-- [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time. Agents cannot run this.
+- [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time; then joins one room from the PC browser and the iPhone and reports whether both start the song together (no echo between the two). The silent switch should not matter (cycle 047 sets the audio session to playback). Agents cannot run this.
 
 - [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 

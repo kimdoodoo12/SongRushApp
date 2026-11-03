@@ -33,16 +33,19 @@ Solo keeps the cycle 039 receipt-time offset (`serverTime - now()` at `start`). 
 
 1. **Sync.**
    - On `joined`: `burst(8)`.
-   - On every `prepare`: `burst(3)`.
+   - After each song's file has loaded (right when `ready` is sent): `burst(3)`; not at `prepare`, where the pings would queue behind the download (spec review M2).
    - Every 30 s while the session is open: `burst(3)`. This uses the session's own interval and stops when the session closes.
    - Pings start only after `joined`, so the locked cycle 041 tests that check the exact first frames (`create`, `join`) still hold.
+   - `close()` and the socket's `onclose` call `stop()`; no ping is sent after the session ends (spec review N4).
+   - The clock is the injected `now()` (`Date.now` by default), the same clock `planPlayback` uses, so the arithmetic is consistent; design 034 F2's `performance.now()` is not used, and a wall-clock step is corrected by the next bursts (spec review N3, accepted).
 2. **Offset used at `start`.**
    - If `current()` is not null, `offsetMs` comes from it. Otherwise it falls back to `serverTime - now()`.
    - **Drift.** Let `receipt = serverTime - now()` at arrival. If `|receipt - current().offsetMs| > current().rttMs + 50`, the session sends `burst(3)`. The song still uses the current estimate.
 3. **Output latency.** Scheduling passes `ctx.outputLatency` (0 when undefined) to `planPlayback`. The remaining-time bar keeps its cycle 039 formula, with `offsetMs` from step 2.
 4. **Audio unlock (cycle 041 review).**
-   - The clicks on `게임 시작`, `대기실로` and `처음으로` call `ctx.resume()` synchronously in the handler when `ctx.state !== 'running'`.
-   - On `prepare`, if `ctx.state !== 'running'`, the game screen shows a button `탭하여 소리 켜기`. Its click calls `ctx.resume()` synchronously. The button disappears once `ctx.state === 'running'`, re-checked on each 250 ms tick and after the click's `resume` resolves.
+   - The clicks on `게임 시작` and `대기실로` call `ctx.resume()` synchronously in the handler when `ctx.state !== 'running'`.
+   - On `prepare`, if `ctx.state !== 'running'`, the game screen shows a button `탭하여 소리 켜기`. Its click calls `ctx.resume()` synchronously. The button disappears after the click's `resume` resolves with the state `running`, and is checked again at `start` (it shows if the state is not running then).
+   - When the context is created (first click), `navigator.audioSession.type = 'playback'` is set if `navigator.audioSession` exists (iOS 17+), so the iOS silent switch does not mute the game (spec review H1).
    - This also applies to solo.
 
 ## Acceptance criteria (from `frontend/`)
@@ -63,14 +66,20 @@ Solo keeps the cycle 039 receipt-time offset (`serverTime - now()` at `start`). 
      - Answering them with `pong{id, serverTime}`, the next `start` schedules `source.start` at the `when` computed from the synced offset, not the receipt offset. The test makes the two differ by 2 s.
      - A drift beyond `rtt + 50` sends 3 more pings.
      - No drift sends none.
-   - **Re-sync.** `prepare` triggers 3 pings. 30 s of time triggers 3 pings.
+   - **Re-sync.** The song's load (the `ready` send) triggers 3 pings; `prepare` alone does not. 30 s of time triggers 3 pings. After `나가기` or a server close no further ping is sent.
+   - **Audio session.** With a stub `navigator.audioSession = {}` before the first click, its `type` becomes `'playback'`; without it nothing breaks.
    - **Solo.** A solo session sends no `ping`.
    - **Output latency.** `outputLatency` on the fake context shifts the scheduled `when`.
    - **Sound prompt.**
-     - With the context `suspended` at `prepare`, the button `탭하여 소리 켜기` appears. Clicking it calls `resume()` synchronously, and the button disappears once the state is `running`.
+     - With the context `suspended` at `prepare`, the button `탭하여 소리 켜기` appears. Clicking it calls `resume()` synchronously, and the button disappears once the resume resolves with the state `running`. A context that becomes `suspended` before `start` shows the button at `start`.
      - With a running context, no button.
    - **Resume on click.** `게임 시작` and `대기실로` call `resume()` synchronously when the context is not running.
-4. The locked cycle 038, 039 and 041 tests pass unchanged. `npm test`, `npm run lint` and `npm run build` exit 0.
+4. The cycle 038, 039 and 041 tests and `src/testing/fakes.js` are locked again for this cycle (spec review M3) and pass unchanged. `npm test`, `npm run lint` and `npm run build` exit 0.
+
+## Review changes (spec round 1)
+- **High.** The iOS silent switch mutes Web Audio even with a running context; `navigator.audioSession.type = 'playback'` is set (iOS 17+, within D-053's 18.4+).
+- **Medium.** The I-003 owner check now covers two devices in one room (backlog text updated); the per-song burst moves from `prepare` to after the load; the earlier tests and fakes are locked.
+- **Nits.** `처음으로` is dropped from the resume list; the prompt is checked at `prepare`, after its click and at `start`; the clock choice is recorded; sync stops on close.
 
 ## Test list
 - `frontend/src/net/clockSync.test.js`
