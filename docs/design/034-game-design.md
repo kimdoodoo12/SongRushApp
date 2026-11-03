@@ -23,13 +23,13 @@
 4. **Reconnect.** (A) A `playerToken` kept in `sessionStorage`; the seat and score are held for a 30 s grace period. (B) No reconnect. **Choose (A).**
 
 ## Decision
-- **Rooms.** A room has a 5-character code from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no look-alikes), generated with `SecureRandom` and retried on collision. Share link: `/r/<code>`. At most 8 players (D-046); a duplicate nickname gets ` (2)`, ` (3)`... (D-048). The host sets the song count, 5-30, default 10 (D-047, D-058), and starts the game. If the host leaves, the longest-connected player becomes host; an empty room is deleted after 2 minutes; a finished room after 10 minutes.
+- **Rooms.** A room has a 5-character code from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no look-alikes), generated with `SecureRandom` and retried on collision. Share link: `/r/<code>`. At most 8 players (D-046); a duplicate nickname gets ` (2)`, ` (3)`... (D-048). The host sets the song count, 5-30, default 10 (D-047, D-058), and starts the game. If the host leaves, the longest-connected player becomes host; an empty room is deleted after 2 minutes. After `gameOver` the room returns to the lobby (D-062); a room idle in the lobby for 10 minutes is deleted.
 - **Players and reconnect.** On join the server issues a random `playerToken`; reconnecting with it within 30 s reclaims the seat and score, and the server sends a full snapshot. A second socket with the same token replaces the first. A player who joins while a game runs is added with 0 points from the next song (D-059).
 - **Game.** At start the server draws N distinct candidates at random. Per song:
   1. **prepare:** the server issues a fresh audio token per song (TTL: prepare timeout + 90 s + 30 s) and sends `prepare{index, total, audioUrl}`.
   2. **ready:** clients fetch, decode and send `ready`; when every connected player is ready, or after 25 s, the server sends `start{startAt, deadlineAt}` with `startAt = now + 3 s` and `deadlineAt = startAt + min(durationMs, 90 s)` (D-018, D-021, D-060).
   3. **guessing:** `chat{text}` is rate-limited per player by a token bucket (burst 5, 2 per second, D-024); messages over the limit are dropped and not judged, and the sender gets a notice. A message whose normalized form is accepted ends the song: it is not broadcast; everyone gets `correct{name}` ("<name> 정답!") and the player scores 1 point (D-011, D-015, D-016). Other messages are broadcast as chat.
-  4. **skip:** `skipVote` toggles the player's vote; it passes when votes are more than half of the connected players, where players in their reconnect grace period still count (D-012, D-017).
+  4. **skip:** `skipVote` toggles the player's vote; it passes when votes are more than half of the connected players; players in their reconnect grace period are not counted (D-012, D-017, D-061).
   5. **end:** at the first correct answer, a passed skip, or `deadlineAt`, the server sends `reveal{reveal title, anime titles by slot, song, artists, winner or none}` and the scores, then waits 5 s before the next `prepare`.
   - After the last song: `gameOver{ranking}`; players with equal points share a rank.
 - **Messages.**
@@ -38,13 +38,37 @@
 - **Never before the reveal:** catalog theme or anime ids, basenames, audio URLs other than `/audio/<token>`, titles, accepted strings, song, artists, durations other than `deadlineAt`, and the draw order. Record `toString` output goes to server logs only.
 - **Client.** The browser uses native `WebSocket` with exponential reconnect (0.5-10 s), the clock sync of F2, an audio-unlock click (`AudioContext.resume()`) on join, full decode before `ready`, scheduling at `startAt`, and a countdown bar to `deadlineAt`.
 
-## Resulting items
-- **B-004** backend: Java `normalize` and the shared vector test.
-- **B-005** backend: rooms and lobby over WebSocket (create, join, roster, host transfer, reconnect, cleanup, clock-sync ping).
-- **B-006** backend: game rounds (draw, prepare/ready/start, guesses, rate limit, correct, skip, reveal, scores, game over, late joiners).
-- **F-002** frontend: lobby screens (create, join by code or `/r/<code>`, roster, song-count setting, start).
-- **F-003** frontend: clock sync and synchronized playback (audio unlock, fetch/decode, `startAt` scheduling, countdown), with a test page for I-003.
-- **F-004** frontend: game screen (chat, "정답!" announcements, skip, reveal, scores, final ranking).
+## Design review (critic) and changes
+- **H1 (stale timers and messages).** Every timer and every per-song client message carries the song index (`ready{index}`, `skipVote{index}`); room handlers ignore anything whose phase or index does not match. Tested: a correct answer's leftover deadline timer must not end the next song; a late `ready` for song k must not count for song k+1.
+- **H2 (late or failed clients).** A client that becomes ready after `startAt` plays from offset `now - startAt` and stops at `deadlineAt`; a failed fetch is retried once, then the song shows "재생 실패". Reconnecting and late-joining clients follow the same rule.
+- **H3 (everyone gone).** With zero connected players the game pauses: timers stop and the current song is prepared again on the first reconnect; the 2-minute deletion still applies.
+- **H4, H5 (item order and size).** Items are split and ordered so M-1 (solo) is playable first; see the table below.
+- **M1 (user decision D-061).** "Connected" means an open socket, for ready and for skip alike; a player in the reconnect grace period is not counted, and a leaving player's vote is removed with the result re-evaluated.
+- **M2.** A late joiner (D-059) spectates until the next `prepare`: not in the ready set or the skip count; their chat is broadcast but not judged.
+- **M3.** Snapshot and roster are allow-listed: phase, song index and total, the current `audioUrl`/`startAt`/`deadlineAt` when a song is running, players (name, score, host, connected), and the receiver's own skip vote. No player tokens other than the receiver's own, no catalog fields. A test checks the JSON.
+- **M4.** A replaced socket gets the close code 4001 (`replaced`), and the client does not reconnect after it.
+- **M5.** A chat message that matches the current song's accepted set is never broadcast in any phase before the reveal; it scores only in the guessing phase (from `startAt` to the end).
+- **M6.** The client re-takes the `AudioContext` clock pair right before scheduling each song, after `resume()` if the context is not running; `start` carries the server time so a clock offset that drifted by more than the RTT triggers a re-sync.
+- **M7.** The room executor never blocks on a socket: each session has an outbound queue drained by its own sender; a session whose queue overflows is closed.
+- **M8.** Limits: nickname 1-16 characters, chat 200 characters, WebSocket message 4 KiB; larger input gets `error{code}`.
+- **M9.** A game cannot start with fewer candidates than the song count (`error{code:"not-enough-songs"}`).
+- **M10.** Rooms take an injected `Clock` and a scheduler that tests advance by hand.
+- **Nits.** Audio bytes and the length derived from `deadlineAt - startAt` are accepted under D-057; drawing at game start rather than room creation is consistent with D-026 being deferred to M-5 (design 029); ties share a rank in standard competition order (1, 1, 3); after `gameOver` the room returns to the lobby and the host can start again with scores reset (user decision D-062).
+
+## Resulting items and milestones
+| Item | Milestone | Content |
+|---|---|---|
+| B-004 | M-1 | Java `normalize` and the shared vector test |
+| B-006a | M-1 | One room's song state machine: draw, prepare/start/deadline, judging, reveal, game over, index guards, injected clock and scheduler |
+| B-007 | M-1 | Minimal WebSocket endpoint: a one-player room that starts at once; bounded outbound queues |
+| F-001 | M-1 | React bootstrap (already in Ready) |
+| F-002 | M-1 | Solo play screen: audio unlock, fetch and decode, play on `start`, countdown, chat, reveal, final score |
+| B-005a | M-2 | Rooms and lobby: codes, join, 8 players, nickname dedupe, host and host transfer, song count 5-30, start, restart after game over, cleanup, input limits |
+| F-003 | M-2 | Lobby screens: create, join by code or `/r/<code>`, roster, song count, start |
+| B-005b | M-3 | Reconnect: player token, 30 s grace, socket replacement (code 4001), allow-listed snapshot, pause with no one connected |
+| B-006b | M-3 | Multiplayer rounds: ready with a 25 s timeout and `startAt`, skip votes (D-061), the chat token bucket (D-024), late joiners spectating until the next song |
+| F-004 | M-3 | Clock sync and synchronized playback, late-start offset, and a test page for the owner's iPhone check (I-003) |
+| F-005 | M-3 | Multiplayer game screen: skip, live scores, final ranking, restart |
 
 ## Requests made
 None to external data sources; Spring documentation pages were read.

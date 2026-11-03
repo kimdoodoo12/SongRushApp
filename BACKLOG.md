@@ -157,13 +157,22 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `AudioTokens.issue(themeId, ttl)` returns a random 128-bit URL-safe token (the TTL is chosen by the caller, S-003); `GET /audio/{token}` returns the whole cached file as `200` with only `Content-Type: audio/ogg`, `Content-Length` and `Cache-Control: no-store` among the content headers; a `Range` header is ignored; unknown or expired tokens and missing files return 404 JSON without the basename; expired tokens are removed.
   - From the cycle 032 review: `Anime`, `Theme` and `Candidate` override `toString` to print ids only (no title, reveal, song, artists or basename), and a test pins it; the audio endpoint handles a candidate whose file disappeared after startup.
   - Acceptance (JUnit with a temp cache folder): the response bytes equal the file; a Range request still gets `200` with the whole file; `Last-Modified`, `ETag`, `Content-Disposition`, `Content-Range` and `Accept-Ranges` are absent; no header or body contains the basename or theme id; expired and unknown tokens give 404; two tokens for one theme differ; expired entries are purged.
-- [~] **S-003** design: game protocol and rounds (new research for this stack)
+- [x] **S-003** design: game protocol and rounds (new research for this stack)
   - From the cycle 022 review: `data/catalog.json` theme records (`audio.basename`/`url` carry the anime slug, plus `song`, `artists`) and anime titles reveal the answer. Audio must be proxied under opaque per-round ids, and none of these fields may reach a client before the round ends.
   - Design the realtime connection between the Spring Boot backend and the React frontend, the room flow, the round timing, chat matching, skip and scoring. These follow D-011..D-017, D-024 and D-025.
   - From the cycle 033 review: catalog theme and anime ids are the public AnimeThemes ids, so the protocol must use only per-round opaque values (such as the audio token) before the reveal; record `toString` is safe for server logs only.
   - From S-002 (design 029): include the clock-offset exchange, the server-announced `startAt`, Web Audio scheduling with full decode before start, the audio-unlock click, and the round end at `min(duration, 90 s)`.
   - Output: a design doc plus B- and F- items.
 
+- [ ] **B-004** backend: Java normalize (from S-003, design 034; M-1)
+  - `com.songrush.game.Normalize.normalize(String)` reproduces `data/songrush_data/titles.py` `normalize` step by step (NFKC, lowercase with Locale.ROOT plus `ß`->`ss` and final sigma, strip U+0300-U+036F, `×`->`x`, remove categories P/S/Z/Cc/Cf and the extra code points, final NFC).
+  - Acceptance (JUnit): every vector in `contracts/normalize-vectors.json` passes; a test reads the vector file from the repo path so both languages share it.
+- [ ] **B-006a** backend: one room's song state machine (from S-003, design 034; M-1)
+  - A `Room` runs on its own single-threaded executor with an injected `Clock` and a manually advanced scheduler for tests. It draws N distinct candidates (5-30), and per song: `prepare` (fresh audio token, TTL prepare + 90 s + 30 s), `start{startAt, deadlineAt}`, judging of chat by `normalize` against the group's accepted list (a matching message is never broadcast; it scores 1 point only between `startAt` and the end), the end at the first correct answer or `deadlineAt` (`min(durationMs, 90 s)`), `reveal` (reveal title, titles by slot, song, artists, winner), scores, a 5 s pause, and `gameOver` with standard competition ranking; every timer and per-song message carries the song index and stale ones are ignored; fewer candidates than N gives `not-enough-songs`. Output goes to listeners, not sockets.
+  - Acceptance (JUnit, fake clock and scheduler): the full sequence for N songs; a correct answer ends the song, scores, and the old deadline timer does not end the next song; a stale `ready`/timer is ignored; a matching message before `startAt` is not broadcast and does not score; ties rank 1, 1, 3; no message to clients contains a theme or anime id, basename or title before its reveal.
+- [ ] **B-007** backend: minimal WebSocket endpoint for solo play (from S-003, design 034; M-1)
+  - `/ws` raw WebSocket with JSON `{type, ...}`: `create{nickname, songCount}` makes a one-player room that starts at once; the client receives `prepare`, `start`, `chat`, `correct`, `reveal`, `scores`, `gameOver`, `pong`, `error`; it sends `chat`, `ping`, `leave`. Each session has a bounded outbound queue drained by its own sender, so the room executor never blocks; a session whose queue overflows is closed. Message size 4 KiB; nickname 1-16, chat 200 characters.
+  - Acceptance (JUnit, RANDOM_PORT, `StandardWebSocketClient`, fixture catalog and audio cache in a temp data dir): a solo game of 5 songs runs to `gameOver` with correct answers and timeouts; `prepare.audioUrl` downloads through `/audio/<token>`; oversize input gives `error`; ping returns server time.
 - [ ] **F-001** frontend: React JavaScript bootstrap
   - `frontend/`: React with JSX, Vite, Vitest with jsdom and Testing Library, ESLint with a flat config. No `.ts` or `.tsx` files, and no TypeScript dependency.
   - Acceptance:
@@ -171,13 +180,35 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `npm test`, `npm run lint` and `npm run build` exit 0 from `frontend/`.
     - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 
+- [ ] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
+  - A start screen (nickname, song count) and a play screen: an audio-unlock click (`AudioContext.resume()`), fetch and decode of `prepare.audioUrl`, playback at `start` (from offset `now - startAt` if late, stopping at `deadlineAt`), a remaining-time bar (D-060), chat input, "정답!" announcement, reveal card, final score; Korean UI; the credit line (D-023); an "update your browser/iOS" notice when Ogg Opus cannot play (D-053).
+  - Acceptance (Vitest with a mocked WebSocket and AudioContext): message flow renders each phase; a late start uses the offset; unsupported audio shows the notice; `npm test`, `npm run lint`, `npm run build` exit 0.
+- [ ] **B-005a** backend: rooms and lobby (from S-003, design 034; M-2)
+  - 5-character room codes from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` with collision retry; `join{code, nickname}` up to 8 players (D-046) with nickname dedupe ` (2)` (D-048); host and host transfer to the longest-connected player; `start` by the host with 5-30 songs (D-058); back to the lobby after `gameOver` (D-062); an empty room deleted after 2 minutes, an idle lobby after 10 minutes; roster broadcasts allow-listed (name, score, host, connected).
+  - Acceptance (JUnit): codes, join limits, dedupe, host transfer, start rights, restart, cleanup with a fake clock, roster JSON allow-list.
+- [ ] **F-003** frontend: lobby screens (from S-003, design 034; M-2)
+  - Create a room, join by code or `/r/<code>`, nickname, roster with host mark, song count (host), start; restart after a game.
+  - Acceptance (Vitest with a mocked WebSocket): each flow renders and sends the right messages; `npm test`, `lint`, `build` exit 0.
+- [ ] **B-005b** backend: reconnect (from S-003, design 034; M-3)
+  - A per-player token kept by the client; reconnect within 30 s keeps seat and score with an allow-listed snapshot; a second socket with the same token replaces the first with close code 4001; with zero connected players the game pauses and re-prepares the current song on the first reconnect.
+  - Acceptance (JUnit, fake clock): reconnect within and after the grace; replacement; pause and resume; snapshot JSON contains no other player's token and no catalog field.
+- [ ] **B-006b** backend: multiplayer rounds (from S-003, design 034; M-3)
+  - `ready{index}` with a 25 s timeout before `start` (`startAt = now + 3 s`); skip votes over connected players (D-061) with re-evaluation when players leave; the chat token bucket (burst 5, 2 per second, D-024) whose excess is dropped unjudged; late joiners (D-059) spectate until the next `prepare`.
+  - Acceptance (JUnit, fake clock): all-ready starts early, timeout starts anyway; skip passes at more than half and re-evaluates on leave; rate limit; a late joiner is neither in the ready set nor the skip count and scores from the next song.
+- [ ] **F-004** frontend: clock sync and synchronized playback (from S-003, design 034; M-3)
+  - NTP-style ping/pong (8 on join, median of the 3 lowest-RTT, re-sync every 30 s and before each song), `startAt` scheduling on the `AudioContext` clock with `outputLatency`, the clock pair re-taken per song, re-sync when `start`'s server time disagrees by more than the RTT; a test page for I-003.
+  - Acceptance (Vitest with fake timers and clocks): offset estimation picks low-RTT samples; scheduling maths; drift triggers re-sync.
+- [ ] **F-005** frontend: multiplayer game screen (from S-003, design 034; M-3)
+  - Skip button with the vote count, live scores, other players' chat, reconnect behaviour (no reconnect after code 4001), final ranking with shared ranks, restart.
+  - Acceptance (Vitest with a mocked WebSocket): each phase renders; no reconnect after 4001; `npm test`, `lint`, `build` exit 0.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
-- [ ] **M-1** Solo prototype: one player opens the site, hears a song from the start (at most 90 s), guesses the anime by chat, sees right/wrong and the reveal, and plays the next round.
-- [ ] **M-2** Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
-- [ ] **M-3** Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
+- [x] **M-1** *(planned in design 034: B-004, B-006a, B-007, F-001, F-002)* Solo prototype: one player opens the site, hears a song from the start (at most 90 s), guesses the anime by chat, sees right/wrong and the reveal, and plays the next round.
+- [x] **M-2** *(planned in design 034: B-005a, F-003)* Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
+- [x] **M-3** *(planned in design 034: B-005b, B-006b, F-004, F-005)* Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
 - [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
 - [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
 
@@ -188,6 +219,11 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-058** Song count (user, 2026-11-03): the host chooses 5-30 songs per game, default 10 (refines D-047's range proposal).
+- **D-059** Late joiners (user, 2026-11-03): a player who joins during a game joins at 0 points from the next song; until then they spectate.
+- **D-060** Remaining time (user, 2026-11-03): show a remaining-time bar while a song plays (the server sends `deadlineAt`).
+- **D-061** Skip count (user, 2026-11-03): the skip majority counts only players with an open connection; a player waiting to reconnect is not counted, and a leaving player's vote is removed.
+- **D-062** After a game (user, 2026-11-03): the room returns to the lobby and the host can start again; scores start from 0.
 - **D-057** Audio fingerprints (user, 2026-11-03; replaces D-055): do not try to hide the song from a modified client for now. Padding inside the file does not work (a client can strip it and recover the exact public size; cycle 031 spec review), and any client that receives the audio can match its packet-size pattern against the public files. Like D-025, this is accepted for friends-only play and revisited before M-4, where the options are: encrypt the audio and send the key at `startAt` (hides the song until it plays), and re-encoding with randomized settings (needs ffmpeg, against D-053).
 - **D-055** *(replaced by D-057)* Size fingerprint (user, 2026-11-03): prevent identifying a song by its file size (the public AnimeThemes sizes identify 94% of the draw set). After download, each cached file gets a random-length padding tag in its OpusTags packet; the audio is unchanged (design 029).
 - **D-056** Failed downloads (user, 2026-11-03): themes whose audio could not be prefetched are left out of the draw candidates, so the draw set may be slightly under 1,500.
