@@ -128,7 +128,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-014** data: more subtitle separators (D-051)
   - `groups.front_part` also cuts at `~`, `～`, `〜`, `–`, `—`, `―`, `／`, `－`, wherever they appear; the part before every separator is accepted (D-052); the digit rule for `/` also applies to `／` and to the wave dashes.
   - Acceptance (offline): `Attack on Titan ~Chronicle~` gives `Attack on Titan`; `Chainsaw Man – The Movie: Reze Arc` gives `Chainsaw Man`; `ゾイド新世紀／ゼロ` gives `ゾイド新世紀`; `86－エイティシックス－` gives `86`, which D-050 then rejects; a full-width `１／２` between digits is not cut; every cycle 026 test still passes. The real catalog is rebuilt from the cache and the accepted-string count recorded.
-- [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
+- [~] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
 - [x] **C-009** data: manual Korean supplement (from design 014, D-040)
