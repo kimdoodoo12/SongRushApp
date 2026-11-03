@@ -5,6 +5,7 @@ A multiplayer anime OP/ED guessing website. Players join a room by code, hear th
   - `backend/`: Java Spring Boot 4.1.x on JDK 17, Gradle wrapper, JUnit 5.
   - `frontend/`: React in plain JavaScript (JSX). TypeScript is not used anywhere.
   - `data/`: Python 3.12 data tools, with pytest.
+  - `mobile/` (planned, D-063): a Flutter mobile-only client using the same server; not started (Roadmap M-6).
 - **Fresh start** (D-031, D-032): the earlier Node + TypeScript attempt, its history, its outputs and every design and research document were discarded. Only the user's game-rule decisions (BACKLOG "Decided") carry over. Research and design restart for this stack (S- items in BACKLOG).
 - Reference product: songspot.co. Borrow mechanics, not its UI, branding, or copy. Our angle is anime OP/ED.
 
