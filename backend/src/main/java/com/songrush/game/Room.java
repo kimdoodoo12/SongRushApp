@@ -104,6 +104,9 @@ public final class Room {
 
 	private List<Song> songs = List.of();
 
+	// The draw filter of the current (or last started) game; NONE before the first start.
+	private DrawFilter settings = DrawFilter.NONE;
+
 	private long startAt;
 
 	private long deadlineAt;
@@ -179,6 +182,14 @@ public final class Room {
 	}
 
 	public void start(int songCount) {
+		start(songCount, DrawFilter.NONE);
+	}
+
+	// Draws songCount songs from the grouped candidates that match the filter. Too few: everyone
+	// gets not-enough-songs with the narrowed count. With a non-empty filter, everyone gets settings
+	// (only its set fields) before the first prepare (docs/cycles/060-draw-filters.md).
+	public void start(int songCount, DrawFilter filter) {
+		Objects.requireNonNull(filter, "filter");
 		if (phase != Phase.LOBBY) {
 			return;
 		}
@@ -191,10 +202,11 @@ public final class Room {
 			catalog.theme(c.themeId())
 					.flatMap(t -> catalog.anime(t.animeId()).map(a -> new Song(c, t, a)))
 					.filter(s -> s.anime().group() != null)
+					.filter(s -> filter.matches(s.theme(), s.anime()))
 					.ifPresent(drawable::add);
 		}
 		if (drawable.size() < songCount) {
-			outbox.toAll(message("error", "code", "not-enough-songs"));
+			outbox.toAll(message("error", "code", "not-enough-songs", "available", drawable.size()));
 			return;
 		}
 		// Partial Fisher-Yates: the first songCount entries are a uniform draw without repeats.
@@ -202,9 +214,20 @@ public final class Room {
 			Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
 		}
 		songs = List.copyOf(drawable.subList(0, songCount));
+		settings = filter;
 		scores.replaceAll((id, points) -> 0);
 		generation++;
+		if (!filter.isEmpty()) {
+			Map<String, Object> message = message("settings");
+			message.putAll(filter.toMessageFields());
+			outbox.toAll(message);
+		}
 		prepare(0);
+	}
+
+	// The draw filter of this game (NONE when started without one).
+	public DrawFilter settings() {
+		return settings;
 	}
 
 	public boolean paused() {

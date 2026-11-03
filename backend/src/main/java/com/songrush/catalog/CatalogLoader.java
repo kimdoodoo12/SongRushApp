@@ -254,7 +254,7 @@ public final class CatalogLoader {
 						: strings(titlesNode, key, where + " titles"));
 			}
 			return new Anime(id, optionalInt(node, "anilistId", where), optionalInt(node, "group", where), titles,
-					optionalString(node, "reveal", where));
+					optionalString(node, "reveal", where), optionalInt(node, "year", where));
 		}
 
 		Theme theme(JsonNode node) {
