@@ -196,7 +196,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From the cycle 040 review: `leave` frees the seat on the I/O thread but removes the player's queue only later on the lobby thread, so a quick `leave` then `create`/`join` can receive one stale frame from the old lobby (frames carry no room code); remove the player's queue from the lobby's map on the I/O thread at once.
   - A per-player token kept by the client; reconnect within 30 s keeps seat and score with an allow-listed snapshot; a second socket with the same token replaces the first with close code 4001. (The pause with zero connected players moved to B-005c in cycle 042.)
   - Acceptance (JUnit, fake clock): reconnect within and after the grace; replacement; snapshot JSON contains no other player's token and no catalog field.
-- [ ] **B-005c** backend: pause with nobody connected (from S-003, design 034 H3; split from B-005b in cycle 042; M-3)
+- [~] **B-005c** backend: pause with nobody connected (from S-003, design 034 H3; split from B-005b in cycle 042; M-3)
   - When the last connected player of a running game disconnects, the `Room` pauses (its timers stop, the current song is abandoned); on the first reconnect it prepares the current song again with a fresh token. Until then a solo player who drops for 20 s loses the songs that play meanwhile.
   - Acceptance (JUnit, fake clock): with everyone disconnected no further `prepare`/`start` is sent and no song is used up; a reconnect within the grace re-prepares the same index; the empty-lobby TTL still closes an abandoned game.
 - [ ] **B-006b** backend: multiplayer rounds (from S-003, design 034; M-3)
