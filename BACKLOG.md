@@ -233,7 +233,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
   - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
   - Acceptance (JUnit): proxied handshake (`Origin: https://play.test`, `X-Forwarded-Proto: https`) gets 101 and a foreign origin 403; forwarded client address; `/`, `/assets/x.js`, `/r/ABCDE` served; traversal not served; `/ws`, `/audio/*`, `/health` unchanged; no static location keeps today's 404; overlap with data-dir fails startup.
-- [ ] **I-004** deploy kit files (from M-4, design 052)
+- [~] **I-004** deploy kit files (from M-4, design 052)
   - `deploy/Caddyfile`, `deploy/songrush.service` (`-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`, `SERVER_ADDRESS=127.0.0.1`), `deploy/setup.sh` (Ubuntu 24.04), `deploy/upload.sh` (OpenSSH `sftp` only, resumable, exact boot jar).
   - From the cycle 054 review: `upload.sh` always uploads `index.html` (a same-size new index would be skipped); the unit fixes `WorkingDirectory` to a folder with no `public/`, `static/` or `src/main/webapp/` (Boot also serves the servlet document root); the web folder holds no symlinks.
   - Acceptance (pytest `data/tests/test_deploy_kit.py`, offline): `bash -n`; ASCII + LF; unit env keys are `SongrushProperties` fields or allow-listed Spring keys; `upload.sh --dry-run` runs no `ssh`/`sftp` (stub PATH). The lead adds `"deploy": {"data"}` to the Stop hook's `EXTRA_AREAS`.

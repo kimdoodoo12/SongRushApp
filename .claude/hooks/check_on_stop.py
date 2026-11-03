@@ -44,7 +44,7 @@ def changed_files():
 
 # A change under these top-level folders also runs these areas' tests
 # (shared cross-language contracts are checked by both JUnit and pytest).
-EXTRA_AREAS = {"contracts": {"backend", "data"}}
+EXTRA_AREAS = {"contracts": {"backend", "data"}, "deploy": {"data"}}
 
 
 def runners():
