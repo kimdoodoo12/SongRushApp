@@ -195,6 +195,7 @@ public final class Lobby {
 			armEmpty();
 		}
 		pauseIfNoRoomPlayer();
+		abandonIfNobodyCanResume();
 	}
 
 	// A dropped connection: the member keeps the seat for GRACE, then is treated as having left.
@@ -354,14 +355,38 @@ public final class Lobby {
 		room.pause();
 	}
 
+	// A paused game with no Room player connected or in grace can never resume: drop the Room
+	// (nothing more from it is delivered), remove the members whose grace expired and return to
+	// LOBBY without a gameOver. An already running empty timer is left as it is (cycle 044).
+	private void abandonIfNobodyCanResume() {
+		if (room == null || !room.paused()) {
+			return;
+		}
+		for (Member m : members) {
+			if ((m.connected || m.inGrace) && roomPlayers.contains(m.id)) {
+				return;
+			}
+		}
+		members.removeIf(m -> !m.connected && !m.inGrace);
+		room = null;
+		roomOutbox = null;
+		roomPlayers.clear();
+		armIdle();
+		sendRoster();
+	}
+
 	// The grace ran out (or the member left during it): in LOBBY they are removed, in a game they
-	// stay disconnected until the return. Re-arms neither the empty nor the idle timer: the empty
-	// timer runs from the last disconnect.
+	// stay disconnected until the return, unless that abandons a paused game. Re-arms neither the
+	// empty nor the idle timer (except the abandon's idle timer): the empty timer runs from the last
+	// disconnect.
 	private void expireGrace(Member m) {
 		endGrace(m);
 		if (room == null) {
 			members.remove(m);
 			sendRoster();
+		}
+		else {
+			abandonIfNobodyCanResume();
 		}
 	}
 
