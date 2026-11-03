@@ -41,3 +41,13 @@ Serve cached audio only through short-lived random tokens, with no response deta
 
 ## Out of scope
 Who issues tokens and with which TTL (rounds, S-003); WebSocket; rate limiting.
+
+## Result
+- Tests `7485221` (locked); implementation `bd2d458` (attempt 1).
+- Red phase (verifier): `:compileTestJava FAILED`, 3 errors, all "cannot find symbol" for `AudioTokens`.
+- Verifier: `cleanTest test`, `build`, `cleanTest test --offline` exit 0; 64 tests, 0 failures; `git diff 7485221 HEAD -- backend/src/test` empty. Live jar: `GET /audio/nope` gives `404`, `{"error":"not found"}`.
+
+## Code review (critic)
+No Blocker or High. The critic ran the built classes against the real `data/` (195 candidates at the time) and issued real tokens: a valid token returned the exact 3,494,723-byte file with only `Cache-Control`, `Content-Type`, `Content-Length` and `Date`; Range, `If-Modified-Since` and a foreign `Origin` changed nothing; expired, non-candidate and random tokens gave identical 404s; 20 parallel downloads matched the original; aborted clients produced no log noise; the only application log line carried a 6-character token prefix.
+- **M1.** Catalog ids are the public AnimeThemes ids, so the "answer-safe" `toString` is safe for server logs only; recorded in CLAUDE.md's multiplayer rules and on S-003.
+- **Nit (follow-up).** No test pins streaming.
