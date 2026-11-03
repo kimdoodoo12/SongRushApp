@@ -357,7 +357,7 @@ class LobbyPauseTest {
 		assertThat(outbox.since(mark)).as("nothing is sent").isEmpty();
 		assertThat(lobby.closed()).isFalse();
 		assertThat(closedCalls.get()).isZero();
-		assertThat(lobby.phase()).as("still paused in song 0").isEqualTo(Room.Phase.PLAYING);
+		assertThat(lobby.phase()).as("abandoned once the last grace expired (cycle 044 attempt 2)").isEqualTo(Room.Phase.LOBBY);
 
 		scheduler.advance(Duration.ofMillis(1));
 		assertThat(lobby.closed()).isTrue();
