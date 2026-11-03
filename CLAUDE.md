@@ -50,7 +50,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 | Area | Test | Lint / build |
 |---|---|---|
 | backend | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
-| frontend (verified once bootstrapped) | `npm test` (from `frontend/`) | `npm run lint`; build `npm run build` |
+| frontend | `npm test` (from `frontend/`); `npm ci` once after a fresh clone | `npm run lint`; build `npm run build` |
 | data | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet. Setup once from `data/`: `python -m venv .venv`, then `.venv\Scripts\python.exe -m pip install -r requirements.txt` |
 
 Drop "(verified once bootstrapped)" from a row only after its bootstrap cycle has run that command successfully.

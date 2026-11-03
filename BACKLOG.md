@@ -173,7 +173,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-007** backend: minimal WebSocket endpoint for solo play (from S-003, design 034; M-1)
   - `/ws` raw WebSocket with JSON `{type, ...}`: `create{nickname, songCount}` makes a one-player room that starts at once; the client receives `prepare`, `start`, `chat`, `correct`, `reveal`, `scores`, `gameOver`, `pong`, `error`; it sends `ready{index}`, `chat`, `ping`, `leave`. Each session has a bounded outbound queue drained by its own sender, so the room executor never blocks; a session whose queue overflows is closed. From the cycle 036 review: the `Outbox` must never throw into the room (a throw mid-transition leaves the room stuck in REVEAL); per-recipient failures are dropped and logged, and a test pins it. Message size 4 KiB; nickname 1-16, chat 200 characters.
   - Acceptance (JUnit, RANDOM_PORT, `StandardWebSocketClient`, fixture catalog and audio cache in a temp data dir): a solo game of 5 songs runs to `gameOver` with correct answers and timeouts; `prepare.audioUrl` downloads through `/audio/<token>`; oversize input gives `error`; ping returns server time.
-- [ ] **F-001** frontend: React JavaScript bootstrap
+- [x] **F-001** frontend: React JavaScript bootstrap
   - `frontend/`: React with JSX, Vite, Vitest with jsdom and Testing Library, ESLint with a flat config. No `.ts` or `.tsx` files, and no TypeScript dependency.
   - Acceptance:
     - The app renders an `h1` "SongRush". A test pins it.
@@ -181,6 +181,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 
 - [ ] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
+  - From the cycle 038 review: make the lint script `eslint . --max-warnings 0` so React Hooks and React Refresh warnings fail lint; tests live at `src/**/*.test.{js,jsx}` (the Vitest projects only include that pattern), and a test that reads files through `import.meta.url` must be added to the `node` project.
   - From the cycle 037 review: `/ws` keeps Spring's same-origin check, so the dev server must proxy `/ws` and `/audio` without `changeOrigin` (or a dev-only allowed origin), else the handshake gets 403.
   - A start screen (nickname, song count) and a play screen: an audio-unlock click (`AudioContext.resume()`), fetch and decode of `prepare.audioUrl`, then `ready{index}`, playback at `start` (from offset `now - startAt` if late, stopping at `deadlineAt`), a remaining-time bar (D-060), chat input, "정답!" announcement, reveal card, final score; Korean UI; the credit line (D-023); an "update your browser/iOS" notice when Ogg Opus cannot play (D-053).
   - Acceptance (Vitest with a mocked WebSocket and AudioContext): message flow renders each phase; a late start uses the offset; unsupported audio shows the notice; `npm test`, `npm run lint`, `npm run build` exit 0.
