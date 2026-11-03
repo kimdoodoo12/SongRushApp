@@ -20,7 +20,9 @@ Same `crawl(client, cache, *, refresh_all=False, log=print) -> CrawlResult`.
    - (b) the fresh page is full (`PER_PAGE` items), now has `hasMorePages` true, and the new total is larger than the old one by at least the number of new ids on the page (which may be zero, when the cached last page was already full). A page that only flips `hasMorePages` with an unchanged total is not an append (N1).
    In both cases the fresh page replaces the cached entry, the new items are added, the remembered total becomes the fresh total, the crawl logs `crawl: last page <n> gained <k> anime` (k may be 0 in case b), and when `hasMorePages` is true it continues with the next pages as usual. Any other change still clears and restarts.
 3. **End-of-pass check** (a cheap extra guard, not the main one). If the total grew during the pass (rule 1 or 2), the pass must end with exactly `total` items; otherwise the crawl logs `crawl: item count <n> does not match total <t> after the source grew` and clears and restarts. When the total did not change during the pass, a mismatch stays a warning, as before (cycle 017).
-4. The restart cap of two (cycle 023), the resume-shift check, validation, the duplicate check and the order warning are unchanged.
+4. The restart cap of two (cycle 023), the resume-shift check, validation, the duplicate check and the order warning are unchanged, except:
+5. **Verification refetches are not cached** (code review H1, attempt 2). The refetch of page n-1 in rule 1 reads the source without writing the cache. When its ids match, page n-1's existing cache entry stays as it is; nothing about page n-1 changes.
+6. **Giving up clears the cache** (code review H1 and M1, attempt 2). When the restart cap is reached, the crawl clears the page prefix, logs `crawl: giving up after 2 restarts; cleared <k> entries`, and then raises `ValueError`. The next run therefore starts from an empty cache instead of trusting pages written during a pass that never finished consistently.
 
 ## Acceptance criteria (offline, fake transport; synthetic pages of 100 items unless stated)
 1. **Spill onto a new page:** three cached pages of 100, 100 and 100 items (total 300, last page `hasMorePages` false); the source now has 301 anime (page 3 full with `hasMorePages` true, page 4 with 1 item, every page reporting total 301). The crawl makes exactly the requests `[3, 4]`, clears nothing, logs `gained 0 anime`, and returns 301 items in id order. **A second crawl with the same cache against the unchanged source makes exactly `[4]` and logs no `cleared` line** (M2).
@@ -35,8 +37,12 @@ Same `crawl(client, cache, *, refresh_all=False, log=print) -> CrawlResult`.
 8. **Replaced cycle 023 tests:** `test_crawl_total_changed_mid_pass_clears_and_restarts` and `test_crawl_total_keeps_changing_raises_after_two_restarts` pinned "any total change restarts". They are replaced by criteria 4, 5 and 6 (a growing total now continues; a shrinking total, or growth that does not add up, restarts). Every other existing crawl test passes unchanged, including `test_crawl_summary_and_total_warning` (a static mismatch stays a warning).
 9. `.venv\Scripts\python.exe -m pytest` exits 0 from `data/`.
 
+10. **Failed verification at the cap leaves nothing behind** (attempt 2): a source that deletes its smallest id and adds two ids before the requests that verify page n-1 with n >= 3, every pass, makes the crawl raise `ValueError` at the cap; afterwards the cache holds no page entry, and a second crawl against the now-stable source returns exactly the source's ids.
+11. **Rule 3 at the cap** (attempt 2): with criterion 6's static source, after the `ValueError` the cache holds no page entry, and a second crawl again raises `ValueError` rather than succeeding with a warning.
+12. **A verification refetch does not rewrite page n-1** (attempt 2): in criterion 4's first crawl, page 1's cache entry after the crawl is byte-identical to the body of the first page 1 response.
+
 ## Test list
-- `data/tests/test_animethemes.py`: criteria 1-7, 5b and 5c added; the two tests named in criterion 8 replaced. No other existing test changes.
+- `data/tests/test_animethemes.py`: criteria 1-7, 5b, 5c and (attempt 2) 10-12 added; criterion 6's test now also expects the give-up clear (three `cleared` lines instead of two); the two tests named in criterion 8 replaced. No other existing test changes.
 
 ## File ownership
 - Test writer: `data/tests/test_animethemes.py`.
@@ -49,6 +55,12 @@ Same `crawl(client, cache, *, refresh_all=False, log=print) -> CrawlResult`.
 - **N1, N2.** Case (b) requires a strictly larger total; `total grew` is logged for fetched pages only.
 - Criterion 5 names the transport and the expected outcome after the restart.
 - **Round 2.** The critic re-simulated the revised rules: the round 1 cases (A, B, C, C2) end with nothing lost and no needless clear. New **M1**: a page with a larger total was written to the cache before its verification, so an interrupted verification (network error, validation error, or the restart cap) left an unverified page, and the next run silently lost an anime. Such a page is now deleted when verification does not succeed (criterion 5c). **N1**: the resume-check page's handling is stated. **N2**: a larger total on a cached page does not count as growth for rule 3. **N3**: criteria 5b and 6 give exact request lists.
+
+## Code review (critic), attempt 1
+- **H1.** The page n-1 verification refetch wrote the refetched page to the cache; when the ids differed at the restart cap, the `finally` deleted only page n, so a shifted page n-1 with a larger total stayed cached and every later run silently lost one anime (reproduced: `lost [6] stale [3]` on runs 2-4). Fixed by rules 5 and 6.
+- **M1.** When rule 3 raised at the cap, the pages with the grown total stayed cached and the next run succeeded with only a warning. Fixed by rule 6.
+- **N1.** The verification refetch could store page n-1 with a larger total than page n, forcing a needless full clear on the next run. Fixed by rule 5.
+- The two gaps the implementer reported (last-page freshness and resume-check refetch at the cap) cannot occur: both run only on cache hits, and every pass after a restart starts from a cleared cache. Rule 6 also removes them as a latent risk.
 
 ## Out of scope
 A change with no net effect on the total (one anime deleted and one added in different pages) is not detected; this limit existed in cycles 017 and 023 too. `refresh_all` covers it.
