@@ -131,7 +131,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
-- [ ] **C-009** data: manual Korean supplement (from design 014, D-040)
+- [~] **C-009** data: manual Korean supplement (from design 014, D-040)
   - `data/korean_titles_manual.json` maps an AniList id to Korean titles. It is merged as Korean titles.
   - Acceptance:
     - The merge is tested.
