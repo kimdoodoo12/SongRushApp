@@ -93,3 +93,12 @@ Solo keeps the cycle 039 receipt-time offset (`serverTime - now()` at `start`). 
 ## Out of scope
 - **A separate I-003 test page.** The solo screen already serves it; see the BACKLOG I-003 text.
 - **The multiplayer game screen** (F-005).
+
+## Result
+- Tests `28cd4ae` (locked, after one pre-lock fix of a vacuous latency test found by the verifier); implementation `bca8b52` (attempt 1).
+- Red phase (verifier): `clockSync.test.js` failed only on the missing module; 5 of 6 latency tests failed on the unsupported option; 24 of 28 App.sync tests failed on missing pings, prompt, audio session, latency or resume; the passing ones are deliberate negative guards; every earlier test passed.
+- Verifier: `npm test` twice (8 files, 116 tests), `npm run lint`, `npm run build` exit 0; no test or fake file changed after `28cd4ae`.
+
+## Code review (critic)
+No Blocker or High. Confirmed: offset sign and maths match `planPlayback`; pings are per session and stop on close; no StrictMode double effects; the audio session and resumes happen inside the click; no `eslint-disable`.
+- **M1 (to F-005, fairness).** On a detected drift the song still uses the old estimate; a client whose clock stepped forward would start early. The fix changes the spec and the locked drift test.
