@@ -89,3 +89,16 @@ No Blocker or High. External source rules hold in `build.run` (gaps 3/2/3/3 s, A
 - **F1, F2 (Medium, queued as C-012).** With real 100-item pages, a new anime that spills onto a new page, or a total change during a resumed or first crawl, still clears the whole AnimeThemes cache and restarts; the has-more continuation branch cannot be reached with consistent pages, and its test uses a page shape the source never sends.
 - **F3 (Medium, follow-up).** `main` does not enable line buffering, so a background build's log file stays empty until the buffer fills; the first real build is run with `python -u`.
 - **F4 (Medium, follow-up).** No test pins the per-source gaps and timeouts.
+
+## First real build (lead, 2026-11-03)
+Command: `.venv/Scripts/python.exe -u -m songrush_data.build` from `data/`, in the background with the log in `data/cache/build-first.log` (`-u` because of review F3). Started about 08:25 KST, finished 08:42:55 KST, exit 0; about 17 minutes. No restart, no 429, no warning lines.
+- Crawl: `crawl pages=51 anime=5021 total=5021`.
+- AniList: `anilist media=5004 missing=0 cached=0` (batches of 50; no complexity error, so `--anilist-batch 25` was not needed).
+- Wikidata: `wikidata ids=5004 with_ko=1211 cached=0`.
+- aod: `aod release=2026-27 records=41537 anilist_ids_with_korean=2662` (cached file, no download).
+- `build counts {"anime": 5021, "drawSet": 1500, "drawSetAnime": 353, "groups": 3321, "playableAnime": 5015, "themes": 14591}`.
+- `build catalog bytes=5688820` (5.7 MB, under the 12 MB cap; the spec-review estimate was 5.5-7 MB).
+- `build englishFromSynonyms catalog=147 drawSet=0`, `build drawSetNoReveal=0`, `build unplayable=6`, `build koreanGaps=96`.
+- Largest groups (20 logged) include Sword Art Online (11), DanMachi (11), Saint Seiya (10) and Lupin the 3rd (10); every logged group is one franchise, so no over-join was seen.
+- Top Korean gaps by popularity: Shingeki no Kyojin Season 3 Part 2, Black Clover, Haikyuu!!, Boku no Hero Academia 4, Jujutsu Kaisen 2nd Season (design 014 F3 predicted later seasons).
+- Committed: `data/catalog.json` and `data/korean_gaps.json`.
