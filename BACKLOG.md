@@ -141,7 +141,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Re-research how to fetch, cache and serve the songs (D-009, D-018, D-019, D-021, D-026, D-027), including what browsers can play and how every player starts at the same moment.
   - Output: a design doc plus C-, B- and F- items.
   - Real-device checks need the user (Needs decision).
-- [ ] **C-015** data: audio prefetch (from S-002, design 029)
+- [~] **C-015** data: audio prefetch (from S-002, design 029)
   - `python -m songrush_data.audio` downloads every draw-set theme's audio from `audio.url` to `data/audio-cache/<basename>` (folder gitignored): `GET` only (`HEAD` is 403), the SongRush User-Agent, one request at a time, at least 3 s apart, timeout of at least 60 s, `Retry-After` honoured; each file is written to `<basename>.part`, checked against the catalog's `audio.size` and the Ogg `OpusHead` header, then renamed; leftover `.part` files are overwritten; files already present and listed in the index are skipped, so a rerun resumes.
   - It writes `data/audio-cache/index.json`: theme id -> `{basename, size, durationMs}`, duration from the last granule position minus pre-skip at 48 kHz.
   - It stops at once on a local write error (removing the `.part`) and after 5 consecutive failed downloads; a lock file prevents two runs, and a stale lock gives a clear message to delete it; a summary logs done/skipped/failed counts and bytes.
