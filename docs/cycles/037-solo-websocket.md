@@ -80,3 +80,14 @@ Tests start the app with `@SpringBootTest(webEnvironment = RANDOM_PORT)` and `so
 
 ## Out of scope
 Room codes, multiple players, the lobby (B-005a), reconnect (B-005b), rate limits and skip (B-006b), the frontend (F-001, F-002), and a limit on the number of rooms (friends-only play; revisit with D-010 before M-4).
+
+## Result
+- Tests `27cab9e` (locked); implementation `2ca6efd` (attempt 1).
+- Red phase (verifier): `:compileTestJava FAILED`, 23 errors, all missing `OutboundQueue`, `OutboundQueue.Sink` or `SocketOutbox` (or their `@Override` cascade); against stubs the four test files compiled cleanly.
+- Verifier: `cleanTest test` exit 0 in runs 1 and 4 (16 suites, 0 failures; SoloSocketTest 13 tests in about 62 s, OutboundQueueTest 7), `build` exit 0; `git diff 27cab9e HEAD -- backend/src/test` empty; `ws` sources ASCII-only; no container bean. Runs 2 and 3 failed inside Gradle's result files (`EOFException`, `NoSuchFileException` under `build/test-results/test/binary`) because the critic ran Gradle on the same folder at the same time; no test assertion failed (recorded as a pitfall in CLAUDE.md).
+
+## Code review (critic)
+No Blocker or High. A scratch stress run of `OutboundQueue` (4 producers x 50 messages x 2000 rounds, plus 500 rounds of overflow and send failure closing together) found no lost wakeups, order violations or double closes; sends happen only in the drain; every discard path shuts the room executor down; logs carry no chat text, titles or tokens.
+- **M1 (follow-up).** No test pins that a socket close or `leave` stops the room thread.
+- **Nits (follow-up).** A binary frame closes the socket with 1003; an unexpected handler exception sends nothing.
+- **Note for F-002.** Spring's same-origin handshake check means the frontend dev server must proxy `/ws` without changing the origin.
