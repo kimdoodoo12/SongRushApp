@@ -36,3 +36,11 @@ The critic ran a Java 17 implementation of these steps against Python: 0 mismatc
 
 ## Out of scope
 `strip_qualifier`, `head` and front parts (only the data tools need them; accepted strings are precomputed). Matching rules (B-006a).
+
+## Result
+- Tests `f523b9e` (locked); implementation `0139679` (attempt 1).
+- Red phase (verifier): `:compileTestJava FAILED`, 5 errors, all "cannot find symbol" for `Normalize`.
+- Verifier: `cleanTest test` and `build` exit 0; 13 suites, 0 failures; NormalizeTest 4 tests; `git diff f523b9e HEAD -- backend/src/test` empty; `Normalize.java` is ASCII-only.
+
+## Code review (critic)
+No findings at Blocker, High, Medium or Nit. The critic compiled `Normalize.java` into a harness and compared it with Python over all 1,114,112 single code points, 200,000 random risky strings and 28 named edge cases (surrogate pairs, unpaired surrogates, ZWJ sequences, variation selectors, tags): the only differences were the 420 Unicode 14/15 code points the spec accepts.
