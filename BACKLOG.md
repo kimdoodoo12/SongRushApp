@@ -243,9 +243,10 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 - [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time; then joins one room from the PC browser and the iPhone and reports whether both start the song together (no echo between the two). The silent switch should not matter (cycle 047 sets the audio session to playback). Agents cannot run this.
 
-- [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
+- [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-065** Hosting (user, 2026-11-04; settles D-010): deploy on AWS EC2 free tier (t3.micro-class, 1 GB RAM, up to 30 GB EBS, free for 12 months after sign-up). The M-4 design sizes the JVM for 1 GB, plans the 5.5 GB audio upload and the WebSocket-capable setup, and lists what the user must do in the AWS console (account, instance, security group, any domain or certificate).
 - **D-064** Mobile app scope (user, 2026-11-03): the Flutter app (M-6) starts after the web deployment (M-4), so it can connect to the public server; it targets both Android and iOS (iOS builds need a Mac or a cloud build and an Apple developer account).
 - **D-063** Mobile app (user, 2026-11-03): besides the web client, a mobile-only app will be built with Flutter ("Flutter 써서 모바일 전용으로도 할 계획"); it reuses the backend and its protocol. Recorded as Roadmap M-6; its scope and timing are confirmed with the user before it is planned.
 - **D-058** Song count (user, 2026-11-03): the host chooses 5-30 songs per game, default 10 (refines D-047's range proposal).
