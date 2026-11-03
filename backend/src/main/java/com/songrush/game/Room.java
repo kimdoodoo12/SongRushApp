@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,6 +45,13 @@ public final class Room {
 
 	static final int MAX_CHAT = 200;
 
+	// Chat token bucket (D-024), in thousandths of a token so the refill fraction carries over exactly.
+	static final long ONE_TOKEN = 1000;
+
+	static final long BUCKET_CAPACITY = 5 * ONE_TOKEN;
+
+	static final long REFILL_PER_MS = 2;
+
 	private static final Duration TOKEN_TTL = PREPARE_TIMEOUT.plus(LEAD).plus(MAX_PLAY).plus(TOKEN_SLACK);
 
 	private static final List<String> TITLE_KEYS = List.of("ko", "en", "ja", "romaji");
@@ -67,6 +75,14 @@ public final class Room {
 	private final Map<String, Integer> scores = new LinkedHashMap<>();
 
 	private final Set<String> ready = new HashSet<>();
+
+	// Room players whose connection the lobby reported as dropped (docs/cycles/045-multiplayer-rounds.md).
+	private final Set<String> disconnected = new HashSet<>();
+
+	// Skip votes for the current song; cleared on every prepare and reveal.
+	private final Set<String> votes = new HashSet<>();
+
+	private final Map<String, Bucket> buckets = new HashMap<>();
 
 	private Phase phase = Phase.LOBBY;
 
@@ -109,6 +125,7 @@ public final class Room {
 				throw new IllegalArgumentException("duplicate player id: " + p.id());
 			}
 			scores.put(p.id(), 0);
+			buckets.put(p.id(), new Bucket(clock.millis()));
 		}
 	}
 
@@ -203,18 +220,68 @@ public final class Room {
 	}
 
 	public void ready(String playerId, int index) {
-		if (paused || phase != Phase.PREPARE || index != songIndex || !byId.containsKey(playerId)) {
+		if (paused || phase != Phase.PREPARE || index != songIndex || !isConnected(playerId)) {
 			return;
 		}
 		ready.add(playerId);
-		if (ready.size() == players.size()) {
-			startSong();
+		startIfAllReady();
+	}
+
+	// The lobby's report of a Room player's connection; an unknown id or no change is ignored. A
+	// disconnect drops the player's ready mark and skip vote, then the ready and skip rules run again
+	// over the players still connected.
+	public void setConnected(String playerId, boolean connected) {
+		if (!byId.containsKey(playerId) || connected == isConnected(playerId)) {
+			return;
 		}
+		boolean hadVotes = !votes.isEmpty();
+		if (connected) {
+			disconnected.remove(playerId);
+		}
+		else {
+			disconnected.add(playerId);
+			ready.remove(playerId);
+			votes.remove(playerId);
+		}
+		if (paused) {
+			return;
+		}
+		if (phase == Phase.PREPARE) {
+			startIfAllReady();
+		}
+		else if (phase == Phase.PLAYING && hadVotes) {
+			sendSkipStateAndPass();
+		}
+	}
+
+	// Removes the player's skip vote, if any, and tells everyone the new count.
+	public void clearSkipVote(String playerId) {
+		if (votes.remove(playerId)) {
+			sendSkipStateAndPass();
+		}
+	}
+
+	// Toggles the player's vote to skip the current song (D-012, D-017); from PLAYING only, also
+	// before startAt. A vote costs a chat token.
+	public void skip(String playerId, int index) {
+		if (paused || phase != Phase.PLAYING || index != songIndex || !isConnected(playerId)) {
+			return;
+		}
+		if (!takeToken(playerId)) {
+			return;
+		}
+		if (!votes.remove(playerId)) {
+			votes.add(playerId);
+		}
+		sendSkipStateAndPass();
 	}
 
 	public void chat(String playerId, String text) {
 		PlayerRef player = byId.get(playerId);
 		if (paused || player == null || text == null) {
+			return;
+		}
+		if (!takeToken(playerId)) {
 			return;
 		}
 		if (text.length() > MAX_CHAT) {
@@ -236,24 +303,66 @@ public final class Room {
 		}
 		Song song = songs.get(songIndex);
 		boolean match = catalog.accepted(song.anime().group()).contains(normalized);
-		if (!match) {
+		if (phase == Phase.PREPARE || now < startAt) {
+			// Too early: match or miss, only the sender sees it, so nothing tells whether it matched.
+			outbox.toPlayer(playerId, chat);
+		}
+		else if (!match) {
 			outbox.toAll(chat);
 		}
-		else if (phase == Phase.PLAYING && now >= startAt) {
+		else {
 			scores.merge(playerId, 1, Integer::sum);
 			outbox.toAll(message("correct", "index", songIndex, "name", player.name()));
 			endSong(player);
 		}
-		else {
-			// Too early: looks to the sender exactly like a miss, and no one else sees it.
-			outbox.toPlayer(playerId, chat);
+	}
+
+	private boolean isConnected(String playerId) {
+		return byId.containsKey(playerId) && !disconnected.contains(playerId);
+	}
+
+	private int connectedCount() {
+		return players.size() - disconnected.size();
+	}
+
+	// In PREPARE: starts the song once every connected player is ready (never with nobody connected).
+	private void startIfAllReady() {
+		int connected = connectedCount();
+		if (connected > 0 && ready.size() == connected) {
+			startSong();
 		}
+	}
+
+	// Sends everyone skipState; ends the song with no winner when the votes reach a majority of the
+	// connected players.
+	private void sendSkipStateAndPass() {
+		int needed = connectedCount() / 2 + 1;
+		outbox.toAll(message("skipState", "index", songIndex, "votes", votes.size(), "needed", needed));
+		if (votes.size() >= needed) {
+			endSong(null);
+		}
+	}
+
+	// Spends one token of the player's bucket after the refill; without one, only the sender gets
+	// rate-limited.
+	private boolean takeToken(String playerId) {
+		Bucket bucket = buckets.get(playerId);
+		long now = clock.millis();
+		bucket.tokens = Math.min(BUCKET_CAPACITY, bucket.tokens + Math.max(0, now - bucket.lastMs) * REFILL_PER_MS);
+		bucket.lastMs = now;
+		if (bucket.tokens < ONE_TOKEN) {
+			outbox.toPlayer(playerId, message("error", "code", "rate-limited"));
+			return false;
+		}
+		bucket.tokens -= ONE_TOKEN;
+		return true;
 	}
 
 	private void prepare(int index) {
 		phase = Phase.PREPARE;
 		songIndex = index;
 		ready.clear();
+		votes.clear();
 		String token = tokens.issue(songs.get(index).theme().id(), TOKEN_TTL);
 		audioUrl = "/audio/" + token;
 		outbox.toAll(message("prepare", "index", index, "total", songs.size(), "audioUrl", audioUrl));
@@ -272,6 +381,7 @@ public final class Room {
 
 	private void endSong(PlayerRef winner) {
 		phase = Phase.REVEAL;
+		votes.clear();
 		Song song = songs.get(songIndex);
 		Map<String, List<String>> titles = new LinkedHashMap<>();
 		for (String key : TITLE_KEYS) {
@@ -350,6 +460,19 @@ public final class Room {
 			m.put((String) keysAndValues[i], keysAndValues[i + 1]);
 		}
 		return m;
+	}
+
+	// Thousandths of a token, and when it was last refilled.
+	private static final class Bucket {
+
+		long tokens = BUCKET_CAPACITY;
+
+		long lastMs;
+
+		Bucket(long lastMs) {
+			this.lastMs = lastMs;
+		}
+
 	}
 
 	private record Song(Candidate candidate, Theme theme, Anime anime) {

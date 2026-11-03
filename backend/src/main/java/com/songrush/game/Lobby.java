@@ -194,6 +194,7 @@ public final class Lobby {
 		if (host() == null) {
 			armEmpty();
 		}
+		markRoomConnection(m.id, false);
 		pauseIfNoRoomPlayer();
 		abandonIfNobodyCanResume();
 	}
@@ -217,6 +218,7 @@ public final class Lobby {
 		if (host() == null) {
 			armEmpty();
 		}
+		markRoomConnection(m.id, false);
 		pauseIfNoRoomPlayer();
 	}
 
@@ -230,6 +232,10 @@ public final class Lobby {
 		}
 		if (m.connected) {
 			sendJoinedAndSnapshot(m);
+			// The new socket starts with no vote, so a toggle never cancels a vote it cannot see.
+			if (room != null && roomPlayers.contains(m.id)) {
+				room.clearSkipVote(m.id);
+			}
 			return true;
 		}
 		if (!m.inGrace) {
@@ -240,8 +246,12 @@ public final class Lobby {
 		cancelEmpty();
 		sendJoinedAndSnapshot(m);
 		sendRoster();
-		if (room != null && room.paused() && roomPlayers.contains(m.id)) {
-			room.resume();
+		if (room != null && roomPlayers.contains(m.id)) {
+			room.setConnected(m.id, true);
+			room.clearSkipVote(m.id);
+			if (room.paused()) {
+				room.resume();
+			}
 		}
 		return true;
 	}
@@ -300,6 +310,12 @@ public final class Lobby {
 		}
 	}
 
+	public void skip(String playerId, int index) {
+		if (forwards(playerId)) {
+			room.skip(playerId, index);
+		}
+	}
+
 	private boolean forwards(String playerId) {
 		Member m = member(playerId);
 		return !closed && room != null && m != null && m.connected;
@@ -340,6 +356,13 @@ public final class Lobby {
 			}
 		}
 		onClosed.run();
+	}
+
+	// Tells the current Room that one of its players' connection changed.
+	private void markRoomConnection(String playerId, boolean connected) {
+		if (room != null && roomPlayers.contains(playerId)) {
+			room.setConnected(playerId, connected);
+		}
 	}
 
 	// During a game with no connected Room player, the Room stops using up songs until one returns.
