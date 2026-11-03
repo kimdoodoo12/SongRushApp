@@ -27,7 +27,7 @@ class SongrushPropertiesTest {
 	}
 
 	@Nested
-	@SpringBootTest(properties = "songrush.data-dir=/tmp/x")
+	@SpringBootTest(properties = "songrush.data-dir=src/test/resources/catalog")
 	class Override {
 
 		@Autowired
@@ -35,7 +35,7 @@ class SongrushPropertiesTest {
 
 		@Test
 		void dataDirTakesConfiguredValue() {
-			assertThat(properties.dataDir()).isEqualTo(Path.of("/tmp/x"));
+			assertThat(properties.dataDir()).isEqualTo(Path.of("src/test/resources/catalog"));
 		}
 	}
 }
