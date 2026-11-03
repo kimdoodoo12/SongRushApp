@@ -1,0 +1,24 @@
+# SongRush game server. setup.sh copies this to /etc/systemd/system/.
+# WorkingDirectory holds nothing else, so Spring finds no public/ or static/
+# folder by accident; the web files come only from /opt/songrush/web/.
+[Unit]
+Description=SongRush game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=songrush
+Group=songrush
+WorkingDirectory=/opt/songrush/run
+Environment=SERVER_ADDRESS=127.0.0.1
+Environment=SONGRUSH_DATA_DIR=/opt/songrush/data
+Environment=SPRING_WEB_RESOURCES_STATIC_LOCATIONS=file:/opt/songrush/web/
+Environment=SPRING_WEB_RESOURCES_CACHE_CACHECONTROL_NO_CACHE=true
+ExecStart=/usr/bin/java -Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -jar /opt/songrush/app/songrush.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

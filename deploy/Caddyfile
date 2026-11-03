@@ -1,0 +1,16 @@
+# SongRush site. setup.sh replaces __SONGRUSH_HOST__ with the real hostname
+# when it installs this file to /etc/caddy/Caddyfile; Caddy then gets the
+# HTTPS certificate on its own. There is deliberately no log directive.
+__SONGRUSH_HOST__ {
+	encode gzip
+
+	# Vite puts content-hashed files under /assets/, so they never change.
+	# defer: apply after the proxied response, replacing the backend's
+	# no-cache header instead of adding a second Cache-Control value.
+	header /assets/* {
+		Cache-Control "public, max-age=31536000, immutable"
+		defer
+	}
+
+	reverse_proxy 127.0.0.1:8080
+}

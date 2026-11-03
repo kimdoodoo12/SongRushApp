@@ -233,13 +233,16 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
   - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
   - Acceptance (JUnit): proxied handshake (`Origin: https://play.test`, `X-Forwarded-Proto: https`) gets 101 and a foreign origin 403; forwarded client address; `/`, `/assets/x.js`, `/r/ABCDE` served; traversal not served; `/ws`, `/audio/*`, `/health` unchanged; no static location keeps today's 404; overlap with data-dir fails startup.
-- [ ] **I-004** deploy kit files (from M-4, design 052)
+- [x] **I-004** deploy kit files (from M-4, design 052)
   - `deploy/Caddyfile`, `deploy/songrush.service` (`-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`, `SERVER_ADDRESS=127.0.0.1`), `deploy/setup.sh` (Ubuntu 24.04), `deploy/upload.sh` (OpenSSH `sftp` only, resumable, exact boot jar).
   - From the cycle 054 review: `upload.sh` always uploads `index.html` (a same-size new index would be skipped); the unit fixes `WorkingDirectory` to a folder with no `public/`, `static/` or `src/main/webapp/` (Boot also serves the servlet document root); the web folder holds no symlinks.
   - Acceptance (pytest `data/tests/test_deploy_kit.py`, offline): `bash -n`; ASCII + LF; unit env keys are `SongrushProperties` fields or allow-listed Spring keys; `upload.sh --dry-run` runs no `ssh`/`sftp` (stub PATH). The lead adds `"deploy": {"data"}` to the Stop hook's `EXTRA_AREAS`.
 - [ ] **I-005** smoke check script (from M-4, design 052)
   - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
   - Acceptance (pytest, loopback stub server): all pass gives exit 0; a missing credit line or an `error` reply gives exit 1 naming the check.
+- [ ] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
+  - `setup.sh`: wait for `cloud-init status --wait` and pass `-o DPkg::Lock::Timeout=600` to every `apt-get` (a fresh EC2 often holds the dpkg lock); make the Caddy repo step recover from a half-written key or list (download to a temp file and `mv`, or re-download every run). `upload.sh`: put the jar first in the batch, keep `songrush.jar.prev`, and after the restart poll `http://127.0.0.1:8080/health` on the server for up to 60 s, printing `journalctl -u songrush -n 50` and exiting non-zero on failure. Unit: `ConditionPathExists=/opt/songrush/app/songrush.jar`.
+  - Acceptance (pytest, extending the deploy-kit checks in a new test file): each of these is present and ordered as stated; the stubbed real run sees the jar `put` before any web file and a final ssh command containing the health poll.
 - [ ] **I-006** owner runbook (from M-4, design 052)
   - `deploy/README.md` in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
   - Acceptance (pytest): commands only in fenced `bash` blocks; every `deploy/<file>` they name exists; every `[A-Z_]{3,}=` key is set by the unit or Caddyfile.
