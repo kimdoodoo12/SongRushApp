@@ -14,20 +14,24 @@ function median(values) {
 }
 
 // samples: [{ t0, t1, serverTime }]. Keeps the 3 lowest-rtt samples; the
-// offset is the median of theirs and rttMs the lowest rtt. null for none.
+// offset is the median of theirs and rttMs the lowest rtt. A negative rtt
+// (the client clock stepped backwards) is ignored. null for none.
 export function estimate(samples) {
-  if (samples.length === 0) return null
-  const measured = samples.map(({ t0, t1, serverTime }) => {
-    const rtt = t1 - t0
-    return { rtt, offset: serverTime - (t0 + rtt / 2) }
-  })
+  const measured = samples
+    .map(({ t0, t1, serverTime }) => {
+      const rtt = t1 - t0
+      return { rtt, offset: serverTime - (t0 + rtt / 2) }
+    })
+    .filter((m) => m.rtt >= 0)
+  if (measured.length === 0) return null
   measured.sort((a, b) => a.rtt - b.rtt)
   const kept = measured.slice(0, KEEP)
   return { offsetMs: median(kept.map((m) => m.offset)), rttMs: kept[0].rtt }
 }
 
 // send(msg) sends one ping{id}; schedule(fn, ms) sets one timer and returns
-// its cancel function. current() is the estimate over the last 8 samples.
+// its cancel function. current() is the estimate over the last 8 samples;
+// clear() drops the stored samples.
 export function createClockSync({ now, send, schedule }) {
   let nextId = 1
   // id -> t0 for the pings still waiting for their pong.
@@ -57,10 +61,16 @@ export function createClockSync({ now, send, schedule }) {
       if (!pending.has(msg.id)) return
       const t0 = pending.get(msg.id)
       pending.delete(msg.id)
-      samples = [...samples, { t0, t1: now(), serverTime: msg.serverTime }].slice(-WINDOW)
+      const t1 = now()
+      // A clock stepped backwards: the sample would only take a window slot.
+      if (t1 < t0) return
+      samples = [...samples, { t0, t1, serverTime: msg.serverTime }].slice(-WINDOW)
     },
     current() {
       return estimate(samples)
+    },
+    clear() {
+      samples = []
     },
     stop() {
       for (const cancel of cancels) cancel()

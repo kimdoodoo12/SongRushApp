@@ -40,13 +40,14 @@ function HostControls({ onStartGame }) {
   )
 }
 
-function LobbyScreen({ room, players, error, onStartGame, onLeave }) {
+function LobbyScreen({ room, players, error, notice, onStartGame, onLeave }) {
   const link = `${window.location.origin}/r/${room.code}`
   const own = players.find((p) => p.name === room.me)
   const isHost = own !== undefined && own.host
   return (
     <div className="lobby">
       <p className="room-code">{`방 코드: ${room.code}`}</p>
+      {notice !== null && notice !== undefined && <p className="notice">{notice}</p>}
       <p className="share">
         <span>{link}</span>{' '}
         <button type="button" onClick={() => copyLink(link)}>
