@@ -247,6 +247,13 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `docs/deploy-guide.md` (moved from `deploy/README.md`: the locked cycle 055 test keeps `deploy/` ASCII) in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
   - Acceptance (pytest): commands only in fenced `bash` blocks; every `deploy/<file>` they name exists; every `[A-Z_]{3,}=` key is set by the unit or Caddyfile.
 
+- [ ] **B-011** backend: OP/ED and year filters on the cached draw set (from M-5, design 059)
+  - Optional `types` / `yearFrom` / `yearTo` on `create` and `start`; `bad-filter` for invalid values; `not-enough-songs` gains `available` (one declared `RoomTest` assertion change); a `settings` message to all members before the first `prepare` and to late joiners.
+  - Acceptance (JUnit): see design 059 item 1.
+- [ ] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
+  - `곡 종류` and 5-year `연도` selects; only non-default fields sent; from>to guard on 시작 and 게임 시작; `available` error text with the old text as fallback; the received `settings` shown to everyone; selections kept across games.
+  - Acceptance (Vitest): see design 059 item 2.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -255,12 +262,14 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **M-2** *(planned in design 034: B-005a, F-003)* Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
 - [x] **M-3** *(planned in design 034: B-005b, B-006b, F-004, F-005)* Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
 - [x] **M-4** *(planned in design 052: S-003, B-009, I-004, I-005, I-006; I-007 needs the owner)* Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
-- [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
+- [x] **M-5** *(planned in design 059: B-011, F-008; tiers wait on D-069, widening on D-070)* Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
 - [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
 
 ## Needs decision
 
 - [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `docs/deploy-guide.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's account and D-066.
+- [?] **D-069** Popularity difficulty (design 059): tiers over the popularity rank of the 1,500 cached themes. (a) three tiers: easy = rank 1-300, normal = all (today), hard = 501-1,500 - recommended; (b) two tiers: easy = top 500, all; (c) a free top-N slider. Dependent: B-012 (backend rank filter, `rank` on `Candidate`) and F-009 (tier select), not in Ready until decided.
+- [?] **D-070** Widening beyond the cached set (design 059): (a) not now; keep the cached 1,500 and, if wanted, grow the cache offline (for example to the top 3,000, about 11 GB) - recommended; (b) build D-026's lobby fetch (the server fetches uncached songs from AnimeThemes while the lobby waits; needs its own design cycle).
 - [?] **D-066** Hostname for HTTPS (design 052): (a) a free IP-based name such as `<ip>.sslip.io` with Caddy's automatic certificate (no cost, no account; changes with the IP) - recommended to start; (b) a bought domain (about 15,000 KRW/year) on an Elastic IP; (c) DuckDNS (free, needs an account).
 - [?] **D-068** AWS sign-up plan and host (design 053; refines D-065, whose "12 months free" no longer applies to new accounts): Free plan (closes itself at 6 months or when the $100 credit runs out; data deleted 90 days later) vs Paid plan (same credits, never closes; pay after credits). Recommended: Paid plan + EC2 t3.micro + 16 GB gp3 + an AWS Budgets alert (free while credits last, then about $15/month; Lightsail Micro $7 later is an option).
 - [?] **D-067** Revisit D-025/D-057 before going public (design 052): (a) keep the modified-client risk accepted for friends-only play - recommended; (b) encrypt each round's audio and send the key at `startAt` (about one backend + frontend cycle).
