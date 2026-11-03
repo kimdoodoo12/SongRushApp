@@ -64,3 +64,8 @@ When every player of a running game has disconnected, the game stops using up so
 - Socket changes. The handler already maps a close to `disconnect` and a `rejoin` to `reconnect`.
 - B-006b rules.
 - Client behaviour (F-005).
+
+## Code review round 1 and attempt 2
+- **High (critic).** With a connected spectator, a paused game whose Room players all lose their grace (or `leave`) can never resume, never reaches `gameOver`, and the lobby never closes (the empty timer counts the spectator; the idle timer ignores running games).
+- **Added rule.** While paused, when no Room player is connected or in grace any more (the last one's grace expires, or the last one in grace sends `leave`), the lobby abandons the game: it drops the `Room` (nothing more from it is delivered), clears the Room players, removes members whose grace expired, returns to LOBBY, sends `roster{phase:"lobby"}` to the connected members, arms the idle timer, and arms the empty timer if no member is connected. No `gameOver` is sent.
+- **Added criterion 2b (`LobbyAbandonTest`).** A spectator is connected; both Room players disconnect (pause); after `GRACE` the spectator receives `roster{phase:"lobby"}` with only themselves, `lobby.phase()` is LOBBY, the host can start again, and with nobody joining the lobby closes at `IDLE_TTL`. Variant: one Room player leaves while the other is in grace, then that grace expires — same result. Without a spectator, the existing empty-timer close still applies (no change).
