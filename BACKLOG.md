@@ -213,9 +213,13 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [~] **F-005** frontend: multiplayer game screen (from S-003, design 034; M-3)
   - From the cycle 047 review (fairness): when the drift rule fires, the song still uses the old estimate, so a client whose clock stepped forward starts early, and stale samples can survive a few bursts; on drift use `Math.min(receipt, estimate.offsetMs)` (never early), drop samples with a negative RTT, and consider clearing the samples on a drift burst (the locked cycle 047 drift test changes with it); use `Number.isFinite` for `outputLatency`.
   - From the cycle 044 review: a `roster{phase:"lobby"}` that arrives during a game without `gameOver` means the game was abandoned (everyone else left); stop audio and timers and show the lobby.
-  - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
+  - (The reconnect notes moved to F-006 in cycle 048.)
   - Skip button with the vote count, live scores, other players' chat, reconnect behaviour (no reconnect after code 4001), final ranking with shared ranks, restart.
-  - Acceptance (Vitest with a mocked WebSocket): each phase renders; no reconnect after 4001; `npm test`, `lint`, `build` exit 0.
+  - Acceptance (Vitest with a mocked WebSocket): each phase renders; `npm test`, `lint`, `build` exit 0.
+- [ ] **F-006** frontend: automatic reconnect (split from F-005 in cycle 048; M-3)
+  - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
+  - An unexpected close of a room session retries with backoff (0.5 s doubling to 10 s) within the 30 s grace; a `rejoin-failed` or a time-out returns to the start screen with a message; the snapshot restores the lobby or the game (loading and scheduling the current song as a late start).
+  - Acceptance (Vitest with a mocked WebSocket): reconnect after a drop restores the lobby and a running song; no reconnect after 4001; rejoin-failed and time-out paths; `npm test`, `lint`, `build` exit 0.
 
 ## Roadmap
 
