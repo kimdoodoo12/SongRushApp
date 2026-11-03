@@ -56,14 +56,20 @@ const LOAD_TEXT = {
 
 // The game and its result. In a room the result has no 다시 하기; once the
 // room is back in its lobby, 대기실로 shows the lobby screen.
-function GameScreen({ state, onChat, onReset, onToLobby }) {
-  const { screen, round, load, timer, chat, correct, reveal, score, error, finalScore, room, lobbyOpen } = state
+function GameScreen({ state, onChat, onReset, onToLobby, onUnlockSound }) {
+  const { screen, round, load, timer, chat, correct, reveal, score, error, finalScore, room, lobbyOpen, soundBlocked } =
+    state
   return (
     <div className="game">
       <div className="status">
         {round === null ? <span>서버에 연결하는 중...</span> : <span>{`${round.index + 1} / ${round.total}`}</span>}
         {score !== null && <span>{`점수: ${score}`}</span>}
       </div>
+      {screen === 'game' && soundBlocked && (
+        <button type="button" className="sound-prompt" onClick={onUnlockSound}>
+          탭하여 소리 켜기
+        </button>
+      )}
       {load !== null && LOAD_TEXT[load] !== undefined && <p>{LOAD_TEXT[load]}</p>}
       {timer !== null && <TimeBar max={timer.max} remaining={timer.remaining} />}
       {correct !== null && <p className="correct">{`${correct} 정답!`}</p>}

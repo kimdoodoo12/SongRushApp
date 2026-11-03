@@ -39,6 +39,7 @@ export const initialState = {
   score: null,
   error: null,
   finalScore: null,
+  soundBlocked: false, // the AudioContext is not running: show 탭하여 소리 켜기
 }
 
 export function reducer(state, action) {
@@ -74,6 +75,8 @@ export function reducer(state, action) {
         error: null,
       }
     }
+    case 'sound':
+      return { ...state, soundBlocked: action.blocked }
     case 'loaded':
       return { ...state, load: 'loaded' }
     case 'loadFailed':
