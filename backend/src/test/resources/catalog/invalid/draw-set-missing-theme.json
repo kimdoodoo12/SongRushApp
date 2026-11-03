@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "anime": [
+    {
+      "anilistId": 1,
+      "group": 1,
+      "id": 1,
+      "reveal": "카우보이 비밥",
+      "season": "SPRING",
+      "slug": "cowboybebop",
+      "titles": {
+        "en": [
+          "Cowboy Bebop"
+        ],
+        "ja": [
+          "カウボーイビバップ"
+        ],
+        "ko": [
+          "카우보이 비밥"
+        ],
+        "romaji": [
+          "Cowboy Bebop"
+        ]
+      },
+      "year": 1998
+    },
+    {
+      "anilistId": 1535,
+      "group": 2,
+      "id": 2,
+      "reveal": "데스노트",
+      "season": "FALL",
+      "slug": "deathnote",
+      "titles": {
+        "en": [
+          "Death Note"
+        ],
+        "ja": [
+          "デスノート"
+        ],
+        "ko": [
+          "데스노트"
+        ],
+        "romaji": [
+          "Death Note"
+        ]
+      },
+      "year": 2006
+    },
+    {
+      "anilistId": null,
+      "group": null,
+      "id": 3,
+      "reveal": null,
+      "season": null,
+      "slug": "obscureova",
+      "titles": {
+        "en": [],
+        "ja": [],
+        "ko": [],
+        "romaji": [
+          "Obscure OVA"
+        ]
+      },
+      "year": 1990
+    }
+  ],
+  "drawSet": [
+    20,
+    9901,
+    10
+  ],
+  "groups": [
+    {
+      "accepted": [
+        "cowboybebop",
+        "カウボーイビバップ",
+        "카우보이비밥"
+      ],
+      "id": 1
+    },
+    {
+      "accepted": [
+        "deathnote",
+        "デスノート",
+        "데스노트"
+      ],
+      "id": 2
+    }
+  ],
+  "themes": [
+    {
+      "animeId": 1,
+      "artists": [
+        "The Seatbelts"
+      ],
+      "audio": {
+        "basename": "CowboyBebop-OP1.ogg",
+        "size": 101,
+        "url": "https://a.animethemes.moe/CowboyBebop-OP1.ogg"
+      },
+      "id": 10,
+      "slug": "OP1",
+      "song": "Tank!",
+      "type": "OP"
+    },
+    {
+      "animeId": 1,
+      "artists": [
+        "Mai Yamane",
+        "The Seatbelts"
+      ],
+      "audio": {
+        "basename": "CowboyBebop-ED1.ogg",
+        "size": 102,
+        "url": "https://a.animethemes.moe/CowboyBebop-ED1.ogg"
+      },
+      "id": 11,
+      "slug": "ED1",
+      "song": "The Real Folk Blues",
+      "type": "ED"
+    },
+    {
+      "animeId": 2,
+      "artists": [
+        "Nightmare"
+      ],
+      "audio": {
+        "basename": "DeathNote-OP1.ogg",
+        "size": 103,
+        "url": "https://a.animethemes.moe/DeathNote-OP1.ogg"
+      },
+      "id": 20,
+      "slug": "OP1",
+      "song": "the WORLD",
+      "type": "OP"
+    },
+    {
+      "animeId": 3,
+      "artists": [],
+      "audio": {
+        "basename": "ObscureOVA-OP1.ogg",
+        "size": 104,
+        "url": "https://a.animethemes.moe/ObscureOVA-OP1.ogg"
+      },
+      "id": 30,
+      "slug": "OP1",
+      "song": null,
+      "type": "OP"
+    }
+  ]
+}
