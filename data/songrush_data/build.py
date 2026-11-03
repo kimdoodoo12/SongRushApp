@@ -5,7 +5,9 @@ source modules, assembles the catalog and writes both files, holding a lock
 file in the output folder for the whole run. main is the command line:
 python -m songrush_data.build [--refresh-all] [--cache DIR] [--out DIR]
 [--anilist-batch N]. docs/cycles/023-build-cli.md is the specification; cycle 028
-adds the hand-edited <out>/korean_titles_manual.json, merged before aod.
+adds the hand-edited <out>/korean_titles_manual.json, merged before aod; cycle
+043 (docs/cycles/043-anidb-korean.md) adds AniDB's Korean titles, merged after aod
+and loaded only after every required source has succeeded.
 """
 
 import argparse
@@ -13,10 +15,11 @@ import json
 import os
 import sys
 import traceback
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
-from songrush_data import anilist, animethemes, aod, catalog, wikidata
+from songrush_data import anidb, anilist, animethemes, aod, catalog, wikidata
 from songrush_data.http import FileCache, PoliteClient, SystemClock, UrllibTransport
 from songrush_data.manual import load_manual, merge_korean
 
@@ -30,6 +33,8 @@ _CLIENTS = {
     "wikidata": (3.0, 60.0),
     "aod": (3.0, 60.0),
 }
+# AniDB allows one dump download per 24 h, so its client never retries (cycle 043).
+_ANIDB_CLIENT = (3.0, 60.0)
 
 
 class BuildLocked(RuntimeError):
@@ -83,11 +88,20 @@ def run(*, transport, clock, cache_root, out_dir, refresh_all: bool = False, ani
             expected_sha256=aod_sha256,
             log=log,
         )
+        # After the required sources, so their failure never spends the 24 h marker.
+        anidb_gap_s, anidb_timeout_s = _ANIDB_CLIENT
+        korean_anidb = anidb.load_korean(
+            PoliteClient(transport, clock, gap_s=anidb_gap_s, timeout_s=anidb_timeout_s, max_attempts=1, log=log),
+            cache_root / "anidb",
+            anime,
+            now=datetime.fromtimestamp(clock.wall(), timezone.utc),
+            log=log,
+        )
         outside = set(manual) - set(ids)
         if outside:
             log("manual korean: %d ids not in the catalog %s" % (len(outside), sorted(outside)))
 
-        built, report = catalog.build_catalog(anime, media, labels, merge_korean(manual, korean))
+        built, report = catalog.build_catalog(anime, media, labels, merge_korean(manual, korean, korean_anidb))
         size = catalog.write_catalog(out_dir / "catalog.json", built)
         catalog.write_gaps(out_dir / "korean_gaps.json", report)
         report["catalogBytes"] = size
