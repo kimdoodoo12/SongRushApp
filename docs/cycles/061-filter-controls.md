@@ -29,14 +29,15 @@ Solo players and room hosts can choose 곡 종류 and a 연도 range next to the
      - `yyyy~yyyy`, `yyyy~` or `~yyyy` for the years;
      - parts joined with ` · `.
      Example: `오프닝만 · 2010~2019`.
-   - The line is cleared on the next game's `prepare{index:0}`, on `abandoned`, and when the room returns to the lobby.
-   - A received `settings` also arrives after a late-join or rejoin snapshot (cycle 060). Before the snapshot frames are filtered (cycle 049), so `settings` is added to the frames the session accepts before the snapshot.
+   - **When the line is cleared (review B1).** The server sends `settings` before the first `prepare`, so `prepare` never clears it. The reducer clears `settings` on `connecting`, `reset`, `gameOver`, `abandoned`, `toLobby`, `restore` (any phase) and `watching`. After a join the server sends `settings` again, right after the snapshot (cycle 060). A new game without `settings` therefore never shows the old line, whatever the message order.
+   - The pre-snapshot frame filter (cycle 049) is not changed. `settings` always arrives after the snapshot (review N1).
 4. **Errors.**
-   - `not-enough-songs` with a numeric `available` shows `조건에 맞는 곡이 n곡뿐입니다. 곡 수를 줄이거나 조건을 넓혀 주세요.`
+   - `not-enough-songs` with a numeric `available` shows `출제할 수 있는 곡이 n곡뿐입니다.`. This is neutral wording, because the server always sends `available`, also without a filter, and non-hosts receive it too (review M1).
    - Without `available`, it keeps `출제할 곡이 부족합니다.`
    - `bad-filter` shows `조건이 올바르지 않습니다.`
    - `errorText` gains an optional second argument, the error message object. The session passes the whole message.
-5. **Kept across games (D-062).**
+5. **Kept across games (D-062).** Solo and host share one App-level selection, which persists for the page's lifetime and is not reset by 처음으로 or 나가기. `StartScreen`'s submit handler also refuses a reversed range (review N3).
+   - Details:
    - The host's last chosen filter selections and song count live in `App` state rather than inside `HostControls`. After a game returns to the lobby, the selects show them.
    - Solo selections live in `App` state too.
 
@@ -57,16 +58,26 @@ Solo players and room hosts can choose 곡 종류 and a 연도 range next to the
 5. **Settings line.**
    - After `settings{types:['OP'],yearFrom:2010,yearTo:2019}` and `prepare`, the game screen shows `오프닝만 · 2010~2019`.
    - With no `settings`, there is no `.settings` line.
-   - After the room returns to the lobby and a new game starts without `settings`, the line is gone.
-6. **Late join.** The sequence `joined`, `snapshot` (playing), `settings`, `roster` shows the line. The pre-snapshot filter does not drop a `settings` that arrives after the snapshot.
+   - After `gameOver`, then `prepare{index:0}` of a new game without `settings` (while still on the result screen, and also after `대기실로`), the line is gone.
+6. **Late join.** The sequence `joined`, `snapshot` (playing), `settings`, `roster` shows the line.
 7. **Errors.**
-   - `{type:'error',code:'not-enough-songs',available:3}` shows the `3곡뿐` text.
+   - `{type:'error',code:'not-enough-songs',available:3}` shows `출제할 수 있는 곡이 3곡뿐입니다.`.
    - Without `available`, the old text is shown.
    - `bad-filter` shows its text.
 8. **Kept across games.**
    - The host picks 20 songs, `엔딩만` and 2000, then starts. After `gameOver` and the return to the lobby, the selects still show 20, `엔딩만` and 2000.
    - Starting again sends the same fields.
 9. All locked earlier tests pass unchanged. `npm test`, `npm run lint` and `npm run build` exit 0.
+
+## Review changes (spec round 1)
+- **Blocker.** The settings line was cleared by the `prepare` that follows `settings`. Clearing now happens on the listed actions, and a test covers the result-screen-to-next-game path.
+- **Medium.**
+  - The not-enough-songs text is neutral.
+  - The clearing actions are listed.
+- **Nits.**
+  - The pre-snapshot filter is unchanged.
+  - One shared selection.
+  - The submit guard.
 
 ## Test list
 - `frontend/src/App.filters.test.jsx`
