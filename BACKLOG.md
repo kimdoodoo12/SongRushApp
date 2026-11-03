@@ -180,7 +180,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `npm test`, `npm run lint` and `npm run build` exit 0 from `frontend/`.
     - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 
-- [ ] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
+- [~] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
   - From the cycle 038 review: make the lint script `eslint . --max-warnings 0` so React Hooks and React Refresh warnings fail lint; tests live at `src/**/*.test.{js,jsx}` (the Vitest projects only include that pattern), and a test that reads files through `import.meta.url` must be added to the `node` project.
   - From the cycle 037 review: `/ws` keeps Spring's same-origin check, so the dev server must proxy `/ws` and `/audio` without `changeOrigin` (or a dev-only allowed origin), else the handshake gets 403.
   - A start screen (nickname, song count) and a play screen: an audio-unlock click (`AudioContext.resume()`), fetch and decode of `prepare.audioUrl`, then `ready{index}`, playback at `start` (from offset `now - startAt` if late, stopping at `deadlineAt`), a remaining-time bar (D-060), chat input, "정답!" announcement, reveal card, final score; Korean UI; the credit line (D-023); an "update your browser/iOS" notice when Ogg Opus cannot play (D-053).
