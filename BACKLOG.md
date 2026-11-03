@@ -216,7 +216,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - (The reconnect notes moved to F-006 in cycle 048.)
   - Skip button with the vote count, live scores, other players' chat, reconnect behaviour (no reconnect after code 4001), final ranking with shared ranks, restart.
   - Acceptance (Vitest with a mocked WebSocket): each phase renders; `npm test`, `lint`, `build` exit 0.
-- [ ] **F-006** frontend: automatic reconnect (split from F-005 in cycle 048; M-3)
+- [x] **F-006** frontend: automatic reconnect (split from F-005 in cycle 048; M-3)
   - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
   - An unexpected close of a room session retries with backoff (0.5 s doubling to 10 s) within the 30 s grace; a `rejoin-failed` or a time-out returns to the start screen with a message; the snapshot restores the lobby or the game (loading and scheduling the current song as a late start).
   - Acceptance (Vitest with a mocked WebSocket): reconnect after a drop restores the lobby and a running song; no reconnect after 4001; rejoin-failed and time-out paths; `npm test`, `lint`, `build` exit 0.
@@ -313,6 +313,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Reconnect screen (critic, cycle 049): a short drop on the final-ranking screen restores the lobby and loses the ranking (keep the result screen with `대기실로` when the snapshot says lobby); a reconnect during REVEAL loses that song's reveal card; using the stored token after a page reload is not built yet (handle duplicated tabs copying `sessionStorage`, which would replace the original tab with 4001).
 - Socket join race (critic, cycle 046): a `join` immediately followed by `leave` can leave the rejoin token in `logins` (the leave removes it on the I/O thread before the lobby task puts it) and still send the token frame after the leave; check the binding before `logins.put` and the token frame, or remove the token inside the lobby task.
 - Skip (critic, cycle 045): a socket that replaces another without a vote of its own gets no `skipState`, so it shows 0 votes until the next change (send the current `skipState` to a reconnecting player, or add `skip{votes, needed}` to the snapshot with the locked tests updated); a clock stepping backwards refills up to the stepped time (bounded by 5 tokens).
 - Pause (critic, cycle 044): no test pins the abandon after a connected Room player's `leave` when the others are already expired (`Lobby.java` leave path); that path sends a `playing` roster right before the `lobby` roster.
