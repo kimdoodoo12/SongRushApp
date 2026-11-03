@@ -43,3 +43,9 @@ When the prefetch has finished, run `python -u -m songrush_data.pad` and check o
 
 ## Out of scope
 Matching by decoded audio content (needs a reference audio database; accepted in D-055). The backend.
+
+## Spec review (critic) and outcome
+- **B1.** In-file padding is visible to the client, which recovers the exact public size by subtracting it (reproduced on a real file); the packet-size pattern also identifies the file. The goal cannot be met this way.
+- **H1.** A fixed per-file padding becomes a new fingerprint after one reveal. **H2.** Even with padding, 44 draw-set songs (2.9%) have a single candidate in a 64 KiB window. **H3.** A second pass adds state; serving-time measures would avoid it.
+- **Medium/Nit.** Crash window and index-loss detection undefined; criterion 2's arithmetic; the 255-byte lacing edge; the post-cycle metric; inconsistent padding ranges.
+- **Outcome.** The user decided D-057: accept fingerprinting for friends-only play and revisit before M-4 (encryption with the key at `startAt`, or re-encoding). C-016 is dropped; no tests or code were written in this cycle.

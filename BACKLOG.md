@@ -147,7 +147,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - It stops at once on a local write error (removing the `.part`) and after 5 consecutive failed downloads; a lock file prevents two runs, and a stale lock gives a clear message to delete it; a summary logs done/skipped/failed counts and bytes.
   - Acceptance (offline, fake transport, small real Ogg Opus fixture built in the test): sizes, headers and durations (within one 20 ms frame) are verified; a size mismatch or a non-Opus body leaves no final file and is reported; a rerun makes no request for complete files; a 404 is reported and the run continues; 5 consecutive failures and a write error stop the run; the gap and User-Agent are pinned; nothing is written outside the cache folder; the folder is gitignored.
   - **Then the lead starts the real prefetch in the background (D-054) and records the result.**
-- [~] **C-016** data: size padding of cached audio (D-055, design 029)
+- [x] **C-016** *(dropped by D-057; cycle 031 stopped at spec review)* data: size padding of cached audio (D-055, design 029)
   - After verification, rewrite the OpusTags packet of each cached file with an extra comment `SONGRUSH_PAD=<random bytes>` of random length (1-64 KiB), fixing the Ogg page segment table and CRC; record `paddedSize` in the index. Idempotent on rerun (a padded file is not padded again).
   - Acceptance (offline, fixture Ogg Opus files): the padded file decodes to the same audio packets (all pages after OpusTags byte-identical apart from page sequence numbers if they change, and every page CRC valid); the size differs from the original by the padding; two runs give different padding lengths across files; a rerun leaves padded files unchanged.
 - [ ] **B-002** backend: catalog loader (from S-002, design 029)
@@ -176,7 +176,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [ ] **M-1** Solo prototype: one player opens the site, hears a song from the start (at most 90 s), guesses the anime by chat, sees right/wrong and the reveal, and plays the next round.
 - [ ] **M-2** Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
 - [ ] **M-3** Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
-- [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 before planning.
+- [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
 - [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
 
 ## Needs decision
@@ -186,7 +186,8 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
-- **D-055** Size fingerprint (user, 2026-11-03): prevent identifying a song by its file size (the public AnimeThemes sizes identify 94% of the draw set). After download, each cached file gets a random-length padding tag in its OpusTags packet; the audio is unchanged (design 029).
+- **D-057** Audio fingerprints (user, 2026-11-03; replaces D-055): do not try to hide the song from a modified client for now. Padding inside the file does not work (a client can strip it and recover the exact public size; cycle 031 spec review), and any client that receives the audio can match its packet-size pattern against the public files. Like D-025, this is accepted for friends-only play and revisited before M-4, where the options are: encrypt the audio and send the key at `startAt` (hides the song until it plays), and re-encoding with randomized settings (needs ffmpeg, against D-053).
+- **D-055** *(replaced by D-057)* Size fingerprint (user, 2026-11-03): prevent identifying a song by its file size (the public AnimeThemes sizes identify 94% of the draw set). After download, each cached file gets a random-length padding tag in its OpusTags packet; the audio is unchanged (design 029).
 - **D-056** Failed downloads (user, 2026-11-03): themes whose audio could not be prefetched are left out of the draw candidates, so the draw set may be slightly under 1,500.
 - **D-053** Browser support (user, 2026-11-03): serve the original Ogg Opus audio and support only browsers that play it (Chrome, Firefox, Edge, and Safari on iOS/macOS 18.4 or later); older devices get an "update your browser/iOS" notice. No transcoding, so no ffmpeg on the server (design 029).
 - **D-054** Prefetch start (user, 2026-11-03): start the top-1,500 audio prefetch (about 5.4 GB) on this PC as soon as the prefetch tool passes review, in the background.

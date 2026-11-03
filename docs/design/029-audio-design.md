@@ -39,7 +39,7 @@
 ## Decision
 - Serve the original Ogg Opus files; support browsers that play Ogg Opus (Safari/iOS 18.4+) (D-053).
 - The data tools prefetch the draw set into `data/audio-cache/` (gitignored), verified by the catalog size and the `OpusHead` header. The prefetch starts as soon as the tool passes review (D-044, D-054).
-- After a file is verified, the prefetch rewrites its OpusTags packet with a padding tag of random length, so the size on disk differs from the public size; the audio is unchanged (D-055). The original and padded sizes are recorded. This does not stop matching by decoded audio content, which needs a reference audio database.
+- ~~After a file is verified, the prefetch rewrites its OpusTags packet with a padding tag of random length (D-055).~~ Dropped by D-057: a client can strip in-file padding and recover the exact size, and the packet-size pattern identifies the file anyway. Fingerprinting is accepted for friends-only play and revisited before M-4.
 - The prefetch also records each file's duration (last Ogg granule position minus pre-skip, at 48 kHz) in `data/audio-cache/index.json`, which the backend uses to end the round at `min(duration, 90 s)` (design review H2).
 - Only themes with a verified cached file are draw candidates; a failed download shrinks the draw set rather than leaving a hole at round time (D-056). D-026's lobby fetch of uncached draws does not arise while the draw range equals the cached set (D-027); it moves to M-5, where the range widens (design review H3).
 - The backend serves cached files only through per-round opaque tokens, as a full `200` response without Range support (a `206`'s `Content-Range` would also expose the size), with an allow-list of headers: `Content-Type`, `Content-Length`, `Cache-Control: no-store`; never `Last-Modified` (the download order follows popularity), `ETag` or `Content-Disposition` (design review M3, M4).
@@ -49,7 +49,7 @@
 
 ## Resulting items
 - **C-015** data: audio prefetch tool with verification and the duration index, then the real prefetch run.
-- **C-016** data: size padding of the cached files (D-055).
+- ~~**C-016** data: size padding of the cached files (D-055).~~ Dropped (D-057).
 - **B-002** backend: catalog loader (reads `data/catalog.json`).
 - **B-003** backend: opaque audio endpoint.
 - **Needs decision (user's device):** a real-device check on the owner's iPhone (iOS 18.4+) that a decoded Ogg Opus file plays through Web Audio, once a test page exists (after F-001).
@@ -65,3 +65,6 @@ Three `GET` (one `Range: bytes=0-99`, two full) and three `HEAD` (403) against `
 - **M2.** Leftover `.part` files are overwritten, and a lock left by a killed run is reported with a clear message to delete it.
 - **M3, M4.** No Range support; an allow-list of response headers.
 - **Nit.** Token lifetime is set by S-003; expired tokens are removed.
+
+## Addendum (cycle 031, 2026-11-03)
+The cycle 031 spec review showed that OpusTags padding cannot hide the size: the padding is visible to the client, which can subtract it (reproduced on `ShingekiNoKyojin-OP1.ogg`: padded 3,516,260 bytes, recovered 3,494,723 = the public size), and the Opus packet-size sequence and last granule fingerprint the file regardless. A fixed per-file padding would also become a new fingerprint after one reveal. The user chose to accept the risk for now and revisit before M-4 (D-057).
