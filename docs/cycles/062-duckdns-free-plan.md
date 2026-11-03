@@ -1,66 +1,105 @@
 # 062 duckdns-free-plan (I-009)
 
 ## Goal
-The deploy kit and the guide follow the owner's decisions. D-066: a DuckDNS name that stays fixed when the IP changes. D-068: the AWS Free plan, with its automatic account closure stated clearly. The DuckDNS token never appears in the repo or in any command line.
+The deploy kit and the guide follow two owner decisions:
+- D-066: a DuckDNS name that stays the same when the server's IP changes.
+- D-068: the AWS Free plan, with its automatic closure stated plainly.
+
+The DuckDNS token never appears in the repo, in a command line, or in output.
 
 ## Behaviour
-1. **`setup.sh <hostname>`.**
-   - The usage stays one argument, so the locked cycle 055 and 057 tests still apply.
-   - When the hostname ends in `.duckdns.org`:
-     - The name is the part before `.duckdns.org`. It must match `^[a-z0-9-]{1,63}$`, otherwise the script exits 2 with a message.
-     - The token is asked for with `read -rs` from `/dev/tty`, after the root checks and before any apt step. An empty token exits 2. The token is never an argument and is never echoed.
-     - The token goes to `/etc/songrush/duckdns.curl`, mode 600, owner root. The file holds one line, `url = "https://www.duckdns.org/update?domains=<name>&token=<token>&ip="`. curl reads it with `-K`, so the token never shows in a process list. The file is written with `umask 077` and moved into place from a temp file.
-     - `deploy/duckdns.service` and `deploy/duckdns.timer` are installed to `/etc/systemd/system/`, and the timer is enabled.
-       - The service is a oneshot that runs `/usr/bin/curl -fsS -K /etc/songrush/duckdns.curl`.
-       - The timer fires `OnBootSec=30s` and then `OnUnitActiveSec=5min`.
-     - The update runs once right away. setup.sh stops with a clear message if the reply is not exactly `OK`. A `KO` reply means a wrong name or token.
-     - setup.sh then waits up to 60 s for the name to resolve to this server's public IP, read from `curl -fsS https://checkip.amazonaws.com`, before it reloads Caddy. If the name still does not match, it warns and continues.
-   - Any other hostname keeps today's behaviour, with no DuckDNS step.
-2. **The guide** (`docs/deploy-guide.md`).
-   - **Address.** It switches to DuckDNS: sign up with a Google or GitHub login, create a name, and copy the token. The guide warns never to paste the token anywhere except the setup prompt.
-   - **Running setup.** It runs `sudo bash setup.sh <name>.duckdns.org`.
-   - **Account plan.** It switches to the AWS Free plan (D-068):
-     - The account closes by itself when 6 months pass or the USD 100 credit runs out, whichever comes first.
-     - Data is deleted 90 days later unless the account is upgraded.
-     - Upgrading is done by choosing the Paid plan in the billing console. The guide shows how.
-     - A dated reminder: write down the sign-up date and decide in month 5.
-     - The Budgets alert stays, so the owner can watch the credit.
-   - **After a restart.** The address stays the same. No `setup.sh` rerun is needed for the address; the section says so and mentions `setup.sh` only to say that. Only the security group's "My IP" may need updating.
-   - **sslip.io.** It is kept as a one-paragraph fallback ("DuckDNS가 안 될 때").
-   - The guide must keep passing the locked cycle 058 guide test unchanged. That test requires `sslip.io`, `Budgets`, `Paid`, the D-ids, and `setup.sh` in the restart section.
+1. **`deploy/duckdns-setup.sh <name>`**, a new script. Splitting it out was review round 1, H3. It is run with sudo, either by `setup.sh` or on its own.
+   - **Order.** Each step runs only if the previous one passed:
+     1. Usage: exactly 1 argument, otherwise exit 2.
+     2. The name is lowercased and must match `^[a-z0-9-]{1,63}$`, otherwise exit 2.
+     3. The TTY must be readable. The TTY is `${SONGRUSH_TTY:-/dev/tty}`. If it cannot be opened, the script exits 2 with the message `run it in an interactive ssh session (ssh -t)`.
+     4. The token is read with `IFS= read -rs token < "$tty" || true`. Its surrounding whitespace is trimmed. It must match the UUID pattern `^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$`, case-insensitive, otherwise exit 2. The token is never printed.
+     5. Under `umask 077`, a `mktemp` temp file in `${SONGRUSH_ROOT}/etc/songrush/` gets one line: `url = "https://www.duckdns.org/update?domains=<name>&token=<token>&ip="`. It is then moved with `mv -f` to `${SONGRUSH_ROOT}/etc/songrush/duckdns.curl`. There is no `chown`: under sudo, root already owns it.
+     6. `duckdns.service` and `duckdns.timer` are copied from the script's folder into `${SONGRUSH_ROOT}/etc/systemd/system/`. Then `systemctl daemon-reload` and `systemctl enable --now duckdns.timer` run.
+     7. One immediate update: `curl -fsS -K <curl file>`, with the reply trimmed.
+        - The reply `OK` prints `DuckDNS: <name>.duckdns.org now points to this server`.
+        - Anything else, such as `KO`, prints that the name or token is wrong and exits 1.
+   - `SONGRUSH_ROOT` and `SONGRUSH_TTY` are test hooks with production defaults: empty and `/dev/tty`. They touch only those paths.
+2. **`deploy/duckdns.service`** is a oneshot with `ExecStart=/usr/bin/curl -fsS -K /etc/songrush/duckdns.curl`. **`deploy/duckdns.timer`** has `OnBootSec=30s`, `OnUnitActiveSec=5min` and `WantedBy=timers.target`.
+3. **`setup.sh <hostname>`.**
+   - If the hostname, lowercased, ends in `.duckdns.org`, it runs `bash "$here/duckdns-setup.sh" "<name>"`. This happens right after the root and login-user checks and before cloud-init and apt.
+   - A failed DuckDNS step stops setup before any install.
+   - Nothing else changes, and the existing structure stays as the locked 055 and 057 tests require. In particular, `caddy_key`'s `mktemp "$caddy_key.XXXXXX"` form stays.
+   - There is no DNS wait. Caddy retries certificates on its own, and the guide says to wait 1-2 minutes before the smoke check.
+4. **Guide** (`docs/deploy-guide.md`). It must still pass the locked cycle 058 test.
+   - **Address.**
+     - DuckDNS signup: Google or GitHub login, create `<name>`, copy the token.
+     - The token is pasted only at the setup prompt and never anywhere else.
+     - `sudo bash setup.sh <name>.duckdns.org` runs in an interactive ssh session.
+     - Troubleshooting: `sudo journalctl -u duckdns -n 20` shows each update. DuckDNS answers `KO` for a wrong token, which systemd still counts as success (review M8).
+   - **Plan.** The AWS Free plan (D-068):
+     - The account closes by itself at 6 months or when the USD 100 credit runs out, whichever comes first. Data is deleted 90 days later unless the owner upgrades.
+     - Upgrading means choosing the Paid plan in the billing console.
+     - The owner writes down the sign-up date and decides in month 5.
+     - On the Free plan, the remaining credit is checked once a month on the billing console's credits page (review H5). The $1 Budgets alert is described as optional on the Free plan and useful only after an upgrade.
+   - **After a restart.** The address stays the same. One sentence says `setup.sh` does not need to run again. Only "My IP" in the security group may need updating.
+   - **sslip.io.** It stays as a short "DuckDNS가 안 될 때" fallback.
+   - **Formatting.** Use the `<name>.duckdns.org` placeholder, not a real-looking name. No `[A-Z_]{3,}=` token appears inside `bash` blocks. A literal update URL can only appear in a `text` block.
 
 ## Acceptance criteria (pytest, from `data/`)
-`data/tests/test_duckdns.py` reuses the cycle 055 harness approach, with its helpers copied:
+`data/tests/test_duckdns.py` reuses the cycle 055 harness approach. Its helpers are copied, not imported.
 1. **Units.**
-   - `deploy/duckdns.service` is `Type=oneshot` with exactly `ExecStart=/usr/bin/curl -fsS -K /etc/songrush/duckdns.curl`.
-   - `deploy/duckdns.timer` has `OnBootSec=30s`, `OnUnitActiveSec=5min` and `WantedBy=timers.target`.
+   - `duckdns.service` is `Type=oneshot` with exactly the `ExecStart` above.
+   - The timer has `OnBootSec=30s`, `OnUnitActiveSec=5min` and `WantedBy=timers.target`.
    - Both are ASCII with LF line endings.
-2. **`setup.sh` text.**
-   - The token is read with `read -rs` from `/dev/tty`.
-   - `umask 077`, or an explicit `chmod 600`, is applied to the token file.
-   - `/etc/songrush/duckdns.curl` and `systemctl enable` for the timer appear.
-   - No `echo` or `printf` line prints the token variable to stdout or stderr. Writing it into the curl file is allowed.
-   - The DuckDNS update URL appears only in the line that writes the curl file.
-3. **`setup.sh` behaviour, with stubs.** Bash runs with stub `id` (root), `apt-get`, `cloud-init`, `systemctl`, `curl` and `caddy`, and with `/dev/tty` replaced by an input file through a test hook variable `SONGRUSH_TTY` (default `/dev/tty`). A sandbox root variable `SONGRUSH_ROOT` (default empty) prefixes every system path the script writes.
-   - **Bad name.** `bad_name!.duckdns.org` exits 2 before any stub is called.
-   - **Empty token.** It exits 2.
-   - **Good token.**
-     - The curl file is written under the sandbox with mode 600 (checked where the OS supports it, skipped on Windows with a reason).
-     - The curl stub is called with `-K <sandbox>/etc/songrush/duckdns.curl`.
-     - The token string never appears in any stub's argv log or in stdout or stderr.
-   - **Update rejected.** The curl stub answers `KO` and the script stops with a non-zero exit.
-   - **Plain hostname.** `game.example.com` asks for no token and installs no DuckDNS unit.
-4. **Secrets.** No file under `deploy/` or `docs/` contains a 36-character UUID-shaped string (DuckDNS tokens are UUIDs).
-5. **The guide.** It mentions `duckdns.org`, `토큰`, `무료 플랜`, `90일` and `5개월`. Inline code never contains the word `token=`.
-6. **Earlier tests.** The locked cycle 055, 056, 057 and 058 tests and the rest of the data suite pass unchanged: `.venv\Scripts\python.exe -m pytest`.
+2. **`duckdns-setup.sh` behaviour.**
+   - Setup: stub `systemctl` and `curl` log their argv. A temp `SONGRUSH_ROOT`. A token input file with a trailing newline passed as `SONGRUSH_TTY`.
+   - **Argument and name errors.** No argument, `Bad_Name`, `a.b` and a 64-character name each exit 2. No stub is called and no file is written.
+   - **TTY and token errors.**
+     - A missing TTY file exits 2 with the `ssh -t` message.
+     - An empty token, a non-UUID token, and a token containing `"` each exit 2. No curl file is written.
+   - **A good token with the curl stub answering `OK`.**
+     - It exits 0.
+     - The curl file under the root holds exactly the expected `url = ...` line.
+     - The file mode is 600, checked where the OS supports it and skipped with a reason on Windows.
+     - The units are copied, and `systemctl enable --now duckdns.timer` was called.
+     - curl was called with `-K <root>/etc/songrush/duckdns.curl`.
+     - The token string appears in no argv log, no stdout and no stderr.
+   - **The curl stub answering `KO`.** It exits 1, and the message says the name or token is wrong.
+   - **An uppercase name.** `MyName` writes `domains=myname`.
+3. **`setup.sh` integration.**
+   - The text runs `duckdns-setup.sh` before the first `apt-get` line, and only for `.duckdns.org` hostnames, compared case-insensitively.
+   - A behaviour run under stubbed `id` (root) with `SUDO_USER=ubuntu`, a `.duckdns.org` hostname and a failing DuckDNS step exits non-zero. The `apt-get` stub is never called.
+4. **Secrets.** No UUID-shaped string appears in these files:
+   - `deploy/*.sh`, `deploy/*.service`, `deploy/*.timer`, `deploy/Caddyfile`;
+   - `docs/deploy-guide.md`.
+   `smoke.py`'s RFC 6455 GUID is out of scope (review B1).
+5. **Guide content.**
+   - It mentions `duckdns.org`, `토큰`, `무료 플랜`, `90일`, `5개월`, `journalctl -u duckdns`, `ssh -t` and `크레딧`.
+   - No inline code contains `token=`.
+6. **Earlier tests.** The locked cycle 055-058 tests and the whole data suite pass unchanged (`.venv\Scripts\python.exe -m pytest`).
+
+## Review changes (spec round 1)
+- **Blocker.** The UUID scan was narrowed. `smoke.py` contains the RFC 6455 GUID.
+- **High.**
+  - The "bad name" case now uses names that pass `setup.sh`'s hostname rule.
+  - DuckDNS moved to a separate script that runs before apt. This keeps the test hooks to two paths and the tests offline.
+  - The DNS wait was dropped.
+  - The guide says the Free plan never charges, so the Budgets alert cannot warn before closure. A monthly credit check replaces it.
+- **Medium.**
+  - `read` is guarded against `set -e`, with a TTY check.
+  - The UUID token format is validated.
+  - A `KO` reply from the timer is diagnosable through `journalctl`.
+  - No `chown`.
+- **Nits.**
+  - Placeholder name.
+  - Lowercased suffix.
 
 ## Test list
 - `data/tests/test_duckdns.py`
 
 ## File ownership
 - **Test writer:** `data/tests/test_duckdns.py`.
-- **Implementer:** `deploy/setup.sh`, the new `deploy/duckdns.service` and `deploy/duckdns.timer`, and `docs/deploy-guide.md`.
+- **Implementer:**
+  - the new `deploy/duckdns-setup.sh`, `deploy/duckdns.service` and `deploy/duckdns.timer`;
+  - `deploy/setup.sh`;
+  - `docs/deploy-guide.md`.
 
 ## Out of scope
-- Changing `upload.sh` or `smoke.py`.
+- `upload.sh`, `smoke.py`.
 - A custom domain.
