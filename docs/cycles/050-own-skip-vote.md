@@ -16,6 +16,7 @@ The locked cycle 045 tests pin `skipState` as one broadcast with exactly the key
 ## Changes to locked earlier tests (declared)
 - `frontend/src/App.multi.test.jsx`, test "a rate-limited error after a click undoes the 스킵 취소 label": the delivered error gains `for: 'skipVote'`. Nothing else changes.
 - The test "a rate-limited error after the next skipState does not undo the counted vote" stays as it is. Its error has no `for`, so it is a chat refusal and must not undo.
+- `backend/src/test/java/com/songrush/game/RoomRoundsTest.java`, test `aSkipSpendsAChatTokenAndWithoutOneIsRateLimitedAndNotCounted` (spec review B1): its rate-limited assertion for the refused `skip` becomes an exact check of `{type:"error", code:"rate-limited", for:"skipVote"}` sent only to the sender; the shared `KEYS` entry for `error` and the chat-path `assertRateLimited` stay as they are (they now also guard that chat refusals carry no `for`).
 - No other locked test may change.
 
 ## Acceptance criteria
@@ -23,7 +24,7 @@ The locked cycle 045 tests pin `skipState` as one broadcast with exactly the key
    - A rate-limited `skip` gives the sender exactly `{type:"error", code:"rate-limited", for:"skipVote"}`.
    - A rate-limited chat gives exactly `{type:"error", code:"rate-limited"}`.
    - Neither message goes to anyone else.
-   - The earlier backend tests pass unchanged, and `.\gradlew.bat test` exits 0.
+   - The earlier backend tests pass with only the declared change, and `.\gradlew.bat test` exits 0.
 2. **Frontend** (`App.skipVote.test.jsx`, locked fakes):
    - Two quick clicks where only the second is refused: the client receives `skipState{votes:1}` and then an error with `for:"skipVote"`, and the label ends at `스킵 취소` (one vote counted).
    - Someone else's `skipState` arriving between my click and my refusal still undoes my toggle.
@@ -32,10 +33,14 @@ The locked cycle 045 tests pin `skipState` as one broadcast with exactly the key
    - `prepare` resets the label to `스킵`.
 3. With the declared change, `npm test`, `npm run lint` and `npm run build` exit 0.
 
+## Review changes (spec round 1)
+- **Blocker.** A locked cycle 045 test pins the skip refusal's exact keys; it is declared and changed.
+- **Medium.** B-008's backlog acceptance is updated to this design.
+
 ## Test list
 - `backend/src/test/java/com/songrush/game/RoomSkipErrorTest.java`
 - `frontend/src/App.skipVote.test.jsx`
-- The declared one-field change in `frontend/src/App.multi.test.jsx`.
+- The declared one-field change in `frontend/src/App.multi.test.jsx` and the declared assertion in `backend/src/test/java/com/songrush/game/RoomRoundsTest.java`.
 
 ## File ownership
 - **Test writer:** the files in the test list.
