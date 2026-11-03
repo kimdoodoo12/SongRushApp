@@ -101,3 +101,14 @@ Friends can play in one room from the browser. One creates a room and shares its
 - Skip, live scores of others, reconnect and clock sync (M-3: F-004, F-005, B-005b, B-006b).
 - Lobby chat.
 - Production hosting of `/r/<code>`. The Vite dev server already falls back to `index.html`; deploying it is M-4.
+
+## Result
+- Tests `8cb1e3b` (locked); implementation `8669918` (attempt 1).
+- Red phase (verifier): 24 of 25 new tests failed on the missing UI (`방 코드`, `방 만들기`) or on the solo socket not closing at `gameOver`; the one passing test is the solo regression guard (lobby frames ignored), which passes before and after by design.
+- Verifier: `npm test` twice (5 files, 69 tests), `npm run lint`, `npm run build` exit 0; locked files unchanged. Protocol smoke against the real jar with two Node clients: create gave code `RSBPS`; a lower-case join got `Mina (2)`; both saw a 2-player roster with the host marked; a non-host start got `not-host`; the host start gave both `prepare` index 0.
+
+## Code review (critic)
+No Blocker or High. Confirmed: solo vs room error paths, intentional closes never show a false disconnect, the second game clears the old state, host detection by the unique assigned name, `/r/<code>` parsing.
+- **M1 (to F-004).** Audio is resumed in a gesture only on the first click; iOS may suspend it before the first song.
+- **M2 (follow-up).** Enter in the nickname field on a `/r/<code>` page starts a solo game.
+- **Nit (follow-up).** Live-region feedback for errors and the copy button.
