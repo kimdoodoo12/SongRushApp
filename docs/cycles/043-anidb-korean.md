@@ -102,3 +102,8 @@ No Blocker or High. Every path to a second AniDB request within 24 h was traced 
 - **M1 (follow-up).** An unknown XML encoding raises `LookupError`, which escapes after the marker is written; the real dump declares UTF-8, so the live run was not held for it.
 - **M2.** The live-run wording was corrected (the AnimeThemes freshness check also runs).
 - **Nit (follow-up).** A corrupt marker blocks forever; the log should say so.
+
+## Live run (2026-11-03, after the merge)
+- One build with the cache, 19:43:50-19:45:45 KST, exit 0. The AnimeThemes crawl was entirely cached (51 pages, 5,021 anime, no growth); AniList, Wikidata and aod came from the cache.
+- AniDB: one request; marker `2026-11-03T10:45:41+00:00` (19:45 KST); dump 1,885,229 bytes; `anidb aids_with_korean=3553 anilist_ids_with_korean=1429`.
+- Catalog: anime with a Korean title 2,314 -> 2,395 (+81); accepted strings 22,400 -> 22,453 (+53); `korean_gaps.json` unchanged at 96 (none of the draw-set gaps has an AniDB Korean title); `catalog.json` diff 139 lines changed.
