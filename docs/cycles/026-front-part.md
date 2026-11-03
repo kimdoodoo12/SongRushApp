@@ -58,3 +58,6 @@ No Blocker or High. The critic rebuilt every accepted list from the cache with n
 - Three product questions went to the user and became **D-051**: keep `ayakashi` as is; keep the ` -` dash separator (the user saw examples such as `DARKER THAN BLACK -黒の契約者-` and `CLANNAD -クラナド-`); add the wave and long-dash separators (queued as C-014).
 - **Nit.** BACKLOG's C-013 text still said "2 characters"; corrected to D-050.
 - **Nit (follow-up).** Full-width digits around an ASCII `/` are handled but not pinned by a test.
+
+## Catalog rebuild (lead)
+`.venv/Scripts/python.exe -u -m songrush_data.build` from `data/`, exit 0, every AnimeThemes page `(cached)`, no clear. Counts unchanged (`anime 5021`, `themes 14591`, `drawSet 1500`); `build catalog bytes=5713676` (was 5,688,820). Accepted strings over all groups: 21,868 (was 20,632), matching the critic's offline rebuild. 101922 accepts `demonslayer`, 21355 `rezero`, 356 `fate`.
