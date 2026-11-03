@@ -88,3 +88,12 @@ The client UI for watching (F-005).
 - **High (critic).** During a game the cap counts only connected or in-grace members, and members who `leave` stay until the return; one socket repeating `join`/`leave` grows the member list (and, across a song boundary, the Room players, `scores` and ranking) without bound, enlarging every `roster` until other players' outbound queues overflow (before this cycle, joins during a game were rejected).
 - **Added rule.** During a game the lobby also refuses a `join` with `room-full` when it already holds `2 * MAX_PLAYERS` (16) members of any state (connected, in grace, left or expired). In LOBBY the existing 8-member cap is unchanged.
 - **Added criterion 2b (`LobbyJoinChurnTest`).** In a running game with 3 connected players, 100 rounds of `join` + `leave` by new ids keep `names().size()` at most 16, the joins beyond that get `room-full`, and after `gameOver` the returned lobby holds only the still-connected members.
+
+## Result
+- Attempt 1: tests `04264c0` (locked; the two declared locked-test changes included), implementation `db4b974`; verifier green, critic High H1 (unbounded members through join/leave churn during a game).
+- Attempt 2: rule added to the spec (`f0e10ba`), new test `LobbyJoinChurnTest` `c24aa0a` (4 of 5 red on attempt 1 for the right reason: no `room-full` at 16 members), implementation `4f93f0a`.
+- Verifier (attempt 2): `cleanTest test` and `build` exit 0; 262 tests, 0 failures (RoomLateJoinTest 20, LobbyLateJoinTest 9, LateJoinSocketTest 1, LobbyJoinChurnTest 5); the feat commit changes no test.
+
+## Code review (critic, attempt 2)
+H1 fixed: members, Room players and watchers, roster, snapshot, scores and ranking rows are all bounded by 16 during a game; the lobby returns to at most 8 members; grace rejoins are not affected by the cap.
+- **M1 (follow-up, existing since cycle 042).** A `join` followed at once by `leave` can leave a stale rejoin token and send one token frame after the leave.
