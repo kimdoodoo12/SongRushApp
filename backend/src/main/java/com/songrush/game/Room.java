@@ -81,6 +81,9 @@ public final class Room {
 
 	private long deadlineAt;
 
+	// The audioUrl sent in the current song's prepare.
+	private String audioUrl;
+
 	// The one task of the current phase: prepare timeout, deadline, or reveal pause.
 	private Cancellable pending;
 
@@ -115,6 +118,21 @@ public final class Room {
 	// Player id to points, in player order.
 	public Map<String, Integer> scores() {
 		return Collections.unmodifiableMap(new LinkedHashMap<>(scores));
+	}
+
+	// The current song as a reconnecting player needs it: null unless PREPARE or PLAYING, else
+	// {index, total, audioUrl}, plus startAt and deadlineAt in PLAYING. Only values already sent in
+	// that song's prepare and start messages, never anything that identifies the song.
+	public Map<String, Object> currentSong() {
+		if (phase != Phase.PREPARE && phase != Phase.PLAYING) {
+			return null;
+		}
+		Map<String, Object> song = row("index", songIndex, "total", songs.size(), "audioUrl", audioUrl);
+		if (phase == Phase.PLAYING) {
+			song.put("startAt", startAt);
+			song.put("deadlineAt", deadlineAt);
+		}
+		return song;
 	}
 
 	public void start(int songCount) {
@@ -199,7 +217,8 @@ public final class Room {
 		songIndex = index;
 		ready.clear();
 		String token = tokens.issue(songs.get(index).theme().id(), TOKEN_TTL);
-		outbox.toAll(message("prepare", "index", index, "total", songs.size(), "audioUrl", "/audio/" + token));
+		audioUrl = "/audio/" + token;
+		outbox.toAll(message("prepare", "index", index, "total", songs.size(), "audioUrl", audioUrl));
 		schedule(PREPARE_TIMEOUT, this::startSong);
 	}
 

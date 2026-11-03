@@ -13,7 +13,8 @@ import com.songrush.audio.AudioTokens;
 import com.songrush.catalog.Catalog;
 
 // A room code's players between games: join, leave, host, start, the return after gameOver, and
-// the cleanup timers (docs/cycles/040-rooms-lobby.md). Each game is a fresh Room built from the
+// the cleanup timers (docs/cycles/040-rooms-lobby.md), and the 30 s grace period after a dropped
+// connection (docs/cycles/042-reconnect.md). Each game is a fresh Room built from the
 // players connected at start. Not thread-safe: every method, every timer and every Room of the
 // lobby runs on the scheduler's single thread. Every message goes out as one toPlayer per
 // connected player in join order; the lobby never calls toAll (spec review H1).
@@ -24,6 +25,8 @@ public final class Lobby {
 	public static final Duration EMPTY_TTL = Duration.ofMinutes(2);
 
 	public static final Duration IDLE_TTL = Duration.ofMinutes(10);
+
+	public static final Duration GRACE = Duration.ofSeconds(30);
 
 	static final int MAX_NICKNAME = 16;
 
@@ -43,8 +46,8 @@ public final class Lobby {
 
 	private final Runnable onClosed;
 
-	// Join order. In LOBBY every member is connected; during a game a member who left stays,
-	// disconnected, until the return.
+	// Join order. In LOBBY a disconnected member is one in grace; during a game a member who left
+	// (or whose grace ran out) stays, disconnected, until the return.
 	private final List<Member> members = new ArrayList<>();
 
 	private boolean closed;
@@ -83,6 +86,14 @@ public final class Lobby {
 		final String name;
 
 		boolean connected = true;
+
+		// Set by disconnect; cleared by the grace expiry, leave or reconnect.
+		boolean inGrace;
+
+		// Bumped on every grace start and end, so a stale grace timer does nothing.
+		int graceGeneration;
+
+		Cancellable graceTimer;
 
 		// The score of the last finished game (0 before the first).
 		int score;
@@ -155,7 +166,15 @@ public final class Lobby {
 
 	public void leave(String playerId) {
 		Member m = member(playerId);
-		if (closed || m == null || !m.connected) {
+		if (closed || m == null) {
+			return;
+		}
+		if (m.inGrace) {
+			// Already disconnected: leaving now is the grace running out early.
+			expireGrace(m);
+			return;
+		}
+		if (!m.connected) {
 			return;
 		}
 		if (room == null) {
@@ -169,6 +188,50 @@ public final class Lobby {
 		if (host() == null) {
 			armEmpty();
 		}
+	}
+
+	// A dropped connection: the member keeps the seat for GRACE, then is treated as having left.
+	public void disconnect(String playerId) {
+		Member m = member(playerId);
+		if (closed || m == null || !m.connected) {
+			return;
+		}
+		m.connected = false;
+		m.inGrace = true;
+		m.graceGeneration++;
+		int gen = m.graceGeneration;
+		m.graceTimer = scheduler.schedule(GRACE, () -> {
+			if (!closed && m.inGrace && gen == m.graceGeneration) {
+				expireGrace(m);
+			}
+		});
+		sendRoster();
+		if (host() == null) {
+			armEmpty();
+		}
+	}
+
+	// True for a member in grace (now connected again) or a connected member (a replaced socket:
+	// no state or roster change); either way that player gets joined and then snapshot. False, with
+	// nothing sent, for anyone else.
+	public boolean reconnect(String playerId) {
+		Member m = member(playerId);
+		if (closed || m == null) {
+			return false;
+		}
+		if (m.connected) {
+			sendJoinedAndSnapshot(m);
+			return true;
+		}
+		if (!m.inGrace) {
+			return false;
+		}
+		endGrace(m);
+		m.connected = true;
+		cancelEmpty();
+		sendJoinedAndSnapshot(m);
+		sendRoster();
+		return true;
 	}
 
 	public void start(String playerId, int songCount) {
@@ -232,7 +295,8 @@ public final class Lobby {
 		for (Member m : members) {
 			m.score = scores.getOrDefault(m.id, 0);
 		}
-		members.removeIf(m -> !m.connected);
+		// Members still in grace stay, and their grace timer keeps running (spec review M1).
+		members.removeIf(m -> !m.connected && !m.inGrace);
 		room = null;
 		roomOutbox = null;
 		armIdle();
@@ -248,6 +312,9 @@ public final class Lobby {
 		roomOutbox = null;
 		cancelEmpty();
 		cancelIdle();
+		for (Member m : members) {
+			endGrace(m);
+		}
 		Map<String, Object> error = message("error", "code", "room-closed");
 		for (Member m : members) {
 			if (m.connected) {
@@ -255,6 +322,26 @@ public final class Lobby {
 			}
 		}
 		onClosed.run();
+	}
+
+	// The grace ran out (or the member left during it): in LOBBY they are removed, in a game they
+	// stay disconnected until the return. Re-arms neither the empty nor the idle timer: the empty
+	// timer runs from the last disconnect.
+	private void expireGrace(Member m) {
+		endGrace(m);
+		if (room == null) {
+			members.remove(m);
+			sendRoster();
+		}
+	}
+
+	private void endGrace(Member m) {
+		m.inGrace = false;
+		m.graceGeneration++;
+		if (m.graceTimer != null) {
+			m.graceTimer.cancel();
+			m.graceTimer = null;
+		}
 	}
 
 	private void armEmpty() {
@@ -317,6 +404,36 @@ public final class Lobby {
 	}
 
 	private void sendRoster() {
+		toConnected(message("roster", "phase", phaseName(), "players", playerRows()));
+	}
+
+	// joined{code, name} and then the allow-listed snapshot, to that player only. The snapshot never
+	// carries a player id, a token or a catalog field: rows as in roster, the Room's currentSong()
+	// (already-sent prepare and start values) and the Room's scores by name.
+	private void sendJoinedAndSnapshot(Member m) {
+		outbox.toPlayer(m.id, message("joined", "code", code, "name", m.name));
+		List<Object> scores = new ArrayList<>();
+		if (room != null) {
+			for (Map.Entry<String, Integer> e : room.scores().entrySet()) {
+				Member p = member(e.getKey());
+				if (p != null) {
+					Map<String, Object> row = new LinkedHashMap<>();
+					row.put("name", p.name);
+					row.put("score", e.getValue());
+					scores.add(row);
+				}
+			}
+		}
+		outbox.toPlayer(m.id, message("snapshot", "phase", phaseName(), "players", playerRows(), "song",
+				room == null ? null : room.currentSong(), "scores", scores));
+	}
+
+	private String phaseName() {
+		return room == null ? "lobby" : "playing";
+	}
+
+	// One roster row per member in join order: name, score, host, connected.
+	private List<Object> playerRows() {
 		Map<String, Integer> live = room == null ? null : room.scores();
 		List<Object> players = new ArrayList<>();
 		String host = host();
@@ -328,7 +445,7 @@ public final class Lobby {
 			row.put("connected", m.connected);
 			players.add(row);
 		}
-		toConnected(message("roster", "phase", room == null ? "lobby" : "playing", "players", players));
+		return players;
 	}
 
 	private void toConnected(Map<String, Object> message) {
