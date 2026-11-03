@@ -210,12 +210,23 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From the cycle 041 review: the audio context is resumed inside a user gesture only on 시작/방 만들기/참가. A host who switches apps to share the link (iOS suspends the context) or a joiner who waits in the lobby may have a suspended context when the first song starts, and a resume outside a gesture can fail on iOS: call `resume()` synchronously in every later click (게임 시작, 대기실로) and add a "탭하여 소리 켜기" prompt when the context is not running at `prepare`.
   - NTP-style ping/pong (8 on join, median of the 3 lowest-RTT, re-sync every 30 s and before each song), `startAt` scheduling on the `AudioContext` clock with `outputLatency`, the clock pair re-taken per song, re-sync when `start`'s server time disagrees by more than the RTT; a test page for I-003.
   - Acceptance (Vitest with fake timers and clocks): offset estimation picks low-RTT samples; scheduling maths; drift triggers re-sync.
-- [ ] **F-005** frontend: multiplayer game screen (from S-003, design 034; M-3)
+- [x] **F-005** frontend: multiplayer game screen (from S-003, design 034; M-3)
   - From the cycle 047 review (fairness): when the drift rule fires, the song still uses the old estimate, so a client whose clock stepped forward starts early, and stale samples can survive a few bursts; on drift use `Math.min(receipt, estimate.offsetMs)` (never early), drop samples with a negative RTT, and consider clearing the samples on a drift burst (the locked cycle 047 drift test changes with it); use `Number.isFinite` for `outputLatency`.
   - From the cycle 044 review: a `roster{phase:"lobby"}` that arrives during a game without `gameOver` means the game was abandoned (everyone else left); stop audio and timers and show the lobby.
-  - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
+  - (The reconnect notes moved to F-006 in cycle 048.)
   - Skip button with the vote count, live scores, other players' chat, reconnect behaviour (no reconnect after code 4001), final ranking with shared ranks, restart.
-  - Acceptance (Vitest with a mocked WebSocket): each phase renders; no reconnect after 4001; `npm test`, `lint`, `build` exit 0.
+  - Acceptance (Vitest with a mocked WebSocket): each phase renders; `npm test`, `lint`, `build` exit 0.
+- [ ] **F-006** frontend: automatic reconnect (split from F-005 in cycle 048; M-3)
+  - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
+  - An unexpected close of a room session retries with backoff (0.5 s doubling to 10 s) within the 30 s grace; a `rejoin-failed` or a time-out returns to the start screen with a message; the snapshot restores the lobby or the game (loading and scheduling the current song as a late start).
+  - Acceptance (Vitest with a mocked WebSocket): reconnect after a drop restores the lobby and a running song; no reconnect after 4001; rejoin-failed and time-out paths; `npm test`, `lint`, `build` exit 0.
+
+- [ ] **B-008** backend: confirmed own skip vote (from the cycle 048 review; M-3)
+  - `skipState` is broadcast without voters, so the client guesses its own vote from its clicks, and a `skipState` that arrives between a click and its `rate-limited` error makes the guess wrong. Send each connected player their own `voted` flag (per-player `skipState`, or a `for:"skipVote"` field on the rate-limit error) and let the client use it.
+  - Acceptance (JUnit): each player's `skipState` carries their own `voted`; a rate-limited skip leaves it unchanged; the lobby still never uses `toAll`.
+- [ ] **F-007** frontend: drift without lateness (from the cycle 048 review; M-3)
+  - A single late `start` frame looks like a clock jump and makes that player start late by the delay. On drift, defer fixing the offset until the re-sync burst answers (there are 3 s of lead), using `min(receipt, estimate)` only if no new estimate exists shortly before `startAt`. Also fix the stale comments in the two cycle 047 `App.sync` tests changed in cycle 048 and add a no-drift case for them.
+  - Acceptance (Vitest with fake timers): a delayed `start` with a good estimate still starts on time after the burst; a real clock jump starts no earlier than the true time.
 
 ## Roadmap
 

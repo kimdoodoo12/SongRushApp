@@ -14,6 +14,9 @@ const ERROR_TEXT = {
   'room-closed': '방이 닫혔습니다.',
 }
 
+// The lobby notice after a game ended without gameOver (F-005).
+export const ABANDONED_TEXT = '게임이 중단되어 대기실로 돌아왔습니다.'
+
 // The song counts a game can have (D-047).
 export const SONG_COUNTS = Array.from({ length: 26 }, (_, i) => i + 5)
 
@@ -28,6 +31,7 @@ export const initialState = {
   room: null, // { code, me } once joined; null in solo play
   players: [], // the last roster: { name, score, host, connected }
   lobbyOpen: false, // the room is back in its lobby after a game
+  notice: null, // a lobby notice, such as ABANDONED_TEXT
 
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
@@ -39,6 +43,12 @@ export const initialState = {
   score: null,
   error: null,
   finalScore: null,
+  scoreboard: null, // room only: the last scores rows { name, score }
+  ranking: null, // room only: the gameOver rows { rank, name, score }
+  watching: false, // joined mid-song: watching it, playing from the next
+  started: false, // the song is between its start and its reveal
+  skipVoted: false, // the own skip vote in this song, as toggled here
+  skipCount: null, // { votes, needed } from skipState for this song
   soundBlocked: false, // the AudioContext is not running: show 탭하여 소리 켜기
 }
 
@@ -51,7 +61,7 @@ export function reducer(state, action) {
     case 'reset':
       return initialState
     case 'joined':
-      return { ...state, screen: 'lobby', room: { code: action.code, me: action.name }, error: null }
+      return { ...state, screen: 'lobby', room: { code: action.code, me: action.name }, error: null, notice: null }
     case 'roster':
       return {
         ...state,
@@ -62,7 +72,10 @@ export function reducer(state, action) {
       return { ...state, screen: 'lobby', error: null }
     case 'prepare': {
       // A new game (index 0) starts from a clean slate (D-062).
-      const fresh = action.index === 0 ? { chat: [], score: null, finalScore: null, lobbyOpen: false } : {}
+      const fresh =
+        action.index === 0
+          ? { chat: [], score: null, finalScore: null, lobbyOpen: false, scoreboard: null, ranking: null }
+          : {}
       return {
         ...state,
         ...fresh,
@@ -73,8 +86,47 @@ export function reducer(state, action) {
         correct: null,
         reveal: null,
         error: null,
+        notice: null,
+        watching: false,
+        started: false,
+        skipVoted: false,
+        skipCount: null,
       }
     }
+    case 'watching':
+      // round is null when the snapshot has no song (paused or revealing).
+      return {
+        ...state,
+        screen: 'game',
+        round: action.round,
+        load: action.round === null ? null : 'loading',
+        timer: null,
+        correct: null,
+        reveal: null,
+        error: null,
+        notice: null,
+        watching: true,
+        started: false,
+        skipVoted: false,
+        skipCount: null,
+      }
+    case 'abandoned':
+      return {
+        ...state,
+        screen: 'lobby',
+        timer: null,
+        error: null,
+        lobbyOpen: false,
+        notice: ABANDONED_TEXT,
+        watching: false,
+        started: false,
+        skipVoted: false,
+        skipCount: null,
+      }
+    case 'skipToggle':
+      return { ...state, skipVoted: !state.skipVoted }
+    case 'skipState':
+      return { ...state, skipCount: { votes: action.votes, needed: action.needed } }
     case 'sound':
       return { ...state, soundBlocked: action.blocked }
     case 'loaded':
@@ -82,7 +134,7 @@ export function reducer(state, action) {
     case 'loadFailed':
       return { ...state, load: 'failed' }
     case 'start':
-      return { ...state, timer: { max: action.max, remaining: action.remaining } }
+      return { ...state, started: true, timer: { max: action.max, remaining: action.remaining } }
     case 'tick':
       if (state.timer === null) return state
       return { ...state, timer: { ...state.timer, remaining: action.remaining } }
@@ -95,13 +147,25 @@ export function reducer(state, action) {
     case 'correct':
       return { ...state, correct: action.name }
     case 'reveal':
-      return { ...state, timer: null, reveal: action.reveal }
+      return { ...state, timer: null, reveal: action.reveal, started: false, skipCount: null }
     case 'scores':
-      return { ...state, score: action.score }
+      // score is null without an own row; board is null in solo.
+      return {
+        ...state,
+        score: action.score === null ? state.score : action.score,
+        scoreboard: action.board === null ? state.scoreboard : action.board,
+      }
     case 'error':
       return { ...state, error: action.text }
     case 'gameOver':
-      return { ...state, screen: 'over', timer: null, finalScore: action.score }
+      return {
+        ...state,
+        screen: 'over',
+        timer: null,
+        started: false,
+        finalScore: action.score,
+        ranking: action.ranking,
+      }
     case 'disconnected':
       return { ...state, screen: 'disconnected', timer: null }
     default:

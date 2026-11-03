@@ -116,6 +116,10 @@ function App({
     dispatch({ type: 'reset' })
   }
 
+  function handleSkip() {
+    if (sessionRef.current !== null) sessionRef.current.skipVote()
+  }
+
   function handleChat(text) {
     if (sessionRef.current !== null) sessionRef.current.sendChat(text)
   }
@@ -159,6 +163,7 @@ function App({
           room={state.room}
           players={state.players}
           error={state.error}
+          notice={state.notice}
           onStartGame={handleStartGame}
           onLeave={handleLeave}
         />
@@ -167,6 +172,7 @@ function App({
         <GameScreen
           state={state}
           onChat={handleChat}
+          onSkip={handleSkip}
           onReset={handleReset}
           onToLobby={handleToLobby}
           onUnlockSound={handleUnlockSound}

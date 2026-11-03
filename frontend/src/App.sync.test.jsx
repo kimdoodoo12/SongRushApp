@@ -244,7 +244,7 @@ describe('synced offset', () => {
     ctx.currentTime = 10
     // Receipt offset 500, synced offset 2500: the song is 3 s away by the
     // synced clock and would be 5 s away by the receipt one.
-    deliver(socket, startAt(env, { receiptMs: 500, startInMs: 3000 }))
+    deliver(socket, startAt(env, { receiptMs: 4500, startInMs: 3000 }))
     await flushUntil(() => ctx.startedSources().length === 1)
     expect(ctx.startedSources()).toHaveLength(1)
     const source = ctx.startedSources()[0]
@@ -261,7 +261,7 @@ describe('synced offset', () => {
     const ctx = env.audio.last
     ctx.currentTime = 10
     // By the receipt offset (500) the song would be 1 s away instead.
-    deliver(socket, startAt(env, { receiptMs: 500, startInMs: -1000 }))
+    deliver(socket, startAt(env, { receiptMs: 4500, startInMs: -1000 }))
     await flushUntil(() => ctx.startedSources().length === 1 && screen.queryByRole('progressbar') !== null)
     const [when, offset] = ctx.startedSources()[0].start.mock.calls[0]
     expect(when).toBeCloseTo(10, 6)
@@ -272,9 +272,16 @@ describe('synced offset', () => {
     expect(bar.getAttribute('aria-valuenow')).toBe('89000')
   })
 
-  it.each([2000, -2000, 100])(
-    'a drift of %i ms (beyond rtt + 50 = 70) sends 3 more pings; the song still uses the synced offset',
-    async (drift) => {
+  // Cycle 048 (declared change): on drift the song uses the smaller of the
+  // receipt and synced offsets, so it never starts early. With -2000 the
+  // receipt (500) is smaller: when 15, offset 0. Otherwise the synced 2500.
+  it.each([
+    [2000, 13],
+    [-2000, 15],
+    [100, 13],
+  ])(
+    'a drift of %i ms (beyond rtt + 50 = 70) sends 3 more pings; the song uses the smaller offset (when %i)',
+    async (drift, expectedWhen) => {
       vi.useFakeTimers(FAKE_TIMERS)
       const env = setup()
       const socket = await syncedRoomReady(env)
@@ -291,8 +298,9 @@ describe('synced offset', () => {
       expect(pingsOf(socket)).toHaveLength(14)
       await advance(env, 1000)
       expect(pingsOf(socket)).toHaveLength(14)
-      const [when] = ctx.startedSources()[0].start.mock.calls[0]
-      expect(when).toBeCloseTo(13, 6)
+      const [when, offset] = ctx.startedSources()[0].start.mock.calls[0]
+      expect(when).toBeCloseTo(expectedWhen, 6)
+      expect(offset).toBe(0)
     },
   )
 

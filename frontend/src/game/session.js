@@ -7,7 +7,9 @@
 // and closes the socket at gameOver. mode 'create' and 'join' are room
 // sessions: they open a lobby with create{nickname} or join{code, nickname},
 // stay open across games, and find the player's own rows by the name that
-// joined assigned.
+// joined assigned. A room session whose joined is followed by a snapshot of
+// a playing game watches the current song (no ready, no skip) and plays from
+// the next prepare.
 import { planPlayback, loadTrack } from '../audio/playback.js'
 import { createClockSync } from '../net/clockSync.js'
 import { errorText } from './state.js'
@@ -34,8 +36,15 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   // Room sessions: whether joined has arrived, and the assigned name.
   let joined = false
   let myName = null
-  // The current song: { index, revealed, buffer, start, source }.
+  // The current song: { index, revealed, buffer, start, source, watching,
+  // lateStart }. lateStart is a watched song's { startAt, deadlineAt }, kept
+  // until a clock estimate exists.
   let round = null
+  // Room sessions: a game is on (prepare or a playing snapshot) and its
+  // gameOver has not arrived; a lobby roster then means it was abandoned.
+  let inGame = false
+  // Own skip toggles sent since the last skipState of this song.
+  let pendingSkips = 0
   let timer = null
   // Room sessions only; solo keeps the receipt offset and sends no ping.
   const sync = room ? createClockSync({ now, send, schedule: scheduleTimeout }) : null
@@ -59,7 +68,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   }
 
   function outputLatency() {
-    return typeof ctx.outputLatency === 'number' ? ctx.outputLatency : 0
+    return Number.isFinite(ctx.outputLatency) ? ctx.outputLatency : 0
   }
 
   // Ready for the song; in a room the link is idle now, so it re-syncs.
@@ -69,13 +78,17 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   }
 
   // The offset used at start: the synced estimate when there is one, else
-  // the receipt offset. A receipt that drifts from the estimate re-syncs.
+  // the receipt offset. A receipt that drifts from the estimate re-syncs
+  // from fresh samples, and the song uses the smaller of the two offsets,
+  // which is never early (cycle 047 review M1).
   function startOffset(serverTime) {
     const receipt = serverTime - now()
     const estimate = sync === null ? null : sync.current()
     if (estimate === null) return receipt
-    if (Math.abs(receipt - estimate.offsetMs) > estimate.rttMs + DRIFT_MARGIN_MS) sync.burst(RESYNC_PINGS)
-    return estimate.offsetMs
+    if (Math.abs(receipt - estimate.offsetMs) <= estimate.rttMs + DRIFT_MARGIN_MS) return estimate.offsetMs
+    sync.clear()
+    sync.burst(RESYNC_PINGS)
+    return Math.min(receipt, estimate.offsetMs)
   }
 
   function stopTimer() {
@@ -126,6 +139,11 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   }
 
   function onError(code) {
+    // A limited skip vote was not counted: undo its toggle (spec 048 review M1).
+    if (code === 'rate-limited' && pendingSkips > 0) {
+      pendingSkips -= 1
+      dispatch({ type: 'skipToggle' })
+    }
     const text = errorText(code)
     const beforeGame = room ? !joined : !prepared
     if (beforeGame || (room && code === 'room-closed')) {
@@ -137,40 +155,105 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     }
   }
 
-  function onPrepare(msg) {
-    const r = { index: msg.index, revealed: false, buffer: null, start: null, source: null }
-    round = r
-    prepared = true
-    dispatch({ type: 'prepare', index: msg.index, total: msg.total })
-    soundCheck()
+  function newRound(index, watching, lateStart) {
+    return { index, revealed: false, buffer: null, start: null, source: null, watching, lateStart }
+  }
+
+  // Loads the round's audio. A played round then sends ready, also after a
+  // failed load so the game is not held up; a watched round sends none.
+  function load(r, audioUrl) {
     const current = () => active && round === r && !r.revealed
-    loadTrack(ctx, msg.audioUrl, fetchFn).then(
+    loadTrack(ctx, audioUrl, fetchFn).then(
       (buffer) => {
         if (!current()) return
         r.buffer = buffer
         dispatch({ type: 'loaded' })
-        sendReady(r.index)
+        if (!r.watching) sendReady(r.index)
         schedule(r)
       },
       (err) => {
         if (!current()) return
         console.warn('audio load failed twice', err)
         dispatch({ type: 'loadFailed' })
-        // Ready anyway, so the game is not held up.
-        sendReady(r.index)
+        if (!r.watching) sendReady(r.index)
       },
     )
   }
 
-  function onStart(msg) {
-    if (round === null || msg.index !== round.index) return
-    const r = round
-    r.start = { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs: startOffset(msg.serverTime) }
-    dispatch({ type: 'start', max: msg.deadlineAt - msg.startAt, remaining: remaining(r.start) })
+  function onPrepare(msg) {
+    const r = newRound(msg.index, false, null)
+    round = r
+    prepared = true
+    if (room) inGame = true
+    pendingSkips = 0
+    dispatch({ type: 'prepare', index: msg.index, total: msg.total })
+    soundCheck()
+    load(r, msg.audioUrl)
+  }
+
+  // Starts the round's clock and timer; it plays once the buffer is there.
+  function beginStart(r, start) {
+    r.start = start
+    dispatch({ type: 'start', max: start.deadlineAt - start.startAt, remaining: remaining(start) })
     soundCheck()
     stopTimer()
-    timer = setInterval(() => dispatch({ type: 'tick', remaining: remaining(r.start) }), TICK_MS)
+    timer = setInterval(() => dispatch({ type: 'tick', remaining: remaining(start) }), TICK_MS)
     schedule(r)
+  }
+
+  function onStart(msg) {
+    if (round === null || msg.index !== round.index) return
+    beginStart(round, { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs: startOffset(msg.serverTime) })
+  }
+
+  // A watched song already playing: the snapshot has no serverTime, so it
+  // starts late once the first clock estimate exists (spec 048 review H1).
+  function lateStart(r) {
+    if (r.lateStart === null || r.start !== null || r.revealed) return
+    const estimate = sync.current()
+    if (estimate === null) return
+    beginStart(r, { ...r.lateStart, offsetMs: estimate.offsetMs })
+  }
+
+  // joined, then a snapshot of a playing game: watch its current song.
+  function onSnapshot(msg) {
+    if (!room || !joined || msg.phase !== 'playing') return
+    inGame = true
+    pendingSkips = 0
+    const song = msg.song
+    if (song === null || song === undefined) {
+      round = null
+      dispatch({ type: 'watching', round: null })
+      return
+    }
+    const late = typeof song.startAt === 'number' ? { startAt: song.startAt, deadlineAt: song.deadlineAt } : null
+    const r = newRound(song.index, true, late)
+    round = r
+    dispatch({ type: 'watching', round: { index: song.index, total: song.total } })
+    soundCheck()
+    load(r, song.audioUrl)
+    lateStart(r)
+  }
+
+  function onSkipState(msg) {
+    if (round === null || msg.index !== round.index) return
+    // The server has counted every toggle sent before this.
+    pendingSkips = 0
+    dispatch({ type: 'skipState', votes: msg.votes, needed: msg.needed })
+  }
+
+  // A lobby roster while a game is on and before its gameOver: the game was
+  // abandoned (in practice only a watcher gets this, spec 048 review H2).
+  function abandon() {
+    inGame = false
+    pendingSkips = 0
+    stopTimer()
+    if (round !== null) {
+      round.revealed = true
+      stopSource()
+      round = null
+    }
+    dispatch({ type: 'abandoned' })
   }
 
   function onReveal(msg) {
@@ -210,7 +293,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
         break
       case 'scores': {
         const row = ownRow(msg.scores)
-        if (row !== undefined) dispatch({ type: 'scores', score: row.score })
+        dispatch({ type: 'scores', score: row === undefined ? null : row.score, board: room ? msg.scores : null })
         break
       }
       case 'gameOver': {
@@ -219,7 +302,12 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
         // nothing (such as room-closed) can reach the final-score screen.
         if (!room) close()
         stopTimer()
-        dispatch({ type: 'gameOver', score: row === undefined ? null : row.score })
+        inGame = false
+        dispatch({
+          type: 'gameOver',
+          score: row === undefined ? null : row.score,
+          ranking: room ? msg.ranking : null,
+        })
         break
       }
       case 'joined':
@@ -234,11 +322,20 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
         }
         break
       case 'pong':
-        if (sync !== null) sync.onPong(msg)
+        if (sync === null) break
+        sync.onPong(msg)
+        if (round !== null) lateStart(round)
+        break
+      case 'snapshot':
+        onSnapshot(msg)
+        break
+      case 'skipState':
+        onSkipState(msg)
         break
       case 'roster':
         if (!room) break
         dispatch({ type: 'roster', phase: msg.phase, players: msg.players })
+        if (msg.phase === 'lobby' && inGame) abandon()
         break
       case 'error':
         onError(msg.code)
@@ -299,6 +396,14 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     },
     startGame(count) {
       if (active) send({ type: 'start', songCount: count })
+    },
+    // Toggles the own skip vote for the current song, between its start and
+    // its reveal. Watchers and solo do not vote.
+    skipVote() {
+      if (!active || !room || round === null || round.watching || round.start === null || round.revealed) return
+      send({ type: 'skipVote', index: round.index })
+      pendingSkips += 1
+      dispatch({ type: 'skipToggle' })
     },
     // Leaves the room on purpose: the server is told, then the socket closes.
     leave() {
