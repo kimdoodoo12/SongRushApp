@@ -87,3 +87,22 @@ button {
   font-size: 0.8rem;
   color: #6b7280;
 }
+
+.start-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.room-code {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.share span {
+  word-break: break-all;
+}
+
+.roster {
+  padding-left: 1.25rem;
+}
