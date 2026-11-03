@@ -91,3 +91,32 @@ A `deploy/` folder that installs and runs the game on one Ubuntu 24.04 server be
 - `smoke.py` (I-005).
 - The README (I-006).
 - Running anything on a real server.
+
+## Result
+- **Commits.** The tests are `4cca79b` (locked) and the implementation is `185085d` (attempt 1). The spec revision was first lost to a Python escape error in the lead's edit script. The test writer had started from the pre-review spec, so it was re-briefed and rewrote the tests before the lock.
+- **Red phase (verifier, PowerShell).** 16 of 20 failed on missing `deploy/` files, with 0 skips (the bash finder avoided the WSL launcher). The 699 earlier tests passed.
+- **Verifier.**
+  - `pytest tests/test_deploy_kit.py`: 20 passed, with no skips. The full suite: 715 passed.
+  - `git diff 4cca79b HEAD --stat` lists only the four `deploy/` files, and they are ASCII with LF.
+  - A real `sftp -D /usr/lib/ssh/sftp-server.exe -b` run of the dry-run batch:
+    - it exited 0 on an empty remote and again on the existing tree;
+    - `reput` resumed a truncated `.ogg` to a byte-identical file;
+    - there was no `web/dist` nesting.
+- **Hook.** The lead mapped `deploy/` to the data area in the Stop hook (`EXTRA_AREAS`).
+
+## Code review (critic)
+No Blocker or High. Confirmed as correct:
+- the Caddy `header ... { defer }` block;
+- the official repo commands and `caddy validate`;
+- swap idempotence and the user and ownership setup (the backend never writes to the data dir);
+- quoting and host-injection checks;
+- `sftp -b` stopping before `mv` and restart on a failed `put`.
+
+Mediums, queued as I-008 before the owner's first deploy:
+- the dpkg lock right after boot;
+- a half-written Caddy repo file blocking reruns;
+- no health check after restart, and no `.prev` jar.
+
+Nits, also in I-008:
+- the jar uploaded last widens the version-skew window;
+- a reboot before the first upload makes the service restart forever.
