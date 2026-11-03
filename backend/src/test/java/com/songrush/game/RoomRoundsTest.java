@@ -283,9 +283,9 @@ class RoomRoundsTest {
 				.containsEntry(HANA.id(), 0);
 
 		mark = outbox.mark();
-		advanceToDeadline();
-		assertThat(outbox.since(mark)).as("the old deadline does nothing").isEmpty();
-		scheduler.advance(Room.REVEAL_PAUSE);
+		scheduler.advance(Room.REVEAL_PAUSE.minusMillis(1));
+		assertThat(outbox.since(mark)).as("nothing during the reveal pause").isEmpty();
+		scheduler.advance(Duration.ofMillis(1));
 		assertThat(types(outbox.since(mark))).containsExactly("prepare");
 		assertThat(num(outbox.last("prepare").message(), "index")).isEqualTo(1);
 	}

@@ -95,3 +95,7 @@ Decisions covered: D-012, D-017, D-024, D-061 (design 034 M1 and M5; cycle 036 r
 ## Out of scope
 - Late joiners (B-006c).
 - Client UI (F-005).
+
+## Locked-test correction (attempt 1)
+- `RoomRoundsTest.twoOfThreeVotesSkipTheSongWithNoWinner` advanced to the skipped song's old deadline (60 s or more) and expected silence, then expected exactly one `prepare` after a further `REVEAL_PAUSE`; the 5 s reveal pause and the 25 s prepare timeout always fire first, so no implementation could pass it (implementer report, confirmed by the lead from the test source).
+- The lead unlocked the tests; the test writer replaced only those two steps with: advance `REVEAL_PAUSE - 1 ms`, expect nothing; advance 1 ms, expect exactly `prepare` with index 1. The tests were locked again. No implementation change was made for it.
