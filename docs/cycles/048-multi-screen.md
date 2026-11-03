@@ -67,7 +67,7 @@ The client also never starts a song early after its clock jumps (cycle 047 revie
 2. **`src/net/clockSyncGuards.test.js`**
    - Negative-RTT samples are ignored by `estimate`, and by `current()` through `onPong` with a clock stepped backwards.
    - The clear on a drift burst: the session-level test in criterion 1 or 3 covers it through `App.sync` behaviour, or a unit-level `clear()` on the sync object if one is exposed.
-3. **`App.sync.test.jsx` drift cases**, as declared above: with drift +2000 the plan uses the receipt offset (the smaller one), and with -2000 the synced one. This is the declared change.
+3. **`App.sync.test.jsx` drift cases**, as declared above: with drift -2000 the plan uses the receipt offset (the smaller one, `when` 15), and with +2000 and 100 the synced one (`when` 13); this sentence was corrected after the cycle (the tests always followed the corrected version). This is the declared change.
 4. All other locked tests pass unchanged. `npm test`, `npm run lint` and `npm run build` exit 0.
 
 ## Review changes (spec round 1)
@@ -91,3 +91,14 @@ The client also never starts a song early after its clock jumps (cycle 047 revie
 ## Locked-test correction (attempt 1)
 - The implementer reported (and the lead confirmed from the test source) that two more cycle 047 tests in `App.sync.test.jsx` — "start schedules source.start from the synced offset, not the receipt offset (2 s apart)" and "a song 1 s late by the synced clock ..." — use `receiptMs: 500` against a synced offset of 2500. That is a drift of -2000, so under this cycle's rule the smaller (receipt) offset wins and they cannot keep `when` 13 / 10; the spec had missed them.
 - Declared change: those two tests use `receiptMs: 4500` instead (still 2 s apart, now on the side where the synced offset is the smaller one), so they keep asserting that the synced offset is used; nothing else in them changes. The lead unlocked the tests for this change only and locked them again.
+
+## Result
+- Tests `7956c0f` (locked; the declared drift change included), a second declared correction of two cycle 047 tests `c602bcd`, implementation `524c259` (attempt 1; no implementation change was needed for the correction).
+- Red phase (verifier): 29 failures, all missing features (lists, skip, watcher notice and playback, abandon, non-finite latency, sample clearing, negative-RTT guards) plus the declared -2000 case; 5 new tests pass on the old code as deliberate negative guards.
+- Verifier: `npm test` twice (10 files, 149 tests), `npm run lint`, `npm run build` exit 0; the feat commit changes no test or fake; the locked-test diffs are exactly the declared ones.
+
+## Code review (critic)
+No Blocker or High. Confirmed: no path starts a song early (receipt offset is never larger than the true one, negative RTTs are dropped, a backwards clock jump makes `min` pick the estimate); the watcher flow; abandon detection versus the normal `gameOver` sequence; per-game resets; no answer leak.
+- **M1 (follow-up, B-008).** Client-side skip accounting can go wrong when a `skipState` arrives between a click and its `rate-limited` error; the server should confirm the player's own vote.
+- **M2 (follow-up, F-007).** A single late `start` frame triggers the drift rule and makes that player start late by the delay; defer the offset until the re-sync burst answers, falling back to `min` only near `startAt`.
+- **Nits.** The criterion 3 sentence (fixed above); stale comments in two `App.sync` tests and those tests now exercise the drift path (follow-up).
