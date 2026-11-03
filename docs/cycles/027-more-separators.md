@@ -43,3 +43,16 @@ Rebuild the catalog from the cache and record the new accepted-string total and 
 
 ## Out of scope
 Grouping (`titles.head` is unchanged), D-050's minimum, synonyms.
+
+## Result
+- Tests `bfdb0c0` (locked); implementation `d1d1ef6` (attempt 1).
+- Red phase (verifier): 15 failed (missing `front_parts`, old separator set), all in new tests and the provenance test of criterion 5.
+- Verifier: full suite exit 0, `569 passed in 17.88s`; `git diff bfdb0c0 HEAD -- data/tests/` empty; criteria 1-5 confirmed.
+- Criterion 6 (lead): the catalog rebuilt from the cache (exit 0, no clear) has 22,400 accepted strings (was 21,868): 0 removed, 532 added. `build catalog bytes=5730975`.
+- The test writer caught that criterion 5 as first written ("every cycle 026 test unchanged") contradicted D-052, because the cycle 026 provenance test only allowed the first front part; the spec was amended before the tests were locked.
+
+## Code review (critic)
+No Blocker or High. Offline rebuild agrees with the lead's: 0 removed, 532 added; strings shared by two groups went from 52 to 58, all within one franchise.
+- **Medium (follow-up).** `13話～16話`, the user's own example in D-052, is still cut because `話` precedes the wave dash; the spec's criterion used `Episode 13～16` instead. One extra string of the same anime results.
+- **Nit.** BACKLOG's C-014 text still said "the earliest separator wins"; corrected.
+- **Nit.** A separator at index 0 now drops only that cut, not the whole string (consistent with D-052; no real title starts with a separator).

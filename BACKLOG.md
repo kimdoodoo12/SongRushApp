@@ -125,8 +125,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-013** data: accept the front part of titles (D-049)
   - `groups.build_titles`: for every source string that already feeds `accepted`, also add `normalize(front(s))` and `normalize(strip_qualifier(front(s)))`, where `front` cuts at the first `: `, `：`, `/` or ` -`; the D-050 minimum applies (4 Latin characters, 2 with Hangul, kana or CJK).
   - Acceptance (offline): `Demon Slayer` is accepted for 101922 and for a later Kimetsu season; `Fate` for Fate/Zero; `rezero` for 21355 (from its English title); `Gintama` for `Gintama: THE FINAL`; `K` is not accepted for `K: Return of Kings`; a title with only `Re:Zero kara ...` (no spaced separator) gains no extra string; the cycle 021 tests that pinned the old D-038 rule ("Demon Slayer" alone rejected, Kizumonogatari front part rejected) are updated to the new rule, and every other cycle 021 test passes; the real catalog is rebuilt from cache and the change in accepted-string counts is recorded.
-- [~] **C-014** data: more subtitle separators (D-051)
-  - `groups.front_part` also cuts at `~`, `～`, `〜`, `–`, `—`, `―`, `／`, `－`, wherever they appear after the first character; the earliest separator of any kind wins; the digit rule for `/` also applies to `／`.
+- [x] **C-014** data: more subtitle separators (D-051)
+  - `groups.front_part` also cuts at `~`, `～`, `〜`, `–`, `—`, `―`, `／`, `－`, wherever they appear; the part before every separator is accepted (D-052); the digit rule for `/` also applies to `／` and to the wave dashes.
   - Acceptance (offline): `Attack on Titan ~Chronicle~` gives `Attack on Titan`; `Chainsaw Man – The Movie: Reze Arc` gives `Chainsaw Man`; `ゾイド新世紀／ゼロ` gives `ゾイド新世紀`; `86－エイティシックス－` gives `86`, which D-050 then rejects; a full-width `１／２` between digits is not cut; every cycle 026 test still passes. The real catalog is rebuilt from the cache and the accepted-string count recorded.
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
@@ -223,6 +223,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Range exception (critic, cycle 027): D-052's own example `13話～16話` is still cut, because the digit rule needs digits on both sides of the wave dash and here `話` precedes it. One extra string of the same anime results (group 5671); widen the rule to a digit run plus a counter suffix if it matters.
 - Front part (critic, cycle 026): add a test that full-width digits around an ASCII `/` are not cut (implemented, not pinned).
 - Build CLI (critic, cycle 023): `main` should reconfigure stdout with `line_buffering=True` so a background build's log shows progress (until then run it with `python -u`); add a test that pins each source's gap and timeout (AnimeThemes 3 s/120 s, AniList 2 s/60 s, Wikidata and aod 3 s/60 s).
 - Reveal fallback (critic, cycle 021): step 5 can return a `ko` episode label (`… 1화`) that step 1 skips, when an anime has no AniList data. Skip episode labels there too.
