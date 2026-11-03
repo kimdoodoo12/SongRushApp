@@ -243,8 +243,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
   - `setup.sh`: wait for `cloud-init status --wait` and pass `-o DPkg::Lock::Timeout=600` to every `apt-get` (a fresh EC2 often holds the dpkg lock); make the Caddy repo step recover from a half-written key or list (download to a temp file and `mv`, or re-download every run). `upload.sh`: put the jar first in the batch, keep `songrush.jar.prev`, and after the restart poll `http://127.0.0.1:8080/health` on the server for up to 60 s, printing `journalctl -u songrush -n 50` and exiting non-zero on failure. Unit: `ConditionPathExists=/opt/songrush/app/songrush.jar`.
   - Acceptance (pytest, extending the deploy-kit checks in a new test file): each of these is present and ordered as stated; the stubbed real run sees the jar `put` before any web file and a final ssh command containing the health poll.
-- [ ] **I-006** owner runbook (from M-4, design 052)
-  - `deploy/README.md` in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
+- [x] **I-006** owner runbook (from M-4, design 052)
+  - `docs/deploy-guide.md` (moved from `deploy/README.md`: the locked cycle 055 test keeps `deploy/` ASCII) in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
   - Acceptance (pytest): commands only in fenced `bash` blocks; every `deploy/<file>` they name exists; every `[A-Z_]{3,}=` key is set by the unit or Caddyfile.
 
 ## Roadmap
@@ -260,7 +260,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 ## Needs decision
 
-- [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `deploy/README.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's account and D-066.
+- [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `docs/deploy-guide.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's account and D-066.
 - [?] **D-066** Hostname for HTTPS (design 052): (a) a free IP-based name such as `<ip>.sslip.io` with Caddy's automatic certificate (no cost, no account; changes with the IP) - recommended to start; (b) a bought domain (about 15,000 KRW/year) on an Elastic IP; (c) DuckDNS (free, needs an account).
 - [?] **D-068** AWS sign-up plan and host (design 053; refines D-065, whose "12 months free" no longer applies to new accounts): Free plan (closes itself at 6 months or when the $100 credit runs out; data deleted 90 days later) vs Paid plan (same credits, never closes; pay after credits). Recommended: Paid plan + EC2 t3.micro + 16 GB gp3 + an AWS Budgets alert (free while credits last, then about $15/month; Lightsail Micro $7 later is an option).
 - [?] **D-067** Revisit D-025/D-057 before going public (design 052): (a) keep the modified-client risk accepted for friends-only play - recommended; (b) encrypt each round's audio and send the key at `startAt` (about one backend + frontend cycle).
@@ -338,6 +338,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Deploy guide (critic, cycle 058): `upload.sh`'s missing-jar hint still says `.\gradlew.bat` (bash form is `./gradlew.bat`); `setup.sh`'s closing hint prints the upload command without the key; step 9 (updates) does not re-copy `deploy/`, so later unit or Caddyfile changes need the `scp` + `setup.sh` steps again.
 - Restore hint (critic, cycle 057): on a first deploy there is no `songrush.jar.good`, so the printed restore command stops at `cp` (harmless; the runbook says so); the restore should copy to `.new` and `mv` like the deploy; a failed `.good` copy after a healthy start reports failure; the poll can last up to about 420 s when the JVM accepts but never answers (`curl -m 5`). Check on the real server whether `DPkg::Lock::Timeout` also covers `apt-get update`'s lists lock.
 - Smoke test gaps (critic, cycle 056): the stub does not check that the client sends a close frame and waits for the server's close; the send branches for frames over 125 bytes are unused and could be removed.
 - Static serving (critic, cycle 054): add `spring.web.resources.cache.cachecontrol.no-cache=true` so a stale cached `index.html` cannot point at deleted hashed assets after a redeploy; resolve both guard paths with `toRealPath()` (symlinks); select guarded locations through `ResourceLoader` instead of a case-sensitive `file:` prefix and reject locations that are neither `file:` nor `classpath:`; tighten `StaticGuardTest` to the guard's own message.
