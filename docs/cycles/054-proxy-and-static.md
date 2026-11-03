@@ -69,3 +69,30 @@ The backend works behind a TLS-terminating proxy, so the WebSocket same-origin c
 - Deploy files (I-004).
 - Per-IP limits (follow-up).
 - Changes to the frontend build.
+
+## Result
+- Tests `3d942c7` (locked), implementation `58aab45` (attempt 1).
+- Red phase (verifier): exactly 6 of 282 failed. These were the proxied handshake (403), the forwarded address (`127.0.0.1`), `/r/ABCDE` (404) and the 3 guard cases (startup succeeded). The 8 other new tests are guards that already pass.
+- Verifier:
+  - `.\gradlew.bat cleanTest test` and `build` exit 0 (39 suites, 0 failures).
+  - `git diff 3d942c7 HEAD --stat` lists only `RoomPageController.java`, `StaticLocationGuard.java` and `application.properties`.
+  - Real-jar smoke with a copy of `frontend/dist`:
+    - `/` and `/r/ABCDE` returned 200, byte-identical to `index.html`;
+    - a raw `/ws` upgrade with `Origin: https://play.test` got `HTTP/1.1 101` with `X-Forwarded-Proto: https` and `HTTP/1.1 403` without it;
+    - a static location equal to the data dir stopped startup with `IllegalStateException: static location ... must not be equal or contain each other`.
+
+## Code review (critic)
+No Blocker or High. Confirmed:
+- Tomcat trusts forwarded headers only from private and loopback peers.
+- A missing `index.html` gives the JSON 404, not a 500.
+- `/r/{code}` collides with nothing.
+- The diff opens no new path to answers.
+
+Medium items, recorded as follow-ups (some fold into I-004):
+- **M1.** The guard compares normalized paths, not real paths, so a symlink bypasses it.
+- **M2.** Without `Cache-Control`, a stale `index.html` can point at deleted hashed assets after a redeploy. Also, `upload.sh` must always upload `index.html`.
+- **M3.** Boot also serves a `public/` or `static/` folder in the working directory.
+
+Nits:
+- The guard's `file:` prefix check is case-sensitive.
+- `StaticGuardTest` accepts any message containing `static`.

@@ -230,11 +230,12 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **S-003** design: current AWS free terms (from M-4, design 052)
   - D-065 assumed "12 months free"; accounts created since 2025-07-15 may get a credit-based Free plan. Check the current AWS pages (eligible instance types, duration or credits, public IPv4, data transfer out, EBS), write a design doc, and add a Needs decision if the cost picture changes.
-- [~] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
+- [x] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
   - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
   - Acceptance (JUnit): proxied handshake (`Origin: https://play.test`, `X-Forwarded-Proto: https`) gets 101 and a foreign origin 403; forwarded client address; `/`, `/assets/x.js`, `/r/ABCDE` served; traversal not served; `/ws`, `/audio/*`, `/health` unchanged; no static location keeps today's 404; overlap with data-dir fails startup.
 - [ ] **I-004** deploy kit files (from M-4, design 052)
   - `deploy/Caddyfile`, `deploy/songrush.service` (`-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`, `SERVER_ADDRESS=127.0.0.1`), `deploy/setup.sh` (Ubuntu 24.04), `deploy/upload.sh` (OpenSSH `sftp` only, resumable, exact boot jar).
+  - From the cycle 054 review: `upload.sh` always uploads `index.html` (a same-size new index would be skipped); the unit fixes `WorkingDirectory` to a folder with no `public/`, `static/` or `src/main/webapp/` (Boot also serves the servlet document root); the web folder holds no symlinks.
   - Acceptance (pytest `data/tests/test_deploy_kit.py`, offline): `bash -n`; ASCII + LF; unit env keys are `SongrushProperties` fields or allow-listed Spring keys; `upload.sh --dry-run` runs no `ssh`/`sftp` (stub PATH). The lead adds `"deploy": {"data"}` to the Stop hook's `EXTRA_AREAS`.
 - [ ] **I-005** smoke check script (from M-4, design 052)
   - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
@@ -334,6 +335,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Static serving (critic, cycle 054): add `spring.web.resources.cache.cachecontrol.no-cache=true` so a stale cached `index.html` cannot point at deleted hashed assets after a redeploy; resolve both guard paths with `toRealPath()` (symlinks); select guarded locations through `ResourceLoader` instead of a case-sensitive `file:` prefix and reject locations that are neither `file:` nor `classpath:`; tighten `StaticGuardTest` to the guard's own message.
 - Per-IP limits (plan 052, dropped from M-4): open WebSocket connections and `create` rate per client IP, once the server is public; mind carrier NAT false positives.
 - Drift correction (critic, cycle 051): no test pins the `max` in `clockSync.lowerBound()` (a lower bound arriving after a higher one must not move the start); a backward clock step during a provisional song can move it slightly later (never earlier).
 - Reconnect screen (critic, cycle 049): a short drop on the final-ranking screen restores the lobby and loses the ranking (keep the result screen with `대기실로` when the snapshot says lobby); a reconnect during REVEAL loses that song's reveal card; using the stored token after a page reload is not built yet (handle duplicated tabs copying `sessionStorage`, which would replace the original tab with 4001).
