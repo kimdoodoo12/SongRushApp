@@ -224,7 +224,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-008** backend: confirmed own skip vote (from the cycle 048 review; M-3)
   - `skipState` is broadcast without voters, so the client guesses its own vote from its clicks, and a `skipState` that arrives between a click and its `rate-limited` error makes the guess wrong. Send each connected player their own `voted` flag (per-player `skipState`, or a `for:"skipVote"` field on the rate-limit error) and let the client use it.
   - Acceptance (cycle 050 design): a refused skip's error carries `for:"skipVote"` and a refused chat's does not; the client's own vote is the parity of its clicks minus the tagged refusals, independent of `skipState` order.
-- [ ] **F-007** frontend: drift without lateness (from the cycle 048 review; M-3)
+- [x] **F-007** frontend: drift without lateness (from the cycle 048 review; M-3)
   - A single late `start` frame looks like a clock jump and makes that player start late by the delay. On drift, defer fixing the offset until the re-sync burst answers (there are 3 s of lead), using `min(receipt, estimate)` only if no new estimate exists shortly before `startAt`. Also fix the stale comments in the two cycle 047 `App.sync` tests changed in cycle 048 and add a no-drift case for them.
   - Acceptance (Vitest with fake timers): a delayed `start` with a good estimate still starts on time after the burst; a real clock jump starts no earlier than the true time.
 
@@ -314,6 +314,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Drift correction (critic, cycle 051): no test pins the `max` in `clockSync.lowerBound()` (a lower bound arriving after a higher one must not move the start); a backward clock step during a provisional song can move it slightly later (never earlier).
 - Reconnect screen (critic, cycle 049): a short drop on the final-ranking screen restores the lobby and loses the ranking (keep the result screen with `대기실로` when the snapshot says lobby); a reconnect during REVEAL loses that song's reveal card; using the stored token after a page reload is not built yet (handle duplicated tabs copying `sessionStorage`, which would replace the original tab with 4001).
 - Socket join race (critic, cycle 046): a `join` immediately followed by `leave` can leave the rejoin token in `logins` (the leave removes it on the I/O thread before the lobby task puts it) and still send the token frame after the leave; check the binding before `logins.put` and the token frame, or remove the token inside the lobby task.
 - Skip (critic, cycle 045): a socket that replaces another without a vote of its own gets no `skipState`, so it shows 0 votes until the next change (send the current `skipState` to a reconnecting player, or add `skip{votes, needed}` to the snapshot with the locked tests updated); a clock stepping backwards refills up to the stepped time (bounded by 5 tokens).
