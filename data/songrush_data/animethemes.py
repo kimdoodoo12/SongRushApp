@@ -2,11 +2,12 @@
 
 fetch_page posts the saved page query with a literal page number, validates
 the response and caches it. crawl walks every page with resume, order,
-duplicate and total checks and a last-page freshness check (cycle 023).
+duplicate and total checks and a last-page freshness check (cycle 023),
+and continues without clearing when the source only grew (cycle 025).
 select_themes turns one raw anime item into a plain record with one chosen
 audio file per OP/ED theme.
 docs/cycles/017-animethemes-crawl.md and docs/cycles/023-build-cli.md are
-the specification.
+the specification, with docs/cycles/025-incremental-crawl.md.
 """
 
 import hashlib
@@ -64,8 +65,9 @@ def validate_page(body, page: int) -> dict:
     return pagination
 
 
-def _fetch(client: PoliteClient, cache: FileCache, page: int, refresh: bool) -> tuple[dict, bool]:
-    """Return (animePagination, cache hit)."""
+def _fetch(client: PoliteClient, cache: FileCache, page: int, refresh: bool,
+           store: bool = True) -> tuple[dict, bool]:
+    """Return (animePagination, cache hit); store=False reads the source without writing the cache."""
     key = _page_key(page)
     if not refresh:
         data = cache.get(key)
@@ -87,7 +89,8 @@ def _fetch(client: PoliteClient, cache: FileCache, page: int, refresh: bool) -> 
     except ValueError as error:
         raise ValueError("page %d: response is not valid JSON: %s" % (page, error)) from error
     pagination = validate_page(body, page)
-    cache.put(key, reply.body)
+    if store:
+        cache.put(key, reply.body)
     return pagination, False
 
 
@@ -113,10 +116,15 @@ class _Restart(Exception):
 
 
 def _restart(cache: FileCache, reason: str, can_restart: bool, log: Callable[[str], None]) -> None:
-    """Clear the page prefix and restart the crawl, or raise ValueError when the cap is reached."""
-    if not can_restart:
-        raise ValueError("%s; giving up after %d restarts" % (reason, MAX_RESTARTS))
+    """Clear the page prefix and restart the crawl, or raise ValueError when the cap is reached.
+
+    Giving up clears the prefix too (cycle 025 rule 6), so the next run never
+    trusts pages written during a pass that did not finish consistently.
+    """
     cleared = cache.clear(_key_prefix())
+    if not can_restart:
+        log("crawl: giving up after %d restarts; cleared %d entries" % (MAX_RESTARTS, cleared))
+        raise ValueError("%s; giving up after %d restarts" % (reason, MAX_RESTARTS))
     log("%s; cleared %d entries, restarting" % (reason, cleared))
     raise _Restart()
 
@@ -132,6 +140,7 @@ class _Pass:
         self.previous_last = None
         self.total = None
         self.total_known = False
+        self.grew = False  # the total grew on a fetched page during this pass
         self.last_start = 0  # index in items where the latest page begins
 
     def check_new_ids(self, page: int, ids: list) -> None:
@@ -163,21 +172,62 @@ class _Pass:
         self.items.extend(fresh["data"])
 
 
+    def latest_ids(self) -> list:
+        """The ids of the latest page added."""
+        return [item.get("id") for item in self.items[self.last_start:]]
+
+
 def _has_more(pagination: dict) -> bool:
     return bool(pagination["paginatorInfo"].get("hasMorePages"))
 
 
+def _grew(old_total, new_total) -> bool:
+    return isinstance(old_total, int) and isinstance(new_total, int) and new_total > old_total
+
+
 def _appended_only(old: dict, fresh: dict) -> list | None:
-    """Return the new ids when fresh only appends ids to old and total grew by their number."""
+    """Return the new ids when fresh only appends to old (cycle 025 rule 2), else None.
+
+    (a) the new ids fit on the page and total grew by exactly their number, or
+    (b) the fresh page is full, now has more pages, and total grew strictly and
+    by at least the number of new ids (which may be zero).
+    """
     old_ids, new_ids = _ids(old), _ids(fresh)
-    if len(new_ids) <= len(old_ids) or new_ids[:len(old_ids)] != old_ids:
+    if len(new_ids) < len(old_ids) or new_ids[:len(old_ids)] != old_ids:
         return None
     added = new_ids[len(old_ids):]
     old_total = old["paginatorInfo"].get("total")
     new_total = fresh["paginatorInfo"].get("total")
-    if not isinstance(old_total, int) or not isinstance(new_total, int) or new_total - old_total != len(added):
+    if not _grew(old_total, new_total):
         return None
-    return added
+    if added and new_total - old_total == len(added):
+        return added
+    if len(new_ids) == PER_PAGE and _has_more(fresh) and new_total - old_total >= len(added):
+        return added
+    return None
+
+
+def _verify_previous(client: PoliteClient, cache: FileCache, state: _Pass, page: int,
+                     can_restart: bool, log: Callable[[str], None]) -> None:
+    """Refetch page - 1 and restart unless its ids are unchanged (cycle 025 rule 1).
+
+    Page's cache entry carries a larger total that is not verified yet, so it
+    is deleted when the verification does not succeed by any path. The refetch
+    of page - 1 is not cached (rule 5): its existing entry stays as it is.
+    """
+    verified = False
+    try:
+        if page > 1:
+            previous, _ = _fetch(client, cache, page - 1, True, store=False)
+            old_ids, new_ids = state.latest_ids(), _ids(previous)
+            if new_ids != old_ids:
+                _restart(cache, "crawl: page %d no longer holds the same ids after page %d reported a larger total"
+                         " (ids %s -> %s)" % (page - 1, page, _id_range(old_ids), _id_range(new_ids)),
+                         can_restart, log)
+        verified = True
+    finally:
+        if not verified:
+            cache.delete(_page_key(page))
 
 
 def _crawl_once(client: PoliteClient, cache: FileCache, log: Callable[[str], None],
@@ -187,6 +237,7 @@ def _crawl_once(client: PoliteClient, cache: FileCache, log: Callable[[str], Non
     while True:
         pagination, hit = _fetch(client, cache, page, refresh_all)
         fetched = not hit
+        resumed = False
         if hit and _has_more(pagination) and cache.get(_page_key(page + 1)) is None:
             # Resume point: make sure the source did not shift under the cache.
             fresh, _ = _fetch(client, cache, page, True)
@@ -195,13 +246,24 @@ def _crawl_once(client: PoliteClient, cache: FileCache, log: Callable[[str], Non
                          % (page, _id_range(_ids(pagination)), _id_range(_ids(fresh))), can_restart, log)
             pagination = fresh
             fetched = True
+            resumed = True
 
         info = pagination["paginatorInfo"]
+        new_total = info.get("total")
         if not state.total_known:
-            state.total, state.total_known = info.get("total"), True
-        elif info.get("total") != state.total:
-            _restart(cache, "crawl: total changed on page %d (%s -> %s)" % (page, state.total, info.get("total")),
-                     can_restart, log)
+            state.total, state.total_known = new_total, True
+        elif new_total != state.total:
+            if not _grew(state.total, new_total):
+                _restart(cache, "crawl: total changed on page %d (%s -> %s)" % (page, state.total, new_total),
+                         can_restart, log)
+            if fetched:
+                # A cached page with a larger total was verified before it was cached,
+                # and the resume-check page was just compared with its cached copy.
+                if not resumed:
+                    _verify_previous(client, cache, state, page, can_restart, log)
+                log("crawl: total grew on page %d (%s -> %s), continuing" % (page, state.total, new_total))
+                state.grew = True
+            state.total = new_total
         ids = _ids(pagination)
         state.check_new_ids(page, ids)
         state.add(page, pagination, ids)
@@ -225,12 +287,16 @@ def _crawl_once(client: PoliteClient, cache: FileCache, log: Callable[[str], Non
             _restart(cache, "crawl: last page %d changed since it was cached" % page, can_restart, log)
         state.replace_last(page, fresh, added)
         state.total = fresh_info.get("total")
+        state.grew = True
         log("crawl: last page %d gained %d anime" % (page, len(added)))
         if not _has_more(fresh):
             break
         page += 1
 
     items, total = state.items, state.total
+    if state.grew and total != len(items):
+        _restart(cache, "crawl: item count %d does not match total %s after the source grew" % (len(items), total),
+                 can_restart, log)
     if total != len(items):
         log("warning: crawled %d anime but the last page reports total %r" % (len(items), total))
     log("crawl pages=%d anime=%d total=%s" % (page, len(items), total))
