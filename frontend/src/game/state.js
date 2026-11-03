@@ -12,6 +12,7 @@ const ERROR_TEXT = {
   'not-host': '방장만 시작할 수 있습니다.',
   'server-full': '서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.',
   'room-closed': '방이 닫혔습니다.',
+  'rejoin-failed': '다시 연결하지 못했습니다. 방에 다시 참가해 주세요.',
 }
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -50,6 +51,9 @@ export const initialState = {
   skipVoted: false, // the own skip vote in this song, as toggled here
   skipCount: null, // { votes, needed } from skipState for this song
   soundBlocked: false, // the AudioContext is not running: show 탭하여 소리 켜기
+  reconnecting: false, // the connection dropped and a rejoin is in progress
+  waitingNext: false, // rejoined between songs: waiting for the next prepare
+  replaced: false, // the 'disconnected' screen: replaced by another tab
 }
 
 export function reducer(state, action) {
@@ -88,9 +92,44 @@ export function reducer(state, action) {
         error: null,
         notice: null,
         watching: false,
+        waitingNext: false,
         started: false,
         skipVoted: false,
         skipCount: null,
+      }
+    }
+    case 'reconnecting':
+      // The screen keeps its content; the timer is frozen by the session.
+      return { ...state, reconnecting: true }
+    case 'rejoined':
+      return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null }
+    case 'restore': {
+      // A rejoin snapshot: the lobby, or the game as a player (spec 049).
+      const common = {
+        ...state,
+        reconnecting: false,
+        players: action.players === null ? state.players : action.players,
+        scoreboard: action.board === null ? state.scoreboard : action.board,
+        score: action.score === null ? state.score : action.score,
+        timer: null,
+        correct: null,
+        reveal: null,
+        error: null,
+        notice: null,
+        watching: false,
+        started: false,
+        skipVoted: false,
+        skipCount: null,
+      }
+      if (action.phase === 'lobby') {
+        return { ...common, screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
+      }
+      return {
+        ...common,
+        screen: 'game',
+        round: action.round,
+        load: action.round === null ? null : 'loading',
+        waitingNext: action.round === null,
       }
     }
     case 'watching':
@@ -167,7 +206,9 @@ export function reducer(state, action) {
         ranking: action.ranking,
       }
     case 'disconnected':
-      return { ...state, screen: 'disconnected', timer: null }
+      return { ...state, screen: 'disconnected', timer: null, reconnecting: false, replaced: false }
+    case 'replaced':
+      return { ...state, screen: 'disconnected', timer: null, reconnecting: false, replaced: true }
     default:
       throw new Error(`unknown action ${action.type}`)
   }

@@ -8,6 +8,7 @@ import LobbyScreen from './components/LobbyScreen.jsx'
 import './App.css'
 
 const CREDIT = '데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata'
+const RECONNECTING_TEXT = '연결이 끊겨 다시 연결하는 중...'
 
 const defaultSocketFactory = (url) => new WebSocket(url)
 const defaultAudioContextFactory = () => new (window.AudioContext || window.webkitAudioContext)()
@@ -148,6 +149,11 @@ function App({
   return (
     <div className="app">
       <h1>SongRush</h1>
+      {state.reconnecting && (
+        <p className="reconnecting" role="status">
+          {RECONNECTING_TEXT}
+        </p>
+      )}
       {state.screen === 'start' && (
         <StartScreen
           canPlayOpus={opusOk}

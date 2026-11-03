@@ -50,6 +50,8 @@ function ChatForm({ onSend }) {
 }
 
 const WATCHING_TEXT = '이번 곡은 구경 중입니다. 다음 곡부터 참가합니다.'
+const DISCONNECTED_TEXT = '서버와 연결이 끊어졌습니다.'
+const REPLACED_TEXT = '다른 창에서 접속해 이 연결이 끊겼습니다.'
 
 // One score or ranking row; the player's own row ends with (나).
 function ownMark(text, name, me) {
@@ -117,13 +119,16 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
     started,
     skipVoted,
     skipCount,
+    waitingNext,
+    replaced,
   } = state
   const me = room === null ? null : room.me
   const canSkip = room !== null && screen === 'game' && started && !watching
   return (
     <div className="game">
       <div className="status">
-        {round === null && !watching && <span>서버에 연결하는 중...</span>}
+        {round === null && !watching && !waitingNext && <span>서버에 연결하는 중...</span>}
+        {round === null && waitingNext && <span>다음 곡을 기다리는 중...</span>}
         {round !== null && <span>{`${round.index + 1} / ${round.total}`}</span>}
         {score !== null && <span>{`점수: ${score}`}</span>}
       </div>
@@ -165,7 +170,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       {screen === 'disconnected' && (
         <section className="over">
           {finalScore !== null && <p>{`최종 점수: ${finalScore}점`}</p>}
-          <p>서버와 연결이 끊어졌습니다.</p>
+          <p>{replaced ? REPLACED_TEXT : DISCONNECTED_TEXT}</p>
           <button type="button" onClick={onReset}>
             처음으로
           </button>
