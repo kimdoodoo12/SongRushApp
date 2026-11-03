@@ -5,6 +5,8 @@
 Description=SongRush game server
 After=network-online.target
 Wants=network-online.target
+# Skipped, not failed, until upload.sh has put the first jar in place.
+ConditionPathExists=/opt/songrush/app/songrush.jar
 
 [Service]
 Type=simple

@@ -240,7 +240,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-005** smoke check script (from M-4, design 052)
   - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
   - Acceptance (pytest, loopback stub server): all pass gives exit 0; a missing credit line or an `error` reply gives exit 1 naming the check.
-- [ ] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
+- [x] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
   - `setup.sh`: wait for `cloud-init status --wait` and pass `-o DPkg::Lock::Timeout=600` to every `apt-get` (a fresh EC2 often holds the dpkg lock); make the Caddy repo step recover from a half-written key or list (download to a temp file and `mv`, or re-download every run). `upload.sh`: put the jar first in the batch, keep `songrush.jar.prev`, and after the restart poll `http://127.0.0.1:8080/health` on the server for up to 60 s, printing `journalctl -u songrush -n 50` and exiting non-zero on failure. Unit: `ConditionPathExists=/opt/songrush/app/songrush.jar`.
   - Acceptance (pytest, extending the deploy-kit checks in a new test file): each of these is present and ordered as stated; the stubbed real run sees the jar `put` before any web file and a final ssh command containing the health poll.
 - [ ] **I-006** owner runbook (from M-4, design 052)
@@ -338,6 +338,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Restore hint (critic, cycle 057): on a first deploy there is no `songrush.jar.good`, so the printed restore command stops at `cp` (harmless; the runbook says so); the restore should copy to `.new` and `mv` like the deploy; a failed `.good` copy after a healthy start reports failure; the poll can last up to about 420 s when the JVM accepts but never answers (`curl -m 5`). Check on the real server whether `DPkg::Lock::Timeout` also covers `apt-get update`'s lists lock.
 - Smoke test gaps (critic, cycle 056): the stub does not check that the client sends a close frame and waits for the server's close; the send branches for frames over 125 bytes are unused and could be removed.
 - Static serving (critic, cycle 054): add `spring.web.resources.cache.cachecontrol.no-cache=true` so a stale cached `index.html` cannot point at deleted hashed assets after a redeploy; resolve both guard paths with `toRealPath()` (symlinks); select guarded locations through `ResourceLoader` instead of a case-sensitive `file:` prefix and reject locations that are neither `file:` nor `classpath:`; tighten `StaticGuardTest` to the guard's own message.
 - Per-IP limits (plan 052, dropped from M-4): open WebSocket connections and `create` rate per client IP, once the server is public; mind carrier NAT false positives.
