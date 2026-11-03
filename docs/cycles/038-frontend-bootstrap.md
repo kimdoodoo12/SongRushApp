@@ -28,3 +28,13 @@
 
 ## Out of scope
 Screens, WebSocket client, styling system (F-002 onward).
+
+## Result
+- Tests `8866c3d` (locked; bootstrap exception, no red phase); implementation `d8bd68b` (attempt 1).
+- Implementation note: under jsdom, Vite's `asset-import-meta-url` transform rewrote `new URL('..', import.meta.url)` into an `http://localhost:3000/` URL, so the first `npm test` failed in `noTypeScript.test.js`; the config keeps `test.environment: 'jsdom'` and adds Vitest `projects` that run that one file in the `node` environment.
+- Verifier: `npm ci`, `npm test` (2 files, 5 tests), `npm test --silent`, `npm run lint` and `npm run build` exit 0; locked tests unchanged; only the 9 source files are tracked; proxies have no `changeOrigin`; `lang="ko"`.
+
+## Code review (critic)
+No Blocker or High. The critic confirmed the projects split from Vite's source (the transform runs only for the client consumer), that each test file lands in exactly one project, that the 12 packages match the current releases, and that the moderate audit findings (minimatch under ESLint) are dev-only.
+- **Medium (to F-002).** `eslint .` without `--max-warnings 0` lets Hooks and Refresh warnings pass.
+- **Nit (to F-002).** Tests outside `src/**/*.test.{js,jsx}` would silently not run.
