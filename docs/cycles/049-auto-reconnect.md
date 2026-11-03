@@ -85,3 +85,12 @@ When a room session's connection drops, the browser reconnects on its own within
 ## Out of scope
 - Using the stored token after a page reload (follow-up).
 - Server changes.
+
+## Result
+- Tests `8700ec1` (locked); implementation `22afeb4` (attempt 1).
+- Red phase (verifier): 18 of 20 new tests failed on missing reconnect behaviour; the 2 passing ones guard the no-token and solo paths.
+- Verifier: `npm test` twice (11 files, 169 tests), `npm run lint`, `npm run build` exit 0; no test or fake changed after `8700ec1`. Real-server smoke: B's socket terminated mid-game, a new socket's `rejoin` got exactly `joined` (name `Bo`), `snapshot` (`phase:"playing"`, song `index/total/audioUrl`), `roster`; a bogus token got only `rejoin-failed`.
+
+## Code review (critic)
+No Blocker, High or Medium. Confirmed: old sockets' events are ignored and handlers are detached before every intentional close; every timer stops on success, give-up, leave, unmount, 4001 and `rejoin-failed`; pre-snapshot frames are filtered (the server really flushes broadcasts to the new socket first); the late start after a rejoin waits for a fresh estimate; the token is never logged and is cleared on every end.
+- **Nits (follow-up).** A drop on the final-ranking screen loses the ranking; a drop during REVEAL loses the reveal card.
