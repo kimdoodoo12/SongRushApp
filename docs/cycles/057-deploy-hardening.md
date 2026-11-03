@@ -85,3 +85,28 @@ The deploy kit survives the first run on a fresh EC2 instance. After an upload i
 ## Out of scope
 - The runbook (I-006).
 - Real servers.
+
+## Result
+- Tests `2630618` (locked), implementation `1e39b91` (attempt 1).
+- Red phase (verifier): 13 of 17 failed on the missing behaviour. The 4 passing ones are guards: bash syntax, no stub calls without an argument, the harness, and `done.` on success.
+- Verifier:
+  - The deploy tests (056 + 055 + 057) gave 56 passed; the full data suite gave 751 passed.
+  - `git diff 2630618 HEAD --stat` lists only the three `deploy/` files. All `deploy/` files are ASCII with LF (`i/lf w/lf`).
+  - The real final command was run in a sandbox with stub `sudo`, `curl` and `sleep`:
+    - healthy case: exit 0, `healthy`, and `songrush.jar.good` exists;
+    - unhealthy case: exit 1 after 60 polls, the journal line printed, and no `.good`.
+
+## Code review (critic)
+No Blocker, High or Medium.
+- Confirmed:
+  - the EXIT trap and `trap -` placement;
+  - leftover `*.XXXXXX` files are ignored by apt;
+  - `chmod 644` comes before `mv`;
+  - the precedence of `&&`, `;` and `for`, reproduced: a failed restart skips the poll and exits 1 with the journal;
+  - the `printf %q` key in the hint;
+  - `ConditionPathExists`.
+- Nits (follow-up):
+  - the restore hint on a first deploy with no `.good` yet;
+  - the restore `cp` over the live jar;
+  - a failed `.good` copy reports failure;
+  - the worst-case poll is about 420 s.
