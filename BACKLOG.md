@@ -226,7 +226,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **M-3** *(planned in design 034: B-005b, B-006b, F-004, F-005)* Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
 - [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
 - [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
-- [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution) and the user's confirmation of its scope and order relative to M-4.
+- [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
 
 ## Needs decision
 
@@ -235,6 +235,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-064** Mobile app scope (user, 2026-11-03): the Flutter app (M-6) starts after the web deployment (M-4), so it can connect to the public server; it targets both Android and iOS (iOS builds need a Mac or a cloud build and an Apple developer account).
 - **D-063** Mobile app (user, 2026-11-03): besides the web client, a mobile-only app will be built with Flutter ("Flutter 써서 모바일 전용으로도 할 계획"); it reuses the backend and its protocol. Recorded as Roadmap M-6; its scope and timing are confirmed with the user before it is planned.
 - **D-058** Song count (user, 2026-11-03): the host chooses 5-30 songs per game, default 10 (refines D-047's range proposal).
 - **D-059** Late joiners (user, 2026-11-03): a player who joins during a game joins at 0 points from the next song; until then they spectate.
