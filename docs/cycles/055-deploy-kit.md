@@ -33,8 +33,7 @@ A `deploy/` folder that installs and runs the game on one Ubuntu 24.04 server be
     - Before any external command, it checks `ssh` and `sftp` with `command -v` (a builtin) and exits 3 with a message naming the missing one.
     - It never calls rsync.
   - **Local files.** If `backend/build/libs/backend-0.0.1-SNAPSHOT.jar` or `frontend/dist/index.html` is missing, it exits 4 with a message telling the owner what to build.
-  - **Remote sizes.** One `ssh <host> 'cd /opt/songrush/data && find audio-cache -type f -printf "%s %p
-" 2>/dev/null || true'` gets the remote audio sizes; a first run has none.
+  - **Remote sizes.** One `ssh <host> 'cd /opt/songrush/data && find audio-cache -type f -printf "%s %p\n" 2>/dev/null || true'` gets the remote audio sizes; a first run has none.
   - **The batch (review B1, H1).** It writes one sftp batch, run with `sftp -b <file>`, and uses no `-r`:
     - `-mkdir` for each needed remote directory (the `-` prefix only on `mkdir`, so an existing directory is fine);
     - for each `data/audio-cache/*.ogg`: skip if the remote size equals the local size; `reput` if the remote file is smaller; `put` if it is missing or larger;
@@ -54,7 +53,7 @@ A `deploy/` folder that installs and runs the game on one Ubuntu 24.04 server be
 4. **Static location versus data dir.** The unit's static location and data dir neither equal nor contain each other. This is the cycle 054 guard rule, checked on the strings with `PurePosixPath`.
 5. **Caddyfile.** It contains `__SONGRUSH_HOST__`, `reverse_proxy 127.0.0.1:8080`, and no `log` directive.
 6. **`upload.sh` behaviour.** These tests run only under a Git-for-Windows or Unix bash.
-   - **Finding bash (review H3).** The helper finds bash on `PATH`, ignoring anything under `WindowsApps` or `System32` (the WSL launcher), and then tries `C:Program FilesGitSrbinbash.exe` or `C:Program FilesGitbinbash.exe`. If none is found, the tests are skipped with a reason.
+   - **Finding bash (review H3).** The helper finds bash on `PATH`, ignoring anything under `WindowsApps` or `System32` (the WSL launcher), and then tries `C:\Program Files\Git\usr\bin\bash.exe` or `C:\Program Files\Git\bin\bash.exe`. If none is found, the tests are skipped with a reason.
    - **Fixture.** A temp copy of the repo layout holds a fake jar, `frontend/dist/index.html` and `frontend/dist/assets/a.js`, `data/catalog.json`, `data/audio-cache/index.json` and three `.ogg` files.
    - **Stubs.** The stub folder holds `ssh`, `sftp` and `rsync` scripts that append their argv to a log. The `sftp` stub also copies the `-b` batch file into the log. The `ssh` stub prints a canned size listing.
    - **Cases.**
