@@ -54,11 +54,25 @@ function App({
     }
   }
 
+  // A click that may come after iOS suspended the context: resume inside the
+  // gesture, synchronously (cycle 041 review).
+  function resumeIfSuspended() {
+    const ctx = ctxRef.current
+    if (ctx === null || ctx.state === 'running') return
+    ctx.resume().catch((err) => {
+      console.warn('AudioContext resume failed', err)
+    })
+  }
+
   // Starts a session: mode 'solo', 'create' or 'join' (see session.js).
   function openSession(options) {
     // The audio-unlock gesture: create and resume synchronously in the click,
     // before anything is awaited (design 029). One context for every game.
-    if (ctxRef.current === null) ctxRef.current = audioContextFactory()
+    if (ctxRef.current === null) {
+      // iOS 17+: play through the silent switch (spec 047 review H1).
+      if (window.navigator.audioSession) window.navigator.audioSession.type = 'playback'
+      ctxRef.current = audioContextFactory()
+    }
     const ctx = ctxRef.current
     ctx.resume().catch((err) => {
       // The start message resumes again before scheduling.
@@ -90,6 +104,7 @@ function App({
   }
 
   function handleStartGame(songCount) {
+    resumeIfSuspended()
     if (sessionRef.current !== null) sessionRef.current.startGame(songCount)
   }
 
@@ -103,6 +118,22 @@ function App({
 
   function handleChat(text) {
     if (sessionRef.current !== null) sessionRef.current.sendChat(text)
+  }
+
+  function handleToLobby() {
+    resumeIfSuspended()
+    dispatch({ type: 'toLobby' })
+  }
+
+  // The 탭하여 소리 켜기 click: resume in the gesture; the prompt goes once
+  // the resume leaves the context running.
+  function handleUnlockSound() {
+    const ctx = ctxRef.current
+    if (ctx === null) return
+    ctx.resume().then(
+      () => dispatch({ type: 'sound', blocked: ctx.state !== 'running' }),
+      (err) => console.warn('AudioContext resume failed', err),
+    )
   }
 
   function handleReset() {
@@ -137,7 +168,8 @@ function App({
           state={state}
           onChat={handleChat}
           onReset={handleReset}
-          onToLobby={() => dispatch({ type: 'toLobby' })}
+          onToLobby={handleToLobby}
+          onUnlockSound={handleUnlockSound}
         />
       )}
       <footer className="credit">{CREDIT}</footer>

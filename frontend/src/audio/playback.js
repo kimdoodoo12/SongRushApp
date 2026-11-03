@@ -3,13 +3,15 @@
 
 // Converts the server's startAt/deadlineAt (epoch ms) into AudioContext
 // seconds. offsetMs is server time minus client time; nowMs and ctxTime are
-// read at the same moment. Returns null when the song is already over.
-export function planPlayback({ startAt, deadlineAt, offsetMs, nowMs, ctxTime }) {
-  const delay = startAt - offsetMs - nowMs
-  const when = ctxTime + Math.max(0, delay) / 1000
+// read at the same moment. outputLatency (seconds, ctx.outputLatency) is
+// subtracted so the sound leaves the speaker at startAt. Returns null when
+// the song is already over.
+export function planPlayback({ startAt, deadlineAt, offsetMs, nowMs, ctxTime, outputLatency = 0 }) {
+  const delaySec = (startAt - offsetMs - nowMs) / 1000 - outputLatency
+  const when = ctxTime + Math.max(0, delaySec)
   // A late start plays from where the song is now.
-  const offset = Math.max(0, -delay) / 1000
-  const stopAt = ctxTime + (deadlineAt - offsetMs - nowMs) / 1000
+  const offset = Math.max(0, -delaySec)
+  const stopAt = ctxTime + (deadlineAt - offsetMs - nowMs) / 1000 - outputLatency
   if (stopAt <= when) return null
   return { when, offset, stopAt }
 }

@@ -9,9 +9,21 @@
 // stay open across games, and find the player's own rows by the name that
 // joined assigned.
 import { planPlayback, loadTrack } from '../audio/playback.js'
+import { createClockSync } from '../net/clockSync.js'
 import { errorText } from './state.js'
 
 const TICK_MS = 250
+// Room clock sync (F-004): a burst of 8 pings on joined, 3 after each load,
+// 3 every 30 s, and 3 when a start's receipt offset drifts beyond rtt + 50.
+const JOIN_PINGS = 8
+const RESYNC_PINGS = 3
+const RESYNC_MS = 30_000
+const DRIFT_MARGIN_MS = 50
+
+function scheduleTimeout(fn, ms) {
+  const id = setTimeout(fn, ms)
+  return () => clearTimeout(id)
+}
 
 export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nickname, songCount, code, dispatch }) {
   const socket = socketFactory(url)
@@ -25,9 +37,45 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   // The current song: { index, revealed, buffer, start, source }.
   let round = null
   let timer = null
+  // Room sessions only; solo keeps the receipt offset and sends no ping.
+  const sync = room ? createClockSync({ now, send, schedule: scheduleTimeout }) : null
+  let resyncTimer = null
 
   function send(message) {
     socket.send(JSON.stringify(message))
+  }
+
+  function stopSync() {
+    if (resyncTimer !== null) {
+      clearInterval(resyncTimer)
+      resyncTimer = null
+    }
+    if (sync !== null) sync.stop()
+  }
+
+  // The sound prompt: shown while the context is not running.
+  function soundCheck() {
+    dispatch({ type: 'sound', blocked: ctx.state !== 'running' })
+  }
+
+  function outputLatency() {
+    return typeof ctx.outputLatency === 'number' ? ctx.outputLatency : 0
+  }
+
+  // Ready for the song; in a room the link is idle now, so it re-syncs.
+  function sendReady(index) {
+    send({ type: 'ready', index })
+    if (sync !== null) sync.burst(RESYNC_PINGS)
+  }
+
+  // The offset used at start: the synced estimate when there is one, else
+  // the receipt offset. A receipt that drifts from the estimate re-syncs.
+  function startOffset(serverTime) {
+    const receipt = serverTime - now()
+    const estimate = sync === null ? null : sync.current()
+    if (estimate === null) return receipt
+    if (Math.abs(receipt - estimate.offsetMs) > estimate.rttMs + DRIFT_MARGIN_MS) sync.burst(RESYNC_PINGS)
+    return estimate.offsetMs
   }
 
   function stopTimer() {
@@ -60,7 +108,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
       }
     }
     if (!active || round !== r || r.revealed || r.source !== null) return
-    const plan = planPlayback({ ...r.start, nowMs: now(), ctxTime: ctx.currentTime })
+    const plan = planPlayback({ ...r.start, nowMs: now(), ctxTime: ctx.currentTime, outputLatency: outputLatency() })
     if (plan === null) return
     const source = ctx.createBufferSource()
     source.buffer = r.buffer
@@ -94,13 +142,14 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     round = r
     prepared = true
     dispatch({ type: 'prepare', index: msg.index, total: msg.total })
+    soundCheck()
     const current = () => active && round === r && !r.revealed
     loadTrack(ctx, msg.audioUrl, fetchFn).then(
       (buffer) => {
         if (!current()) return
         r.buffer = buffer
         dispatch({ type: 'loaded' })
-        send({ type: 'ready', index: r.index })
+        sendReady(r.index)
         schedule(r)
       },
       (err) => {
@@ -108,7 +157,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
         console.warn('audio load failed twice', err)
         dispatch({ type: 'loadFailed' })
         // Ready anyway, so the game is not held up.
-        send({ type: 'ready', index: r.index })
+        sendReady(r.index)
       },
     )
   }
@@ -116,8 +165,9 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   function onStart(msg) {
     if (round === null || msg.index !== round.index) return
     const r = round
-    r.start = { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs: msg.serverTime - now() }
+    r.start = { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs: startOffset(msg.serverTime) }
     dispatch({ type: 'start', max: msg.deadlineAt - msg.startAt, remaining: remaining(r.start) })
+    soundCheck()
     stopTimer()
     timer = setInterval(() => dispatch({ type: 'tick', remaining: remaining(r.start) }), TICK_MS)
     schedule(r)
@@ -178,6 +228,13 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
         joined = true
         myName = msg.name
         dispatch({ type: 'joined', code: msg.code, name: msg.name })
+        if (resyncTimer === null) {
+          sync.burst(JOIN_PINGS)
+          resyncTimer = setInterval(() => sync.burst(RESYNC_PINGS), RESYNC_MS)
+        }
+        break
+      case 'pong':
+        if (sync !== null) sync.onPong(msg)
         break
       case 'roster':
         if (!room) break
@@ -197,6 +254,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     if (!active) return
     active = false
     stopTimer()
+    stopSync()
     stopSource()
     socket.onopen = null
     socket.onmessage = null
@@ -224,6 +282,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     if (!active) return
     active = false
     stopTimer()
+    stopSync()
     stopSource()
     // A solo session is already closed after gameOver, and a room stays
     // open between games, so every close that gets here is unexpected.
