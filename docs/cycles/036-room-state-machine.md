@@ -60,3 +60,13 @@ Tests build catalogs with `CatalogLoader.load` from a temp folder (a small `cata
 
 ## Out of scope
 Sockets and the production scheduler (B-007), joining/leaving/host (B-005a), reconnect (B-005b), skip, rate limit, late joiners (B-006b).
+
+## Result
+- Tests `17352be` (locked); implementation `6d137f4` (attempt 1).
+- Red phase (verifier): `:compileTestJava FAILED`, 83 errors, all missing symbols of the five new main classes or their `@Override` cascade.
+- Verifier: `cleanTest test` and `build` exit 0; 14 suites, 0 failures; RoomTest 19 tests; `git diff 17352be HEAD -- backend/src/test` empty; game sources ASCII-only.
+
+## Code review (critic)
+No Blocker or High. The critic ran the built classes in a harness: stale-task guards, restart after `gameOver`, ready racing the timeout, two simultaneous correct answers, the token TTL and `toString` output all behaved; 70,000 draws of 5 from 7 gave no duplicates and uniform counts.
+- **M1 (moved to B-006b).** With two players, a matching guess before `startAt` reaches only its sender while a miss reaches everyone, so a second tab sees which guesses match before the song is audible. Solo play (M-1) is not affected.
+- **M2 (moved to B-007).** An exception thrown by the `Outbox` mid-transition leaves the room stuck in REVEAL with no pending task; the socket outbox must never throw.
