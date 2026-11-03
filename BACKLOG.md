@@ -230,7 +230,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **S-003** design: current AWS free terms (from M-4, design 052)
   - D-065 assumed "12 months free"; accounts created since 2025-07-15 may get a credit-based Free plan. Check the current AWS pages (eligible instance types, duration or credits, public IPv4, data transfer out, EBS), write a design doc, and add a Needs decision if the cost picture changes.
-- [ ] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
+- [~] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
   - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
   - Acceptance (JUnit): proxied handshake (`Origin: https://play.test`, `X-Forwarded-Proto: https`) gets 101 and a foreign origin 403; forwarded client address; `/`, `/assets/x.js`, `/r/ABCDE` served; traversal not served; `/ws`, `/audio/*`, `/health` unchanged; no static location keeps today's 404; overlap with data-dir fails startup.
 - [ ] **I-004** deploy kit files (from M-4, design 052)
