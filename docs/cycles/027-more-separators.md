@@ -25,14 +25,14 @@ Rules otherwise unchanged from cycle 026: a separator at index 0, or one that le
 2. **Every separator (D-052):** `front_parts("Chainsaw Man" + chr(0x2013) + " The Movie: Reze Arc")` (space before the en dash) is `["Chainsaw Man", "Chainsaw Man" + chr(0x2013) + " The Movie"]`, and `front_part` of it is `"Chainsaw Man"`; `front_parts("Name ~Sub~: More")` is `["Name", "Name ~Sub", "Name ~Sub~"]`; `front_parts("Mob Psycho 100")` is `[]`. An inline anime with that Chainsaw Man English title accepts `normalize("Chainsaw Man")`, `normalize("Chainsaw Man – The Movie")` and the full title.
 3. **No cut:** a full-width slash between full-width digits (`"x" + chr(0xFF11) + chr(0xFF0F) + chr(0xFF12)`) and between ASCII digits (`"x1" + chr(0xFF0F) + "2"`) gives `None`; a wave dash between digits (`"Episode 13" + chr(0xFF5E) + "16"`) gives `None`; a string that starts with a wave dash gives `None`; `"Kaguya-sama wa Kokurasetai"` (ASCII hyphen inside a word) gives `None`.
 4. **Accepted list:** an inline anime with English title `"Attack on Titan ~Chronicle~"` accepts `normalize("Attack on Titan")`; one with native title `"86" + chr(0xFF0D) + ...` does not accept `"86"` (D-050: 2 Latin characters).
-5. Every cycle 021 and cycle 026 test passes unchanged; `.venv\Scripts\python.exe -m pytest` exits 0 from `data/`.
+5. Every cycle 021 and cycle 026 test passes unchanged, except one: the provenance test `test_accepted_strings_come_from_group_sources` computed allowed strings from `front_part(s)` only, which D-052 contradicts (the test writer showed it fails under a simulated D-052 implementation); its allowed set now loops over `front_parts(s)`; `.venv\Scripts\python.exe -m pytest` exits 0 from `data/`.
 6. **No answer is lost** (lead, after the cycle): the catalog rebuilt from the cache accepts every string the cycle 026 catalog accepted, per group (a diff of the two catalogs shows no removed accepted string).
 
 ## Review changes (spec round 1)
 The critic applied the first-separator rule to the real data offline: +195 accepted strings, no new string shared by unrelated groups, but 5 strings accepted in cycle 026 were lost (for example `chainsawmanthemovie`), and wave dashes inside words produced about 12 odd strings. The user decided both (D-052): accept the part before every separator, and accept the odd wave-dash strings except ranges between digits. Criterion 6 checks the no-loss property on the real catalog.
 
 ## Test list
-- `data/tests/test_groups.py`: criteria 1-4 added; no existing test changes.
+- `data/tests/test_groups.py`: criteria 1-4 added; the provenance test's allowed set uses `front_parts` (criterion 5); no other existing test changes.
 
 ## File ownership
 - Test writer: `data/tests/test_groups.py`.
