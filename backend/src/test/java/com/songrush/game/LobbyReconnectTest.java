@@ -477,8 +477,15 @@ class LobbyReconnectTest {
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.PLAYING);
 		scheduler.advance(Room.LEAD);
 		mark = outbox.mark();
-		lobby.chat(P3, currentAnime().titles().get("en").get(0));
-		assertThat(outbox.since(mark)).as("the Room ignores a non-player's chat").isEmpty();
+		String title = currentAnime().titles().get("en").get(0);
+		lobby.chat(P3, title);
+		List<Sent> sent = outbox.since(mark);
+		assertThat(sent).as("only the spectator gets its own chat").hasSize(1);
+		assertThat(sent.get(0).to()).isEqualTo(P3);
+		assertThat(sent.get(0).message().keySet()).containsExactlyInAnyOrder("type", "name", "text");
+		assertThat(sent.get(0).message()).containsEntry("type", "chat").containsEntry("name", "Hana")
+				.containsEntry("text", title);
+		assertThat(outbox.ofType("correct")).as("nobody scores").isEmpty();
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 
