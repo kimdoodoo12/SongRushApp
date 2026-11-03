@@ -104,3 +104,28 @@ The host (or solo player) can limit the draw to openings or endings and to a yea
 - The frontend (F-008).
 - Popularity rank (B-012, D-069).
 - Widening beyond the cache (D-070).
+
+## Result
+- **Commits.** The tests are `355a679` and include the declared `RoomTest` change; every backend test is locked. The implementation is `62d241b`, attempt 1.
+- **Red phase (verifier).** `compileTestJava` failed with 100 missing-symbol errors, all for the new API (`DrawFilter`, `Anime.year()`, `Room.settings()`). Pre-existing test files had none. javac's 100-error cap hid any later errors.
+- **Verifier.**
+  - **Tests.** `cleanTest test` and `build` both exit 0: 42 suites, 327 tests, 0 failures. The new suites are DrawFilter 13, RoomFilter 11, FilterSocket 9, LobbyFilter 9 and CatalogYear 3. `git diff 355a679 HEAD --stat` lists only the six main files, and none of them contains non-ASCII bytes.
+  - **Real-jar smoke on the real catalog.**
+    - Solo `types:["ED"], yearFrom:2010, yearTo:2019` sent `settings{types:["ED"],yearFrom:2010,yearTo:2019}`, then `prepare`. All five reveals had `themeType` ED.
+    - 1990-1994 gave `not-enough-songs` with `available:0`.
+    - A duplicate in `types` gave `bad-filter`.
+    - The year bound was not observable in reveals; JUnit covers it.
+
+## Code review (critic)
+No Blocker or High.
+
+Confirmed:
+- All reads and writes of `Room.settings` happen on the lobby's single scheduler thread.
+- No `settings` message is sent once the room has returned to the lobby.
+- A restart builds a new `Room`, so the previous game's filter does not carry over.
+- JSON `null` is rejected.
+- `available` is counted after the group filter.
+- Without filters the behaviour is unchanged.
+- Messages carry no ids.
+
+One Medium is a follow-up: a null theme `type` would throw in `matches` and leave the lobby stuck. The current catalog contains no null type.
