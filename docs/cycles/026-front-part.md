@@ -47,3 +47,14 @@ Rebuild the real catalog from the cache (`python -u -m songrush_data.build` from
 
 ## Out of scope
 Grouping (the join rule keeps `titles.head`), synonyms (D-035), and the backend answer check.
+
+## Result
+- Tests `777266c` (locked); implementation `24dc51b` (attempt 1).
+- Red phase (verifier): 20 failed (15 `AttributeError` for the missing `front_part`, 5 `AssertionError` on the old accepted lists), all in new or updated tests.
+- Verifier: full suite exit 0, `547 passed in 15.84s`; `git diff 777266c HEAD -- data/tests/` empty; criteria 1-7 confirmed.
+
+## Code review (critic)
+No Blocker or High. The critic rebuilt every accepted list from the cache with no network: the old rule reproduced the committed catalog exactly (5,004 ids, 3,321 groups), and the new rule gives 20,632 -> 21,868 accepted strings (+1,236 in 705 groups). Of the 32 new strings shared by two groups, 31 are one franchise split into groups; the only unrelated pair is `ayakashi`.
+- Three product questions went to the user and became **D-051**: keep `ayakashi` as is; keep the ` -` dash separator (the user saw examples such as `DARKER THAN BLACK -黒の契約者-` and `CLANNAD -クラナド-`); add the wave and long-dash separators (queued as C-014).
+- **Nit.** BACKLOG's C-013 text still said "2 characters"; corrected to D-050.
+- **Nit (follow-up).** Full-width digits around an ASCII `/` are handled but not pinned by a test.
