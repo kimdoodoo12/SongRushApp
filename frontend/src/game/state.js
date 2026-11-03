@@ -13,6 +13,7 @@ const ERROR_TEXT = {
   'server-full': '서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.',
   'room-closed': '방이 닫혔습니다.',
   'rejoin-failed': '다시 연결하지 못했습니다. 방에 다시 참가해 주세요.',
+  'bad-filter': '조건이 올바르지 않습니다.',
 }
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -21,7 +22,12 @@ export const ABANDONED_TEXT = '게임이 중단되어 대기실로 돌아왔습�
 // The song counts a game can have (D-047).
 export const SONG_COUNTS = Array.from({ length: 26 }, (_, i) => i + 5)
 
-export function errorText(code) {
+// message is the whole error message, when there is one: not-enough-songs
+// names the server's count of drawable songs (F-008).
+export function errorText(code, message) {
+  if (code === 'not-enough-songs' && message !== undefined && typeof message.available === 'number') {
+    return `출제할 수 있는 곡이 ${message.available}곡뿐입니다.`
+  }
   return ERROR_TEXT[code] ?? `오류가 발생했습니다 (${code})`
 }
 
@@ -54,6 +60,7 @@ export const initialState = {
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
+  settings: null, // the applied filters { types, yearFrom, yearTo } of this game
 }
 
 export function reducer(state, action) {
@@ -73,7 +80,11 @@ export function reducer(state, action) {
         lobbyOpen: action.phase === 'lobby' && state.screen === 'over' ? true : state.lobbyOpen,
       }
     case 'toLobby':
-      return { ...state, screen: 'lobby', error: null }
+      return { ...state, screen: 'lobby', error: null, settings: null }
+    case 'settings':
+      // Sent before the first prepare, so prepare never clears it; the
+      // actions that end or replace a game do (spec 061 review B1).
+      return { ...state, settings: { types: action.types, yearFrom: action.yearFrom, yearTo: action.yearTo } }
     case 'prepare': {
       // A new game (index 0) starts from a clean slate (D-062).
       const fresh =
@@ -108,6 +119,7 @@ export function reducer(state, action) {
       const common = {
         ...state,
         reconnecting: false,
+        settings: null,
         players: action.players === null ? state.players : action.players,
         scoreboard: action.board === null ? state.scoreboard : action.board,
         score: action.score === null ? state.score : action.score,
@@ -144,6 +156,7 @@ export function reducer(state, action) {
         reveal: null,
         error: null,
         notice: null,
+        settings: null,
         watching: true,
         started: false,
         skipVoted: false,
@@ -157,6 +170,7 @@ export function reducer(state, action) {
         error: null,
         lobbyOpen: false,
         notice: ABANDONED_TEXT,
+        settings: null,
         watching: false,
         started: false,
         skipVoted: false,
@@ -204,6 +218,7 @@ export function reducer(state, action) {
         started: false,
         finalScore: action.score,
         ranking: action.ranking,
+        settings: null,
       }
     case 'disconnected':
       return { ...state, screen: 'disconnected', timer: null, reconnecting: false, replaced: false }

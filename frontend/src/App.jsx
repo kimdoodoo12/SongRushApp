@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { canPlayOggOpus } from './audio/playback.js'
 import { startSession } from './game/session.js'
 import { initialState, reducer } from './game/state.js'
+import { DEFAULT_SELECTION, isReversed, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
 import GameScreen from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
@@ -38,6 +39,9 @@ function App({
   const opusOk = canPlayOpus === undefined ? detectedOpus : canPlayOpus
   // Read once at mount (D-048 share links).
   const [initialCode] = useState(codeFromPath)
+  // 곡 수 and the filters, shared by solo and the host and kept for the
+  // page's lifetime (F-008): neither 처음으로 nor 나가기 resets them.
+  const [selection, setSelection] = useState(DEFAULT_SELECTION)
   const ctxRef = useRef(null)
   const sessionRef = useRef(null)
 
@@ -92,8 +96,9 @@ function App({
     })
   }
 
-  function handleStart(nickname, songCount) {
-    openSession({ mode: 'solo', nickname, songCount })
+  function handleStart(nickname) {
+    if (isReversed(selection)) return
+    openSession({ mode: 'solo', nickname, songCount: Number(selection.songCount), fields: toFields(selection) })
   }
 
   function handleCreate(nickname) {
@@ -104,9 +109,10 @@ function App({
     openSession({ mode: 'join', nickname, code })
   }
 
-  function handleStartGame(songCount) {
+  function handleStartGame() {
+    if (isReversed(selection)) return
     resumeIfSuspended()
-    if (sessionRef.current !== null) sessionRef.current.startGame(songCount)
+    if (sessionRef.current !== null) sessionRef.current.startGame(Number(selection.songCount), toFields(selection))
   }
 
   function handleLeave() {
@@ -159,6 +165,8 @@ function App({
           canPlayOpus={opusOk}
           error={state.startError}
           initialCode={initialCode}
+          selection={selection}
+          onSelectionChange={setSelection}
           onStart={handleStart}
           onCreate={handleCreate}
           onJoin={handleJoin}
@@ -170,6 +178,8 @@ function App({
           players={state.players}
           error={state.error}
           notice={state.notice}
+          selection={selection}
+          onSelectionChange={setSelection}
           onStartGame={handleStartGame}
           onLeave={handleLeave}
         />

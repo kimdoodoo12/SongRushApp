@@ -1,5 +1,6 @@
-import { useState } from 'react'
 import { SONG_COUNTS } from '../game/state.js'
+import { isReversed } from '../game/filters.js'
+import FilterControls from './FilterControls.jsx'
 
 const WAITING = '방장이 게임을 시작하기를 기다리는 중...'
 
@@ -19,13 +20,18 @@ function copyLink(link) {
   })
 }
 
-function HostControls({ onStartGame }) {
-  const [songCount, setSongCount] = useState('10')
+// 곡 수 and the filters are the App-level selection, so they survive a game
+// and the return to the lobby (D-062, F-008).
+function HostControls({ selection, onSelectionChange, onStartGame }) {
+  const reversed = isReversed(selection)
   return (
     <div className="start">
       <label>
         곡 수
-        <select value={songCount} onChange={(e) => setSongCount(e.target.value)}>
+        <select
+          value={selection.songCount}
+          onChange={(e) => onSelectionChange({ ...selection, songCount: e.target.value })}
+        >
           {SONG_COUNTS.map((n) => (
             <option key={n} value={String(n)}>
               {n}
@@ -33,14 +39,15 @@ function HostControls({ onStartGame }) {
           ))}
         </select>
       </label>
-      <button type="button" onClick={() => onStartGame(Number(songCount))}>
+      <FilterControls selection={selection} onChange={onSelectionChange} />
+      <button type="button" disabled={reversed} onClick={() => onStartGame()}>
         게임 시작
       </button>
     </div>
   )
 }
 
-function LobbyScreen({ room, players, error, notice, onStartGame, onLeave }) {
+function LobbyScreen({ room, players, error, notice, selection, onSelectionChange, onStartGame, onLeave }) {
   const link = `${window.location.origin}/r/${room.code}`
   const own = players.find((p) => p.name === room.me)
   const isHost = own !== undefined && own.host
@@ -59,7 +66,11 @@ function LobbyScreen({ room, players, error, notice, onStartGame, onLeave }) {
           <li key={p.name}>{rowText(p, room.me)}</li>
         ))}
       </ul>
-      {isHost ? <HostControls onStartGame={onStartGame} /> : <p>{WAITING}</p>}
+      {isHost ? (
+        <HostControls selection={selection} onSelectionChange={onSelectionChange} onStartGame={onStartGame} />
+      ) : (
+        <p>{WAITING}</p>
+      )}
       {error !== null && <p className="error">{error}</p>}
       <button type="button" onClick={onLeave}>
         나가기

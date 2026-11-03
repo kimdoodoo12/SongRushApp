@@ -111,3 +111,16 @@ button {
   color: #b45309;
   font-weight: 600;
 }
+
+.hint {
+  flex-basis: 100%;
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.settings {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: #4b5563;
+}
