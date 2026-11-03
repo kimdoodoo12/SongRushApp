@@ -3,12 +3,10 @@ package com.songrush.game;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.random.RandomGenerator;
 
 import com.songrush.audio.AudioTokens;
@@ -58,10 +56,6 @@ public final class Lobby {
 	private Room room;
 
 	private RoomOutbox roomOutbox;
-
-	// The ids of the current Room's players (connected at start); empty in LOBBY. Other members of a
-	// running game are spectators: they neither keep it running nor resume it (cycle 044).
-	private final Set<String> roomPlayers = new HashSet<>();
 
 	// Bumped on every arm and cancel, so a stale timer does nothing.
 	private int emptyGeneration;
@@ -149,11 +143,7 @@ public final class Lobby {
 			error(playerId, "bad-nickname");
 			return null;
 		}
-		if (room != null) {
-			error(playerId, "in-game");
-			return null;
-		}
-		if (members.size() >= MAX_PLAYERS) {
+		if (seatsTaken() >= MAX_PLAYERS) {
 			error(playerId, "room-full");
 			return null;
 		}
@@ -165,9 +155,33 @@ public final class Lobby {
 		members.add(new Member(playerId, name));
 		cancelEmpty();
 		armIdle();
-		outbox.toPlayer(playerId, message("joined", "code", code, "name", name));
-		sendRoster();
+		Member m = members.get(members.size() - 1);
+		if (room == null) {
+			outbox.toPlayer(playerId, message("joined", "code", code, "name", name));
+			sendRoster();
+		}
+		else {
+			// A late joiner watches the current song and plays from the next one (D-059).
+			sendJoinedAndSnapshot(m);
+			sendRoster();
+			room.addPlayer(new PlayerRef(m.id, m.name));
+		}
 		return name;
+	}
+
+	// The members holding a seat: in LOBBY all of them, during a game those connected or in grace
+	// (the others wait only for their removal at the return).
+	private int seatsTaken() {
+		if (room == null) {
+			return members.size();
+		}
+		int taken = 0;
+		for (Member m : members) {
+			if (m.connected || m.inGrace) {
+				taken++;
+			}
+		}
+		return taken;
 	}
 
 	public void leave(String playerId) {
@@ -233,7 +247,7 @@ public final class Lobby {
 		if (m.connected) {
 			sendJoinedAndSnapshot(m);
 			// The new socket starts with no vote, so a toggle never cancels a vote it cannot see.
-			if (room != null && roomPlayers.contains(m.id)) {
+			if (isRoomPlayer(m.id)) {
 				room.clearSkipVote(m.id);
 			}
 			return true;
@@ -246,12 +260,16 @@ public final class Lobby {
 		cancelEmpty();
 		sendJoinedAndSnapshot(m);
 		sendRoster();
-		if (room != null && roomPlayers.contains(m.id)) {
-			room.setConnected(m.id, true);
+		markRoomConnection(m.id, true);
+		if (isRoomPlayer(m.id)) {
 			room.clearSkipVote(m.id);
 			if (room.paused()) {
 				room.resume();
 			}
+		}
+		else if (room != null) {
+			// In grace at start (a spectator): plays from the next song, like a late joiner.
+			room.addPlayer(new PlayerRef(m.id, m.name));
 		}
 		return true;
 	}
@@ -283,15 +301,11 @@ public final class Lobby {
 		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players);
 		room = next;
 		roomOutbox = wrapper;
-		for (PlayerRef p : players) {
-			roomPlayers.add(p.id());
-		}
 		next.start(songCount);
 		if (next.phase() == Room.Phase.LOBBY) {
 			// The Room sent its error (not-enough-songs) and never started.
 			room = null;
 			roomOutbox = null;
-			roomPlayers.clear();
 			armIdle();
 			return;
 		}
@@ -331,7 +345,6 @@ public final class Lobby {
 		members.removeIf(m -> !m.connected && !m.inGrace);
 		room = null;
 		roomOutbox = null;
-		roomPlayers.clear();
 		armIdle();
 		sendRoster();
 	}
@@ -343,7 +356,6 @@ public final class Lobby {
 		closed = true;
 		room = null;
 		roomOutbox = null;
-		roomPlayers.clear();
 		cancelEmpty();
 		cancelIdle();
 		for (Member m : members) {
@@ -358,9 +370,16 @@ public final class Lobby {
 		onClosed.run();
 	}
 
-	// Tells the current Room that one of its players' connection changed.
+	// A Room player of the current game; members not (yet) promoted neither keep it running nor
+	// resume it (cycle 044).
+	private boolean isRoomPlayer(String playerId) {
+		return room != null && room.isPlayer(playerId);
+	}
+
+	// Tells the current Room that a member's connection changed; the Room ignores ids it does not
+	// know and only records a watcher's state for its promotion.
 	private void markRoomConnection(String playerId, boolean connected) {
-		if (room != null && roomPlayers.contains(playerId)) {
+		if (room != null) {
 			room.setConnected(playerId, connected);
 		}
 	}
@@ -371,7 +390,7 @@ public final class Lobby {
 			return;
 		}
 		for (Member m : members) {
-			if (m.connected && roomPlayers.contains(m.id)) {
+			if (m.connected && isRoomPlayer(m.id)) {
 				return;
 			}
 		}
@@ -386,14 +405,13 @@ public final class Lobby {
 			return;
 		}
 		for (Member m : members) {
-			if ((m.connected || m.inGrace) && roomPlayers.contains(m.id)) {
+			if ((m.connected || m.inGrace) && isRoomPlayer(m.id)) {
 				return;
 			}
 		}
 		members.removeIf(m -> !m.connected && !m.inGrace);
 		room = null;
 		roomOutbox = null;
-		roomPlayers.clear();
 		armIdle();
 		sendRoster();
 	}

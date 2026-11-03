@@ -68,15 +68,21 @@ public final class Room {
 
 	private final Outbox outbox;
 
+	// Room players in player order; late joiners are appended when promoted.
 	private final List<PlayerRef> players;
 
 	private final Map<String, PlayerRef> byId = new LinkedHashMap<>();
+
+	// Pending players (watchers) in the order added, promoted at the next prepare
+	// (docs/cycles/046-late-joiners.md).
+	private final Map<String, PlayerRef> watchers = new LinkedHashMap<>();
 
 	private final Map<String, Integer> scores = new LinkedHashMap<>();
 
 	private final Set<String> ready = new HashSet<>();
 
-	// Room players whose connection the lobby reported as dropped (docs/cycles/045-multiplayer-rounds.md).
+	// Room players and watchers whose connection the lobby reported as dropped
+	// (docs/cycles/045-multiplayer-rounds.md); a watcher's entry counts only once promoted.
 	private final Set<String> disconnected = new HashSet<>();
 
 	// Skip votes for the current song; cleared on every prepare and reveal.
@@ -116,7 +122,7 @@ public final class Room {
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.random = Objects.requireNonNull(random, "random");
 		this.outbox = Objects.requireNonNull(outbox, "outbox");
-		this.players = List.copyOf(players);
+		this.players = new ArrayList<>(players);
 		if (this.players.isEmpty()) {
 			throw new IllegalArgumentException("a room needs at least one player");
 		}
@@ -127,6 +133,21 @@ public final class Room {
 			scores.put(p.id(), 0);
 			buckets.put(p.id(), new Bucket(clock.millis()));
 		}
+	}
+
+	// True for a promoted Room player, false for a watcher or an unknown id.
+	public boolean isPlayer(String playerId) {
+		return byId.containsKey(playerId);
+	}
+
+	// Adds a watcher who becomes a Room player with 0 points at the next prepare. Ignored in LOBBY and
+	// for a known or already pending id. Sends nothing.
+	public void addPlayer(PlayerRef player) {
+		if (phase == Phase.LOBBY || byId.containsKey(player.id()) || watchers.containsKey(player.id())) {
+			return;
+		}
+		watchers.put(player.id(), player);
+		buckets.put(player.id(), new Bucket(clock.millis()));
 	}
 
 	public Phase phase() {
@@ -229,8 +250,17 @@ public final class Room {
 
 	// The lobby's report of a Room player's connection; an unknown id or no change is ignored. A
 	// disconnect drops the player's ready mark and skip vote, then the ready and skip rules run again
-	// over the players still connected.
+	// over the players still connected. A watcher's state is only recorded for its promotion.
 	public void setConnected(String playerId, boolean connected) {
+		if (watchers.containsKey(playerId)) {
+			if (connected) {
+				disconnected.remove(playerId);
+			}
+			else {
+				disconnected.add(playerId);
+			}
+			return;
+		}
 		if (!byId.containsKey(playerId) || connected == isConnected(playerId)) {
 			return;
 		}
@@ -277,7 +307,7 @@ public final class Room {
 	}
 
 	public void chat(String playerId, String text) {
-		PlayerRef player = byId.get(playerId);
+		PlayerRef player = byId.containsKey(playerId) ? byId.get(playerId) : watchers.get(playerId);
 		if (paused || player == null || text == null) {
 			return;
 		}
@@ -301,6 +331,11 @@ public final class Room {
 			outbox.toAll(chat);
 			return;
 		}
+		if (watchers.containsKey(playerId)) {
+			// A watcher cannot score: until the reveal only the sender sees it, match or miss.
+			outbox.toPlayer(playerId, chat);
+			return;
+		}
 		Song song = songs.get(songIndex);
 		boolean match = catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
@@ -322,7 +357,13 @@ public final class Room {
 	}
 
 	private int connectedCount() {
-		return players.size() - disconnected.size();
+		int connected = 0;
+		for (PlayerRef p : players) {
+			if (!disconnected.contains(p.id())) {
+				connected++;
+			}
+		}
+		return connected;
 	}
 
 	// In PREPARE: starts the song once every connected player is ready (never with nobody connected).
@@ -361,6 +402,12 @@ public final class Room {
 	private void prepare(int index) {
 		phase = Phase.PREPARE;
 		songIndex = index;
+		for (PlayerRef p : watchers.values()) {
+			players.add(p);
+			byId.put(p.id(), p);
+			scores.put(p.id(), 0);
+		}
+		watchers.clear();
 		ready.clear();
 		votes.clear();
 		String token = tokens.issue(songs.get(index).theme().id(), TOKEN_TTL);
