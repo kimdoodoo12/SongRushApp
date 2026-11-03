@@ -550,7 +550,12 @@ class RoomRoundsTest {
 		}
 		int mark = outbox.mark();
 		room.skip(MINA.id(), 0);
-		assertRateLimited(outbox.since(mark), MINA);
+		// Cycle 050: the refusal of a skip is tagged for the skip vote.
+		List<Sent> refused = outbox.since(mark);
+		assertThat(refused).as("only the error to the sender").hasSize(1);
+		assertThat(refused.get(0).to()).isEqualTo(MINA.id());
+		assertThat(refused.get(0).message())
+				.isEqualTo(Map.of("type", "error", "code", "rate-limited", "for", "skipVote"));
 		assertThat(skip(JOON, 0)).as("Mina's skip was not counted").isEqualTo("0:1/2");
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}

@@ -313,7 +313,7 @@ describe('skip', () => {
     const socket = await roomSongStarted(env)
     fireEvent.click(screen.getByRole('button', { name: '스킵' }))
     expect(screen.getByRole('button', { name: '스킵 취소' })).toBeTruthy()
-    deliver(socket, { type: 'error', code: 'rate-limited' })
+    deliver(socket, { type: 'error', code: 'rate-limited', for: 'skipVote' })
     expect(screen.getByRole('button', { name: '스킵' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: '스킵 취소' })).toBeNull()
   })

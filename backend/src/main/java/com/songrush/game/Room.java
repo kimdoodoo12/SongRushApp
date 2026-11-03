@@ -292,12 +292,14 @@ public final class Room {
 	}
 
 	// Toggles the player's vote to skip the current song (D-012, D-017); from PLAYING only, also
-	// before startAt. A vote costs a chat token.
+	// before startAt. A vote costs a chat token; a refused vote is tagged for:"skipVote" so the
+	// client can undo its toggle (cycle 050).
 	public void skip(String playerId, int index) {
 		if (paused || phase != Phase.PLAYING || index != songIndex || !isConnected(playerId)) {
 			return;
 		}
 		if (!takeToken(playerId)) {
+			outbox.toPlayer(playerId, message("error", "code", "rate-limited", "for", "skipVote"));
 			return;
 		}
 		if (!votes.remove(playerId)) {
@@ -312,6 +314,7 @@ public final class Room {
 			return;
 		}
 		if (!takeToken(playerId)) {
+			outbox.toPlayer(playerId, message("error", "code", "rate-limited"));
 			return;
 		}
 		if (text.length() > MAX_CHAT) {
@@ -384,15 +387,14 @@ public final class Room {
 		}
 	}
 
-	// Spends one token of the player's bucket after the refill; without one, only the sender gets
-	// rate-limited.
+	// Spends one token of the player's bucket after the refill; false without one (the caller
+	// tells the sender).
 	private boolean takeToken(String playerId) {
 		Bucket bucket = buckets.get(playerId);
 		long now = clock.millis();
 		bucket.tokens = Math.min(BUCKET_CAPACITY, bucket.tokens + Math.max(0, now - bucket.lastMs) * REFILL_PER_MS);
 		bucket.lastMs = now;
 		if (bucket.tokens < ONE_TOKEN) {
-			outbox.toPlayer(playerId, message("error", "code", "rate-limited"));
 			return false;
 		}
 		bucket.tokens -= ONE_TOKEN;
