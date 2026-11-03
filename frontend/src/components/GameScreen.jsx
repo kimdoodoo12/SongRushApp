@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { settingsLine } from '../game/filters.js'
 
 function TimeBar({ max, remaining }) {
   const percent = max > 0 ? (remaining / max) * 100 : 0
@@ -121,7 +122,9 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
     skipCount,
     waitingNext,
     replaced,
+    settings,
   } = state
+  const line = settings === null ? '' : settingsLine(settings)
   const me = room === null ? null : room.me
   const canSkip = room !== null && screen === 'game' && started && !watching
   return (
@@ -132,6 +135,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {round !== null && <span>{`${round.index + 1} / ${round.total}`}</span>}
         {score !== null && <span>{`점수: ${score}`}</span>}
       </div>
+      {line !== '' && <p className="settings">{line}</p>}
       {screen === 'game' && watching && <p className="watching">{WATCHING_TEXT}</p>}
       {screen === 'game' && soundBlocked && (
         <button type="button" className="sound-prompt" onClick={onUnlockSound}>

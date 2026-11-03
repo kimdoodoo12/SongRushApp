@@ -250,7 +250,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-011** backend: OP/ED and year filters on the cached draw set (from M-5, design 059)
   - Optional `types` / `yearFrom` / `yearTo` on `create` and `start`; `bad-filter` for invalid values; `not-enough-songs` gains `available` (one declared `RoomTest` assertion change); a `settings` message to all members before the first `prepare` and to late joiners.
   - Acceptance (JUnit): see design 059 item 1.
-- [ ] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
+- [x] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
   - `곡 종류` and 5-year `연도` selects; only non-default fields sent; from>to guard on 시작 and 게임 시작; `available` error text with the old text as fallback; the received `settings` shown to everyone; selections kept across games.
   - Acceptance (Vitest): see design 059 item 2.
 
@@ -347,6 +347,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
 - Draw filter null type (critic, cycle 060): `DrawFilter.matches` calls `Set.copyOf(...).contains(theme.type())`, which throws on a null type; the loader allows a null `type`, and a throw inside `Lobby.start` leaves the lobby stuck as in-game. Today's catalog has no null type (OP 5656, ED 8935). Check `theme.type() == null` first and add a test.
 - Deploy guide (critic, cycle 058): `upload.sh`'s missing-jar hint still says `.\gradlew.bat` (bash form is `./gradlew.bat`); `setup.sh`'s closing hint prints the upload command without the key; step 9 (updates) does not re-copy `deploy/`, so later unit or Caddyfile changes need the `scp` + `setup.sh` steps again.
 - Restore hint (critic, cycle 057): on a first deploy there is no `songrush.jar.good`, so the printed restore command stops at `cp` (harmless; the runbook says so); the restore should copy to `.new` and `mv` like the deploy; a failed `.good` copy after a healthy start reports failure; the poll can last up to about 420 s when the JVM accepts but never answers (`curl -m 5`). Check on the real server whether `DPkg::Lock::Timeout` also covers `apt-get update`'s lists lock.

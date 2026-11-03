@@ -3,7 +3,8 @@
 // reports everything to the screen through dispatch. All server messages are
 // handled in onMessage.
 //
-// mode 'solo' sends create{nickname, songCount}, ignores joined and roster,
+// mode 'solo' sends create{nickname, songCount, ...fields} (the non-default
+// filter fields, F-008), ignores joined and roster,
 // and closes the socket at gameOver. mode 'create' and 'join' are room
 // sessions: they open a lobby with create{nickname} or join{code, nickname},
 // stay open across games, and find the player's own rows by the name that
@@ -65,7 +66,19 @@ function scheduleTimeout(fn, ms) {
   return () => clearTimeout(id)
 }
 
-export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nickname, songCount, code, dispatch }) {
+export function startSession({
+  socketFactory,
+  url,
+  ctx,
+  fetchFn,
+  now,
+  mode,
+  nickname,
+  songCount,
+  fields = {},
+  code,
+  dispatch,
+}) {
   let socket = socketFactory(url)
   const room = mode !== 'solo'
   // false once this session is closed; late callbacks then do nothing.
@@ -226,14 +239,16 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     dispatch({ type: 'ownSkip', voted: (skipsSent - skipsRefused) % 2 === 1 })
   }
 
-  function onError(code, refused) {
+  function onError(msg) {
+    const code = msg.code
+    const refused = msg.for
     // A refused skip vote was not counted (spec 050); an untagged error (a
     // chat refusal) never touches the vote.
     if (code === 'rate-limited' && refused === 'skipVote' && skipsRefused < skipsSent) {
       skipsRefused += 1
       dispatchOwnSkip()
     }
-    const text = errorText(code)
+    const text = errorText(code, msg)
     const beforeGame = room ? !joined : !prepared
     if (beforeGame || (room && code === 'room-closed')) {
       // Back to the start screen with the message.
@@ -498,13 +513,17 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
       case 'skipState':
         onSkipState(msg)
         break
+      case 'settings':
+        // The conditions the server applied to this game (F-008).
+        dispatch({ type: 'settings', types: msg.types, yearFrom: msg.yearFrom, yearTo: msg.yearTo })
+        break
       case 'roster':
         if (!room) break
         dispatch({ type: 'roster', phase: msg.phase, players: msg.players })
         if (msg.phase === 'lobby' && inGame) abandon()
         break
       case 'error':
-        onError(msg.code, msg.for)
+        onError(msg)
         break
       default:
         console.warn('unknown message', msg.type)
@@ -612,7 +631,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     s.onopen = () => {
       if (s !== socket) return
       if (rejoined) send({ type: 'rejoin', token })
-      else if (mode === 'solo') send({ type: 'create', nickname, songCount })
+      else if (mode === 'solo') send({ type: 'create', nickname, songCount, ...fields })
       else if (mode === 'create') send({ type: 'create', nickname })
       else send({ type: 'join', code, nickname })
     }
@@ -640,8 +659,8 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     sendChat(text) {
       if (active) send({ type: 'chat', text })
     },
-    startGame(count) {
-      if (active) send({ type: 'start', songCount: count })
+    startGame(count, startFields = {}) {
+      if (active) send({ type: 'start', songCount: count, ...startFields })
     },
     // Toggles the own skip vote for the current song, between its start and
     // its reveal. Watchers and solo do not vote.
