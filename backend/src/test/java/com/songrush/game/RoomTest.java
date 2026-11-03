@@ -626,9 +626,9 @@ class RoomTest {
 			List<Sent> sent = outbox.since(mark);
 			assertThat(sent).as("start(" + n + ")").hasSize(1);
 			assertThat(sent.get(0).toAll()).isTrue();
-			assertKeys(sent.get(0).message());
-			assertThat(sent.get(0).message()).containsEntry("type", "error")
-					.containsEntry("code", "not-enough-songs");
+			// Cycle 060 declared change: the error also carries the drawable count (5 grouped songs).
+			assertThat(sent.get(0).message())
+					.isEqualTo(Map.of("type", "error", "code", "not-enough-songs", "available", 5));
 			assertThat(room.phase()).isEqualTo(Room.Phase.LOBBY);
 			assertThat(room.songIndex()).isEqualTo(-1);
 		}
