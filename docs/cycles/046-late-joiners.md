@@ -8,24 +8,22 @@ Someone can join while a game is running. They watch the current song and join t
   - `void addPlayer(PlayerRef player)`.
     - Adds a **pending** player. A known id, or an id that is already pending, is ignored.
     - A pending player is not in the ready set or the skip count, and gets no row in `scores`, `scores()` or the ranking.
-    - At the next `prepare(index)` every pending player becomes a full player: score 0, connected (or not, as last set), a full chat bucket, and placed after the existing players in player order.
+    - At the next `prepare(index)` every pending player becomes a full player: score 0, connected (or not, as last set), keeping their chat bucket (spec review N1), and placed after the existing players in player order.
     - `prepare` runs for the next song, for a `resume`, and for a new game's first song.
     - In LOBBY, `addPlayer` is ignored, because the lobby builds a new `Room` per game.
-  - `setConnected` also accepts pending ids. It records their state, which takes effect when they are promoted.
-  - **Chat from a pending player (watcher).**
-    - It spends a token from its own bucket, starting full.
-    - It never scores.
-    - A message that matches the current song before its `reveal` reaches only the sender, as `chat{name, text}`. It is never broadcast, so a watcher cannot announce the answer to the players. This holds in PREPARE and in PLAYING before or after `startAt`.
-    - A miss follows the player rules: before `startAt` only the sender gets it, and from `startAt` everyone does. In REVEAL everyone gets every message.
+  - `setConnected` also accepts pending ids. It records their state, which takes effect only when they are promoted: a pending player's connection never changes the ready rule, `connectedCount` or `skipState.needed` (spec review M4).
+  - `boolean isPlayer(String id)` is true for promoted players only (spec review H2).
+  - **Chat from a pending player (watcher)** spends a token from its own bucket (starting full) and never scores. In PREPARE and PLAYING **every** watcher chat reaches only its sender, as `chat{name, text}`, match or miss; in REVEAL everyone gets it (spec review M1: judging a watcher's chat would let a near-miss spelling through and give a second tab a match/miss oracle; a watcher cannot score anyway).
     - A watcher's `ready` and `skip` are ignored.
 - **`Lobby`**
-  - **`join` during a game** is now allowed. The checks run in this order: closed, then nickname, then room full (8 members, D-046).
+  - **`join` during a game** is now allowed. The checks run in this order: closed, then nickname, then room full. During a game the cap counts members who are connected or in grace (members who left or whose grace expired wait only for removal at the return, spec review M3); in LOBBY every member counts, as before (D-046).
     - The joiner becomes a member, connected and not in grace.
     - The joiner gets `joined{code, name}` and then the `snapshot` (cycle 042 shape, `phase:"playing"`). Then everyone gets `roster`.
     - Then `room.addPlayer(PlayerRef(id, name))` is called.
     - The `in-game` error remains only for `start` during a game.
   - **A grace `reconnect` of a member who is not a Room player** (the cycle 042 spectator) while a game runs calls `room.addPlayer` the same way, after `joined`, `snapshot` and `roster`.
-  - **Room players.** Promotion turns pending players into Room players. The lobby learns of it from the `prepare` message passing through its `RoomOutbox`: every pending id joins `roomPlayers` at that moment.
+  - **Room players.** The lobby drops its own `roomPlayers` mirror and asks the room instead: a Room player is `room != null && room.isPlayer(id)` (spec review H2).
+  - **Connections.** During a game every member's `disconnect`, `leave` and grace `reconnect` is passed to `room.setConnected` (the room ignores ids it does not know), so a watcher who leaves before promotion is promoted as disconnected and not waited for (spec review H1).
   - **Until promotion.** A pending player does **not** count for the cycle 044 pause, resume and abandon rules. Those rules stay as locked: a connected watcher neither keeps a game running nor resumes it.
 - **Snapshot and roster.** These are unchanged in shape. A pending player appears in `roster` like any member, but not in `scores` until promoted.
 
@@ -42,23 +40,36 @@ Someone can join while a game is running. They watch the current song and join t
   - The rest stays.
 - No other locked test may change.
 
+## Deviation from B-006c and design 034 M2
+Both say a watcher's chat is "broadcast but not judged". Broadcasting it would let a watcher who knows the answer announce it to the players. This cycle shows a watcher's chat only to the watcher until the reveal; B-006c's text is updated accordingly.
+
 ## Acceptance criteria (JUnit 5, from `backend/`)
 1. **`RoomLateJoinTest`** (cycle 036 fakes, unchanged):
    - **Joining mid-song.** A player added in PLAYING of song 0 is not counted in `skipState.needed`. Their `ready` and `skip` are ignored. A correct chat from them reaches only them, both before and after `startAt`, and does not score. Their miss after `startAt` is broadcast. They have their own rate limit.
    - **Promotion.** At the next `prepare` they are in the ready set (the song waits for their `ready`, if connected), in `skipState.needed`, and in `scores` with 0 points, after the existing players. They score from then on, and the ranking includes them.
-   - **Disconnected while pending.** A pending player marked disconnected before promotion is promoted as disconnected and not waited for.
+   - **Disconnected while pending.** A pending player marked disconnected before promotion is promoted as disconnected and not waited for; before promotion that `setConnected(false)` changes neither `skipState.needed` nor the ready wait.
+   - **Watcher chat.** In PREPARE and PLAYING both a match and a miss from a watcher reach only the watcher; in REVEAL a watcher's chat reaches everyone.
+   - **Bucket kept.** A watcher who used 5 tokens and is promoted at once still has no token left.
    - **Ignored adds.** `addPlayer` of a known or already pending id, and `addPlayer` in LOBBY, do nothing.
    - **Last song.** A player added during the last song's PLAYING is never promoted. `gameOver` ranks only the players.
    - **Pause.** A player added while paused is promoted by `resume`'s `prepare`.
 2. **`LobbyLateJoinTest`** (cycle 036 fakes, unchanged):
    - **Joining mid-game.** A `join` during a game sends that player `joined`, then `snapshot` with `phase:"playing"` and the current `song`, then a roster to everyone with the new name. At the next song's `prepare` they become a Room player: their `ready` is waited for, and their correct answer scores.
-   - **Room full.** The 9th member gets `room-full` even during a game.
+   - **Room full.** The 9th member gets `room-full` even during a game; when one of 8 leaves during the game, a new `join` succeeds.
+   - **Leaves before promotion.** A watcher who `leave`s before the next song is promoted as disconnected: the next song starts on the Room players' `ready` without waiting for the timeout.
+   - **Disconnect and reconnect before promotion.** A watcher who disconnects and reconnects within the grace is promoted connected and is waited for.
+   - **Next game.** A player who joins during the last song is not in that game's ranking; after the return to the lobby they are a normal member and are a Room player of the next game.
    - **Spectator reconnect.** A member in grace at `start` who reconnects during song 0 becomes a Room player at song 1's `prepare`.
    - **Watcher and pause.** A connected late joiner does not prevent the pause when every Room player has disconnected. While paused, that joiner's `reconnect` cannot resume.
    - **No `toAll`.** The no-`toAll` `@AfterEach` check is included.
 3. **Socket** (`LateJoinSocketTest`, reusing the cycle 037 `TestClient` and `WsFixture` unchanged):
    - A third client joins with the code after the host started a game. It gets `joined` and a `snapshot` with `phase:"playing"`, then the next `prepare`.
 4. **No regression.** All earlier tests pass with only the declared changes. `.\gradlew.bat test` and `.\gradlew.bat build` exit 0.
+
+## Review changes (spec round 1)
+- **High.** Every connection change of every member reaches the room during a game; the lobby asks `room.isPlayer` instead of keeping a mirror updated from intercepted `prepare` messages.
+- **Medium.** Watcher chat is sender-only until the reveal (no near-miss leak, no oracle); the deviation from B-006c and design 034 is recorded; during a game the cap counts connected or in-grace members; pending disconnects do not change counts.
+- **Nit.** Promotion keeps the chat bucket.
 
 ## Test list
 - `backend/src/test/java/com/songrush/game/RoomLateJoinTest.java`: criterion 1.
