@@ -22,48 +22,61 @@ Hosting is settled by D-065: AWS EC2 free tier (t3.micro class, 1 GB RAM, up to 
 - **Data.**
   - `catalog.json` is 5.5 MB and is read into memory at startup.
   - `audio-cache` is 5.1 GB: 1,500 `.ogg` files plus `index.json`.
-  - Neither is in git, so the server needs an upload.
+  - `catalog.json` is tracked in git; `audio-cache` is not, so the server needs an upload of the audio (and the catalog with it).
 - **Deploy files.** None (no unit, proxy config or scripts).
 
-## Items (each one cycle, test-checkable)
-1. **B-009 backend: serve the built frontend.**
-   - `songrush.web-dir` (unset by default) points at a built `frontend/dist`. When it is set:
-     - `GET /` and `GET /r/<code>` return its `index.html`;
-     - `GET /assets/<file>` returns that file with its content type;
-     - unknown non-API paths return 404 JSON as today;
-     - `/ws`, `/audio/*` and `/health` are unchanged;
-     - a path that escapes the directory (`..`, encoded or not) is 404.
-   - When it is unset, nothing changes.
-   - Acceptance (JUnit, temp dir as web-dir): each of these responses, including the path-escape cases, and the unset case keeps the current 404 for `/`.
-2. **B-010 backend: per-IP limits for a public URL.**
-   - Limits per client IP:
-     - at most 12 open WebSocket connections; the next handshake is refused, or closed with 1008;
-     - at most 10 `create` per minute; the next gets `error{code:"rate-limited"}`.
-   - The client IP is the socket's remote address, or the first `X-Forwarded-For` hop only when `songrush.trust-proxy=true` (the deploy proxy sets it).
-   - Acceptance (JUnit with the existing ws fixtures):
-     - the 13th connection from one IP is refused while one from another IP works;
-     - the 11th create within a minute is refused and is allowed again after the window (with the mutable clock);
-     - `X-Forwarded-For` is ignored unless trust is on.
-3. **I-004 deploy kit (no account needed).** A `deploy/` folder:
-   - a `Caddyfile` template: automatic HTTPS for `{$SONGRUSH_HOST}`, `reverse_proxy` to `127.0.0.1:8080` that keeps Host, WebSocket upgrades as Caddy's default;
-   - a `songrush.service` systemd unit: Java 17, `-Xmx384m -XX:+UseSerialGC`, `SONGRUSH_DATA_DIR`, `SONGRUSH_WEB_DIR`, `SONGRUSH_TRUST_PROXY=true`, restart on failure, server bound to `127.0.0.1`;
-   - `setup.sh` for Ubuntu 24.04: installs Java 17 and Caddy, adds 1 GB swap, creates the user and folders, installs the unit;
-   - `upload.sh`: a resumable `rsync` of the jar, `frontend/dist`, `data/catalog.json` and `data/audio-cache/` to the host;
-   - the backend reads `server.address` from `SONGRUSH_BIND` (default unchanged).
-   - Acceptance (pytest in `data/tests/`, offline):
-     - every script passes `bash -n` (when bash exists; otherwise skipped with a reason);
-     - the unit names exactly the env keys the backend binds (checked against `SongrushProperties` and `application.properties`);
-     - the scripts are ASCII and LF;
-     - `upload.sh --dry-run` prints `rsync -n` commands and never runs `ssh`, or `rsync` without `-n`.
-4. **I-005 owner runbook (docs).** `deploy/README.md` in plain Korean, step by step:
-   - the AWS console: account, region `ap-northeast-2`, launch an Ubuntu 24.04 t3.micro with 30 GB gp3, a key pair, and a security group with 22 from the owner's IP only, plus 80 and 443;
-   - then DNS, `setup.sh`, `upload.sh`, starting the service and checking `/health`;
-   - a free-tier cost section: what stays free, the public IPv4 charge, data transfer out at about 5 MB per song per player, and how to stop the instance.
-   - Acceptance (pytest): every command the README tells the owner to run names a file that exists in `deploy/`, and every env key it mentions is one the unit sets.
-5. **I-006 deploy and smoke test (owner's account).**
-   - The owner runs the runbook. An agent then runs `deploy/smoke.py <url>`: `/health` ok, `/` contains the credit line, `/r/ABCDE` serves the app, and a WebSocket `create` gets `joined`.
-   - `smoke.py` itself is offline-tested against a local backend in item 3's cycle (or this one).
-   - **Marked `[?]`**: it needs the owner's AWS account and domain.
+## Items (revised after the plan review; each one cycle, test-checkable)
+1. **S-003 design: current AWS free terms** (review M7).
+   - D-065 assumed "12 months free". New accounts since 2025-07-15 may be on a credit-based Free plan instead.
+   - Check the current AWS pages, within the External source rules: the eligible instance types, the duration or credits, public IPv4, data transfer out and EBS.
+   - Write `docs/design/NNN-aws-free-terms.md`.
+   - If the terms change the cost picture, add a Needs decision for the owner. Otherwise record the confirmed terms for the runbook.
+2. **B-009 backend: behind a TLS proxy, and serving the built frontend** (review B1, M1, M3).
+   - `server.forward-headers-strategy=native` goes in `application.properties`.
+     - A WebSocket handshake to `/ws` with `Host: play.test`, `Origin: https://play.test` and `X-Forwarded-Proto: https` gets 101.
+     - The same handshake with `Origin: https://evil.test` gets 403.
+     - `X-Forwarded-For` from a loopback peer becomes the session's remote address.
+   - Static files use Boot's standard resource handling only. `spring.web.resources.static-locations` is set from the environment, for example `SPRING_WEB_RESOURCES_STATIC_LOCATIONS=file:/opt/songrush/web/`. One mapping forwards `/r/{code}` and `/r/{code}/` to `/index.html`.
+   - Acceptance (JUnit; a temp dir as the static location):
+     - `/` serves `index.html`, and `/assets/x.js` is served with a JavaScript content type;
+     - `/r/ABCDE` serves `index.html`;
+     - `/../catalog.json` and `/%2e%2e/catalog.json` are not served;
+     - `/ws`, `/audio/*` and `/health` behave as before;
+     - with no static location set, `/` keeps today's 404 JSON;
+     - startup fails with a clear message when the static location is inside or equal to `songrush.data-dir`, so `catalog.json` can never be served.
+3. **I-004 deploy kit files** (review H1, H3, M1, M6, nit on the jar).
+   - **Files** in `deploy/`:
+     - a `Caddyfile`: `{$SONGRUSH_HOST}` with automatic HTTPS and `reverse_proxy 127.0.0.1:8080`;
+     - `songrush.service`: `java -Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -jar`, and `SERVER_ADDRESS=127.0.0.1`, `SONGRUSH_DATA_DIR`, `SPRING_WEB_RESOURCES_STATIC_LOCATIONS`, restarting on failure;
+     - `setup.sh` (Ubuntu 24.04): Java 17, Caddy, 1 GB swap, the service user and folders;
+     - `upload.sh`: uses only OpenSSH `ssh`/`sftp`, because the owner's PC has no rsync. It resumes by skipping files whose remote size matches (`sftp` with `reput`/`put -a`). It uploads the boot jar by its exact name (not `-plain.jar`), `frontend/dist`, `data/catalog.json` and `data/audio-cache/`. It checks that `ssh` and `sftp` exist and exits with a clear message if not.
+   - **Tests:** pytest in `data/tests/test_deploy_kit.py`, offline.
+     - Every `.sh` passes `bash -n`, skipped with a reason if bash is missing.
+     - The files are ASCII with LF line endings.
+     - Every `SONGRUSH_*` key in the unit is a field of `SongrushProperties` (parsed from the Java source). Every other key is a Spring standard key on an allow-list (`SERVER_ADDRESS`, `SPRING_WEB_RESOURCES_STATIC_LOCATIONS`).
+     - `upload.sh --dry-run` prints the sftp batch and runs no `ssh`/`sftp`. This is checked with a PATH of stub executables that record calls.
+   - **Lead, at integration:** add `"deploy": {"data"}` to `EXTRA_AREAS` in `.claude/hooks/check_on_stop.py`, so a change under `deploy/` runs the data tests.
+4. **I-005 smoke check script** (review H2, M4).
+   - `deploy/smoke.py <base-url>`, Python stdlib only, with a minimal hand-written WebSocket client (handshake plus masked text frames). It checks four things:
+     - `/health` returns `{"ok":true}`;
+     - `/` links a module script, and that bundle contains the D-023 credit line (UTF-8);
+     - `/r/ABCDE` returns the same `index.html`;
+     - a `create` over `ws(s)://host/ws` with an `Origin` of the base URL gets `joined`, then a `leave` is sent.
+   - It exits 0 only if all four pass, printing one line per check.
+   - Acceptance (pytest, loopback only, as the conftest guard allows): a stdlib stub HTTP+WebSocket server on 127.0.0.1 gives exit 0; a stub missing the credit line, or answering `error`, gives exit 1 naming the failed check.
+5. **I-006 owner runbook** (review M5, M7). `deploy/README.md` in plain Korean:
+   - AWS console steps: region `ap-northeast-2`; an Ubuntu 24.04 instance of the type S-003 confirms; 30 GB gp3; a key pair; a security group allowing 22 from the owner's IP, plus 80 and 443;
+   - the hostname per D-066, then `setup.sh`, `upload.sh`, `systemctl start songrush` and `smoke.py`;
+   - a cost section from S-003.
+   - Acceptance (pytest):
+     - the commands to run appear only inside fenced `bash` blocks;
+     - every `deploy/<file>` named in them exists;
+     - every `[A-Z_]{3,}=` key in them is set by the unit or the Caddyfile.
+6. **I-007 deploy and smoke (owner's account), `[?]`.**
+   - The owner follows the runbook. An agent then runs `smoke.py` against the public URL and records the service memory from `systemctl status` (review M6).
+   - It needs the owner's AWS account and D-066.
+
+**Dropped from M-4 (review M2):** per-IP limits. The global caps are enough for friends-only play (200 lobbies, 8 per room, frame and chat limits); per-IP caps risk false positives behind carrier NAT. It is kept as a follow-up.
 
 ## Needs decision (recorded, not asked: owner asleep, sleep mode)
 - **D-066 domain for HTTPS.** HTTPS needs a hostname. Options:
@@ -73,8 +86,24 @@ Hosting is settled by D-065: AWS EC2 free tier (t3.micro class, 1 GB RAM, up to 
 - **D-067 D-025/D-057 revisit.** The milestone asks to revisit these before going public. Options:
   - **(a)** Keep the risk accepted for friends-only play. Nothing to build.
   - **(b)** Encrypt each audio file per round and send the key at `startAt`. This means a backend and frontend change of about one cycle, and it hides the song until it plays.
-  - **Recommendation:** (a). The site is shared only with friends by link, and (b) can be added later as an item.
+  - **Recommendation:** (a). The threat is a friend running a modified client, not strangers: the hostname is not secret, since certificates appear in public CT logs. (b) can be added later as an item.
 - Item 5 and the actual EC2 work are not run without the owner.
 
 ## Not planned (outside the milestone)
 - Docker, CI/CD, monitoring, custom error pages, a CDN.
+
+## Review changes (plan round 1)
+- **Blocker.** Behind Caddy's TLS the WebSocket same-origin check would refuse every handshake. B-009 sets `server.forward-headers-strategy=native` and tests the proxied handshake.
+- **High.**
+  - Upload uses OpenSSH `sftp`, since rsync is absent on the owner's PC.
+  - The smoke check follows the bundle for the credit line, because `index.html` has none.
+  - Deploy-kit tests run with the data area, through a hook mapping.
+- **Medium.**
+  - No backend change for the bind address (relaxed binding).
+  - Per-IP limits dropped.
+  - Static files use Boot's standard handling.
+  - The kit is split from the smoke script.
+  - README criteria are made mechanical.
+  - OOM exits the JVM.
+  - AWS terms are re-checked in S-003.
+- **Nits.** `catalog.json` is tracked; the jar is named exactly; the D-067 reasoning is corrected.
