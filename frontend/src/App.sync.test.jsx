@@ -242,8 +242,8 @@ describe('synced offset', () => {
     const socket = await syncedRoomReady(env)
     const ctx = env.audio.last
     ctx.currentTime = 10
-    // Receipt offset 500, synced offset 2500: the song is 3 s away by the
-    // synced clock and would be 5 s away by the receipt one.
+    // Receipt offset 4500, synced offset 2500: a +2000 drift, so the song
+    // uses the smaller (synced) offset and is 3 s away by it.
     deliver(socket, startAt(env, { receiptMs: 4500, startInMs: 3000 }))
     await flushUntil(() => ctx.startedSources().length === 1)
     expect(ctx.startedSources()).toHaveLength(1)
@@ -260,7 +260,8 @@ describe('synced offset', () => {
     const socket = await syncedRoomReady(env)
     const ctx = env.audio.last
     ctx.currentTime = 10
-    // By the receipt offset (500) the song would be 1 s away instead.
+    // Receipt offset 4500 (a +2000 drift): the synced offset wins as the
+    // smaller, so the song began 1 s ago by it.
     deliver(socket, startAt(env, { receiptMs: 4500, startInMs: -1000 }))
     await flushUntil(() => ctx.startedSources().length === 1 && screen.queryByRole('progressbar') !== null)
     const [when, offset] = ctx.startedSources()[0].start.mock.calls[0]
