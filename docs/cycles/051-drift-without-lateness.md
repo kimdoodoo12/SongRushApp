@@ -11,7 +11,7 @@ The backlog item suggests holding the source until the burst answers. The locked
 2. **Provisional start.** When the drift path used the receipt (`receipt < estimate.offsetMs`), the round is marked provisional with that offset. The cause can be a late frame or a forward clock jump. The other direction (`receipt > estimate`) is not marked and keeps today's behaviour; it is out of scope.
 3. **Correction (spec review H1, M1).**
    - **Lower bound.** For every pong after the drift `clear()`, the session takes that sample's lower bound `serverTime - t1`. By causality this is never above the true offset, so a song scheduled from it is never early. `clockSync` exposes it, for example as `lowerBound()`: the largest `serverTime - t1` over the stored samples, or `null`.
-   - **Stale pongs.** The drift `clear()` also forgets pending pings, so a pong for a ping sent before the clear is ignored. A ping sent before a forward clock jump would otherwise give a sample that is too high.
+   - **Stale pongs.** The drift `clear()` also forgets pending pings, so a pong for a ping sent before the clear is ignored. Without this, a ping sent before a forward clock jump leaves a high-RTT sample whose median offset is too high. The next song's `current()` would then use it without seeing drift, and start early (spec review round 2, H1).
    - **When to move.** On each such pong, while the round is current, not revealed and provisional: if the lower bound exceeds the offset in use by more than 20 ms, the start moves earlier. Each move:
      - sets `round.start.offsetMs` to the lower bound, on the same object the remaining-time ticks read, so the bar follows;
      - stops any source already created, with `stop()` and no argument;
@@ -29,20 +29,19 @@ The backlog item suggests holding the source until the burst answers. The locked
      - Answer the drift burst's first ping with offset `SYNC`. The lower bound is 2490 (`SYNC - RTT/2`). Then:
        - the first source's last `stop` call has no argument;
        - a second source starts at `when` 12.99 (within 0.005) with offset 0, and its `stopAt` is 102.99 (within 0.005).
-     - After one more 250 ms advance, the bar's `aria-valuenow` equals `deadlineAt - 2490 - now()` rounded as the bar does.
    - **Late frame, corrected while playing (spec review B1).**
      - Setup: the frame is 1000 ms late (receipt `SYNC - 1000`) and the song began 500 ms ago by the true clock (`startInMs: -500`).
      - The first source is at `when` 10.5.
-     - Set `ctx.currentTime = 10.6`, then answer the first burst ping with offset `SYNC`. The second source starts at `when` 10.6 (within 0.005). Its `offset` is `(now() + 2490 - startAt) / 1000` at the pong, within 0.005, computed in the test from its own values (about 0.51 s).
-   - **Stale pong after a jump.**
-     - Setup: a ping is pending from the ready burst; the client clock jumps +1500; then a late-looking `start` arrives.
-     - Answering that stale ping now (with server time computed from the true clock) changes nothing: there is no second source.
-     - Answering the drift burst's ping with the true new offset `SYNC - 1500` gives no second source either, because the lower bound is not above the provisional offset by more than 20 ms.
-     - No source ever has `when` earlier than the true start.
+     - Set `ctx.currentTime = 10.6`, then answer the first burst ping with offset `SYNC`. The second source starts at `when` 10.6 (within 0.005). Its `offset` is `(now() + 2490 - startAt) / 1000` at the pong, within 0.005, computed in the test from its own values (about 0.51 s). After one more 250 ms advance, the bar's `aria-valuenow` is 89240 (`deadlineAt - 2490 - now()`); without the correction it would be 90000 (round 2, B1).
+   - **Stale pong after a jump (round 2, H1).**
+     - Setup: `joinRoomFake`, 8 answered pings, `prepareFake`, 2 answered pings of the ready burst; advance 130 so the third ping goes out; then `clock.t += 1500` (a forward jump); then `start` for index 0 with receipt 1000 and `startAt` 3000 ms away by the new offset 1000.
+     - Answer that third (stale) ping now, with `serverTime` from the true server clock. Leave the drift burst unanswered. There is no second source for song 0.
+     - Then `reveal`, `prepare(1)`, `ready`, and an on-time `start` for index 1 (receipt 1000, `startAt` 3000 ms away by offset 1000), with `ctx.currentTime` set before it. Song 1's `when` is not earlier than its true start (`ctxTime + 3`, within 0.005).
    - **Later pongs move it again** (the setup of the first case: provisional offset 1000).
      - The first fresh pong has RTT 400, so its lower bound is 2300 (it moves the start, because 2300 is more than 20 ms above 1000).
-     - The second pong has RTT 20, with lower bound 2490: a third source appears.
-     - A third pong with lower bound 2480 changes nothing.
+     - The burst's second ping is answered with `serverTime = t1 + 2490` (an asymmetric path, valid by causality): a third source appears.
+     - The third ping is answered with `serverTime = t1 + 2480`: nothing changes.
+     - Here `t1` is the clock at the pong.
    - **Real forward clock jump.**
      - The client clock jumps +1500 ms (`clock.t += 1500` with no timer advance), then `start` arrives with an on-time frame.
      - The receipt is smaller and the song is first scheduled by the receipt.
@@ -61,6 +60,11 @@ The backlog item suggests holding the source until the burst answers. The locked
   - The correction follows every fresh pong, moving only earlier.
   - The bar check uses `aria-valuenow` after a tick.
   - The stop check requires an argument-less `stop()`.
+
+## Review changes (spec round 2)
+- **Blocker.** The bar check moved to the "while playing" case, because before `startAt` the bar is clamped at its maximum.
+- **High.** Forgetting pending pings protects the next song's median estimate. The stale-pong case now checks the next song.
+- **Medium.** The later pongs are given as `serverTime = t1 + bound`.
 
 ## Test list
 - `frontend/src/App.drift.test.jsx` (new).
