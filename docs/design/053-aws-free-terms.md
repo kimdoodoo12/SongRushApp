@@ -34,22 +34,49 @@
 | $100 credit lasts | about 6 months (capped at 6) | about 4 months | n/a | n/a |
 | Out of pocket during the Free plan | $0 | $0 | (unverified) | (unverified) |
 
-## Options
-- **(a) EC2 t3.micro on the Free plan** (as D-065 meant).
-  - Free for up to 6 months. The deploy kit's `-Xmx384m`, SerialGC and 1 GB swap fit 1 GiB.
-  - Afterwards, either upgrade to the Paid plan (about $16/month) or move.
-- **(b) EC2 t3.small on the Free plan.**
-  - 2 GiB gives more memory room, but the $100 credit lasts about 4 months, or about 6 with the earned $100.
-  - Afterwards about $25/month.
-- **(c) Lightsail Micro or Small.** The cheapest after any free period ($7 or $12, all-in). It needs a Paid account, and its Free plan coverage is unverified.
+## Options (revised after review: the sign-up plan is a separate choice)
+The free-tier-plans comparison table gives both plans the same credits ("Receive USD $100 sign up credit and earn up to $100 in additional credits"). Free plan: "Account closes when credits are depleted or when the plan duration ends". Paid plan: "Account doesn't close when credits are depleted".
 
-The deploy kit (I-004) targets Ubuntu 24.04 with SSH and works on any of these. The choice does not block B-009, I-004, I-005 or I-006. Only the runbook's console steps and cost section depend on it.
+| Sign-up plan x host | Monthly cost after credits | Main risk |
+|---|---|---|
+| **Free plan + EC2 t3.micro** | about $15.9, but only if upgraded within 90 days of closure | Closes automatically at 6 months or when credits run out. With $100 the slack is only about $4.7: an extra test instance, a snapshot, a stopped instance still paying for EBS and IPv4, or many 30-song games (about 1.2 GB each) close it early. 90 days after closure the instance, the EBS volume and the 5.1 GB audio are deleted. |
+| **Paid plan + EC2 t3.micro + Budgets alert** | about $14.6 with a 16 GB volume | No closure. Charges start once the credits are used, so an AWS Budgets alert (for example at $1 of actual spend) is required. |
+| Paid plan + EC2 t3.small | about $24 | As above. More memory headroom; the credits last about 4 months. |
+| Paid plan + Lightsail Micro | $7, with the IP, disk and 2 TB transfer included (the allowance "can vary by Region"; Seoul overage $0.13/GB) | Unverified: whether the sign-up credits apply to Lightsail. |
+
+Notes:
+- **Disk (review M1).** About 12 GB is needed: 5.1 GB of audio, Ubuntu, a JDK, Caddy and 1 GB of swap. A 16 GB gp3 volume costs about $1.46/month instead of $2.74 for 30 GB.
+- **Moving later (review M2).** Moving from EC2 to Lightsail means a new server, re-uploading 5.1 GB, different firewall steps and a new IP (so a new sslip.io name). Upgrading in place keeps everything.
+- **Credit activities (review H2).** The activities that earn extra credits include "Launch an instance using Amazon EC2" and "Set up a cost budget using AWS Budgets". The runbook does both anyway, so it names them.
+- **Reversibility.** The sign-up plan can be changed from Free to Paid. Data deleted 90 days after a closure cannot be recovered.
+- The deploy kit (I-004) targets Ubuntu 24.04 over SSH and works on any of these hosts. The choice does not block B-009, I-004, I-005 or I-006; only the runbook's console steps and its cost section depend on it.
 
 ## Decision
-- **Needs user decision (cost): D-068.** Recommended: (a). It is free for about 6 months and fits the kit's memory settings. Before the plan ends, decide between upgrading (about $16/month) and moving to Lightsail Micro ($7/month).
-- **The runbook (I-006)** must state the 6-month or credit limit and the automatic account closure (data deleted 90 days later) in plain words, with a reminder to decide before month 5.
+- **Needs user decision (cost, account): D-068.** **Recommended: Paid plan + EC2 t3.micro with a 16 GB gp3 volume + a Budgets alert.**
+  - It keeps D-065's EC2 choice.
+  - It is free while the credits last (about 6-7 months; longer with the earned credits).
+  - It never closes on its own.
+  - After the credits run out it costs about $15/month. At that point the owner can stay, or move to Lightsail Micro ($7).
+- **The runbook (I-006)** states in plain words:
+  - the chosen plan's limits;
+  - the Budgets alert step;
+  - the two credit-earning activities;
+  - for the Free plan, the automatic closure and the deletion 90 days later.
+
+## Review changes (round 1)
+- **High.**
+  - The Paid sign-up plan is now an option, and it is the recommended one.
+  - The Free plan's thin credit slack and its early-closure triggers are listed.
+  - The Budgets alert is required.
+- **Medium.**
+  - The disk is sized at 16 GB.
+  - The cost of moving later is stated.
+- **Nits.**
+  - Lightsail coverage is marked unverified.
+  - The Lightsail allowance varies by Region.
+  - A 30-song game is about 1.2 GB.
 
 ## Resulting items
 - No new Ready items.
-- I-006's cost section uses the figures above.
+- I-006's console steps and cost section follow D-068.
 - D-068 goes to Needs decision.
