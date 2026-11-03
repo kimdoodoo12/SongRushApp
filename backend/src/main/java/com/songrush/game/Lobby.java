@@ -280,6 +280,12 @@ public final class Lobby {
 	}
 
 	public void start(String playerId, int songCount) {
+		start(playerId, songCount, DrawFilter.NONE);
+	}
+
+	// As start(playerId, songCount), with the game's draw limited by the filter.
+	public void start(String playerId, int songCount, DrawFilter filter) {
+		Objects.requireNonNull(filter, "filter");
 		Member m = member(playerId);
 		if (closed || m == null || !m.connected) {
 			return;
@@ -306,7 +312,7 @@ public final class Lobby {
 		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players);
 		room = next;
 		roomOutbox = wrapper;
-		next.start(songCount);
+		next.start(songCount, filter);
 		if (next.phase() == Room.Phase.LOBBY) {
 			// The Room sent its error (not-enough-songs) and never started.
 			room = null;
@@ -510,7 +516,9 @@ public final class Lobby {
 
 	// joined{code, name} and then the allow-listed snapshot, to that player only. The snapshot never
 	// carries a player id, a token or a catalog field: rows as in roster, the Room's currentSong()
-	// (already-sent prepare and start values) and the Room's scores by name.
+	// (already-sent prepare and start values) and the Room's scores by name. During a game with a
+	// non-empty draw filter, settings follows the snapshot: the one place every joiner, rejoiner and
+	// replaced socket gets it (cycle 060, review H2).
 	private void sendJoinedAndSnapshot(Member m) {
 		outbox.toPlayer(m.id, message("joined", "code", code, "name", m.name));
 		List<Object> scores = new ArrayList<>();
@@ -527,6 +535,11 @@ public final class Lobby {
 		}
 		outbox.toPlayer(m.id, message("snapshot", "phase", phaseName(), "players", playerRows(), "song",
 				room == null ? null : room.currentSong(), "scores", scores));
+		if (room != null && !room.settings().isEmpty()) {
+			Map<String, Object> settings = message("settings");
+			settings.putAll(room.settings().toMessageFields());
+			outbox.toPlayer(m.id, settings);
+		}
 	}
 
 	private String phaseName() {

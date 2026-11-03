@@ -4,9 +4,11 @@ import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,6 +29,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import com.songrush.audio.AudioTokens;
 import com.songrush.catalog.Catalog;
+import com.songrush.game.DrawFilter;
 import com.songrush.game.Lobby;
 import com.songrush.game.Room;
 import com.songrush.game.RoomCodes;
@@ -58,6 +61,12 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 	static final int MAX_LOBBIES = 200;
 
 	static final int TOKEN_BYTES = 16;
+
+	static final int MIN_YEAR = 1950;
+
+	static final int MAX_YEAR = 2100;
+
+	private static final Set<String> THEME_TYPES = Set.of("OP", "ED");
 
 	static final CloseStatus REPLACED = new CloseStatus(4001, "replaced");
 
@@ -282,6 +291,12 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			sendError(sessionId, "bad-song-count");
 			return;
 		}
+		// Also before a lobby is made, so bad-filter never leaves an empty lobby behind (review M1).
+		DrawFilter filter = solo ? filter(node) : DrawFilter.NONE;
+		if (filter == null) {
+			sendError(sessionId, "bad-filter");
+			return;
+		}
 		OutboundQueue queue = queues.get(sessionId);
 		if (queue == null) {
 			return;
@@ -297,7 +312,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			sendError(sessionId, "already-in-room");
 			return;
 		}
-		enter(sessionId, queue, seat, nickname, solo ? songCount : null);
+		enter(sessionId, queue, seat, nickname, solo ? songCount : null, filter);
 	}
 
 	private void join(String sessionId, JsonNode node) {
@@ -326,13 +341,14 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			return;
 		}
 		// The lobby checks the nickname itself, after room-not-found for a closed lobby.
-		enter(sessionId, queue, seat, nicknameNode.stringValue(), null);
+		enter(sessionId, queue, seat, nicknameNode.stringValue(), null, DrawFilter.NONE);
 	}
 
 	// Joins the reserved seat's lobby on its thread, then sends the token, and for the solo path
 	// starts at once. The seat is released if the lobby refuses the join, or if the solo start stays
 	// in the lobby. The player id is fresh, so no other session can be bound to it yet.
-	private void enter(String sessionId, OutboundQueue queue, Seat seat, String nickname, Integer soloSongCount) {
+	private void enter(String sessionId, OutboundQueue queue, Seat seat, String nickname, Integer soloSongCount,
+			DrawFilter soloFilter) {
 		Hosted hosted = seat.hosted();
 		hosted.players.put(seat.playerId(), queue);
 		hosted.bindings.put(seat.playerId(), sessionId);
@@ -348,7 +364,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 				token.put("token", seat.token());
 				offer(queue, sessionId, token);
 				if (soloSongCount != null) {
-					hosted.lobby.start(seat.playerId(), soloSongCount);
+					hosted.lobby.start(seat.playerId(), soloSongCount, soloFilter);
 					if (hosted.lobby.phase() == Room.Phase.LOBBY) {
 						// The room sent its error (not-enough-songs); as in cycle 037, no room remains.
 						hosted.lobby.leave(seat.playerId());
@@ -392,8 +408,62 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			sendError(sessionId, "bad-message");
 			return;
 		}
+		// Checked here, so bad-filter comes before the lobby's not-host and in-game and before no-room.
+		DrawFilter filter = filter(node);
+		if (filter == null) {
+			sendError(sessionId, "bad-filter");
+			return;
+		}
 		int count = songCount.intValue();
-		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count));
+		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count, filter));
+	}
+
+	// The optional draw filter of create (solo) and start, or null when a present field is bad
+	// (docs/cycles/060-draw-filters.md): types a non-empty array of distinct "OP"/"ED" strings,
+	// yearFrom and yearTo JSON integers in MIN_YEAR..MAX_YEAR with yearFrom <= yearTo. A present
+	// JSON null is bad. NONE when no field is present.
+	private static DrawFilter filter(JsonNode node) {
+		Set<String> types = null;
+		if (node.has("types")) {
+			JsonNode typesNode = node.get("types");
+			if (!typesNode.isArray() || typesNode.isEmpty()) {
+				return null;
+			}
+			types = new HashSet<>();
+			for (JsonNode element : typesNode) {
+				if (!element.isString() || !THEME_TYPES.contains(element.stringValue())
+						|| !types.add(element.stringValue())) {
+					return null;
+				}
+			}
+		}
+		Integer yearFrom = null;
+		if (node.has("yearFrom")) {
+			yearFrom = year(node.get("yearFrom"));
+			if (yearFrom == null) {
+				return null;
+			}
+		}
+		Integer yearTo = null;
+		if (node.has("yearTo")) {
+			yearTo = year(node.get("yearTo"));
+			if (yearTo == null) {
+				return null;
+			}
+		}
+		if (yearFrom != null && yearTo != null && yearFrom > yearTo) {
+			return null;
+		}
+		return new DrawFilter(types, yearFrom, yearTo);
+	}
+
+	// A JSON integer in MIN_YEAR..MAX_YEAR, or null.
+	private static Integer year(JsonNode node) {
+		if (!node.isInt()) {
+			return null;
+		}
+		int year = node.intValue();
+		return year < MIN_YEAR || year > MAX_YEAR ? null : year;
 	}
 
 	private void ready(String sessionId, JsonNode node) {
