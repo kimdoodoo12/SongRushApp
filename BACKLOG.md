@@ -228,7 +228,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - A single late `start` frame looks like a clock jump and makes that player start late by the delay. On drift, defer fixing the offset until the re-sync burst answers (there are 3 s of lead), using `min(receipt, estimate)` only if no new estimate exists shortly before `startAt`. Also fix the stale comments in the two cycle 047 `App.sync` tests changed in cycle 048 and add a no-drift case for them.
   - Acceptance (Vitest with fake timers): a delayed `start` with a good estimate still starts on time after the burst; a real clock jump starts no earlier than the true time.
 
-- [ ] **S-003** design: current AWS free terms (from M-4, design 052)
+- [x] **S-003** design: current AWS free terms (from M-4, design 052)
   - D-065 assumed "12 months free"; accounts created since 2025-07-15 may get a credit-based Free plan. Check the current AWS pages (eligible instance types, duration or credits, public IPv4, data transfer out, EBS), write a design doc, and add a Needs decision if the cost picture changes.
 - [ ] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
   - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
@@ -240,7 +240,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
   - Acceptance (pytest, loopback stub server): all pass gives exit 0; a missing credit line or an `error` reply gives exit 1 naming the check.
 - [ ] **I-006** owner runbook (from M-4, design 052)
-  - `deploy/README.md` in plain Korean: AWS console steps, hostname (D-066), setup, upload, start, smoke, costs (from S-003).
+  - `deploy/README.md` in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
   - Acceptance (pytest): commands only in fenced `bash` blocks; every `deploy/<file>` they name exists; every `[A-Z_]{3,}=` key is set by the unit or Caddyfile.
 
 ## Roadmap
@@ -258,6 +258,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 - [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `deploy/README.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. Needs the owner's account and D-066.
 - [?] **D-066** Hostname for HTTPS (design 052): (a) a free IP-based name such as `<ip>.sslip.io` with Caddy's automatic certificate (no cost, no account; changes with the IP) - recommended to start; (b) a bought domain (about 15,000 KRW/year) on an Elastic IP; (c) DuckDNS (free, needs an account).
+- [?] **D-068** AWS sign-up plan and host (design 053; refines D-065, whose "12 months free" no longer applies to new accounts): Free plan (closes itself at 6 months or when the $100 credit runs out; data deleted 90 days later) vs Paid plan (same credits, never closes; pay after credits). Recommended: Paid plan + EC2 t3.micro + 16 GB gp3 + an AWS Budgets alert (free while credits last, then about $15/month; Lightsail Micro $7 later is an option).
 - [?] **D-067** Revisit D-025/D-057 before going public (design 052): (a) keep the modified-client risk accepted for friends-only play - recommended; (b) encrypt each round's audio and send the key at `startAt` (about one backend + frontend cycle).
 
 - [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time; then joins one room from the PC browser and the iPhone and reports whether both start the song together (no echo between the two). The silent switch should not matter (cycle 047 sets the audio session to playback). Agents cannot run this.
