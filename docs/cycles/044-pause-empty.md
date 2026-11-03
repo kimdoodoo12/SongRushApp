@@ -6,7 +6,7 @@ When every player of a running game has disconnected, the game stops using up so
 ## Interface (package `com.songrush.game`)
 - `Room`. Its locked cycle 036 and 042 tests must still pass. It gains:
   - `void pause()`.
-    - In PREPARE, PLAYING or REVEAL it cancels the pending timer and sets `paused()` to true. The phase and song index stay as they are, and nothing is sent.
+    - In PREPARE, PLAYING or REVEAL it cancels the pending timer, increments the generation (so every task scheduled before the pause stays stale forever, spec review N1) and sets `paused()` to true. The phase and song index stay as they are, and nothing is sent.
     - In LOBBY, or when already paused, it does nothing.
   - `void resume()`. When paused, it clears the flag and continues:
     - from PREPARE or PLAYING, it prepares the **same** index again: a new audio token, a new `prepare`, and the ready set cleared;
@@ -16,11 +16,11 @@ When every player of a running game has disconnected, the game stops using up so
   - While paused:
     - `ready` and `chat` are ignored;
     - `currentSong()` returns `null`;
-    - any timer that was already queued does nothing, because the existing stale-task guard also checks the paused flag.
+    - any timer that was already queued does nothing (the generation changed).
   - Scores are kept across a pause.
 - `Lobby`. Its locked cycle 040 and 042 tests must still pass.
-  - **Pause.** When a disconnect leaves no connected player and a game is running, the lobby calls `room.pause()`. Grace expiry and `leave` follow the same rule.
-  - **Resume.** A `reconnect` of a member in grace that finds the room paused proceeds in this order:
+  - **Pause.** A `disconnect`, or a `leave` by a connected member, that leaves no connected **Room player** (a member who is in the current game's `Room`) during a game calls `room.pause()`. Connected spectators (members who were in grace when the game started, cycle 042) do not keep a game running (spec review M1). The empty-lobby timer keeps counting all connected members, as before.
+  - **Resume.** A `reconnect` of a **Room player** in grace that finds the room paused proceeds in this order (a spectator's reconnect sends only `joined`, `snapshot` and `roster` and never resumes):
     1. it sends that player `joined`, then the `snapshot`, which has `song:null` because the room is paused;
     2. it sends everyone the `roster`;
     3. it calls `room.resume()`, which sends the `prepare`.
@@ -39,11 +39,18 @@ When every player of a running game has disconnected, the game stops using up so
      - `pause()` in LOBBY does nothing.
      - Scores from before the pause are kept.
 2. **`LobbyPauseTest`** (cycle 036 fakes, unchanged).
-   - **Pause and resume.** A 2-player game where both disconnect during PLAYING pauses the room: no further `prepare`/`start`/`reveal` is sent after the second disconnect, even 10 minutes of advanced time later (within `EMPTY_TTL`: use a time below 2 min). A `reconnect` within the grace period sends that player `joined`, `snapshot` (`song:null`) and `roster`, then a `prepare` for the same index.
+   - **Pause and resume.** A 2-player game in PLAYING of song 0: advance until `deadlineAt - 10 s`, then both players disconnect. Advance `GRACE - 1 ms` (past the old deadline and a following reveal pause): no `start`/`reveal`/`scores`/`prepare`/`gameOver` is sent and the phase and song index are unchanged. Then `reconnect(P1)` sends P1 `joined`, `snapshot` (`song:null`) and the `roster`, then everyone connected gets a `prepare` with the same `index` and a different `audioUrl`, in that order.
+   - **Spectators.** A member in grace when the game started reconnects (a spectator); then both Room players disconnect: the room pauses although the spectator is connected. While paused, a spectator's reconnect (after a second disconnect) does not resume; a Room player's reconnect does.
+   - **Last song.** Pausing during the last song's REVEAL and reconnecting a Room player sends `joined`, `snapshot`, `roster`, then `gameOver` and `roster{phase:"lobby"}`; members still in grace stay, members whose grace expired are removed.
    - **Disconnect then leave.** One player disconnects and the other sends `leave`. The room pauses as well.
-   - **No resume.** If nobody reconnects, the lobby closes at `EMPTY_TTL` after the last disconnect and sends nothing else.
+   - **No resume.** If nobody reconnects, nothing is sent up to `EMPTY_TTL - 1 ms` after the last disconnect and the lobby is still open; 1 ms later it closes.
    - **One player left.** With one player still connected, a disconnect does not pause.
 3. **No regression.** All earlier tests pass unchanged. `.\gradlew.bat test` and `.\gradlew.bat build` exit 0.
+
+## Review changes (spec round 1)
+- **High.** The pause-and-resume criterion could not be met (the fixture songs are longer than the 30 s grace); it now disconnects 10 s before the deadline.
+- **Medium.** Pausing and resuming depend on Room players, not spectators; the last-song resume path through `gameOver` is tested at the lobby level.
+- **Nits.** `pause()` bumps the generation instead of relying on a flag check; only `disconnect` and a connected member's `leave` can trigger the pause.
 
 ## Test list
 - `backend/src/test/java/com/songrush/game/RoomPauseTest.java`: criterion 1.
