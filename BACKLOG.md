@@ -150,7 +150,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-016** *(dropped by D-057; cycle 031 stopped at spec review)* data: size padding of cached audio (D-055, design 029)
   - After verification, rewrite the OpusTags packet of each cached file with an extra comment `SONGRUSH_PAD=<random bytes>` of random length (1-64 KiB), fixing the Ogg page segment table and CRC; record `paddedSize` in the index. Idempotent on rerun (a padded file is not padded again).
   - Acceptance (offline, fixture Ogg Opus files): the padded file decodes to the same audio packets (all pages after OpusTags byte-identical apart from page sequence numbers if they change, and every page CRC valid); the size differs from the original by the padding; two runs give different padding lengths across files; a rerun leaves padded files unchanged.
-- [ ] **B-002** backend: catalog loader (from S-002, design 029)
+- [~] **B-002** backend: catalog loader (from S-002, design 029)
   - Reads `data/catalog.json` (path from `songrush.data-dir`) at startup into immutable lookups: anime by id, theme by id, group accepted strings by group id, and the ordered draw set; also reads `data/audio-cache/index.json` and keeps as draw candidates only draw-set themes with an indexed file present (D-056), with their `durationMs`. A missing or malformed catalog fails startup with a clear message; a missing index gives zero candidates and a warning.
   - Acceptance (JUnit, small fixture catalog under `backend/src/test/resources`): every lookup returns the fixture values; the draw-set order is kept; a malformed file and a missing file each fail with a message naming the path.
 - [ ] **B-003** backend: opaque audio endpoint (from S-002, design 029)
