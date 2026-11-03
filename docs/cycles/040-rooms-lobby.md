@@ -130,3 +130,13 @@ Friends can share a room: a host creates a room with a 5-character code, up to 8
 
 ## Out of scope
 Reconnect and player tokens (B-005b), late joiners, skip, the chat rate limit (B-006b), and the lobby screens (F-003).
+
+## Result
+- Tests `1480780` (locked); implementation `b0194bf` (attempt 1).
+- Red phase (verifier): `:compileTestJava FAILED`, 20 errors, all missing `Lobby` or `RoomCodes` symbols; against stubs every test source compiled cleanly.
+- Verifier: `cleanTest test` twice and `build`, exit 0; 19 suites, 0 failures (LobbyTest 19, RoomCodesTest 4, LobbySocketTest 4; RoomTest 19 and SoloSocketTest 13 unchanged and passing); test sources unchanged since `1480780`; `Room.java` unchanged; new sources ASCII-only.
+
+## Code review (critic)
+No Blocker or High. Traced: rejected or not-yet-joined players never receive `Room` messages; roster and `joined` carry no ids or tokens; every `Lobby` and `Room` call runs on the lobby thread; the 200-lobby counter cannot drift; the per-`Room` muting wrapper, host rule, timers and error priority match the spec.
+- **M1 (to F-003).** A finished solo game returns to its lobby, so after 10 idle minutes the cycle 039 final-score screen shows `room-closed` as an error.
+- **M2 (to B-005b).** A quick `leave` then `create`/`join` can receive one stale frame from the old lobby.
