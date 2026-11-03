@@ -172,8 +172,7 @@ def test_accepted_strings_come_from_group_sources(groups, fixture_run):
         for s in sources:
             allowed.add(normalize(s))
             allowed.add(normalize(strip_qualifier(s)))
-            f = groups.front_part(s)
-            if f is not None:
+            for f in groups.front_parts(s):
                 allowed.add(normalize(f))
                 allowed.add(normalize(strip_qualifier(f)))
         allowed.discard("")
@@ -460,3 +459,110 @@ def test_titles_without_separator_unchanged(groups):
         expected.add(normalize(strip_qualifier(s)))
     expected.discard("")
     assert out[53]["accepted"] == sorted(expected)
+
+
+# Cycle 027 (C-014, D-051, D-052): more subtitle separators; every separator counts.
+# docs/cycles/027-more-separators.md is the specification.
+
+EN_DASH = chr(0x2013)
+EM_DASH = chr(0x2014)
+HORIZONTAL_BAR = chr(0x2015)
+WAVE_DASH = chr(0x301C)
+FW_TILDE = chr(0xFF5E)
+FW_HYPHEN = chr(0xFF0D)
+FW_SLASH = chr(0xFF0F)
+FW_ONE = chr(0xFF11)
+FW_TWO = chr(0xFF12)
+HIRAGANA_A = chr(0x3072) + chr(0x3050) + chr(0x3089) + chr(0x3057)
+HIRAGANA_B = chr(0x306A) + chr(0x304F)
+KATAKANA_ZOIDS = chr(0x30BE) + chr(0x30A4) + chr(0x30C9)
+KATAKANA_ZERO = chr(0x30BC) + chr(0x30ED)
+KATAKANA_EIGHTY_SIX = (
+    chr(0x30A8) + chr(0x30A4) + chr(0x30C6) + chr(0x30A3)
+    + chr(0x30B7) + chr(0x30C3) + chr(0x30AF) + chr(0x30B9)
+)
+HANGUL_A = chr(0xC9C4) + chr(0xACA9)
+HANGUL_B = chr(0xAC70) + chr(0xC778)
+CHAINSAW_EN = "Chainsaw Man " + EN_DASH + " The Movie: Reze Arc"
+EIGHTY_SIX_NATIVE = "86" + FW_HYPHEN + KATAKANA_EIGHTY_SIX + FW_HYPHEN
+
+
+# Cycle 027 criterion 1
+
+@pytest.mark.parametrize(
+    "s, expected",
+    [
+        ("Attack on Titan ~Chronicle~", "Attack on Titan"),
+        (CHAINSAW_EN, "Chainsaw Man"),
+        (HIRAGANA_A + WAVE_DASH + HIRAGANA_B + WAVE_DASH, HIRAGANA_A),
+        (KATAKANA_ZOIDS + FW_SLASH + KATAKANA_ZERO, KATAKANA_ZOIDS),
+        (EIGHTY_SIX_NATIVE, "86"),
+        (HANGUL_A + " ~" + HANGUL_B + "~", HANGUL_A),
+        ("Title" + EM_DASH + "Sub", "Title"),
+        ("Title" + HORIZONTAL_BAR + "Sub", "Title"),
+    ],
+)
+def test_front_part_new_separators(groups, s, expected):
+    assert groups.front_part(s) == expected
+
+
+# Cycle 027 criterion 2 (D-052)
+
+@pytest.mark.parametrize(
+    "s, expected",
+    [
+        (CHAINSAW_EN, ["Chainsaw Man", "Chainsaw Man " + EN_DASH + " The Movie"]),
+        ("Name ~Sub~: More", ["Name", "Name ~Sub", "Name ~Sub~"]),
+        ("Mob Psycho 100", []),
+    ],
+)
+def test_front_parts_every_separator(groups, s, expected):
+    assert groups.front_parts(s) == expected
+
+
+def test_front_part_is_first_of_front_parts(groups):
+    assert groups.front_part(CHAINSAW_EN) == "Chainsaw Man"
+    assert groups.front_parts(CHAINSAW_EN)[0] == groups.front_part(CHAINSAW_EN)
+
+
+def test_every_front_part_accepted(groups):
+    out = groups.build_titles([60], {60: _anime(english=CHAINSAW_EN)}, {}, {})
+    accepted = out[60]["accepted"]
+    assert normalize("Chainsaw Man") in accepted
+    assert normalize("Chainsaw Man " + EN_DASH + " The Movie") in accepted
+    assert normalize(CHAINSAW_EN) in accepted
+
+
+# Cycle 027 criterion 3
+
+@pytest.mark.parametrize(
+    "s",
+    [
+        "x" + FW_ONE + FW_SLASH + FW_TWO,
+        "x1" + FW_SLASH + "2",
+        "Episode 13" + FW_TILDE + "16",
+        "~Title",
+        FW_TILDE + "Title",
+        WAVE_DASH + "Title",
+        "Kaguya-sama wa Kokurasetai",
+    ],
+)
+def test_front_part_new_separators_no_cut(groups, s):
+    assert groups.front_part(s) is None
+
+
+# Cycle 027 criterion 4
+
+def test_wave_dash_front_part_accepted(groups):
+    english = "Attack on Titan ~Chronicle~"
+    out = groups.build_titles([61], {61: _anime(english=english)}, {}, {})
+    accepted = out[61]["accepted"]
+    assert normalize(english) in accepted
+    assert normalize("Attack on Titan") in accepted
+
+
+def test_short_front_part_before_fw_hyphen_not_accepted(groups):
+    out = groups.build_titles([62], {62: _anime(native=EIGHTY_SIX_NATIVE)}, {}, {})
+    accepted = out[62]["accepted"]
+    assert normalize(EIGHTY_SIX_NATIVE) in accepted
+    assert "86" not in accepted
