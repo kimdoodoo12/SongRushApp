@@ -72,8 +72,13 @@ public final class Room {
 
 	private int songIndex = -1;
 
-	// Bumped on every start, so a task from an earlier game never acts on a later one.
+	// Bumped on every start and pause, so a task from an earlier game, or from before a pause, never
+	// acts later.
 	private int generation;
+
+	// Set by pause() while nobody is connected (docs/cycles/044-pause-empty.md): no timer runs and
+	// ready and chat are ignored until resume().
+	private boolean paused;
 
 	private List<Song> songs = List.of();
 
@@ -124,7 +129,7 @@ public final class Room {
 	// {index, total, audioUrl}, plus startAt and deadlineAt in PLAYING. Only values already sent in
 	// that song's prepare and start messages, never anything that identifies the song.
 	public Map<String, Object> currentSong() {
-		if (phase != Phase.PREPARE && phase != Phase.PLAYING) {
+		if (paused || (phase != Phase.PREPARE && phase != Phase.PLAYING)) {
 			return null;
 		}
 		Map<String, Object> song = row("index", songIndex, "total", songs.size(), "audioUrl", audioUrl);
@@ -164,8 +169,41 @@ public final class Room {
 		prepare(0);
 	}
 
+	public boolean paused() {
+		return paused;
+	}
+
+	// Stops the game in place: the phase and song index stay, the pending task is cancelled and made
+	// stale, and nothing is sent. Does nothing in LOBBY or when already paused.
+	public void pause() {
+		if (phase == Phase.LOBBY || paused) {
+			return;
+		}
+		if (pending != null) {
+			pending.cancel();
+			pending = null;
+		}
+		generation++;
+		paused = true;
+	}
+
+	// From PREPARE or PLAYING, prepares the same song again (new token, ready set cleared); from
+	// REVEAL, continues as if the reveal pause had just ended. Does nothing when not paused.
+	public void resume() {
+		if (!paused) {
+			return;
+		}
+		paused = false;
+		if (phase == Phase.REVEAL) {
+			afterReveal();
+		}
+		else {
+			prepare(songIndex);
+		}
+	}
+
 	public void ready(String playerId, int index) {
-		if (phase != Phase.PREPARE || index != songIndex || !byId.containsKey(playerId)) {
+		if (paused || phase != Phase.PREPARE || index != songIndex || !byId.containsKey(playerId)) {
 			return;
 		}
 		ready.add(playerId);
@@ -176,7 +214,7 @@ public final class Room {
 
 	public void chat(String playerId, String text) {
 		PlayerRef player = byId.get(playerId);
-		if (player == null || text == null) {
+		if (paused || player == null || text == null) {
 			return;
 		}
 		if (text.length() > MAX_CHAT) {

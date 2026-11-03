@@ -3,10 +3,12 @@ package com.songrush.game;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.random.RandomGenerator;
 
 import com.songrush.audio.AudioTokens;
@@ -56,6 +58,10 @@ public final class Lobby {
 	private Room room;
 
 	private RoomOutbox roomOutbox;
+
+	// The ids of the current Room's players (connected at start); empty in LOBBY. Other members of a
+	// running game are spectators: they neither keep it running nor resume it (cycle 044).
+	private final Set<String> roomPlayers = new HashSet<>();
 
 	// Bumped on every arm and cancel, so a stale timer does nothing.
 	private int emptyGeneration;
@@ -188,6 +194,8 @@ public final class Lobby {
 		if (host() == null) {
 			armEmpty();
 		}
+		pauseIfNoRoomPlayer();
+		abandonIfNobodyCanResume();
 	}
 
 	// A dropped connection: the member keeps the seat for GRACE, then is treated as having left.
@@ -209,6 +217,7 @@ public final class Lobby {
 		if (host() == null) {
 			armEmpty();
 		}
+		pauseIfNoRoomPlayer();
 	}
 
 	// True for a member in grace (now connected again) or a connected member (a replaced socket:
@@ -231,6 +240,9 @@ public final class Lobby {
 		cancelEmpty();
 		sendJoinedAndSnapshot(m);
 		sendRoster();
+		if (room != null && room.paused() && roomPlayers.contains(m.id)) {
+			room.resume();
+		}
 		return true;
 	}
 
@@ -261,11 +273,15 @@ public final class Lobby {
 		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players);
 		room = next;
 		roomOutbox = wrapper;
+		for (PlayerRef p : players) {
+			roomPlayers.add(p.id());
+		}
 		next.start(songCount);
 		if (next.phase() == Room.Phase.LOBBY) {
 			// The Room sent its error (not-enough-songs) and never started.
 			room = null;
 			roomOutbox = null;
+			roomPlayers.clear();
 			armIdle();
 			return;
 		}
@@ -299,6 +315,7 @@ public final class Lobby {
 		members.removeIf(m -> !m.connected && !m.inGrace);
 		room = null;
 		roomOutbox = null;
+		roomPlayers.clear();
 		armIdle();
 		sendRoster();
 	}
@@ -310,6 +327,7 @@ public final class Lobby {
 		closed = true;
 		room = null;
 		roomOutbox = null;
+		roomPlayers.clear();
 		cancelEmpty();
 		cancelIdle();
 		for (Member m : members) {
@@ -324,14 +342,51 @@ public final class Lobby {
 		onClosed.run();
 	}
 
+	// During a game with no connected Room player, the Room stops using up songs until one returns.
+	private void pauseIfNoRoomPlayer() {
+		if (room == null) {
+			return;
+		}
+		for (Member m : members) {
+			if (m.connected && roomPlayers.contains(m.id)) {
+				return;
+			}
+		}
+		room.pause();
+	}
+
+	// A paused game with no Room player connected or in grace can never resume: drop the Room
+	// (nothing more from it is delivered), remove the members whose grace expired and return to
+	// LOBBY without a gameOver. An already running empty timer is left as it is (cycle 044).
+	private void abandonIfNobodyCanResume() {
+		if (room == null || !room.paused()) {
+			return;
+		}
+		for (Member m : members) {
+			if ((m.connected || m.inGrace) && roomPlayers.contains(m.id)) {
+				return;
+			}
+		}
+		members.removeIf(m -> !m.connected && !m.inGrace);
+		room = null;
+		roomOutbox = null;
+		roomPlayers.clear();
+		armIdle();
+		sendRoster();
+	}
+
 	// The grace ran out (or the member left during it): in LOBBY they are removed, in a game they
-	// stay disconnected until the return. Re-arms neither the empty nor the idle timer: the empty
-	// timer runs from the last disconnect.
+	// stay disconnected until the return, unless that abandons a paused game. Re-arms neither the
+	// empty nor the idle timer (except the abandon's idle timer): the empty timer runs from the last
+	// disconnect.
 	private void expireGrace(Member m) {
 		endGrace(m);
 		if (room == null) {
 			members.remove(m);
 			sendRoster();
+		}
+		else {
+			abandonIfNobodyCanResume();
 		}
 	}
 
