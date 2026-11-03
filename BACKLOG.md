@@ -188,7 +188,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-005a** backend: rooms and lobby (from S-003, design 034; M-2)
   - 5-character room codes from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` with collision retry; `join{code, nickname}` up to 8 players (D-046) with nickname dedupe ` (2)` (D-048); host and host transfer to the longest-connected player; `start` by the host with 5-30 songs (D-058); back to the lobby after `gameOver` (D-062); an empty room deleted after 2 minutes, an idle lobby after 10 minutes; roster broadcasts allow-listed (name, score, host, connected).
   - Acceptance (JUnit): codes, join limits, dedupe, host transfer, start rights, restart, cleanup with a fake clock, roster JSON allow-list.
-- [ ] **F-003** frontend: lobby screens (from S-003, design 034; M-2)
+- [~] **F-003** frontend: lobby screens (from S-003, design 034; M-2)
   - From the cycle 040 review: the server now sends `joined{code, name}`, `roster{phase, players}` and `error{code:"room-closed"}`; a solo game returns to its lobby after `gameOver`, so 10 idle minutes later the cycle 039 final-score screen shows "오류가 발생했습니다 (room-closed)". Handle `room-closed` (a Korean message, back to the start), and close the socket when leaving the final-score screen.
   - Create a room, join by code or `/r/<code>`, nickname, roster with host mark, song count (host), start; restart after a game.
   - Acceptance (Vitest with a mocked WebSocket): each flow renders and sends the right messages; `npm test`, `lint`, `build` exit 0.
