@@ -3,6 +3,7 @@ package com.songrush.ws;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -35,10 +36,12 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-// The raw WebSocket at /ws (docs/cycles/037-solo-websocket.md, 040-rooms-lobby.md). Each session
-// has an OutboundQueue for every frame it is sent, and at most one seat in a Lobby; a Lobby and its
-// games run on the lobby's own thread. No handler method throws: Spring would close the socket
-// with 1011. Logs carry session ids and error codes only.
+// The raw WebSocket at /ws (docs/cycles/037-solo-websocket.md, 040-rooms-lobby.md,
+// 042-reconnect.md). Each session has an OutboundQueue for every frame it is sent, and at most one
+// seat in a Lobby; a Lobby and its games run on the lobby's own thread. A seated player gets a
+// private token for rejoin; per lobby, each player is bound to the one session that holds the seat.
+// No handler method throws: Spring would close the socket with 1011. Logs carry session ids and
+// error codes only, never a token.
 @Component
 public class GameSocketHandler extends TextWebSocketHandler implements DisposableBean {
 
@@ -53,6 +56,10 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 	static final int MAX_NICKNAME = 16;
 
 	static final int MAX_LOBBIES = 200;
+
+	static final int TOKEN_BYTES = 16;
+
+	static final CloseStatus REPLACED = new CloseStatus(4001, "replaced");
 
 	private static final Logger log = LoggerFactory.getLogger(GameSocketHandler.class);
 
@@ -79,6 +86,12 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 
 	private final Map<String, OutboundQueue> queues = new ConcurrentHashMap<>();
 
+	// Open sessions by id, so a replaced session can be closed from another session's thread.
+	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+
+	// Rejoin tokens of seated players; dropped on leave, a failed rejoin, and lobby close.
+	private final Map<String, Login> logins = new ConcurrentHashMap<>();
+
 	// Lobbies by room code; a code is removed when its lobby closes.
 	private final Map<String, Hosted> registry = new ConcurrentHashMap<>();
 
@@ -103,6 +116,11 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 
 		final Map<String, OutboundQueue> players = new ConcurrentHashMap<>();
 
+		// Player id to the session holding the seat. A close, leave or rejoin changes it only with
+		// compute, which also submits the lobby task that goes with the change, so those tasks run
+		// in binding order.
+		final Map<String, String> bindings = new ConcurrentHashMap<>();
+
 		final Lobby lobby;
 
 		Hosted(String code) {
@@ -117,6 +135,8 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		void closed() {
 			registry.remove(code, this);
 			seats.values().removeIf(seat -> seat.hosted() == this);
+			logins.values().removeIf(login -> login.hosted() == this);
+			bindings.clear();
 			players.clear();
 			lobbies.decrementAndGet();
 			scheduler.shutdownNow();
@@ -124,14 +144,26 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 
 	}
 
-	// A session's place in a lobby, under a fresh player id.
-	private record Seat(Hosted hosted, String playerId) {
+	// A session's place in a lobby: the player id, its rejoin token, and this session's queue.
+	private record Seat(Hosted hosted, String playerId, String token, OutboundQueue queue) {
+
+		// Never prints the token.
+		@Override
+		public String toString() {
+			return "Seat[code=" + hosted.code + "]";
+		}
+
+	}
+
+	// What a rejoin token stands for.
+	private record Login(Hosted hosted, String playerId) {
 	}
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) {
 		try {
 			queues.put(session.getId(), new OutboundQueue(new SessionSink(session), senders, QUEUE_CAPACITY));
+			sessions.put(session.getId(), session);
 		}
 		catch (RuntimeException e) {
 			log.error("session {} setup failed: {}", session.getId(), e.getClass().getName());
@@ -159,6 +191,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 				case "ready" -> ready(sessionId, node);
 				case "chat" -> chat(sessionId, node);
 				case "leave" -> leave(sessionId);
+				case "rejoin" -> rejoin(sessionId, node);
 				default -> sendError(sessionId, "bad-message");
 			}
 		}
@@ -180,7 +213,12 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			if (queue != null) {
 				queue.stop();
 			}
-			leave(sessionId);
+			sessions.remove(sessionId);
+			Seat seat = seats.remove(sessionId);
+			if (seat != null) {
+				// Not a leave: the token stays valid for rejoin during the lobby's grace period.
+				unbind(sessionId, seat, () -> seat.hosted().lobby.disconnect(seat.playerId()));
+			}
 		}
 		catch (RuntimeException e) {
 			log.error("session {} cleanup failed: {}", sessionId, e.getClass().getName());
@@ -252,7 +290,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			sendError(sessionId, "server-full");
 			return;
 		}
-		Seat seat = new Seat(hosted, UUID.randomUUID().toString());
+		Seat seat = new Seat(hosted, UUID.randomUUID().toString(), newToken(), queue);
 		if (seats.putIfAbsent(sessionId, seat) != null) {
 			hosted.closed();
 			sendError(sessionId, "already-in-room");
@@ -281,7 +319,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		if (queue == null) {
 			return;
 		}
-		Seat seat = new Seat(hosted, UUID.randomUUID().toString());
+		Seat seat = new Seat(hosted, UUID.randomUUID().toString(), newToken(), queue);
 		if (seats.putIfAbsent(sessionId, seat) != null) {
 			sendError(sessionId, "already-in-room");
 			return;
@@ -290,17 +328,24 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		enter(sessionId, queue, seat, nicknameNode.stringValue(), null);
 	}
 
-	// Joins the reserved seat's lobby on its thread, and for the solo path starts at once. The seat
-	// is released if the lobby refuses the join, or if the solo start stays in the lobby.
+	// Joins the reserved seat's lobby on its thread, then sends the token, and for the solo path
+	// starts at once. The seat is released if the lobby refuses the join, or if the solo start stays
+	// in the lobby. The player id is fresh, so no other session can be bound to it yet.
 	private void enter(String sessionId, OutboundQueue queue, Seat seat, String nickname, Integer soloSongCount) {
 		Hosted hosted = seat.hosted();
 		hosted.players.put(seat.playerId(), queue);
+		hosted.bindings.put(seat.playerId(), sessionId);
 		try {
 			hosted.scheduler.execute(() -> {
 				if (hosted.lobby.join(seat.playerId(), nickname) == null) {
 					release(sessionId, seat);
 					return;
 				}
+				logins.put(seat.token(), new Login(hosted, seat.playerId()));
+				Map<String, Object> token = new LinkedHashMap<>();
+				token.put("type", "token");
+				token.put("token", seat.token());
+				offer(queue, sessionId, token);
 				if (soloSongCount != null) {
 					hosted.lobby.start(seat.playerId(), soloSongCount);
 					if (hosted.lobby.phase() == Room.Phase.LOBBY) {
@@ -370,23 +415,135 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		onLobby(sessionId, seat -> seat.hosted().lobby.chat(seat.playerId(), t));
 	}
 
-	// Frees the session's seat at once, then leaves the lobby on its thread. Also runs on close.
+	// Frees the session's seat and queue entry at once (cycle 040 review M2: no frame after leave),
+	// then leaves the lobby on its thread and drops the token.
 	private void leave(String sessionId) {
 		Seat seat = seats.remove(sessionId);
 		if (seat == null) {
 			return;
 		}
+		unbind(sessionId, seat, () -> seat.hosted().lobby.leave(seat.playerId()));
+		logins.remove(seat.token());
+	}
+
+	// If the player is still bound to this session: clears the binding, removes this session's
+	// queue, and submits the lobby action, all inside compute so that a concurrent rejoin's
+	// reconnect runs after it. A binding that points to another session (replaced) is left alone.
+	private void unbind(String sessionId, Seat seat, Runnable lobbyAction) {
 		Hosted hosted = seat.hosted();
+		hosted.bindings.computeIfPresent(seat.playerId(), (playerId, bound) -> {
+			if (!bound.equals(sessionId)) {
+				return bound;
+			}
+			hosted.players.remove(playerId, seat.queue());
+			try {
+				hosted.scheduler.execute(lobbyAction);
+			}
+			catch (RejectedExecutionException e) {
+				// The lobby closed meanwhile and freed its seats; there is no lobby left to tell.
+				log.debug("session {} unbound after its lobby closed", sessionId);
+			}
+			return null;
+		});
+	}
+
+	// rejoin{token}: takes the token's seat on this session. A session still bound to it is
+	// replaced: its seat is released, its queue stopped and its socket closed with 4001.
+	private void rejoin(String sessionId, JsonNode node) {
+		JsonNode tokenNode = node.path("token");
+		if (!tokenNode.isString()) {
+			sendError(sessionId, "bad-message");
+			return;
+		}
+		if (seats.containsKey(sessionId)) {
+			sendError(sessionId, "already-in-room");
+			return;
+		}
+		String token = tokenNode.stringValue();
+		Login login = logins.get(token);
+		if (login == null) {
+			sendError(sessionId, "rejoin-failed");
+			return;
+		}
+		OutboundQueue queue = queues.get(sessionId);
+		if (queue == null) {
+			return;
+		}
+		Hosted hosted = login.hosted();
+		Seat seat = new Seat(hosted, login.playerId(), token, queue);
+		if (seats.putIfAbsent(sessionId, seat) != null) {
+			sendError(sessionId, "already-in-room");
+			return;
+		}
+		String[] previous = new String[1];
+		boolean[] submitted = new boolean[1];
+		hosted.bindings.compute(login.playerId(), (playerId, bound) -> {
+			// Before the task is submitted, so the reconnect's joined and snapshot reach this queue.
+			hosted.players.put(playerId, queue);
+			try {
+				hosted.scheduler.execute(() -> reconnected(sessionId, seat));
+			}
+			catch (RejectedExecutionException e) {
+				hosted.players.remove(playerId, queue);
+				return bound;
+			}
+			submitted[0] = true;
+			previous[0] = bound;
+			return sessionId;
+		});
+		if (!submitted[0]) {
+			// The lobby closed after the token lookup.
+			seats.remove(sessionId, seat);
+			sendError(sessionId, "rejoin-failed");
+			return;
+		}
+		if (previous[0] != null && !previous[0].equals(sessionId)) {
+			replace(previous[0], seat);
+		}
+	}
+
+	// On the lobby thread, after the rebinding: a refused reconnect (grace over, or the member is
+	// gone) undoes this session's binding, seat and queue entry and drops the token.
+	private void reconnected(String sessionId, Seat seat) {
+		Hosted hosted = seat.hosted();
+		if (hosted.lobby.reconnect(seat.playerId())) {
+			return;
+		}
+		hosted.bindings.remove(seat.playerId(), sessionId);
+		seats.remove(sessionId, seat);
+		hosted.players.remove(seat.playerId(), seat.queue());
+		logins.remove(seat.token());
+		sendError(sessionId, "rejoin-failed");
+	}
+
+	// The session the player was bound to before a rejoin: its seat is released and its queue
+	// stopped, then its socket is closed with 4001. Its later close callback finds no seat (or a
+	// binding that moved) and does nothing for the player.
+	private void replace(String oldSessionId, Seat next) {
+		Seat old = seats.get(oldSessionId);
+		if (old != null && old.hosted() == next.hosted() && old.playerId().equals(next.playerId())) {
+			seats.remove(oldSessionId, old);
+			old.queue().stop();
+			// Already overwritten by the rejoin's put; conditional, so the new queue stays.
+			next.hosted().players.remove(old.playerId(), old.queue());
+		}
+		WebSocketSession session = sessions.get(oldSessionId);
+		if (session == null) {
+			return;
+		}
 		try {
-			hosted.scheduler.execute(() -> {
-				hosted.lobby.leave(seat.playerId());
-				hosted.players.remove(seat.playerId());
-			});
+			session.close(REPLACED);
 		}
-		catch (RejectedExecutionException e) {
-			// The lobby already closed; only the player's queue entry can be left.
-			hosted.players.remove(seat.playerId());
+		catch (IOException e) {
+			log.warn("session {} replaced, close failed: {}", oldSessionId, e.getClass().getName());
 		}
+	}
+
+	// 128 random bits, base64url without padding (22 characters).
+	private String newToken() {
+		byte[] bytes = new byte[TOKEN_BYTES];
+		codes.nextBytes(bytes);
+		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
 	}
 
 	// Runs the action on the session's lobby thread, or answers no-room.
@@ -404,10 +561,13 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		}
 	}
 
-	// Removes this seat only (never a newer seat of the same session) and its queue entry.
+	// Removes this seat only (never a newer seat of the same session), its binding, its queue
+	// entry and its token.
 	private void release(String sessionId, Seat seat) {
 		seats.remove(sessionId, seat);
-		seat.hosted().players.remove(seat.playerId());
+		seat.hosted().bindings.remove(seat.playerId(), sessionId);
+		seat.hosted().players.remove(seat.playerId(), seat.queue());
+		logins.remove(seat.token());
 	}
 
 	private void sendError(String sessionId, String code) {
@@ -422,6 +582,10 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		if (queue == null) {
 			return;
 		}
+		offer(queue, sessionId, message);
+	}
+
+	private static void offer(OutboundQueue queue, String sessionId, Map<String, Object> message) {
 		try {
 			queue.offer(MAPPER.writeValueAsString(message));
 		}
