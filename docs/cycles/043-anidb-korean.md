@@ -63,7 +63,7 @@ Add AniDB's Korean titles to the Korean answer slot. They come from the official
 5. **Regression.** `.venv\Scripts\python.exe -m pytest` exits 0, and every earlier test still passes. The conftest network guard stays in force.
 
 ## Live run (lead, after the cycle is merged, not before 2026-11-03 18:34 KST)
-- Run the build once with the cache. The only new live request is the AniDB dump.
+- Run the build once with the cache. The live requests are the AniDB dump plus the usual AnimeThemes freshness check (and whatever it triggers if the crawl grew); the AniDB contribution is read from the `anidb aids_with_korean=` log line, not from total counts (code review M2).
 - Record in the cycle doc:
   - the marker time;
   - the dump size;
@@ -91,3 +91,14 @@ Add AniDB's Korean titles to the Korean answer slot. They come from the official
 ## Out of scope
 - AniDB Japanese and English titles: AnimeThemes and AniList already cover them.
 - Any AniDB HTTP API or page request (D-043).
+
+## Result
+- Tests `2f82692` (locked); implementation `01ba522` (attempt 1).
+- Red phase (verifier): `test_anidb.py` 52 errors, all the missing `songrush_data.anidb`; 8 new build tests failed because the build did not call AniDB yet; every earlier test passed (3 new build tests passed vacuously before the implementation: they assert zero AniDB requests).
+- Verifier: `pytest -q` twice, `695 passed`; tests unchanged since `2f82692`; sources ASCII-only; by code: `max_attempts=1` (`build.py:94`), AniDB after the required sources (`build.py:79-99`), marker before the request (`anidb.py:195-196`), `NOT_BEFORE` 2026-11-03T18:34+09:00 (`anidb.py:29`), bounded streaming decompression (`anidb.py:46-55`), expat rejecting doctype and entity declarations (`anidb.py:107-121`).
+
+## Code review (critic)
+No Blocker or High. Every path to a second AniDB request within 24 h was traced (retries, crash after the marker, marker write failure, clock skew, required-source failure); XML probes confirmed doctype rejection even in UTF-16 and namespace-aware `xml:lang`.
+- **M1 (follow-up).** An unknown XML encoding raises `LookupError`, which escapes after the marker is written; the real dump declares UTF-8, so the live run was not held for it.
+- **M2.** The live-run wording was corrected (the AnimeThemes freshness check also runs).
+- **Nit (follow-up).** A corrupt marker blocks forever; the log should say so.
