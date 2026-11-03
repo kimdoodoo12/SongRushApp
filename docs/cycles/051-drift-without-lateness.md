@@ -77,3 +77,11 @@ The backlog item suggests holding the source until the burst answers. The locked
 ## Out of scope
 - The earlier direction (backward clock jump). Today it starts late and never early; that stays.
 - Server changes.
+
+## Result
+- Tests `8d7feea` (locked; the declared comment-only change included), implementation `0549fc7` (attempt 1).
+- Red phase (verifier): 4 of 9 new tests failed on the missing correction and the stale-pong forgetting (`expected 52.25 to be greater than or equal to 52.995` for the next song); the other 5 are guards that pass on the old code.
+- Verifier: `npm test` twice (13 files, 184 tests), `npm run lint`, `npm run build` exit 0; `git diff 8d7feea HEAD --stat` lists only `session.js` and `clockSync.js`.
+
+## Code review (critic)
+No findings at any severity. Confirmed: a lower bound `serverTime - t1` cannot exceed the true offset at `t1`, whatever `t0` was; provisional rounds only see samples taken after the drift clear; `schedule()` cannot create two sources; every exit (reveal, prepare, snapshot, reconnect, abandon) ends the provisional state; the bar reads the mutated object; solo never corrects.
