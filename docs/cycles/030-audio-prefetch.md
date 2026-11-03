@@ -60,3 +60,7 @@ Size padding (C-016), the backend (B-002, B-003), lobby fetch of uncached songs 
 No Blocker or High. Every request goes through one `PoliteClient` (3 s gap, 120 s timeout, User-Agent); repeated 403 or Cloudflare HTML stops after five 3 s-spaced attempts; 5xx costs at most 15 requests before the stop.
 - **M1 (follow-up; operational rule meanwhile).** A long `Retry-After` is neither logged nor remembered across processes.
 - **Nits (follow-up).** Timestamps in the log, the PID in the stale-lock message, a test pinning the client settings.
+
+## Real prefetch run (2026-11-03)
+- Three runs (the tool stops after 5 consecutive failures, D-056): run 1 stopped at 968 files after AnimeThemes returned HTTP 504 five times in a row (16:47 KST); run 2, restarted after an hour, stopped at 1,142 files when this PC lost DNS (`getaddrinfo failed`); run 3 finished at 21:5x KST.
+- Final `index.json`: 1,499 of the 1,500 draw-set themes; 1 failed id (7565) stays out of the draw candidates (D-056). Bytes per run: 3,500,612,056 + 644,447,017 + 1,265,009,860 = 5,410,068,933 (about 5.4 GB, within the 10 GB stop of D-044).
