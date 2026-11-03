@@ -118,7 +118,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - A second build while the lock is held fails at once without touching the outputs.
     - From the cycle 022 review: the build report counts draw-set anime whose reveal title is missing; the Korean-gap file lists each AniList id once; an over-cap build leaves an existing `catalog.json` unchanged (test).
   - **The lead then runs the first real build and records the counts** (anime, themes, draw set, Korean gaps, unplayable, synonym-fallback English, largest groups, catalog size).
-- [ ] **C-012** data: incremental AnimeThemes crawl (from the cycle 023 review)
+- [~] **C-012** data: incremental AnimeThemes crawl (from the cycle 023 review)
   - With real 100-item pages, an anime added at the end that spills onto a new page is treated as an append (the fresh last page is full and keeps the old ids as a prefix; the following pages are fetched; at the end the item count must equal the new total, else restart).
   - A total change during a resumed or first crawl where every page already read keeps its ids updates the remembered total and continues instead of clearing the cache.
   - Acceptance (offline, 100-item synthetic pages): +1 anime on a full last page makes requests [last, next] only and clears nothing; +1 during a resumed crawl clears nothing; a changed id in an earlier page still clears and restarts.
