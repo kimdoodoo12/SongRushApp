@@ -53,6 +53,11 @@ public final class Catalog {
 		return candidates;
 	}
 
+	// The draw candidate for the theme; empty when the theme is not a candidate.
+	public Optional<Candidate> candidate(int themeId) {
+		return candidates.stream().filter(c -> c.themeId() == themeId).findFirst();
+	}
+
 	public int animeCount() {
 		return anime.size();
 	}

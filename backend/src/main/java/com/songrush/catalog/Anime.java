@@ -14,4 +14,10 @@ public record Anime(int id, Integer anilistId, Integer group, Map<String, List<S
 		titles = Map.copyOf(copy);
 	}
 
+	// Ids only: the titles and reveal are answers (cycle 033).
+	@Override
+	public String toString() {
+		return "Anime[id=" + id + "]";
+	}
+
 }

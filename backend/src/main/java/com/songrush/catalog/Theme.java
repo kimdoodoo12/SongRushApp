@@ -11,4 +11,10 @@ public record Theme(int id, int animeId, String type, String slug, String song, 
 		artists = List.copyOf(artists);
 	}
 
+	// Ids only: the song, artists and basename reveal the answer (cycle 033).
+	@Override
+	public String toString() {
+		return "Theme[id=" + id + ", animeId=" + animeId + "]";
+	}
+
 }
