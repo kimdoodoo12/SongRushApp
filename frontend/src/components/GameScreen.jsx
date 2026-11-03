@@ -54,8 +54,10 @@ const LOAD_TEXT = {
   failed: '이번 곡을 재생하지 못했습니다.',
 }
 
-function GameScreen({ state, onChat, onReset }) {
-  const { screen, round, load, timer, chat, correct, reveal, score, error, finalScore } = state
+// The game and its result. In a room the result has no 다시 하기; once the
+// room is back in its lobby, 대기실로 shows the lobby screen.
+function GameScreen({ state, onChat, onReset, onToLobby }) {
+  const { screen, round, load, timer, chat, correct, reveal, score, error, finalScore, room, lobbyOpen } = state
   return (
     <div className="game">
       <div className="status">
@@ -76,13 +78,21 @@ function GameScreen({ state, onChat, onReset }) {
       {screen === 'over' && (
         <section className="over">
           <p>{`최종 점수: ${finalScore}점`}</p>
-          <button type="button" onClick={onReset}>
-            다시 하기
-          </button>
+          {room === null && (
+            <button type="button" onClick={onReset}>
+              다시 하기
+            </button>
+          )}
+          {room !== null && lobbyOpen && (
+            <button type="button" onClick={onToLobby}>
+              대기실로
+            </button>
+          )}
         </section>
       )}
       {screen === 'disconnected' && (
         <section className="over">
+          {finalScore !== null && <p>{`최종 점수: ${finalScore}점`}</p>}
           <p>서버와 연결이 끊어졌습니다.</p>
           <button type="button" onClick={onReset}>
             처음으로

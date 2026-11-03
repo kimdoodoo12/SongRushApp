@@ -6,16 +6,29 @@ const ERROR_TEXT = {
   'bad-song-count': '곡 수는 5~30곡입니다.',
   'not-enough-songs': '출제할 곡이 부족합니다.',
   'too-long': '채팅은 200자까지 입력할 수 있습니다.',
+  'room-not-found': '방을 찾을 수 없습니다.',
+  'room-full': '방이 가득 찼습니다 (최대 8명).',
+  'in-game': '게임이 진행 중입니다. 끝난 뒤에 참가해 주세요.',
+  'not-host': '방장만 시작할 수 있습니다.',
+  'server-full': '서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.',
+  'room-closed': '방이 닫혔습니다.',
 }
+
+// The song counts a game can have (D-047).
+export const SONG_COUNTS = Array.from({ length: 26 }, (_, i) => i + 5)
 
 export function errorText(code) {
   return ERROR_TEXT[code] ?? `오류가 발생했습니다 (${code})`
 }
 
-// screen: 'start' | 'game' | 'over' | 'disconnected'
+// screen: 'start' | 'lobby' | 'game' | 'over' | 'disconnected'
 export const initialState = {
   screen: 'start',
   startError: null,
+  room: null, // { code, me } once joined; null in solo play
+  players: [], // the last roster: { name, score, host, connected }
+  lobbyOpen: false, // the room is back in its lobby after a game
+
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
@@ -36,9 +49,23 @@ export function reducer(state, action) {
       return { ...initialState, startError: action.text }
     case 'reset':
       return initialState
-    case 'prepare':
+    case 'joined':
+      return { ...state, screen: 'lobby', room: { code: action.code, me: action.name }, error: null }
+    case 'roster':
       return {
         ...state,
+        players: action.players,
+        lobbyOpen: action.phase === 'lobby' && state.screen === 'over' ? true : state.lobbyOpen,
+      }
+    case 'toLobby':
+      return { ...state, screen: 'lobby', error: null }
+    case 'prepare': {
+      // A new game (index 0) starts from a clean slate (D-062).
+      const fresh = action.index === 0 ? { chat: [], score: null, finalScore: null, lobbyOpen: false } : {}
+      return {
+        ...state,
+        ...fresh,
+        screen: 'game',
         round: { index: action.index, total: action.total },
         load: 'loading',
         timer: null,
@@ -46,6 +73,7 @@ export function reducer(state, action) {
         reveal: null,
         error: null,
       }
+    }
     case 'loaded':
       return { ...state, load: 'loaded' }
     case 'loadFailed':

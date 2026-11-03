@@ -1,17 +1,27 @@
-// One solo game over one WebSocket: sends create, loads and schedules each
-// song, runs the remaining-time timer and reports everything to the screen
-// through dispatch. All server messages are handled in onMessage.
+// One session over one WebSocket, solo or in a room. It sends the opening
+// message, loads and schedules each song, runs the remaining-time timer and
+// reports everything to the screen through dispatch. All server messages are
+// handled in onMessage.
+//
+// mode 'solo' sends create{nickname, songCount}, ignores joined and roster,
+// and closes the socket at gameOver. mode 'create' and 'join' are room
+// sessions: they open a lobby with create{nickname} or join{code, nickname},
+// stay open across games, and find the player's own rows by the name that
+// joined assigned.
 import { planPlayback, loadTrack } from '../audio/playback.js'
 import { errorText } from './state.js'
 
 const TICK_MS = 250
 
-export function startSession({ socketFactory, url, ctx, fetchFn, now, nickname, songCount, dispatch }) {
+export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nickname, songCount, code, dispatch }) {
   const socket = socketFactory(url)
+  const room = mode !== 'solo'
   // false once this session is closed; late callbacks then do nothing.
   let active = true
   let prepared = false
-  let over = false
+  // Room sessions: whether joined has arrived, and the assigned name.
+  let joined = false
+  let myName = null
   // The current song: { index, revealed, buffer, start, source }.
   let round = null
   let timer = null
@@ -58,6 +68,25 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, nickname, 
     source.start(plan.when, plan.offset)
     source.stop(plan.stopAt)
     r.source = source
+  }
+
+  // The player's own row in scores or ranking. Solo: the first row is
+  // always the player, whose server name may differ from the input.
+  function ownRow(rows) {
+    if (!room) return rows[0]
+    return rows.find((row) => row.name === myName)
+  }
+
+  function onError(code) {
+    const text = errorText(code)
+    const beforeGame = room ? !joined : !prepared
+    if (beforeGame || (room && code === 'room-closed')) {
+      // Back to the start screen with the message.
+      close()
+      dispatch({ type: 'startError', text })
+    } else {
+      dispatch({ type: 'error', text })
+    }
   }
 
   function onPrepare(msg) {
@@ -129,23 +158,33 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, nickname, 
       case 'reveal':
         onReveal(msg)
         break
-      case 'scores':
-        // Solo: one row, and the server's name may differ from the input.
-        dispatch({ type: 'scores', score: msg.scores[0].score })
+      case 'scores': {
+        const row = ownRow(msg.scores)
+        if (row !== undefined) dispatch({ type: 'scores', score: row.score })
         break
-      case 'gameOver':
-        over = true
+      }
+      case 'gameOver': {
+        const row = ownRow(msg.ranking)
+        // Solo: the server's solo lobby empties once this socket closes, so
+        // nothing (such as room-closed) can reach the final-score screen.
+        if (!room) close()
         stopTimer()
-        dispatch({ type: 'gameOver', score: msg.ranking[0].score })
+        dispatch({ type: 'gameOver', score: row === undefined ? null : row.score })
+        break
+      }
+      case 'joined':
+        // The server runs solo games in a lobby too; solo ignores it.
+        if (!room) break
+        joined = true
+        myName = msg.name
+        dispatch({ type: 'joined', code: msg.code, name: msg.name })
+        break
+      case 'roster':
+        if (!room) break
+        dispatch({ type: 'roster', phase: msg.phase, players: msg.players })
         break
       case 'error':
-        if (!prepared) {
-          // A start-screen error: back to the start screen with the message.
-          close()
-          dispatch({ type: 'startError', text: errorText(msg.code) })
-        } else {
-          dispatch({ type: 'error', text: errorText(msg.code) })
-        }
+        onError(msg.code)
         break
       default:
         console.warn('unknown message', msg.type)
@@ -167,7 +206,9 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, nickname, 
   }
 
   socket.onopen = () => {
-    send({ type: 'create', nickname, songCount })
+    if (mode === 'solo') send({ type: 'create', nickname, songCount })
+    else if (mode === 'create') send({ type: 'create', nickname })
+    else send({ type: 'join', code, nickname })
   }
   socket.onmessage = (event) => {
     let msg
@@ -184,8 +225,9 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, nickname, 
     active = false
     stopTimer()
     stopSource()
-    // After gameOver the server may drop the socket; nothing is lost then.
-    if (!over) dispatch({ type: 'disconnected' })
+    // A solo session is already closed after gameOver, and a room stays
+    // open between games, so every close that gets here is unexpected.
+    dispatch({ type: 'disconnected' })
   }
   // The browser fires close after error; the close handler reports it.
   socket.onerror = () => {
@@ -195,6 +237,14 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, nickname, 
   return {
     sendChat(text) {
       if (active) send({ type: 'chat', text })
+    },
+    startGame(count) {
+      if (active) send({ type: 'start', songCount: count })
+    },
+    // Leaves the room on purpose: the server is told, then the socket closes.
+    leave() {
+      if (active) send({ type: 'leave' })
+      close()
     },
     close,
   }
