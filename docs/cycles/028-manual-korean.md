@@ -53,3 +53,12 @@ Let the owner add Korean titles by hand for popular anime that still have none (
 
 ## Out of scope
 AniDB (C-008). Filling in the titles (the owner does that). Any change to the reveal or grouping rules.
+
+## Result
+- Tests `c3a8813` (locked); implementation `a7e858a` (attempt 1).
+- Red phase (verifier): 17 errors (missing `songrush_data.manual`) and 4 failures (missing `manual_path`, missing merge), all in new tests.
+- Verifier: full suite exit 0, `590 passed in 18.68s`; `git diff c3a8813 HEAD -- data/tests/` empty; both `.py` files pure ASCII; criteria 1-9 confirmed.
+
+## Code review (critic)
+No Blocker or High. Probes on hand-edited files: BOM plus CRLF parse; UTF-16 and cp949 saves give the Korean "save as UTF-8" hint; trailing commas, empty files and `//` comments give line/column plus the hint; leading-zero keys map to the same id and a repeat is an error; the Korean hint strings decode correctly (the escape-sequence pitfall did not bite).
+- **M1, M2 (follow-up).** Mutation runs showed no test pins "validate before the `--refresh-all` cache clear" or "manual before aod in the merge"; both orders are correct in the code today.
