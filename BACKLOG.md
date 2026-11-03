@@ -164,7 +164,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From S-002 (design 029): include the clock-offset exchange, the server-announced `startAt`, Web Audio scheduling with full decode before start, the audio-unlock click, and the round end at `min(duration, 90 s)`.
   - Output: a design doc plus B- and F- items.
 
-- [ ] **B-004** backend: Java normalize (from S-003, design 034; M-1)
+- [x] **B-004** backend: Java normalize (from S-003, design 034; M-1)
   - `com.songrush.game.Normalize.normalize(String)` reproduces `data/songrush_data/titles.py` `normalize` step by step (NFKC, lowercase with Locale.ROOT plus `ß`->`ss` and final sigma, strip U+0300-U+036F, `×`->`x`, remove categories P/S/Z/Cc/Cf and the extra code points, final NFC).
   - Acceptance (JUnit): every vector in `contracts/normalize-vectors.json` passes; a test reads the vector file from the repo path so both languages share it.
 - [ ] **B-006a** backend: one room's song state machine (from S-003, design 034; M-1)
@@ -284,6 +284,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Java normalize (critic, cycle 035): Java 17 (Unicode 13.0) and Python 3.12 (Unicode 15.0) differ on 420 single code points added in Unicode 14/15; re-run the cross-check if the JDK is upgraded.
 - Audio endpoint (critic, cycle 033): no test pins streaming (the fixtures are ~100 bytes, so a `readAllBytes` regression would pass); reword the record `toString` comments to "server-log-safe only"; `Files.size` is read by path after opening the stream (harmless while the prefetch never overwrites files).
 - Catalog loader (critic, cycle 032): `CatalogBeanTest` passes with zero candidates; compare with an independently computed count when the index exists. Also: a skipped-file warning logs the basename (log the theme id), duplicate draw-set ids are not rejected, `Anime.titles` loses its key order (`Map.copyOf`), and the unused `paddedSize` branch and the basename check have no test (an invalid Windows path character would fail startup with `InvalidPathException`).
 - Audio prefetch (critic, cycle 030): a 429 with `Retry-After` over 300 s ends the run after five `BackedOffError` failures without logging the wait, and the next process forgets it. Stop at once on `BackedOffError` with the wait time in the message, and persist the not-before time in the cache folder. Also: timestamps on log lines, the PID in the stale-lock message, and a test pinning `main`'s gap 3.0 s and timeout 120 s. Until fixed, the lead waits at least an hour before restarting a run that stopped on 429.
