@@ -168,6 +168,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [?] **D-010** Hosting. It is decided before M-4, after S-002 settles what the server needs (a JVM, disk for the audio cache, ffmpeg or not). Options are researched then.
 
 Decided:
+- **D-052** Several separators (user, 2026-11-03; refines D-049): when a title has several separators, the part before **each** of them is accepted, not only the part before the first (`Chainsaw Man – The Movie: Reze Arc` accepts `Chainsaw Man` and `Chainsaw Man – The Movie`), so adding separators never removes an answer. A wave dash used inside a word (`ぬ〜べ〜`, `トロピカル〜ジュ！`) is accepted as a side effect (about 12 odd strings); only a wave dash between digits (`13話～16話`) is not a separator.
 - **D-051** Front-part follow-ups (user, 2026-11-03):
   - The dash separator stays ` -` (a space before the dash, as in `Re:ZERO -Starting Life in Another World-`, `DARKER THAN BLACK -黒の契約者-`, `CLANNAD -クラナド-`); the user confirmed the lead's correction of D-049 after seeing examples.
   - A front part that equals another series' title is still accepted (the only real case: `Ayakashi` from *Ayakashi: Japanese Classic Horror* and the separate *Ayakashi*).
