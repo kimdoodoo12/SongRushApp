@@ -538,3 +538,65 @@ def test_main_non_ascii_error_returns_1(build, streams, monkeypatch):
     captured = streams()
     assert build.main([]) == 1
     assert message in captured()
+
+
+# Cycle 028 criterion 6: the manual Korean file end to end.
+
+KO_MANUAL = "".join(chr(c) for c in (0xC218, 0xB3D9, 0x0020, 0xC81C, 0xBAA9))  # a hand-added title
+
+
+def _write_manual(path, document):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(json.dumps(document, ensure_ascii=False).encode("utf-8"))
+    return path
+
+
+def test_manual_title_fills_a_korean_gap(env, tmp_path):
+    env.run()
+    gaps_before = json.loads(env.files()[1].decode("utf-8"))
+    assert gaps_before
+    target = gaps_before[0]["anilistId"]
+
+    manual_path = _write_manual(tmp_path / "manual" / "korean_titles_manual.json",
+                                {"_how_to": "x", str(target): [KO_MANUAL]})
+    env.run(manual_path=manual_path)
+    catalog_bytes, gaps_bytes = env.files()
+    gaps = json.loads(gaps_bytes.decode("utf-8"))
+    assert target not in [g["anilistId"] for g in gaps]
+    assert len(gaps) == len(gaps_before) - 1
+    catalog = json.loads(catalog_bytes.decode("utf-8"))
+    entry = next(a for a in catalog["anime"] if a["anilistId"] == target)
+    assert KO_MANUAL in entry["titles"]["ko"]
+    assert entry["reveal"] == KO_MANUAL
+
+
+def test_manual_default_path_is_in_out_dir(env):
+    env.run()
+    target = json.loads(env.files()[1].decode("utf-8"))[0]["anilistId"]
+    _write_manual(env.out_dir / "korean_titles_manual.json", {str(target): [KO_MANUAL]})
+    env.run()
+    gaps = json.loads(env.files()[1].decode("utf-8"))
+    assert target not in [g["anilistId"] for g in gaps]
+
+
+def test_manual_id_not_in_crawl_is_logged(env, tmp_path):
+    unknown = max(env.sources.anilist_ids) + 1000
+    manual_path = _write_manual(tmp_path / "manual.json", {str(unknown): [KO_MANUAL]})
+    _, _, logs = env.run(manual_path=manual_path)
+    assert any("not in the catalog" in line for line in logs), logs
+    assert (env.out_dir / "catalog.json").is_file()
+
+
+# Cycle 028 criterion 7: a broken manual file fails before any request.
+
+def test_broken_manual_fails_before_any_request(env, tmp_path):
+    manual_path = _write_manual(tmp_path / "broken_manual.json", {"x": [KO_MANUAL]})
+    transport, clock = env.transport()
+    with pytest.raises(ValueError) as info:
+        env.run(transport=transport, clock=clock, manual_path=manual_path)
+    message = str(info.value)
+    assert "broken_manual.json" in message, message
+    assert re.search(r"(?<![A-Za-z0-9_])x(?![A-Za-z0-9_])", message), message  # the key itself
+    assert transport.calls == []
+    assert not (env.out_dir / "catalog.json").exists()
+    assert not (env.out_dir / ".build.lock").exists()
