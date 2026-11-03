@@ -530,50 +530,231 @@ def test_crawl_last_page_changed_clears_and_restarts(at, http, tmp_path, last_id
     assert result.total == total
 
 
-def test_crawl_total_changed_mid_pass_clears_and_restarts(at, http, tmp_path):
-    pages = {
-        1: [synthetic_body(1, [1, 2, 3], True, total=9), synthetic_body(1, [1, 2, 3], True, total=10)],
-        2: [synthetic_body(2, [4, 5, 6], True, total=10)],
-        3: [synthetic_body(3, [7, 8, 9, 10], False, total=10)],
+# Cycle 025: incremental crawl with real-size pages (100 items).
+# docs/cycles/025-incremental-crawl.md is the specification. Criteria 4-6
+# replace cycle 023's test_crawl_total_changed_mid_pass_clears_and_restarts and
+# test_crawl_total_keeps_changing_raises_after_two_restarts (criterion 8).
+
+def source_pages(ids, total=None):
+    """Split ids into 100-item synthetic pages; hasMorePages is true on all but the last."""
+    ids = list(ids)
+    if total is None:
+        total = len(ids)
+    chunks = [ids[start:start + 100] for start in range(0, len(ids), 100)] or [[]]
+    return {
+        number: synthetic_body(number, chunk, number < len(chunks), total)
+        for number, chunk in enumerate(chunks, start=1)
     }
+
+
+def _cache_source(at, http, tmp_path, ids):
+    """Run a full crawl of source_pages(ids) and return its cache."""
+    pages = source_pages(ids)
+    client, transport, cache = crawl_setup(at, http, tmp_path, pages)
+    run_crawl(at, client, cache)
+    assert transport.called_pages() == list(range(1, len(pages) + 1))
+    return cache
+
+
+def _count(logs, text):
+    return sum(1 for line in logs if text in line)
+
+
+def _sequence_setup(http, tmp_path, pages):
     clock = FakeClock()
     transport = SequenceTransport(clock, http, pages)
     client = make_client(http, transport, clock)
     cache = http.FileCache(tmp_path)
+    return client, transport, cache
+
+
+@pytest.mark.parametrize(
+    "cached_count, gained",
+    [(300, 0), (299, 1)],
+    ids=["crit1-full-last-page", "crit2-partly-filled-last-page"],
+)
+def test_crawl_spill_onto_new_page_appends_and_rerun_checks_only_last(at, http, tmp_path, cached_count, gained):
+    # Criteria 1 and 2: the source grew to 301, spilling onto a new page 4.
+    cache = _cache_source(at, http, tmp_path, range(1, cached_count + 1))
+    page1_before = cache.get(page_key(at, 1))
+    page2_before = cache.get(page_key(at, 2))
+    grown = source_pages(range(1, 302))
+    assert grown[3]["data"]["animePagination"]["paginatorInfo"]["hasMorePages"] is True
+    assert len(grown[3]["data"]["animePagination"]["data"]) == 100
+    assert len(grown[4]["data"]["animePagination"]["data"]) == 1
+
+    client, transport, _ = crawl_setup(at, http, tmp_path, grown)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [3, 4]
+    assert item_ids(result) == list(range(1, 302))
+    assert result.total == 301
+    assert result.pages == 4
+    assert _count(logs, "gained %d anime" % gained) == 1, logs
+    assert not any("cleared" in line for line in logs), logs
+    assert not any("total changed" in line for line in logs), logs
+    assert cache.get(page_key(at, 1)) == page1_before
+    assert cache.get(page_key(at, 2)) == page2_before
+
+    # Second run, same cache, unchanged source: only the last page is checked.
+    client2, transport2, _ = crawl_setup(at, http, tmp_path, source_pages(range(1, 302)))
+    again, logs2 = run_crawl(at, client2, cache)
+    assert transport2.called_pages() == [4]
+    assert item_ids(again) == list(range(1, 302))
+    assert again.total == 301
+    assert not any("cleared" in line for line in logs2), logs2
+    assert not any("total changed" in line for line in logs2), logs2
+    assert not any("total grew" in line for line in logs2), logs2
+
+
+def test_crawl_addition_during_resumed_crawl_continues(at, http, tmp_path):
+    # Criterion 3: pages 1 and 2 cached at total 250; the source now has 251.
+    clock = FakeClock()
+    prime = PageTransport(clock, http, source_pages(range(1, 251)))
+    prime_client = make_client(http, prime, clock)
+    cache = http.FileCache(tmp_path)
+    at.fetch_page(prime_client, cache, 1)
+    at.fetch_page(prime_client, cache, 2)
+    assert cache.get(page_key(at, 3)) is None
+    page1_before = cache.get(page_key(at, 1))
+
+    grown = source_pages(range(1, 252))
+    assert len(grown[3]["data"]["animePagination"]["data"]) == 51
+    client, transport, _ = crawl_setup(at, http, tmp_path, grown)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [2, 3]
+    assert _count(logs, "total grew") == 1, logs
+    assert not any("cleared" in line for line in logs), logs
+    assert not any("total changed" in line for line in logs), logs
+    assert item_ids(result) == list(range(1, 252))
+    assert result.total == 251
+    assert cache.get(page_key(at, 1)) == page1_before
+
+
+def test_crawl_addition_during_first_crawl_verifies_previous_page(at, http, tmp_path):
+    # Criterion 4 (replaces test_crawl_total_changed_mid_pass_clears_and_restarts):
+    # page 1 reports 250, pages 2 and 3 report 251; page 1's ids do not change.
+    pages = source_pages(range(1, 252))
+    pages[1] = synthetic_body(1, list(range(1, 101)), True, total=250)
+    client, transport, cache = crawl_setup(at, http, tmp_path, pages)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [1, 2, 1, 3]
+    assert _count(logs, "total grew") == 1, logs
+    assert not any("cleared" in line for line in logs), logs
+    assert not any("total changed" in line for line in logs), logs
+    assert item_ids(result) == list(range(1, 252))
+    assert result.total == 251
+    for page in (1, 2, 3):
+        assert cache.get(page_key(at, page)) is not None
+
+
+def test_crawl_deletion_total_shrinks_clears_and_restarts(at, http, tmp_path):
+    # Criterion 5: id 50 is deleted after page 1 is read, so the total shrinks
+    # from 300 to 299 and every later page shifts by one.
+    current = [i for i in range(1, 301) if i != 50]
+    now = source_pages(current)
+    pages = {
+        1: [synthetic_body(1, list(range(1, 101)), True, total=300), now[1]],
+        2: [now[2]],
+        3: [now[3]],
+    }
+    client, transport, cache = _sequence_setup(http, tmp_path, pages)
     result, logs = run_crawl(at, client, cache)
     assert transport.called_pages() == [1, 2, 1, 2, 3]
-    assert item_ids(result) == list(range(1, 11))
-    assert result.total == 10
-    assert sum(1 for line in logs if "total changed" in line) == 1, logs
+    assert _count(logs, "total changed") == 1, logs
+    assert _count(logs, "cleared") == 1, logs
+    assert item_ids(result) == current
+    assert result.total == 299
 
 
-class DriftingTotalTransport(PageTransport):
-    """Every request reports a larger total than the one before."""
+def test_crawl_deletion_plus_additions_during_first_crawl_restarts(at, http, tmp_path):
+    # Criterion 5b (spec review H1): after page 1 is read, id 50 is deleted and
+    # ids 301 and 302 are added, so pages 2-4 report 301 and page 1's ids changed.
+    current = [i for i in range(1, 303) if i != 50]
+    now = source_pages(current)
+    assert len(now) == 4
+    pages = {
+        1: [synthetic_body(1, list(range(1, 101)), True, total=300), now[1]],
+        2: [now[2]],
+        3: [now[3]],
+        4: [now[4]],
+    }
+    client, transport, cache = _sequence_setup(http, tmp_path, pages)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [1, 2, 1, 1, 2, 3, 4]
+    assert _count(logs, "cleared") == 1, logs
+    assert item_ids(result) == current
+    assert 50 not in item_ids(result)
+    assert result.total == 301
+
+
+class FailingTransport(PageTransport):
+    """Like PageTransport, but every request from call number fail_at on raises TransportError."""
+
+    def __init__(self, clock, http, pages, fail_at):
+        super().__init__(clock, http, pages)
+        self.fail_at = fail_at
 
     def send(self, method, url, headers, body, timeout):
-        call = Call(method, url, dict(headers or {}), body, timeout, self.clock.now())
-        self.calls.append(call)
-        page = call.page()
-        if page not in (1, 2, 3):
-            raise AssertionError("page %d was not expected" % page)
-        ids = [3 * (page - 1) + k for k in (1, 2, 3)]
-        reply = synthetic_body(page, ids, page < 3, total=100 + len(self.calls))
-        data = json.dumps(reply).encode("utf-8")
-        return self.http.Response(status=200, headers={"content-type": "application/json"}, body=data)
+        if len(self.calls) + 1 >= self.fail_at:
+            call = Call(method, url, dict(headers or {}), body, timeout, self.clock.now())
+            self.calls.append(call)
+            raise self.http.TransportError("simulated failure on call %d" % len(self.calls))
+        return super().send(method, url, headers, body, timeout)
 
 
-def test_crawl_total_keeps_changing_raises_after_two_restarts(at, http, tmp_path):
+def test_crawl_failed_verification_leaves_no_unverified_page(at, http, tmp_path):
+    # Criterion 5c (spec review round 2, M1): page 2 reports a larger total and the
+    # refetch of page 1 (the 3rd request, and every retry after it) fails.
+    pages = source_pages(range(1, 252))
+    pages[1] = synthetic_body(1, list(range(1, 101)), True, total=250)
     clock = FakeClock()
-    transport = DriftingTotalTransport(clock, http, {})
+    transport = FailingTransport(clock, http, pages, fail_at=3)
     client = make_client(http, transport, clock)
     cache = http.FileCache(tmp_path)
     logs = []
+    with pytest.raises(http.TransportError):
+        at.crawl(client, cache, log=logs.append)
+    assert transport.called_pages()[:3] == [1, 2, 1]
+    assert cache.get(page_key(at, 2)) is None
+    assert cache.get(page_key(at, 1)) == json.dumps(pages[1]).encode("utf-8")
+
+
+def test_crawl_growth_that_does_not_add_up_restarts_then_raises(at, http, tmp_path):
+    # Criterion 6 (replaces test_crawl_total_keeps_changing_raises_after_two_restarts):
+    # pages 2 and 3 report 301 but the pages hold only 300 items.
+    pages = source_pages(range(1, 301), total=301)
+    pages[1] = synthetic_body(1, list(range(1, 101)), True, total=300)
+    client, transport, cache = crawl_setup(at, http, tmp_path, pages)
+    logs = []
     with pytest.raises(ValueError) as info:
         at.crawl(client, cache, log=logs.append)
+    logs = [str(line) for line in logs]
+    assert transport.called_pages() == [1, 2, 1, 3] * 3
+    assert _count(logs, "does not match total") >= 2, logs
+    assert _count(logs, "cleared") == 2, logs
+    assert not any("total changed" in line for line in logs), logs
     assert "total" in str(info.value).lower(), str(info.value)
-    # Three passes at most; each pass stops at page 2, where the total differs.
-    assert transport.called_pages() == [1, 2, 1, 2, 1, 2]
-    assert sum(1 for line in logs if "total changed" in str(line)) >= 2, logs
+
+
+def test_crawl_resume_changed_id_in_earlier_page_restarts(at, http, tmp_path):
+    # Criterion 7: pages 1 and 2 cached at total 250; in the source id 150 was
+    # replaced by id 251 (same total), so the fresh page 2 differs from the cache.
+    clock = FakeClock()
+    prime = PageTransport(clock, http, source_pages(range(1, 251)))
+    prime_client = make_client(http, prime, clock)
+    cache = http.FileCache(tmp_path)
+    at.fetch_page(prime_client, cache, 1)
+    at.fetch_page(prime_client, cache, 2)
+    assert cache.get(page_key(at, 3)) is None
+
+    current = [i for i in range(1, 252) if i != 150]
+    client, transport, _ = crawl_setup(at, http, tmp_path, source_pages(current))
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [2, 1, 2, 3]
+    assert _count(logs, "shifted") == 1, logs
+    assert _count(logs, "cleared") == 1, logs
+    assert item_ids(result) == current
+    assert result.total == 250
 
 
 def test_crawl_refresh_all_fetches_every_page_once(at, http, tmp_path):
