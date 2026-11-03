@@ -22,6 +22,9 @@ public final class Lobby {
 
 	public static final int MAX_PLAYERS = 8;
 
+	// During a game: members of any state (connected, in grace, left or expired) the lobby holds.
+	static final int MAX_GAME_MEMBERS = 2 * MAX_PLAYERS;
+
 	public static final Duration EMPTY_TTL = Duration.ofMinutes(2);
 
 	public static final Duration IDLE_TTL = Duration.ofMinutes(10);
@@ -143,7 +146,9 @@ public final class Lobby {
 			error(playerId, "bad-nickname");
 			return null;
 		}
-		if (seatsTaken() >= MAX_PLAYERS) {
+		// During a game members who left stay until the return, so the member list itself is also
+		// capped: otherwise one socket repeating join and leave would grow it without bound.
+		if (seatsTaken() >= MAX_PLAYERS || (room != null && members.size() >= MAX_GAME_MEMBERS)) {
 			error(playerId, "room-full");
 			return null;
 		}
