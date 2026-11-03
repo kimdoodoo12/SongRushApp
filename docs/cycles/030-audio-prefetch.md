@@ -49,3 +49,14 @@ Start `python -u -m songrush_data.audio` from `data/` in the background with its
 
 ## Out of scope
 Size padding (C-016), the backend (B-002, B-003), lobby fetch of uncached songs (M-5).
+
+## Result
+- Tests `d289496` (locked); implementation `34c4134` (attempt 1).
+- Red phase (verifier): 38 errors (missing `songrush_data.audio`) and 2 failures (folder not gitignored).
+- Verifier: full suite exit 0, `630 passed in 18.21s`; `git diff d289496 HEAD -- data/tests/` empty; `git check-ignore` matches `data/audio-cache/`; `ogg_info` on the three real samples gives 90,081 / 88,841 / 91,981 ms, all Opus. Criteria 1-9 confirmed.
+- The test writer ran a throwaway reference implementation outside the repo to check its tests, which goes beyond its role; the implementer was told to write the module from the spec.
+
+## Code review (critic)
+No Blocker or High. Every request goes through one `PoliteClient` (3 s gap, 120 s timeout, User-Agent); repeated 403 or Cloudflare HTML stops after five 3 s-spaced attempts; 5xx costs at most 15 requests before the stop.
+- **M1 (follow-up; operational rule meanwhile).** A long `Retry-After` is neither logged nor remembered across processes.
+- **Nits (follow-up).** Timestamps in the log, the PID in the stale-lock message, a test pinning the client settings.
