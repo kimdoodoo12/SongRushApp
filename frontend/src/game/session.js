@@ -79,8 +79,11 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   // Room sessions: a game is on (prepare or a playing snapshot) and its
   // gameOver has not arrived; a lobby roster then means it was abandoned.
   let inGame = false
-  // Own skip toggles sent since the last skipState of this song.
-  let pendingSkips = 0
+  // The own skip vote for the current song (spec 050): skipVote clicks sent
+  // and the rate-limited errors tagged for:'skipVote'; an odd difference is
+  // a vote. Reset with the song (prepare, snapshot, reconnect).
+  let skipsSent = 0
+  let skipsRefused = 0
   let timer = null
   // Room sessions only; solo keeps the receipt offset and sends no ping.
   const sync = room ? createClockSync({ now, send, schedule: scheduleTimeout }) : null
@@ -205,11 +208,21 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     return rows.find((row) => row.name === myName)
   }
 
-  function onError(code) {
-    // A limited skip vote was not counted: undo its toggle (spec 048 review M1).
-    if (code === 'rate-limited' && pendingSkips > 0) {
-      pendingSkips -= 1
-      dispatch({ type: 'skipToggle' })
+  function resetSkips() {
+    skipsSent = 0
+    skipsRefused = 0
+  }
+
+  function dispatchOwnSkip() {
+    dispatch({ type: 'ownSkip', voted: (skipsSent - skipsRefused) % 2 === 1 })
+  }
+
+  function onError(code, refused) {
+    // A refused skip vote was not counted (spec 050); an untagged error (a
+    // chat refusal) never touches the vote.
+    if (code === 'rate-limited' && refused === 'skipVote' && skipsRefused < skipsSent) {
+      skipsRefused += 1
+      dispatchOwnSkip()
     }
     const text = errorText(code)
     const beforeGame = room ? !joined : !prepared
@@ -254,7 +267,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     round = r
     prepared = true
     if (room) inGame = true
-    pendingSkips = 0
+    resetSkips()
     dispatch({ type: 'prepare', index: msg.index, total: msg.total })
     soundCheck()
     load(r, msg.audioUrl)
@@ -300,7 +313,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   function onRejoinSnapshot(msg) {
     awaitingSnapshot = false
     dropRound()
-    pendingSkips = 0
+    resetSkips()
     const playing = msg.phase === 'playing'
     const song = playing && msg.song !== null && msg.song !== undefined ? msg.song : null
     const scores = Array.isArray(msg.scores) && msg.scores.length > 0 ? msg.scores : null
@@ -333,7 +346,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     }
     if (msg.phase !== 'playing') return
     inGame = true
-    pendingSkips = 0
+    resetSkips()
     const song = msg.song
     if (song === null || song === undefined) {
       round = null
@@ -351,8 +364,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
 
   function onSkipState(msg) {
     if (round === null || msg.index !== round.index) return
-    // The server has counted every toggle sent before this.
-    pendingSkips = 0
+    // Only the count: the own vote follows clicks and tagged refusals.
     dispatch({ type: 'skipState', votes: msg.votes, needed: msg.needed })
   }
 
@@ -360,7 +372,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   // abandoned (in practice only a watcher gets this, spec 048 review H2).
   function abandon() {
     inGame = false
-    pendingSkips = 0
+    resetSkips()
     dropRound()
     dispatch({ type: 'abandoned' })
   }
@@ -462,7 +474,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
         if (msg.phase === 'lobby' && inGame) abandon()
         break
       case 'error':
-        onError(msg.code)
+        onError(msg.code, msg.for)
         break
       default:
         console.warn('unknown message', msg.type)
@@ -496,7 +508,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     rejoined = true
     awaitingSnapshot = true
     joined = false
-    pendingSkips = 0
+    resetSkips()
     attempts = 0
     dropRound()
     stopSync()
@@ -606,8 +618,8 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     skipVote() {
       if (!active || !room || round === null || round.watching || round.start === null || round.revealed) return
       send({ type: 'skipVote', index: round.index })
-      pendingSkips += 1
-      dispatch({ type: 'skipToggle' })
+      skipsSent += 1
+      dispatchOwnSkip()
     },
     // Leaves the room on purpose: the server is told, then the socket closes.
     leave() {

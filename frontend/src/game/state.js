@@ -48,7 +48,7 @@ export const initialState = {
   ranking: null, // room only: the gameOver rows { rank, name, score }
   watching: false, // joined mid-song: watching it, playing from the next
   started: false, // the song is between its start and its reveal
-  skipVoted: false, // the own skip vote in this song, as toggled here
+  skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
   skipCount: null, // { votes, needed } from skipState for this song
   soundBlocked: false, // the AudioContext is not running: show 탭하여 소리 켜기
   reconnecting: false, // the connection dropped and a rejoin is in progress
@@ -162,8 +162,8 @@ export function reducer(state, action) {
         skipVoted: false,
         skipCount: null,
       }
-    case 'skipToggle':
-      return { ...state, skipVoted: !state.skipVoted }
+    case 'ownSkip':
+      return { ...state, skipVoted: action.voted }
     case 'skipState':
       return { ...state, skipCount: { votes: action.votes, needed: action.needed } }
     case 'sound':
