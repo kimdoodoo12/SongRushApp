@@ -24,20 +24,24 @@ When a room session's connection drops, the browser reconnects on its own within
    - The session tries new sockets with `socketFactory(url)`. The waits before each attempt are 500 ms, 1 s, 2 s, 4 s, 8 s, then 10 s each.
    - It stops trying when 30 s have passed since the drop. Then it shows `서버와 연결이 끊어졌습니다.` and `처음으로`, as before.
    - Each new socket sends `rejoin{token}` on open.
-   - If an attempt's socket closes, or gets no `joined` within 5 s of opening, that socket is closed (handlers cleared first) and the next attempt follows.
+   - **Timing (spec review M1).** Each attempt has a 5 s timer started when its socket is created: if no `joined` has arrived by then (whether the socket is still connecting or open and silent), the socket is closed with handlers cleared and counted as failed. After a failed attempt (closed or timed out) the next backoff wait applies before the next socket. The 30 s limit is one `setTimeout` armed at the drop; when it fires it cancels every reconnect timer, closes any attempt in progress (handlers cleared) and shows the disconnect message.
    - **Without a token** (none received yet), an unexpected close keeps the old behaviour: the disconnect message appears at once. This keeps every locked earlier test valid, because none of them sends `token`.
-3. **Successful rejoin.**
+3. **Frames before the snapshot (spec review H1).** At the drop the session forgets that it joined. On a new socket, until a `snapshot` arrives, it handles only `joined`, `snapshot`, `pong`, `token` and `error`, and ignores `prepare`, `start`, `reveal`, `chat`, `correct`, `scores`, `skipState`, `roster` and `gameOver` (the server may flush queued broadcasts to the new socket before `joined`). Every `snapshot` first stops the current source and timer and drops the current round, then rebuilds from the snapshot, so a repeated `joined`/`snapshot` pair gives the same result.
+4. **Successful rejoin.**
    - On `joined` the reconnect notice disappears, and the session runs the cycle 047 `burst(8)` again on a fresh clock sync (old samples are discarded).
    - On the `snapshot`:
      - `phase:"lobby"`: the lobby screen.
      - `phase:"playing"` with `song` null: the game screen, waiting for the next `prepare`.
-     - `song` with `startAt` (PLAYING): load the `audioUrl`, then schedule a late start once a clock estimate exists, exactly as the cycle 048 watcher does.
+     - `song` with `startAt` (PLAYING): load the `audioUrl`, then schedule a late start once a clock estimate exists, using the cycle 048 late-start rule; the round is a **played** round, not a watching one (spec review M2).
      - `song` with only `audioUrl` (PREPARE): load it, then send `ready{index}`. The player is a Room player; the server ignores this for a watcher.
+     - The snapshot's `players` update the roster and its `scores` (when not empty) update `점수판` and the own score (spec review M3).
+     - Accepted: a rejoiner who was in grace at `start` (a watcher on the server) sees a skip button whose clicks the server ignores.
    - The skip button, if shown, starts as `스킵`.
    - A late joiner's watching notice is not shown after a rejoin.
-4. **`rejoin-failed`.** The session ends: the socket closes with handlers cleared and the storage entry is cleared. The start screen shows `다시 연결하지 못했습니다. 방에 다시 참가해 주세요.`
-5. **Close status 4001**, on any socket of the session: no reconnect. The screen shows `다른 창에서 접속해 이 연결이 끊겼습니다.` with `처음으로`.
-6. **Sends while not open.** `chat`, `skipVote` and `ready` are dropped while the current socket is not open (`readyState !== 1`). This also covers the cycle 039 review nit about chatting while connecting.
+5. **`rejoin-failed`.** The session ends: the socket closes with handlers cleared and the storage entry is cleared. The start screen shows `다시 연결하지 못했습니다. 방에 다시 참가해 주세요.`
+6. **Close status 4001**, on any socket of the session: no reconnect. The screen shows `다른 창에서 접속해 이 연결이 끊겼습니다.` with `처음으로`.
+7. **Sends while not open.** Every send (`chat`, `skipVote`, `ready`, `start`, `leave`, `ping`) is dropped while the current socket is not open (`readyState !== 1`); a real `WebSocket.send` on a connecting socket throws. This also covers the cycle 039 review nit about chatting while connecting.
+8. **Leaving while reconnecting (spec review H2).** `나가기`, `처음으로` and unmount during a reconnect cancel every reconnect timer, close the attempt in progress (handlers cleared), clear the storage entry and return to the start screen; no socket is created afterwards.
 
 ## Acceptance criteria (from `frontend/`)
 1. **`src/App.reconnect.test.jsx`**. It uses the locked fakes unchanged and fake timers for the backoff, driven with `advanceTimersByTimeAsync` inside `act` as in earlier tests.
@@ -56,9 +60,19 @@ When a room session's connection drops, the browser reconnects on its own within
      - `rejoin-failed` shows its message on the start screen and clears the storage entry.
      - A close with 4001 shows the replaced message and opens no new socket within 30 s.
    - **Without a token.** An unexpected close shows the disconnect message at once, and no new socket appears.
+   - **Frames before the snapshot.** A `start` for the old index sent on the new socket before `joined`, then `joined` and a PLAYING `snapshot`, give exactly one started source; a second `joined` + `snapshot` pair does not add another.
+   - **Snapshot data.** A playing snapshot with `scores` shows `점수판` from it.
+   - **Leaving while reconnecting.** `나가기` during a reconnect returns to the start screen, no new socket appears within 30 s, and the storage entry is gone.
+   - **Timing.** An attempt that stays connecting for 5 s is dropped and the next one follows after the next wait; at exactly 30 s after the drop the disconnect message appears even if an attempt is in progress.
+   - The test file clears `sessionStorage` in `beforeEach` (jsdom keeps it between tests in one file).
    - **Solo.** A solo session never reconnects.
    - **Sends while not open.** While reconnecting, submitting chat sends nothing.
 2. All locked earlier tests pass unchanged. `npm test`, `npm run lint` and `npm run build` exit 0.
+
+## Review changes (spec round 1)
+- **High.** Frames that reach the new socket before the snapshot are ignored and the snapshot always rebuilds; leaving or unmounting during a reconnect cancels everything and sends nothing on a connecting socket.
+- **Medium.** The 5 s attempt timer starts at socket creation, failed attempts wait for the next backoff step, and one 30 s timer ends the reconnect; a rejoined round is a played round; snapshot players and scores are applied.
+- **Nit.** The storage entry is write-only in this cycle (the reload follow-up must handle duplicated tabs copying `sessionStorage`).
 
 ## Test list
 - `frontend/src/App.reconnect.test.jsx` covers criterion 1.
