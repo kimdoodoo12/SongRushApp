@@ -6,7 +6,9 @@
 #
 # Audio files whose remote size equals the local size are skipped, a smaller
 # remote file is resumed (reput), and everything else is sent in full. One
-# sftp batch does all of it; one ssh then swaps in the jar and restarts.
+# sftp batch does all of it; one ssh then swaps in the jar, restarts, and
+# waits for /health. On failure it prints the command that restores the last
+# jar that answered /health.
 set -euo pipefail
 
 usage() {
@@ -94,6 +96,7 @@ batch_text() {
     while IFS= read -r d; do
         echo "-mkdir $(q "$REMOTE/web/$d")"
     done < <(find "$DIST" -mindepth 1 -type d -printf '%P\n' | LC_ALL=C sort)
+    echo "put $(q "$JAR") $(q "$REMOTE/app/songrush.jar.new")"
 
     while read -r size name; do
         have=${remote_size["audio-cache/$name"]:-}
@@ -113,11 +116,15 @@ batch_text() {
         fi
     done < <(find "$DIST" -type f -printf '%P\n' | LC_ALL=C sort)
     echo "put $(q "$DIST/index.html") $(q "$REMOTE/web/index.html")"
-    echo "put $(q "$JAR") $(q "$REMOTE/app/songrush.jar.new")"
 }
 
-# The rename never overwrites the jar a running JVM has open.
-FINAL="mv $REMOTE/app/songrush.jar.new $REMOTE/app/songrush.jar && sudo systemctl restart songrush"
+# One line of remote shell code. It is single-quoted so $i expands on the
+# server; only the fixed remote root is spliced in. The rename never
+# overwrites the jar a running JVM has open. /health is polled 60 times, 2 s
+# apart; the first success saves the jar as songrush.jar.good (the last jar
+# that answered), otherwise the journal is printed and the command fails.
+FINAL='cd '$REMOTE'/app && mv -f songrush.jar.new songrush.jar && sudo systemctl restart songrush && for i in $(seq 1 60); do if curl -fsS -m 5 http://127.0.0.1:8080/health > /dev/null 2>&1; then cp -p songrush.jar songrush.jar.good && echo healthy; exit $?; fi; sleep 2; done; echo "songrush did not answer /health; last 50 journal lines:"; sudo journalctl -u songrush -n 50 --no-pager; exit 1'
+RESTORE="cp -p $REMOTE/app/songrush.jar.good $REMOTE/app/songrush.jar && sudo systemctl restart songrush"
 
 if [ "$dry_run" -eq 1 ]; then
     echo "# dry run: sftp batch for $host, assuming nothing exists remotely"
@@ -132,6 +139,15 @@ batch_text > "$batch"
 
 echo "uploading to $host ..."
 sftp -b "$batch" "${ssh_opts[@]}" "$host"
-echo "restarting songrush on $host ..."
-ssh "${ssh_opts[@]}" "$host" "$FINAL"
-echo "done."
+echo "restarting songrush on $host and waiting for /health ..."
+if ssh "${ssh_opts[@]}" "$host" "$FINAL"; then
+    echo "done."
+    exit 0
+fi
+key_arg=""
+if [ -n "$key" ]; then
+    key_arg="-i $(printf '%q' "$key") "
+fi
+echo "upload.sh: songrush is not healthy on $host. To restore the last good jar (songrush.jar.good), run:" >&2
+echo "ssh $key_arg$host '$RESTORE'" >&2
+exit 1

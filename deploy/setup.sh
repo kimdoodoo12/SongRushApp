@@ -41,24 +41,37 @@ for f in songrush.service Caddyfile; do
     fi
 done
 
+# On a fresh instance cloud-init may still be running apt; let it finish.
+if command -v cloud-init > /dev/null 2>&1; then
+    echo "== waiting for cloud-init"
+    cloud-init status --wait || true
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 
+# Every apt-get waits up to 10 min for the dpkg lock instead of failing.
 echo "== Java 17"
-apt-get update
-apt-get install -y openjdk-17-jre-headless
+apt-get -o DPkg::Lock::Timeout=600 update
+apt-get -o DPkg::Lock::Timeout=600 install -y openjdk-17-jre-headless
 
 echo "== Caddy (official apt repository)"
 caddy_key=/usr/share/keyrings/caddy-stable-archive-keyring.gpg
 caddy_list=/etc/apt/sources.list.d/caddy-stable.list
-if [ ! -f "$caddy_key" ] || [ ! -f "$caddy_list" ]; then
-    apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-        | gpg --batch --yes --dearmor -o "$caddy_key"
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > "$caddy_list"
-    chmod o+r "$caddy_key" "$caddy_list"
-    apt-get update
-fi
-apt-get install -y caddy
+apt-get -o DPkg::Lock::Timeout=600 install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
+# Written to temp files next to the targets, then moved into place, so a
+# failed run never leaves a half-written key or list. _apt must read both.
+caddy_key_tmp=$(mktemp "$caddy_key.XXXXXX")
+caddy_list_tmp=$(mktemp "$caddy_list.XXXXXX")
+trap 'rm -f "$caddy_key_tmp" "$caddy_list_tmp"' EXIT
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+    | gpg --batch --yes --dearmor -o "$caddy_key_tmp"
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > "$caddy_list_tmp"
+chmod 644 "$caddy_key_tmp" "$caddy_list_tmp"
+mv -f "$caddy_key_tmp" "$caddy_key"
+mv -f "$caddy_list_tmp" "$caddy_list"
+trap - EXIT
+apt-get -o DPkg::Lock::Timeout=600 update
+apt-get -o DPkg::Lock::Timeout=600 install -y caddy
 
 echo "== 1 GB swap"
 if [ ! -f /swapfile ]; then
