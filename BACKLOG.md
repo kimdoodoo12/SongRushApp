@@ -250,7 +250,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-011** backend: OP/ED and year filters on the cached draw set (from M-5, design 059)
   - Optional `types` / `yearFrom` / `yearTo` on `create` and `start`; `bad-filter` for invalid values; `not-enough-songs` gains `available` (one declared `RoomTest` assertion change); a `settings` message to all members before the first `prepare` and to late joiners.
   - Acceptance (JUnit): see design 059 item 1.
-- [ ] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
+- [~] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
   - `곡 종류` and 5-year `연도` selects; only non-default fields sent; from>to guard on 시작 and 게임 시작; `available` error text with the old text as fallback; the received `settings` shown to everyone; selections kept across games.
   - Acceptance (Vitest): see design 059 item 2.
 
