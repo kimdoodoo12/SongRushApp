@@ -247,7 +247,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `docs/deploy-guide.md` (moved from `deploy/README.md`: the locked cycle 055 test keeps `deploy/` ASCII) in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
   - Acceptance (pytest): commands only in fenced `bash` blocks; every `deploy/<file>` they name exists; every `[A-Z_]{3,}=` key is set by the unit or Caddyfile.
 
-- [ ] **B-011** backend: OP/ED and year filters on the cached draw set (from M-5, design 059)
+- [~] **B-011** backend: OP/ED and year filters on the cached draw set (from M-5, design 059)
   - Optional `types` / `yearFrom` / `yearTo` on `create` and `start`; `bad-filter` for invalid values; `not-enough-songs` gains `available` (one declared `RoomTest` assertion change); a `settings` message to all members before the first `prepare` and to late joiners.
   - Acceptance (JUnit): see design 059 item 1.
 - [ ] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
