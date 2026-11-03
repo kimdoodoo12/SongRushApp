@@ -353,7 +353,7 @@ class LobbyTest {
 	}
 
 	@Test
-	void startAndJoinDuringAGameGetInGame() {
+	void startDuringAGameGetsInGameAndJoinDuringAGameSucceeds() {
 		build();
 		lobby.join(P1, "Mina");
 		lobby.join(P2, "Joon");
@@ -366,15 +366,16 @@ class LobbyTest {
 		assertThat(types(outbox.since(mark))).containsExactly("error");
 
 		mark = outbox.mark();
-		assertThat(lobby.join(P3, "Hana")).isNull();
-		List<Sent> after = outbox.since(mark);
-		assertThat(after).hasSize(1);
-		assertThat(after.get(0).to()).isEqualTo(P3);
-		assertThat(after.get(0).message()).containsEntry("code", "in-game");
+		assertThat(lobby.join(P3, "Hana")).isEqualTo("Hana");
+		List<Sent> after = toSince(mark, P3);
+		assertThat(after.size()).isGreaterThanOrEqualTo(2);
+		assertThat(types(after.subList(0, 2))).containsExactly("joined", "snapshot");
+		assertThat(after.get(0).message()).containsEntry("code", CODE).containsEntry("name", "Hana");
+		assertThat(after.get(1).message()).containsEntry("phase", "playing");
 
-		assertThat(lobby.join(P4, "")).as("the nickname is checked before in-game").isNull();
+		assertThat(lobby.join(P4, "")).as("the nickname is checked during a game").isNull();
 		assertLastError(P4, "bad-nickname");
-		assertThat(lobby.names()).containsExactly("Mina", "Joon");
+		assertThat(lobby.names()).containsExactly("Mina", "Joon", "Hana");
 	}
 
 	@Test
