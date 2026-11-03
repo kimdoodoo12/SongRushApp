@@ -1,0 +1,71 @@
+package com.songrush.catalog;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+// Immutable in-memory catalog lookups and the draw candidates; built by CatalogLoader.
+// Holds answers: never serialize it into a response (cycle 032, answer safety).
+public final class Catalog {
+
+	private final Map<Integer, Anime> anime;
+
+	private final Map<Integer, Theme> themes;
+
+	private final Map<Integer, List<String>> accepted;
+
+	private final List<Integer> drawSet;
+
+	private final List<Candidate> candidates;
+
+	Catalog(Map<Integer, Anime> anime, Map<Integer, Theme> themes, Map<Integer, List<String>> accepted,
+			List<Integer> drawSet, List<Candidate> candidates) {
+		this.anime = Map.copyOf(anime);
+		this.themes = Map.copyOf(themes);
+		Map<Integer, List<String>> copy = new HashMap<>();
+		accepted.forEach((group, strings) -> copy.put(group, List.copyOf(strings)));
+		this.accepted = Map.copyOf(copy);
+		this.drawSet = List.copyOf(drawSet);
+		this.candidates = List.copyOf(candidates);
+	}
+
+	public Optional<Anime> anime(int id) {
+		return Optional.ofNullable(anime.get(id));
+	}
+
+	public Optional<Theme> theme(int id) {
+		return Optional.ofNullable(themes.get(id));
+	}
+
+	// The group's accepted answer strings; empty when the group is unknown.
+	public List<String> accepted(int groupId) {
+		return accepted.getOrDefault(groupId, List.of());
+	}
+
+	// Draw-set theme ids in the file's order.
+	public List<Integer> drawSet() {
+		return drawSet;
+	}
+
+	// Cached draw-set themes in draw-set order.
+	public List<Candidate> candidates() {
+		return candidates;
+	}
+
+	public int animeCount() {
+		return anime.size();
+	}
+
+	public int themeCount() {
+		return themes.size();
+	}
+
+	// Counts only: the contents are answers.
+	@Override
+	public String toString() {
+		return "Catalog[" + anime.size() + " anime, " + themes.size() + " themes, " + drawSet.size()
+				+ " draw set, " + candidates.size() + " candidates]";
+	}
+
+}
