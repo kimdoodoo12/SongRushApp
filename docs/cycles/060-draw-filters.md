@@ -8,7 +8,7 @@ The host (or solo player) can limit the draw to openings or endings and to a yea
    - `Anime` gains `Integer year`, read from the catalog's `year` (null when absent).
    - `Theme.type` is already loaded.
    - No other record changes.
-2. **`DrawFilter`** (new, `game/DrawFilter.java`): `record DrawFilter(Set<String> types, Integer yearFrom, Integer yearTo)`.
+2. **`DrawFilter`** (new, `game/DrawFilter.java`): `record DrawFilter(Set<String> types, Integer yearFrom, Integer yearTo)`. The constructor copies `types` with `Set.copyOf` when it is non-null.
    - `DrawFilter.NONE` has all three fields null.
    - `matches(theme, anime)` is true when each set field passes. For year, `yearFrom <= anime.year() <= yearTo`, inclusive. When a year bound is set and `anime.year()` is null, it does not match.
    - `isEmpty()` is true when all three fields are null.
@@ -16,7 +16,8 @@ The host (or solo player) can limit the draw to openings or endings and to a yea
 3. **Parsing** (`GameSocketHandler`, for `create` when it has `songCount` (solo) and for `start`). The optional fields are:
    - `types`: a JSON array. It must be non-empty, every element must be the string `OP` or `ED`, and no value may repeat.
    - `yearFrom` and `yearTo`: JSON integers from 1950 to 2100. When both are given, `yearFrom <= yearTo`.
-   - Any violation, including a wrong JSON type, sends the sender `error{code:"bad-filter"}`, and nothing starts.
+   - Any violation, including a wrong JSON type and an explicit JSON `null`, sends the sender `error{code:"bad-filter"}`, and nothing starts.
+   - **Check order (review M1).** For solo `create`, the filter is checked after `bad-song-count` and before the lobby is created, so a bad filter never leaves an empty lobby. For `start`, it is checked in the handler together with the other shape checks, so `bad-filter` comes before `not-host`, `in-game` and `no-room`.
    - When none of the three fields is present, the filter is `DrawFilter.NONE`.
    - Unknown extra keys stay ignored, as today.
 4. **Draw** (`Room.start(int songCount, DrawFilter filter)`). `Room.start(int)` stays and delegates with `NONE`.
@@ -26,8 +27,7 @@ The host (or solo player) can limit the draw to openings or endings and to a yea
    - **Success with no filter.** No `settings` message is sent, so the message sequence stays exactly as today.
    - **Kept for the game.** The filter is stored on the `Room` for this game: `settings()` returns it.
 5. **Lobby.** `Lobby.start(playerId, songCount, filter)`. `Lobby.start(playerId, songCount)` stays and delegates with `NONE`.
-   - A late joiner who becomes a watcher gets `settings` from the running room's non-empty filter, sent to that player only, right after the late-join `roster`.
-   - A rejoin gets it after the snapshot.
+   - **One place for joiners (review H2).** Whenever a player gets `joined` + `snapshot` while a room with a non-empty filter exists (late join as a watcher, a grace rejoin, a socket replace), that player gets `settings` right after the `snapshot`, from `sendJoinedAndSnapshot`, once.
    - With an empty filter, nothing extra is sent.
 6. **Privacy.** `settings` and `available` carry only numbers and the strings `OP`/`ED`, never a catalog id or record (Multiplayer rules).
 
@@ -57,18 +57,37 @@ The host (or solo player) can limit the draw to openings or endings and to a yea
      - `yearFrom:2010,yearTo:2000`
      - `yearFrom:2000.5`
      - `yearFrom:"2000"`
-   - **A valid lobby filter.** Every member receives the same `settings` before `prepare`.
-   - **A late joiner during that game.** It receives `settings` after its `roster`.
+   - **A valid lobby filter.** The socket test's own `@TempDir` catalog mixes OP and ED and spans several years. Every member receives the same `settings` before `prepare`, and every `reveal` matches the filter.
+   - **A late joiner during that game.** It receives `settings` right after its `snapshot`.
    - **Solo with `types:["OP"]`.** It receives `settings{types:["OP"]}` and then `prepare`.
+3b. **`LobbyFilterTest`** (game-level fakes).
+   - In a game started with a filter, these each receive `settings` exactly once, immediately after their `snapshot`:
+     - a late joiner;
+     - a member who disconnects and rejoins within grace;
+     - a member whose socket is replaced.
+   - With no filter, none of them receives `settings`.
+   - A solo `create` whose filter is bad leaves no lobby behind, because the lobby count is unchanged.
 4. **Loader.** A catalog loader test reads `year` from the fixture catalog's anime, and `type` as today.
 5. **Earlier tests.** All earlier backend tests pass with only the declared change, and `.\gradlew.bat test` exits 0.
+
+## Review changes (spec round 1)
+- **High.**
+  - Fixtures are generated in `@TempDir`, not as static resources: the gitignored `.ogg` files would break a fresh clone.
+  - `settings` goes out after the snapshot on every join path, and is tested for late join, rejoin and replace.
+- **Medium.**
+  - The order of the `bad-filter` check is stated, so solo never creates an empty lobby.
+  - The socket test builds an ED-containing catalog, so the filter really narrows the draw.
+- **Nit.**
+  - `types` is copied.
+  - An explicit `null` gives `bad-filter`.
 
 ## Test list
 - `backend/src/test/java/com/songrush/game/DrawFilterTest.java`
 - `backend/src/test/java/com/songrush/game/RoomFilterTest.java`
 - `backend/src/test/java/com/songrush/ws/FilterSocketTest.java`
+- `backend/src/test/java/com/songrush/game/LobbyFilterTest.java`
 - A new loader test in `backend/src/test/java/com/songrush/catalog/` (a new file, for example `CatalogYearTest.java`).
-- New fixture resources only if needed, under `backend/src/test/resources/catalog-filter/`.
+- **No static fixture resources (review H1).** `*.ogg` is gitignored, so static audio would vanish in a fresh clone. Each test writes its own catalog (OP and ED themes, several years), `index.json` and audio bytes into a `@TempDir`, the way `GameFixture` does. The writer helpers live inside the new test files.
 - The declared change in `RoomTest.java`.
 
 ## File ownership
