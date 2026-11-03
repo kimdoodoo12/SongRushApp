@@ -131,7 +131,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
-- [ ] **C-009** data: manual Korean supplement (from design 014, D-040)
+- [x] **C-009** data: manual Korean supplement (from design 014, D-040)
   - `data/korean_titles_manual.json` maps an AniList id to Korean titles. It is merged as Korean titles.
   - Acceptance:
     - The merge is tested.
@@ -223,6 +223,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Manual Korean tests (critic, cycle 028): pin that a broken manual file with `refresh_all=True` leaves the `al-`/`wd-` caches intact (validation before the clear), and that a manual title beats an aod title for the reveal when both exist for one id (`merge_korean(manual, aod)` order). Mutating either order today still passes all tests.
 - Range exception (critic, cycle 027): D-052's own example `13話～16話` is still cut, because the digit rule needs digits on both sides of the wave dash and here `話` precedes it. One extra string of the same anime results (group 5671); widen the rule to a digit run plus a counter suffix if it matters.
 - Front part (critic, cycle 026): add a test that full-width digits around an ASCII `/` are not cut (implemented, not pinned).
 - Build CLI (critic, cycle 023): `main` should reconfigure stdout with `line_buffering=True` so a background build's log shows progress (until then run it with `python -u`); add a test that pins each source's gap and timeout (AnimeThemes 3 s/120 s, AniList 2 s/60 s, Wikidata and aod 3 s/60 s).

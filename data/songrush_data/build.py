@@ -4,7 +4,8 @@ run crawls AnimeThemes, fetches AniList, Wikidata and aod through the cached
 source modules, assembles the catalog and writes both files, holding a lock
 file in the output folder for the whole run. main is the command line:
 python -m songrush_data.build [--refresh-all] [--cache DIR] [--out DIR]
-[--anilist-batch N]. docs/cycles/023-build-cli.md is the specification.
+[--anilist-batch N]. docs/cycles/023-build-cli.md is the specification; cycle 028
+adds the hand-edited <out>/korean_titles_manual.json, merged before aod.
 """
 
 import argparse
@@ -17,6 +18,7 @@ from typing import Callable
 
 from songrush_data import anilist, animethemes, aod, catalog, wikidata
 from songrush_data.http import FileCache, PoliteClient, SystemClock, UrllibTransport
+from songrush_data.manual import load_manual, merge_korean
 
 DATA_DIR = Path(__file__).resolve().parent.parent
 LOCK_NAME = ".build.lock"
@@ -47,15 +49,18 @@ def _acquire_lock(path: Path) -> None:
 
 
 def run(*, transport, clock, cache_root, out_dir, refresh_all: bool = False, anilist_batch: int = anilist.MAX_BATCH,
-        aod_size: int = aod.AOD_SIZE, aod_sha256: str = aod.AOD_SHA256,
+        aod_size: int = aod.AOD_SIZE, aod_sha256: str = aod.AOD_SHA256, manual_path=None,
         log: Callable[[str], None] = print) -> dict:
     """Build and write the catalog; return the report with catalogBytes added."""
     cache_root = Path(cache_root)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     lock = out_dir / LOCK_NAME
+    manual_path = out_dir / "korean_titles_manual.json" if manual_path is None else Path(manual_path)
     _acquire_lock(lock)
     try:
+        # Validate the hand-edited file before any request, so a typo fails at once (cycle 028).
+        manual = load_manual(manual_path, log=log)
         clients = {
             name: PoliteClient(transport, clock, gap_s=gap_s, timeout_s=timeout_s, log=log)
             for name, (gap_s, timeout_s) in _CLIENTS.items()
@@ -78,8 +83,11 @@ def run(*, transport, clock, cache_root, out_dir, refresh_all: bool = False, ani
             expected_sha256=aod_sha256,
             log=log,
         )
+        outside = set(manual) - set(ids)
+        if outside:
+            log("manual korean: %d ids not in the catalog %s" % (len(outside), sorted(outside)))
 
-        built, report = catalog.build_catalog(anime, media, labels, korean)
+        built, report = catalog.build_catalog(anime, media, labels, merge_korean(manual, korean))
         size = catalog.write_catalog(out_dir / "catalog.json", built)
         catalog.write_gaps(out_dir / "korean_gaps.json", report)
         report["catalogBytes"] = size
