@@ -32,6 +32,16 @@ _EPISODE_RE = re.compile(_DIGIT + "+" + _KO_HWA + r"\Z")
 _DIGITS = frozenset("0123456789" + "".join(chr(c) for c in range(0xFF10, 0xFF1A)))
 _FULL_WIDTH_COLON = chr(0xFF1A)
 _ANIMATION_SUFFIX_RE = re.compile(r" \([^()]*" + _KO_ANIMATION + r"\)\Z")
+# Front-part separators (D-049, D-051). Multi-character ones match as strings;
+# single characters match anywhere. "/", the full-width slash and the wave
+# dashes (~, full-width tilde, wave dash) are skipped between two digits.
+_STRING_SEPARATORS = (": ", _FULL_WIDTH_COLON, " -")
+_WAVE_DASHES = "~" + chr(0xFF5E) + chr(0x301C)
+_SLASHES = "/" + chr(0xFF0F)
+_DIGIT_EXCEPTION = frozenset(_WAVE_DASHES + _SLASHES)
+_CHAR_SEPARATORS = frozenset(
+    _WAVE_DASHES + _SLASHES + "".join(chr(c) for c in (0x2013, 0x2014, 0x2015, 0xFF0D))
+)
 
 
 def _text(value) -> str | None:
@@ -95,40 +105,53 @@ def _reveal(media: dict | None, labels: dict, korean: list, slots: dict) -> str 
     return None
 
 
-def front_part(s: str) -> str | None:
-    """The text before the earliest separator, right-stripped (D-049).
+def front_parts(s: str) -> list[str]:
+    """The text before each separator, in position order (D-049, D-051, D-052).
 
-    Separators are ": ", a full-width colon, " -", and "/" unless both of its
-    neighbours are digits ("Ranma 1/2"). None when there is no separator, it
-    starts the string, or nothing is left before it.
+    Separators are ": ", a full-width colon, " -", the dashes and wave dashes
+    in _CHAR_SEPARATORS, and "/" or a full-width slash. "/", the full-width
+    slash and the wave dashes are not separators when both neighbours are
+    digits ("Ranma 1/2", an episode range). Each part is right-stripped
+    (including U+3000); a separator at index 0 or one that leaves nothing
+    before it gives no part. Duplicates are dropped.
     """
-    found = [i for i in (s.find(": "), s.find(_FULL_WIDTH_COLON), s.find(" -")) if i >= 0]
+    cuts = set()
+    for sep in _STRING_SEPARATORS:
+        i = s.find(sep)
+        while i >= 0:
+            cuts.add(i)
+            i = s.find(sep, i + 1)
     for i, ch in enumerate(s):
-        if ch != "/":
+        if ch not in _CHAR_SEPARATORS:
             continue
-        if 0 < i < len(s) - 1 and s[i - 1] in _DIGITS and s[i + 1] in _DIGITS:
+        if (ch in _DIGIT_EXCEPTION and 0 < i < len(s) - 1
+                and s[i - 1] in _DIGITS and s[i + 1] in _DIGITS):
             continue
-        found.append(i)
-        break
-    if not found:
-        return None
-    cut = min(found)
-    if cut <= 0:
-        return None
-    result = s[:cut].rstrip()
-    return result or None
+        cuts.add(i)
+    out = []
+    for cut in sorted(cuts):
+        if cut <= 0:
+            continue
+        part = s[:cut].rstrip()
+        if part and part not in out:
+            out.append(part)
+    return out
+
+
+def front_part(s: str) -> str | None:
+    """The first of front_parts(s), or None when there is none."""
+    parts = front_parts(s)
+    return parts[0] if parts else None
 
 
 def _front_accepted(s: str) -> set:
-    """normalize() of the front part and of its unqualified form (D-050 minimum)."""
-    f = front_part(s)
-    if f is None:
-        return set()
-    minimum = 2 if _has_cjk(f) else _MIN_BASE
+    """normalize() of every front part and its unqualified form (D-050 minimum)."""
     out = set()
-    for candidate in (normalize(f), normalize(strip_qualifier(f))):
-        if len(candidate) >= minimum:
-            out.add(candidate)
+    for f in front_parts(s):
+        minimum = 2 if _has_cjk(f) else _MIN_BASE
+        for candidate in (normalize(f), normalize(strip_qualifier(f))):
+            if len(candidate) >= minimum:
+                out.add(candidate)
     return out
 
 
