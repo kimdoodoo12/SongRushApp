@@ -31,7 +31,10 @@ export function estimate(samples) {
 
 // send(msg) sends one ping{id}; schedule(fn, ms) sets one timer and returns
 // its cancel function. current() is the estimate over the last 8 samples;
-// clear() drops the stored samples.
+// lowerBound() is the largest serverTime - t1 over them, never above the true
+// offset by causality (cycle 051), or null. clear() drops the stored samples
+// and forgets the pending pings, so a pong for a ping sent before it is
+// ignored.
 export function createClockSync({ now, send, schedule }) {
   let nextId = 1
   // id -> t0 for the pings still waiting for their pong.
@@ -69,8 +72,13 @@ export function createClockSync({ now, send, schedule }) {
     current() {
       return estimate(samples)
     },
+    lowerBound() {
+      if (samples.length === 0) return null
+      return Math.max(...samples.map(({ t1, serverTime }) => serverTime - t1))
+    },
     clear() {
       samples = []
+      pending.clear()
     },
     stop() {
       for (const cancel of cancels) cancel()

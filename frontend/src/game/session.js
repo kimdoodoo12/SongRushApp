@@ -28,6 +28,8 @@ const JOIN_PINGS = 8
 const RESYNC_PINGS = 3
 const RESYNC_MS = 30_000
 const DRIFT_MARGIN_MS = 50
+// A provisional start (spec 051) moves only for a lower bound this far above.
+const CORRECTION_MARGIN_MS = 20
 // Reconnect (F-006): the waits before each attempt, the last one repeating,
 // the time each attempt has to reach joined, and the limit from the drop
 // (the server's grace, cycle 042).
@@ -73,8 +75,10 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   let joined = false
   let myName = null
   // The current song: { index, revealed, buffer, start, source, watching,
-  // lateStart }. lateStart is a watched song's { startAt, deadlineAt }, kept
-  // until a clock estimate exists.
+  // lateStart, provisional }. lateStart is a watched song's { startAt,
+  // deadlineAt }, kept until a clock estimate exists. provisional: the start
+  // used a drifted receipt and fresh pongs may move it earlier (spec 051);
+  // a new round (prepare, snapshot, reconnect) starts without it.
   let round = null
   // Room sessions: a game is on (prepare or a playing snapshot) and its
   // gameOver has not arrived; a lobby roster then means it was abandoned.
@@ -150,15 +154,20 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   // The offset used at start: the synced estimate when there is one, else
   // the receipt offset. A receipt that drifts from the estimate re-syncs
   // from fresh samples, and the song uses the smaller of the two offsets,
-  // which is never early (cycle 047 review M1).
+  // which is never early (cycle 047 review M1). A drift that used the
+  // receipt (a late frame or a forward clock jump) is provisional: fresh
+  // pongs may still move it earlier (cycle 051).
   function startOffset(serverTime) {
     const receipt = serverTime - now()
     const estimate = sync === null ? null : sync.current()
-    if (estimate === null) return receipt
-    if (Math.abs(receipt - estimate.offsetMs) <= estimate.rttMs + DRIFT_MARGIN_MS) return estimate.offsetMs
+    if (estimate === null) return { offsetMs: receipt, provisional: false }
+    if (Math.abs(receipt - estimate.offsetMs) <= estimate.rttMs + DRIFT_MARGIN_MS) {
+      return { offsetMs: estimate.offsetMs, provisional: false }
+    }
     sync.clear()
     sync.burst(RESYNC_PINGS)
-    return Math.min(receipt, estimate.offsetMs)
+    if (receipt < estimate.offsetMs) return { offsetMs: receipt, provisional: true }
+    return { offsetMs: estimate.offsetMs, provisional: false }
   }
 
   function stopTimer() {
@@ -236,7 +245,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
   }
 
   function newRound(index, watching, lateStart) {
-    return { index, revealed: false, buffer: null, start: null, source: null, watching, lateStart }
+    return { index, revealed: false, buffer: null, start: null, source: null, watching, lateStart, provisional: false }
   }
 
   // Loads the round's audio. A played round then sends ready, also after a
@@ -285,7 +294,24 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
 
   function onStart(msg) {
     if (round === null || msg.index !== round.index) return
-    beginStart(round, { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs: startOffset(msg.serverTime) })
+    const { offsetMs, provisional } = startOffset(msg.serverTime)
+    round.provisional = provisional
+    beginStart(round, { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs })
+  }
+
+  // A provisional start moves earlier when a fresh pong's lower bound is
+  // more than 20 ms above the offset in use; it never moves later, so it is
+  // never early (spec 051). The ticks read the same start object.
+  function correctStart(r) {
+    if (!r.provisional || r.revealed || r.start === null) return
+    const bound = sync.lowerBound()
+    if (bound === null || bound <= r.start.offsetMs + CORRECTION_MARGIN_MS) return
+    r.start.offsetMs = bound
+    if (r.source !== null) {
+      r.source.stop()
+      r.source = null
+    }
+    schedule(r)
   }
 
   // A watched song already playing: the snapshot has no serverTime, so it
@@ -381,6 +407,7 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
     stopTimer()
     if (round !== null) {
       round.revealed = true
+      round.provisional = false
       stopSource()
     }
     dispatch({
@@ -454,7 +481,10 @@ export function startSession({ socketFactory, url, ctx, fetchFn, now, mode, nick
       case 'pong':
         if (sync === null) break
         sync.onPong(msg)
-        if (round !== null) lateStart(round)
+        if (round !== null) {
+          lateStart(round)
+          correctStart(round)
+        }
         break
       case 'snapshot':
         onSnapshot(msg)
