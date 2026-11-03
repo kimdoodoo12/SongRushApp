@@ -46,3 +46,13 @@ Load `data/catalog.json` and the audio-cache index into immutable in-memory look
 
 ## Out of scope
 Answer matching (the Java `normalize`, from S-003), rooms, rounds, the audio endpoint (B-003).
+
+## Result
+- Tests `7660de0` (locked); implementation `c3aec42` (attempt 1; the implementer's first run failed one locked test, `accepted(1).add`, because `Map.copyOf` kept the inner lists mutable, and fixed it).
+- Red phase (verifier): `:compileTestJava FAILED`, 43 errors, all "cannot find symbol" for the missing `com.songrush.catalog` types.
+- Verifier: `.\gradlew.bat cleanTest test`, `build` and `cleanTest test --offline` exit 0; 36 tests, 0 failures; `git diff 7660de0 HEAD -- backend/src/test` empty; no controller or serializer touches the catalog. Startup log: `catalog loaded: 5021 anime, 14591 themes, 1500 draw set, 117 candidates` (the prefetch was still running).
+
+## Code review (critic)
+No Blocker or High. JSON robustness (int range, nulls, wrong types, duplicate ids), the three integrity checks, deep immutability and safe publication all hold; the Windows index rewrite race is covered by `os.replace` and the size check.
+- **M2 (queued in B-003).** The records' default `toString` prints titles, reveal, song, artists and the basename (itself the answer); B-003 overrides them to ids and pins it with a test.
+- **M1 and Nits (follow-up).** The bean test passes with zero candidates; a warning logs a basename; duplicate draw-set ids; title key order; untested `paddedSize` and basename branches.
