@@ -254,6 +254,16 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `곡 종류` and 5-year `연도` selects; only non-default fields sent; from>to guard on 시작 and 게임 시작; `available` error text with the old text as fallback; the received `settings` shown to everyone; selections kept across games.
   - Acceptance (Vitest): see design 059 item 2.
 
+- [ ] **I-009** deploy: DuckDNS address and the Free plan in the kit and guide (from D-066, D-068)
+  - `setup.sh` takes a DuckDNS name (`<name>.duckdns.org`) and asks for the DuckDNS token interactively (never as an argument, never written to the repo); it stores it root-only on the server and installs a boot-time updater (systemd unit or timer calling the DuckDNS update URL) so the name follows the IP after a stop/start. `docs/deploy-guide.md` switches to DuckDNS and the Free plan (closure and deletion warnings, a month-5 reminder, no Budgets-only safety claim) and drops the sslip restart steps that DuckDNS makes unnecessary.
+  - Acceptance (pytest): the kit tests cover the updater unit and that no token appears in any file or argument; the guide tests are updated for DuckDNS and the Free plan (declared changes to the cycle 058 guide test's required strings).
+- [ ] **B-012** backend: popularity tier filter (from D-069, design 059)
+  - `Candidate` gains `rank` (index in `drawSet`, 1-based); optional `tier` on `create`/`start`: `easy` = rank 1-300, `hard` = rank 501-1,500, absent = all; `bad-filter` for other values; `settings` carries `tier` when set.
+  - Acceptance (JUnit): each tier draws only its ranks; combined with types/years; `available` counts after the tier; `settings` includes `tier`.
+- [ ] **F-009** frontend: difficulty select (from D-069)
+  - A `난이도` select: `쉬움`, `보통` (default, sends nothing), `어려움`; the settings line shows `쉬움`/`어려움`; kept across games like the other filters.
+  - Acceptance (Vitest): defaults send today's messages; each choice adds `tier`; the line shows it.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -268,17 +278,17 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 ## Needs decision
 
 - [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `docs/deploy-guide.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's account and D-066.
-- [?] **D-069** Popularity difficulty (design 059): tiers over the popularity rank of the 1,500 cached themes. (a) three tiers: easy = rank 1-300, normal = all (today), hard = 501-1,500 - recommended; (b) two tiers: easy = top 500, all; (c) a free top-N slider. Dependent: B-012 (backend rank filter, `rank` on `Candidate`) and F-009 (tier select), not in Ready until decided.
-- [?] **D-070** Widening beyond the cached set (design 059): (a) not now; keep the cached 1,500 and, if wanted, grow the cache offline (for example to the top 3,000, about 11 GB) - recommended; (b) build D-026's lobby fetch (the server fetches uncached songs from AnimeThemes while the lobby waits; needs its own design cycle).
-- [?] **D-066** Hostname for HTTPS (design 052): (a) a free IP-based name such as `<ip>.sslip.io` with Caddy's automatic certificate (no cost, no account; changes with the IP) - recommended to start; (b) a bought domain (about 15,000 KRW/year) on an Elastic IP; (c) DuckDNS (free, needs an account).
-- [?] **D-068** AWS sign-up plan and host (design 053; refines D-065, whose "12 months free" no longer applies to new accounts): Free plan (closes itself at 6 months or when the $100 credit runs out; data deleted 90 days later) vs Paid plan (same credits, never closes; pay after credits). Recommended: Paid plan + EC2 t3.micro + 16 GB gp3 + an AWS Budgets alert (free while credits last, then about $15/month; Lightsail Micro $7 later is an option).
-- [?] **D-067** Revisit D-025/D-057 before going public (design 052): (a) keep the modified-client risk accepted for friends-only play - recommended; (b) encrypt each round's audio and send the key at `startAt` (about one backend + frontend cycle).
 
 - [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time; then joins one room from the PC browser and the iPhone and reports whether both start the song together (no echo between the two). The silent switch should not matter (cycle 047 sets the audio session to playback). Agents cannot run this.
 
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-066** Hostname (user, 2026-11-04): DuckDNS, for example `songrush.duckdns.org`. The name stays fixed when the IP changes; the server reports its IP to DuckDNS at boot. The DuckDNS token is a secret: it is typed on the server during setup and never stored in the repo.
+- **D-067** Preview risk (user, 2026-11-04; revisits D-025/D-057): keep it accepted for friends-only play; no audio encryption.
+- **D-068** AWS sign-up (user, 2026-11-04; refines D-065): the Free plan (USD 100 credit, up to 6 months; the account closes by itself when the plan ends or the credit runs out, and data is deleted 90 days later unless upgraded). EC2 t3.micro, 16 GB gp3. The guide must warn clearly and remind the owner before month 5.
+- **D-069** Popularity difficulty (user, 2026-11-04): three tiers over the popularity rank of the cached draw set: easy = rank 1-300, normal = all (today), hard = rank 501-1,500.
+- **D-070** Draw range (user, 2026-11-04): keep the cached top 1,500 for now; grow the cache offline later if wanted. No lobby fetch.
 - **D-065** Hosting (user, 2026-11-04; settles D-010): deploy on AWS EC2 free tier (t3.micro-class, 1 GB RAM, up to 30 GB EBS, free for 12 months after sign-up). The M-4 design sizes the JVM for 1 GB, plans the 5.5 GB audio upload and the WebSocket-capable setup, and lists what the user must do in the AWS console (account, instance, security group, any domain or certificate).
 - **D-064** Mobile app scope (user, 2026-11-03): the Flutter app (M-6) starts after the web deployment (M-4), so it can connect to the public server; it targets both Android and iOS (iOS builds need a Mac or a cloud build and an Apple developer account).
 - **D-063** Mobile app (user, 2026-11-03): besides the web client, a mobile-only app will be built with Flutter ("Flutter 써서 모바일 전용으로도 할 계획"); it reuses the backend and its protocol. Recorded as Roadmap M-6; its scope and timing are confirmed with the user before it is planned.
