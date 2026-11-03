@@ -65,8 +65,9 @@ def validate_page(body, page: int) -> dict:
     return pagination
 
 
-def _fetch(client: PoliteClient, cache: FileCache, page: int, refresh: bool) -> tuple[dict, bool]:
-    """Return (animePagination, cache hit)."""
+def _fetch(client: PoliteClient, cache: FileCache, page: int, refresh: bool,
+           store: bool = True) -> tuple[dict, bool]:
+    """Return (animePagination, cache hit); store=False reads the source without writing the cache."""
     key = _page_key(page)
     if not refresh:
         data = cache.get(key)
@@ -88,7 +89,8 @@ def _fetch(client: PoliteClient, cache: FileCache, page: int, refresh: bool) -> 
     except ValueError as error:
         raise ValueError("page %d: response is not valid JSON: %s" % (page, error)) from error
     pagination = validate_page(body, page)
-    cache.put(key, reply.body)
+    if store:
+        cache.put(key, reply.body)
     return pagination, False
 
 
@@ -114,10 +116,15 @@ class _Restart(Exception):
 
 
 def _restart(cache: FileCache, reason: str, can_restart: bool, log: Callable[[str], None]) -> None:
-    """Clear the page prefix and restart the crawl, or raise ValueError when the cap is reached."""
-    if not can_restart:
-        raise ValueError("%s; giving up after %d restarts" % (reason, MAX_RESTARTS))
+    """Clear the page prefix and restart the crawl, or raise ValueError when the cap is reached.
+
+    Giving up clears the prefix too (cycle 025 rule 6), so the next run never
+    trusts pages written during a pass that did not finish consistently.
+    """
     cleared = cache.clear(_key_prefix())
+    if not can_restart:
+        log("crawl: giving up after %d restarts; cleared %d entries" % (MAX_RESTARTS, cleared))
+        raise ValueError("%s; giving up after %d restarts" % (reason, MAX_RESTARTS))
     log("%s; cleared %d entries, restarting" % (reason, cleared))
     raise _Restart()
 
@@ -205,12 +212,13 @@ def _verify_previous(client: PoliteClient, cache: FileCache, state: _Pass, page:
     """Refetch page - 1 and restart unless its ids are unchanged (cycle 025 rule 1).
 
     Page's cache entry carries a larger total that is not verified yet, so it
-    is deleted when the verification does not succeed by any path.
+    is deleted when the verification does not succeed by any path. The refetch
+    of page - 1 is not cached (rule 5): its existing entry stays as it is.
     """
     verified = False
     try:
         if page > 1:
-            previous, _ = _fetch(client, cache, page - 1, True)
+            previous, _ = _fetch(client, cache, page - 1, True, store=False)
             old_ids, new_ids = state.latest_ids(), _ids(previous)
             if new_ids != old_ids:
                 _restart(cache, "crawl: page %d no longer holds the same ids after page %d reported a larger total"
