@@ -240,7 +240,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-005** smoke check script (from M-4, design 052)
   - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
   - Acceptance (pytest, loopback stub server): all pass gives exit 0; a missing credit line or an `error` reply gives exit 1 naming the check.
-- [ ] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
+- [~] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
   - `setup.sh`: wait for `cloud-init status --wait` and pass `-o DPkg::Lock::Timeout=600` to every `apt-get` (a fresh EC2 often holds the dpkg lock); make the Caddy repo step recover from a half-written key or list (download to a temp file and `mv`, or re-download every run). `upload.sh`: put the jar first in the batch, keep `songrush.jar.prev`, and after the restart poll `http://127.0.0.1:8080/health` on the server for up to 60 s, printing `journalctl -u songrush -n 50` and exiting non-zero on failure. Unit: `ConditionPathExists=/opt/songrush/app/songrush.jar`.
   - Acceptance (pytest, extending the deploy-kit checks in a new test file): each of these is present and ordered as stated; the stubbed real run sees the jar `put` before any web file and a final ssh command containing the health poll.
 - [ ] **I-006** owner runbook (from M-4, design 052)
