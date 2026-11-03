@@ -99,3 +99,13 @@ Decisions covered: D-012, D-017, D-024, D-061 (design 034 M1 and M5; cycle 036 r
 ## Locked-test correction (attempt 1)
 - `RoomRoundsTest.twoOfThreeVotesSkipTheSongWithNoWinner` advanced to the skipped song's old deadline (60 s or more) and expected silence, then expected exactly one `prepare` after a further `REVEAL_PAUSE`; the 5 s reveal pause and the 25 s prepare timeout always fire first, so no implementation could pass it (implementer report, confirmed by the lead from the test source).
 - The lead unlocked the tests; the test writer replaced only those two steps with: advance `REVEAL_PAUSE - 1 ms`, expect nothing; advance 1 ms, expect exactly `prepare` with index 1. The tests were locked again. No implementation change was made for it.
+
+## Result
+- Tests `67ad1b9` (locked; RoomTest's declared change included), one unpassable assertion corrected `ed1545b`, implementation `994c0d5` (attempt 1; the implementation needed no change after the correction).
+- Red phase (verifier): 57 compile errors, all the missing `Room.skip`/`setConnected`/`clearSkipVote` and `Lobby.skip`; against no-op stubs 31 of 53 tests failed (4 new tests pass on stubs by design: they guard behaviour that is already true today).
+- Verifier: `cleanTest test` and `build` exit 0; every suite 0 failures (RoomRoundsTest 26, LobbyRoundsTest 8, RoundsSocketTest 3, RoomTest 19); the feat commit changes no test; the RoomTest and RoomRoundsTest changes are exactly the declared ones; sources ASCII-only.
+
+## Code review (critic)
+No Blocker or High. Confirmed: connected-only ready never starts with nobody connected; a skip cannot pass with zero connected; votes are cleared on every connection change; the token bucket is exact (milli-tokens, capped, starts full, shared with skip); before `startAt` a match and a miss look identical to the sender, including the rate-limit error; `skipState` names no voter.
+- **M1 (follow-up).** A replacing socket without a vote gets no `skipState`.
+- **M2.** The backlog note about a snapshot skip vote was replaced in this cycle and is now marked as such.
