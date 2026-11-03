@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<animetitles>
+<anime aid="1">
+<title xml:lang="x-jat" type="main">Cowboy Bebop</title>
+<title xml:lang="ja" type="official">カウボーイビバップ</title>
+<title xml:lang="en" type="official">Cowboy Bebop</title>
+<title xml:lang="ko" type="official">카우보이 비밥</title>
+<title xml:lang="ko" type="syn">카우보이비밥</title>
+<title xml:lang="ko" type="short">비밥</title>
+<title xml:lang="ko" type="syn">카우보이 비밥</title>
+<title xml:lang="ko" type="syn">Cowboy Bebop</title>
+<title xml:lang="x-jat" type="short">CB</title>
+</anime>
+<anime aid="2">
+<title xml:lang="x-jat" type="main">Neon Genesis Evangelion</title>
+<title xml:lang="ja" type="official">新世紀エヴァンゲリオン</title>
+<title xml:lang="en" type="official">Neon Genesis Evangelion</title>
+<title xml:lang="x-jat" type="short">NGE</title>
+</anime>
+<anime aid="3">
+<title xml:lang="x-jat" type="main">Shingeki no Kyojin</title>
+<title xml:lang="ja" type="official">進撃の巨人</title>
+<title xml:lang="en" type="official">Attack on Titan</title>
+<title xml:lang="ko" type="syn">진격의 거인</title>
+<title xml:lang="ko" type="syn">Jinkyeok-ui Geoin</title>
+</anime>
+<anime aid="4">
+<title xml:lang="x-jat" type="main">Hagane no Renkinjutsushi: Fullmetal Alchemist</title>
+<title xml:lang="ko" type="syn">강철의 연금술사</title>
+<title xml:lang="ja" type="official">鋼の錬金術師</title>
+<title xml:lang="en" type="official">Fullmetal Alchemist: Brotherhood</title>
+<title xml:lang="ko" type="short">강연</title>
+<title xml:lang="ko" type="official">강철의 연금술사 브라더후드</title>
+<title xml:lang="ja" type="kana">はがねのれんきんじゅつし</title>
+</anime>
+<anime aid="5">
+<title xml:lang="x-jat" type="main">Haikyuu!!</title>
+<title xml:lang="ja" type="official">ハイキュー!!</title>
+<title xml:lang="ko" type="official">Haikyuu!!</title>
+</anime>
+<anime aid="6">
+<title xml:lang="x-jat" type="main">Kimi no Na wa.</title>
+<title xml:lang="ko" type="syn">키미노 나와</title>
+<title xml:lang="en" type="official">Your Name.</title>
+<title xml:lang="ko" type="syn">너의 이름은</title>
+</anime>
+</animetitles>

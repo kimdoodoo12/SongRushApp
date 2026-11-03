@@ -128,7 +128,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-014** data: more subtitle separators (D-051)
   - `groups.front_part` also cuts at `~`, `～`, `〜`, `–`, `—`, `―`, `／`, `－`, wherever they appear; the part before every separator is accepted (D-052); the digit rule for `/` also applies to `／` and to the wave dashes.
   - Acceptance (offline): `Attack on Titan ~Chronicle~` gives `Attack on Titan`; `Chainsaw Man – The Movie: Reze Arc` gives `Chainsaw Man`; `ゾイド新世紀／ゼロ` gives `ゾイド新世紀`; `86－エイティシックス－` gives `86`, which D-050 then rejects; a full-width `１／２` between digits is not cut; every cycle 026 test still passes. The real catalog is rebuilt from the cache and the accepted-string count recorded.
-- [ ] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
+- [x] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
   - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
   - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
 - [x] **C-009** data: manual Korean supplement (from design 014, D-040)
@@ -294,6 +294,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- AniDB (critic, cycle 043): an XML declaration with an unknown or non-text encoding raises `LookupError`, which escapes `load_korean` after the marker is written and fails the build (catch it with the parse errors, with a test); a corrupt marker blocks forever while the log says "next allowed" (say "delete <path> by hand" instead); two builds with different `--out` but one cache could both request (exclusive marker create); a multi-member gzip dump would be rejected daily; no log line before the request.
 - Reconnect (critic, cycle 042): a `create`/`join`/`rejoin` that lands while its lobby is closing is dropped by `shutdownNow()` and leaves a seat with no reply (clear seats again after shutdown, or re-check a closing flag after submit); a replacing socket can get other frames before its `joined`/`snapshot`, and two simultaneous rejoins both send their snapshot to the last socket; `leave` drops the token even when a racing rejoin won the binding; no handler-level concurrency test (parallel rejoins with one token).
 - Lobby screens (critic, cycle 041): a player who opens `/r/<code>` and presses Enter in the nickname field starts a solo game instead of joining (make 참가 the default action when a code is prefilled); new error texts and the copy button have no live-region feedback, and `navigator.clipboard` is missing on plain-http LAN addresses.
 - Solo screen (critic, cycle 039): the chat form shows while the socket is still connecting, and `send()` on a CONNECTING socket throws (hide the form until the first `prepare`, or check `readyState`); announcements ("정답!", errors, chat log) have no live region for screen readers.

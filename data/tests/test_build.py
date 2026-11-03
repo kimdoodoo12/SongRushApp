@@ -1,19 +1,22 @@
 """Cycle 023 criteria 7-12, 11b, 11c: the build command.
 
 docs/cycles/023-build-cli.md is the specification. build.run talks to a fake
-transport that routes by URL (AnimeThemes, AniList, Wikidata, aod) with a fake
-clock, and writes into tmp_path, so every test is offline and instant.
+transport that routes by URL (AnimeThemes, AniList, Wikidata, aod, AniDB) with
+a fake clock, and writes into tmp_path, so every test is offline and instant.
+Cycle 043 adds the AniDB titles dump (docs/cycles/043-anidb-korean.md).
 Imports of songrush_data.build stay inside fixtures so that a missing module
 fails these tests, not the collection.
 """
 
 import copy
+import gzip
 import hashlib
 import io
 import json
 import re
 import sys
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -28,6 +31,13 @@ KO_WIKIDATA = "".join(chr(c) for c in (0xB2F7, 0xD575, 0x0020, 0xC0AC, 0xC778)) 
 KO_AOD = "".join(chr(c) for c in (0xCE60, 0xC790, 0xB9AC, 0xC2A4))  # aod Korean title
 ACCENTED = "Pok" + chr(0x00E9) + "mon " + chr(0x014C) + "kami"
 KOREAN = "".join(chr(c) for c in (0xC9C4, 0xACA9, 0xC758, 0x0020, 0xAC70, 0xC778))
+KO_ANIDB = "".join(chr(c) for c in (0xC6D0, 0xD53C, 0xC2A4))  # AniDB Korean title
+KO_ANIDB_GAP = "".join(chr(c) for c in (0xAC15, 0xCCA0, 0xC758, 0x0020, 0xC5F0, 0xAE08, 0xC220, 0xC0AC))
+KO_ANIDB_OUTSIDE = "".join(chr(c) for c in (0xBE44, 0xBC25))  # an aid outside the crawl
+# Literal on purpose: test_anidb.py checks anidb.ANIDB_URL against the same text, and
+# importing songrush_data.anidb here would break every build test while it is missing.
+ANIDB_URL = "https://anidb.net/api/anime-titles.xml.gz"
+NOT_BEFORE = datetime(2026, 11, 3, 18, 34, tzinfo=timezone(timedelta(hours=9)))
 
 
 @pytest.fixture
@@ -60,6 +70,7 @@ def urls():
         "anilist": anilist.ANILIST_URL,
         "wikidata": wikidata.WDQS_URL,
         "aod": aod.AOD_URL,
+        "anidb": ANIDB_URL,
     }
 
 
@@ -150,6 +161,29 @@ class Sources:
         self.aod_size = len(self.aod_bytes)
         self.aod_sha256 = hashlib.sha256(self.aod_bytes).hexdigest()
 
+        # AniDB: a Korean title for the aod id (so the earlier gap counts hold),
+        # a Japanese-only aid, and a Korean title for an aid outside the crawl.
+        self.anidb_ids = {entry["anilistId"]: list(entry["anidbIds"]) for entry in selected}
+        assert all(self.anidb_ids[i] for i in self.anilist_ids)
+        self.anidb_ko_id = self.aod_ko_id
+        self.set_anidb({
+            self.anidb_ids[self.anidb_ko_id][0]: [("official", "ko", KO_ANIDB), ("main", "x-jat", "Romaji")],
+            self.anidb_ids[self.anilist_ids[1]][0]: [("official", "ja", "Nihongo")],
+            999999: [("syn", "ko", KO_ANIDB_OUTSIDE)],
+        })
+
+    def set_anidb(self, titles_by_aid):
+        """Set the AniDB dump: {aid: [(type, lang, text)]}, gzipped XML in the real form."""
+        lines = ['<?xml version="1.0" encoding="UTF-8"?>', "<animetitles>"]
+        for aid, titles in titles_by_aid.items():
+            lines.append('<anime aid="%d">' % aid)
+            for kind, lang, text in titles:
+                lines.append('<title xml:lang="%s" type="%s">%s</title>' % (lang, kind, text))
+            lines.append("</anime>")
+        lines.append("</animetitles>")
+        text = "".join(line + chr(10) for line in lines)
+        self.anidb_bytes = gzip.compress(text.encode("utf-8"))
+
     def page_body(self, page):
         data = self.page_items[page]
         return {
@@ -172,12 +206,13 @@ class Sources:
 class RoutingTransport:
     """Answers by URL and counts the requests per source."""
 
-    def __init__(self, clock, http, urls, sources, fail=None):
+    def __init__(self, clock, http, urls, sources, fail=None, anidb=None):
         self.clock = clock
         self.http = http
         self.urls = urls
         self.sources = sources
         self.fail = fail  # a source name that answers 400
+        self.anidb = anidb  # None (the dump), "503", "transport" or "429"
         self.calls = []  # (source, detail)
 
     def _ok(self, body):
@@ -223,6 +258,17 @@ class RoutingTransport:
                 })
             reply = {"results": {"bindings": bindings}}
             return self._ok(json.dumps(reply, ensure_ascii=False).encode("utf-8"))
+        if source == "anidb":
+            assert method == "GET"
+            self.calls.append((source, None))
+            if self.anidb == "503":
+                return self.http.Response(status=503, headers={}, body=b"busy")
+            if self.anidb == "transport":
+                raise self.http.TransportError("GET %s: connection reset" % url)
+            if self.anidb == "429":
+                return self.http.Response(status=429, headers={"retry-after": "1"}, body=b"")
+            assert self.anidb is None
+            return self.http.Response(status=200, headers={}, body=self.sources.anidb_bytes)
         assert method == "GET"
         self.calls.append((source, None))
         return self.http.Response(status=200, headers={}, body=self.sources.aod_bytes)
@@ -243,9 +289,9 @@ class Env:
         self.cache_root = tmp_path / "cache"
         self.out_dir = tmp_path / "out"
 
-    def transport(self, fail=None):
+    def transport(self, fail=None, anidb=None):
         clock = FakeClock()
-        return RoutingTransport(clock, self.http, self.urls, self.sources, fail=fail), clock
+        return RoutingTransport(clock, self.http, self.urls, self.sources, fail=fail, anidb=anidb), clock
 
     def run(self, transport=None, clock=None, out_dir=None, **kwargs):
         if transport is None:
@@ -600,3 +646,123 @@ def test_broken_manual_fails_before_any_request(env, tmp_path):
     assert transport.calls == []
     assert not (env.out_dir / "catalog.json").exists()
     assert not (env.out_dir / ".build.lock").exists()
+
+
+# Cycle 043 criterion 4: AniDB Korean titles in the build.
+
+ANIDB_DIR = ("anidb",)
+
+
+def _anidb_dir(env):
+    return env.cache_root.joinpath(*ANIDB_DIR)
+
+
+def _catalog(env):
+    return json.loads(env.files()[0].decode("utf-8"))
+
+
+def _entry(catalog, anilist_id):
+    return next(a for a in catalog["anime"] if a["anilistId"] == anilist_id)
+
+
+def _accepted(catalog, group_id):
+    return next(g["accepted"] for g in catalog["groups"] if g["id"] == group_id)
+
+
+def test_anidb_title_in_korean_slot_and_accepted(env):
+    from songrush_data.titles import normalize
+
+    _, transport, logs = env.run()
+    assert transport.count("anidb") == 1
+    catalog = _catalog(env)
+    entry = _entry(catalog, env.sources.anidb_ko_id)
+    # Manual first, then aod, then AniDB.
+    assert entry["titles"]["ko"] == [KO_AOD, KO_ANIDB]
+    assert entry["reveal"] == KO_AOD
+    assert normalize(KO_ANIDB) in _accepted(catalog, entry["group"])
+    text = env.files()[0].decode("utf-8")
+    assert KO_ANIDB_OUTSIDE not in text
+    assert (_anidb_dir(env) / "anime-titles.xml.gz").read_bytes() == env.sources.anidb_bytes
+    assert (_anidb_dir(env) / "attempt.json").is_file()
+    assert any(line.startswith("anidb aids_with_korean=") for line in logs), logs
+
+
+def test_anidb_title_fills_a_korean_gap(env):
+    from songrush_data.titles import normalize
+
+    target = env.sources.anilist_ids[0]  # aod has no Hangul for it, Wikidata none
+    env.sources.set_anidb({
+        env.sources.anidb_ids[target][0]: [("syn", "ko", KO_ANIDB_GAP)],
+    })
+    report, _, _ = env.run()
+    catalog = _catalog(env)
+    entry = _entry(catalog, target)
+    assert entry["titles"]["ko"] == [KO_ANIDB_GAP]
+    assert entry["reveal"] == KO_ANIDB_GAP
+    assert normalize(KO_ANIDB_GAP) in _accepted(catalog, entry["group"])
+    assert target not in [g["anilistId"] for g in report["koreanGaps"]]
+
+
+def test_manual_title_comes_before_anidb(env, tmp_path):
+    target = env.sources.anidb_ko_id
+    manual_path = _write_manual(tmp_path / "manual.json", {str(target): [KO_MANUAL]})
+    env.run(manual_path=manual_path)
+    entry = _entry(_catalog(env), target)
+    assert entry["titles"]["ko"] == [KO_MANUAL, KO_AOD, KO_ANIDB]
+
+
+def test_second_run_makes_no_anidb_request(env):
+    env.run()
+    first = env.files()
+    _, transport, _ = env.run()
+    assert transport.count("anidb") == 0
+    assert env.files() == first
+
+
+def test_refresh_all_does_not_touch_anidb(env):
+    env.run()
+    dump = _anidb_dir(env) / "anime-titles.xml.gz"
+    before = dump.read_bytes()
+    _, transport, _ = env.run(refresh_all=True)
+    assert transport.count("anidb") == 0
+    assert dump.read_bytes() == before
+
+
+@pytest.mark.parametrize("reply", ["503", "transport", "429"])
+def test_anidb_failure_makes_one_request_and_build_succeeds(env, reply):
+    # The real PoliteClient inside build.run, so its built-in retries must be off.
+    transport, clock = env.transport(anidb=reply)
+    report, _, logs = env.run(transport=transport, clock=clock)
+    assert transport.count("anidb") == 1
+    catalog_bytes, _ = env.files()
+    assert KO_ANIDB not in catalog_bytes.decode("utf-8")
+    assert _entry(_catalog(env), env.sources.anidb_ko_id)["titles"]["ko"] == [KO_AOD]
+    assert report["catalogBytes"] == len(catalog_bytes)
+    assert (_anidb_dir(env) / "attempt.json").is_file()
+    assert not (_anidb_dir(env) / "anime-titles.xml.gz").exists()
+    assert any(line.startswith("warning: anidb skipped: ") for line in logs), logs
+    assert not (env.out_dir / ".build.lock").exists()
+
+    # Within 24 h of the attempt, a rerun makes no AniDB request.
+    _, again, _ = env.run()
+    assert again.count("anidb") == 0
+
+
+@pytest.mark.parametrize("fail", ["animethemes", "anilist"])
+def test_failing_required_source_makes_no_anidb_request(env, http, fail):
+    transport, clock = env.transport(fail=fail)
+    with pytest.raises(http.HttpError):
+        env.run(transport=transport, clock=clock)
+    assert transport.count(fail) == 1
+    assert transport.count("anidb") == 0
+    assert not (_anidb_dir(env) / "attempt.json").exists()
+
+
+def test_build_clock_before_not_before_makes_no_anidb_request(env):
+    transport, clock = env.transport()
+    clock._wall = NOT_BEFORE.timestamp() - 3600.0
+    _, _, logs = env.run(transport=transport, clock=clock)
+    assert transport.count("anidb") == 0
+    assert not (_anidb_dir(env) / "attempt.json").exists()
+    assert (env.out_dir / "catalog.json").is_file()
+    assert any(line.startswith("anidb skipped: not before ") for line in logs), logs
