@@ -141,7 +141,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Re-research how to fetch, cache and serve the songs (D-009, D-018, D-019, D-021, D-026, D-027), including what browsers can play and how every player starts at the same moment.
   - Output: a design doc plus C-, B- and F- items.
   - Real-device checks need the user (Needs decision).
-- [ ] **C-015** data: audio prefetch (from S-002, design 029)
+- [~] **C-015** data: audio prefetch (from S-002, design 029)
   - `python -m songrush_data.audio` downloads every draw-set theme's audio from `audio.url` to `data/audio-cache/<basename>` (folder gitignored): `GET` only (`HEAD` is 403), the SongRush User-Agent, one request at a time, at least 3 s apart, timeout of at least 60 s, `Retry-After` honoured; each file is written to `<basename>.part`, checked against the catalog's `audio.size` and the Ogg `OpusHead` header, then renamed; leftover `.part` files are overwritten; files already present and listed in the index are skipped, so a rerun resumes.
   - It writes `data/audio-cache/index.json`: theme id -> `{basename, size, durationMs}`, duration from the last granule position minus pre-skip at 48 kHz.
   - It stops at once on a local write error (removing the `.part`) and after 5 consecutive failed downloads; a lock file prevents two runs, and a stale lock gives a clear message to delete it; a summary logs done/skipped/failed counts and bytes.
@@ -245,6 +245,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Audio prefetch (critic, cycle 030): a 429 with `Retry-After` over 300 s ends the run after five `BackedOffError` failures without logging the wait, and the next process forgets it. Stop at once on `BackedOffError` with the wait time in the message, and persist the not-before time in the cache folder. Also: timestamps on log lines, the PID in the stale-lock message, and a test pinning `main`'s gap 3.0 s and timeout 120 s. Until fixed, the lead waits at least an hour before restarting a run that stopped on 429.
 - Manual Korean tests (critic, cycle 028): pin that a broken manual file with `refresh_all=True` leaves the `al-`/`wd-` caches intact (validation before the clear), and that a manual title beats an aod title for the reveal when both exist for one id (`merge_korean(manual, aod)` order). Mutating either order today still passes all tests.
 - Range exception (critic, cycle 027): D-052's own example `13話～16話` is still cut, because the digit rule needs digits on both sides of the wave dash and here `話` precedes it. One extra string of the same anime results (group 5671); widen the rule to a digit run plus a counter suffix if it matters.
 - Front part (critic, cycle 026): add a test that full-width digits around an ASCII `/` are not cut (implemented, not pinned).
