@@ -83,3 +83,8 @@ Both say a watcher's chat is "broadcast but not judged". Broadcasting it would l
 
 ## Out of scope
 The client UI for watching (F-005).
+
+## Code review round 1 and attempt 2
+- **High (critic).** During a game the cap counts only connected or in-grace members, and members who `leave` stay until the return; one socket repeating `join`/`leave` grows the member list (and, across a song boundary, the Room players, `scores` and ranking) without bound, enlarging every `roster` until other players' outbound queues overflow (before this cycle, joins during a game were rejected).
+- **Added rule.** During a game the lobby also refuses a `join` with `room-full` when it already holds `2 * MAX_PLAYERS` (16) members of any state (connected, in grace, left or expired). In LOBBY the existing 8-member cap is unchanged.
+- **Added criterion 2b (`LobbyJoinChurnTest`).** In a running game with 3 connected players, 100 rounds of `join` + `leave` by new ids keep `names().size()` at most 16, the joins beyond that get `room-full`, and after `gameOver` the returned lobby holds only the still-connected members.
