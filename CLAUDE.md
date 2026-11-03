@@ -71,7 +71,7 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
     - Request only the ids AnimeThemes lists (D-036).
     - Wikidata SPARQL: batch the ids.
     - aod: use the pinned release `2026-27`; the repository is archived.
-- **AniDB:** download the titles dump at most once per 24 h. The last request was 2026-11-02 18:34 KST, so the next is allowed from **2026-11-03 18:34 KST**.
+- **AniDB:** download the titles dump at most once per 24 h (`songrush_data.anidb` enforces it with `data/cache/anidb/attempt.json`). The last request was 2026-11-03 19:45 KST, so the next is allowed from **2026-11-04 19:45 KST**; the cached dump is reused, so a rebuild makes no AniDB request.
 - Live requests to external sources happen only in design cycles and the data tools, and later in the backend's lobby fetch; never in tests. Tests use saved fixtures (`data/tests/fixtures/`: saved external responses and samples) and a conftest guard that blocks DNS and socket connects, so they run offline and deterministically.
 
 ## Multiplayer rules
