@@ -1,43 +1,89 @@
 # 056 smoke-check (I-005)
 
 ## Goal
-`deploy/smoke.py <base-url>` checks a deployed site in four steps and exits 0 only if all pass. It uses the Python standard library only, with a minimal hand-written WebSocket client, so the owner's PC needs nothing extra (design 052).
+`deploy/smoke.py <base-url>` checks a deployed site in four steps and exits 0 only if all of them pass. It uses only the Python standard library, with a small hand-written WebSocket client, so the owner's PC needs nothing extra (design 052).
 
 ## Behaviour
-- **Usage.** `python deploy/smoke.py <base-url>`, where `<base-url>` is `http://` or `https://` host[:port] with no path, or a trailing `/`. Anything else exits 2 with a usage line. It sets `User-Agent: SongRushSmoke/1` and a 15 s timeout per request.
-- **The four checks.** Each prints one line, `OK <name>` or `FAIL <name>: <reason>`, in this order. It runs all four even if one fails.
-  1. **`health`:** `GET /health` gives 200 with JSON exactly `{"ok": true}`.
+- **Usage.** `python deploy/smoke.py <base-url>`.
+  - `<base-url>` is `http://` or `https://` followed by `host[:port]`, with either no path or only a trailing `/`.
+  - Anything else exits 2 with a usage line.
+  - Every request sends `User-Agent: SongRushSmoke/1`, has a 15 s timeout, and never sends `Accept-Encoding`. Caddy's gzip therefore never applies.
+- **Output.** Each check prints one line, `OK <name>` or `FAIL <name>: <reason>`, in the order below. All four checks run even if one fails.
+  1. **`health`:** `GET /health` returns 200 and `json.loads(body) == {"ok": True}`. The real server sends `{"ok":true}` with no spaces (review H2).
   2. **`credit`:**
-     - `GET /` gives 200 HTML.
-     - It finds every `<script type="module" ... src="...">` and fetches each src relative to the base URL.
-     - At least one fetched script contains the D-023 credit line, encoded in UTF-8: `데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata`. The string is kept as written in the source; the file is UTF-8.
-  3. **`room-link`:** `GET /r/ABCDE` gives 200 with a body byte-identical to the body of `GET /`.
+     - `GET /` returns 200 HTML.
+     - Every `<script type="module" ... src="...">` is fetched, matched with its attributes in any order and with the src resolved against the base URL.
+     - At least one script contains the D-023 credit line as UTF-8 bytes. The Vite bundle keeps that line as a literal UTF-8 string; this was checked in `frontend/dist`.
+  3. **`room-link`:** `GET /r/ABCDE` returns 200 with a body byte-identical to that of `GET /`.
   4. **`websocket`:**
-     - Connect to `ws://` or `wss://` (matching the base URL) `host[:port]/ws`, using `ssl.create_default_context()` for wss. Send a handshake with `Origin: <base-url without trailing slash>` and a random 16-byte `Sec-WebSocket-Key`.
-     - Require `101` and a `Sec-WebSocket-Accept` that matches RFC 6455.
-     - Send a masked text frame `{"type":"create","nickname":"smoke"}`. Read unmasked server text frames, handling 7-bit, 16-bit and 64-bit lengths and skipping ping or other frames, until one with `"type":"joined"` arrives (pass), `"type":"error"` arrives (fail, with its code), or 10 s pass (fail).
+     - Connect to `ws://` or `wss://` (matching the base URL) at `host[:port]/ws`, using `ssl.create_default_context()` for wss.
+     - Send a handshake with:
+       - `Host` set to the netloc of the base URL, including the port when one is given;
+       - `Origin` set to `<scheme>://<netloc>` (Spring's same-origin check compares the two; review M2);
+       - a random 16-byte `Sec-WebSocket-Key`.
+     - Require a `101` response and a `Sec-WebSocket-Accept` that matches RFC 6455.
+     - Send the masked text frame `{"type":"create","nickname":"smoke"}`.
+     - Read the unmasked server text frames, handling 7-bit, 16-bit and 64-bit lengths and skipping ping and other frames:
+       - a frame with `"type":"joined"` passes;
+       - a frame with `"type":"error"` fails, with its code in the reason;
+       - 10 s with neither fails.
      - Then send `{"type":"leave"}` and a close frame.
-- **Exit code.** 0 if all four pass, 1 otherwise.
-- **Code layout.** The functions are importable for tests (`main(argv) -> int`); the script calls `sys.exit(main(sys.argv[1:]))` under `if __name__ == "__main__"`.
+     - Wait up to 2 s for the server's close frame or EOF, then close the socket. Closing with unread data makes Windows send RST and drop the `leave` (review M1).
+- **Exit code.** 0 if all four pass, otherwise 1.
+- **Layout.**
+  - The functions are importable for tests: `main(argv) -> int`.
+  - The script runs `sys.exit(main(sys.argv[1:]))` under `if __name__ == "__main__"`.
+
+## Encoding rule (review H1, B2)
+- **ASCII and LF only.** `deploy/smoke.py` contains only ASCII with LF line endings. The cycle 055 deploy-kit test checks every file under `deploy/`, and `.gitattributes` now keeps `deploy/**` LF.
+- **Building the credit line.** It is built from integer code points. Example:
+  - `''.join(chr(c) for c in (0xB370, 0xC774, 0xD130, 0x20, 0xCD9C, 0xCC98))`
+  - followed by the ASCII tail `': AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata'`.
+- **Forbidden in the source.** String escape notation and Korean literals. File-writing tools turn escape notation into the real characters (CLAUDE.md pitfall).
+- **Check after writing.** The author confirms the file has 0 non-ASCII bytes.
+- **The test** builds its expected string the same way.
+- **No bytecode.** `test_smoke.py` imports `deploy/smoke.py` with `sys.dont_write_bytecode = True`, monkeypatched for the import. This keeps `deploy/__pycache__/` from appearing. Otherwise the deploy-kit ASCII test would fail from the second run on.
 
 ## Acceptance criteria (pytest, from `data/`; loopback only, as the conftest guard allows)
-`data/tests/test_smoke.py` starts a stub server on `127.0.0.1` with a free port in a background thread. The stub is built on `socketserver.ThreadingTCPServer` with a hand-written HTTP/WebSocket responder; it is part of the test file. The test imports `deploy/smoke.py` by path with `importlib.util`.
+`data/tests/test_smoke.py` runs a stub server on `127.0.0.1` with a free port in a background thread. The stub is a `socketserver.ThreadingTCPServer` with a hand-written HTTP/WebSocket responder, inside the test file. The test imports `deploy/smoke.py` by path with `importlib.util`.
 
 1. **All good.**
-   - The stub serves `/health` and an `index.html` whose module script `/assets/app.js` contains the credit line. `/r/ABCDE` serves the same `index.html`.
-   - `/ws` completes the handshake, checks that the client frame is masked, and answers `joined`.
-   - Result: `main([base])` returns 0, the output has four `OK` lines in order, and the stub saw the `leave` frame.
+   - The stub serves:
+     - `/health` as `{"ok":true}`;
+     - an `index.html` whose module script `/assets/app.js` contains the credit line;
+     - `/r/ABCDE` as the same `index.html`;
+     - `/ws`, which:
+       - checks that `Host` equals `127.0.0.1:<port>` and `Origin` equals `http://127.0.0.1:<port>`;
+       - completes the handshake;
+       - checks that the client frame is masked;
+       - answers `joined`, then `roster` and `token` frames, as the real server does.
+   - `main([base])` returns 0 and the output has four `OK` lines in order.
+   - The stub records the `leave` frame. The test waits for it on a `threading.Event` for up to 5 s.
 2. **Missing credit line.** The script lacks the credit line, so the result is 1 with `FAIL credit`. The other three are `OK`.
 3. **WebSocket error.** The stub answers `{"type":"error","code":"server-full"}`, so the result is 1 with `FAIL websocket` and `server-full` in the reason.
 4. **Bad handshake.** The stub answers the upgrade with 403, so the result is 1 with `FAIL websocket`.
 5. **Room link differs.** `/r/ABCDE` returns 404, so the result is 1 with `FAIL room-link`.
-6. **Health wrong.** `/health` returns `{"ok": false}`, so the result is 1 with `FAIL health`.
-7. **Bad arguments.** `main([])`, `main(["ftp://x"])` and `main(["http://h/path"])` return 2.
-8. **Large frame.** The stub sends the `joined` message padded past 126 bytes, so the client has to read a 16-bit length. The result is still 0.
-9. **Encoding.** `deploy/smoke.py` is UTF-8 with LF line endings and only uses the standard library: its imports are checked against `sys.stdlib_module_names`.
+6. **Health wrong.** `/health` returns `{"ok":false}`, so the result is 1 with `FAIL health`.
+7. **Bad arguments.** `main([])`, `main(["ftp://x"])` and `main(["http://h/path"])` all return 2.
+8. **Large frame.** The stub pads the `joined` message past 126 bytes, so the client has to read a 16-bit length. The result is still 0.
+9. **Encoding.**
+   - `deploy/smoke.py` is ASCII with LF line endings.
+   - It imports only standard-library modules, checked against `sys.stdlib_module_names`.
+   - After the test run, no `deploy/__pycache__` exists.
 10. The full `.venv\Scripts\python.exe -m pytest` passes, including the cycle 055 deploy-kit tests.
 
-The cycle 055 deploy-kit test requires every file in `deploy/` to be ASCII. A Korean literal in `smoke.py` would fail it, so the credit line must be built from code points, as in the CLAUDE.md pitfall (for example `"데..."`-style escapes written as ASCII text, or `chr()`). Criterion 9 then means ASCII-only text.
+## Review changes (spec round 1)
+- **Blocker.**
+  - After checkout, `deploy/` files were CRLF because of `core.autocrlf=true`. This already failed the deploy-kit ASCII/LF test on `dev`.
+  - Fixed in this cycle by the `.gitattributes` rule `deploy/** text eol=lf` (commit `45b9813`), and a CLAUDE.md pitfall was added.
+  - Importing `smoke.py` must not write bytecode under `deploy/`.
+- **High.**
+  - There is now a single encoding rule: ASCII, with the credit line built from code points.
+  - `/health` is compared as JSON.
+- **Medium.**
+  - The client waits for the server's close before closing.
+  - The Host/Origin rule is stated.
+- **Nit.** No `Accept-Encoding` header.
 
 ## Test list
 - `data/tests/test_smoke.py`
