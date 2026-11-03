@@ -221,7 +221,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - An unexpected close of a room session retries with backoff (0.5 s doubling to 10 s) within the 30 s grace; a `rejoin-failed` or a time-out returns to the start screen with a message; the snapshot restores the lobby or the game (loading and scheduling the current song as a late start).
   - Acceptance (Vitest with a mocked WebSocket): reconnect after a drop restores the lobby and a running song; no reconnect after 4001; rejoin-failed and time-out paths; `npm test`, `lint`, `build` exit 0.
 
-- [ ] **B-008** backend: confirmed own skip vote (from the cycle 048 review; M-3)
+- [~] **B-008** backend: confirmed own skip vote (from the cycle 048 review; M-3)
   - `skipState` is broadcast without voters, so the client guesses its own vote from its clicks, and a `skipState` that arrives between a click and its `rate-limited` error makes the guess wrong. Send each connected player their own `voted` flag (per-player `skipState`, or a `for:"skipVote"` field on the rate-limit error) and let the client use it.
   - Acceptance (JUnit): each player's `skipState` carries their own `voted`; a rate-limited skip leaves it unchanged; the lobby still never uses `toAll`.
 - [ ] **F-007** frontend: drift without lateness (from the cycle 048 review; M-3)
