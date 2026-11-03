@@ -173,7 +173,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-007** backend: minimal WebSocket endpoint for solo play (from S-003, design 034; M-1)
   - `/ws` raw WebSocket with JSON `{type, ...}`: `create{nickname, songCount}` makes a one-player room that starts at once; the client receives `prepare`, `start`, `chat`, `correct`, `reveal`, `scores`, `gameOver`, `pong`, `error`; it sends `ready{index}`, `chat`, `ping`, `leave`. Each session has a bounded outbound queue drained by its own sender, so the room executor never blocks; a session whose queue overflows is closed. From the cycle 036 review: the `Outbox` must never throw into the room (a throw mid-transition leaves the room stuck in REVEAL); per-recipient failures are dropped and logged, and a test pins it. Message size 4 KiB; nickname 1-16, chat 200 characters.
   - Acceptance (JUnit, RANDOM_PORT, `StandardWebSocketClient`, fixture catalog and audio cache in a temp data dir): a solo game of 5 songs runs to `gameOver` with correct answers and timeouts; `prepare.audioUrl` downloads through `/audio/<token>`; oversize input gives `error`; ping returns server time.
-- [ ] **F-001** frontend: React JavaScript bootstrap
+- [~] **F-001** frontend: React JavaScript bootstrap
   - `frontend/`: React with JSX, Vite, Vitest with jsdom and Testing Library, ESLint with a flat config. No `.ts` or `.tsx` files, and no TypeScript dependency.
   - Acceptance:
     - The app renders an `h1` "SongRush". A test pins it.
