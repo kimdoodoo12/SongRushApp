@@ -164,7 +164,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From S-002 (design 029): include the clock-offset exchange, the server-announced `startAt`, Web Audio scheduling with full decode before start, the audio-unlock click, and the round end at `min(duration, 90 s)`.
   - Output: a design doc plus B- and F- items.
 
-- [ ] **B-004** backend: Java normalize (from S-003, design 034; M-1)
+- [~] **B-004** backend: Java normalize (from S-003, design 034; M-1)
   - `com.songrush.game.Normalize.normalize(String)` reproduces `data/songrush_data/titles.py` `normalize` step by step (NFKC, lowercase with Locale.ROOT plus `ß`->`ss` and final sigma, strip U+0300-U+036F, `×`->`x`, remove categories P/S/Z/Cc/Cf and the extra code points, final NFC).
   - Acceptance (JUnit): every vector in `contracts/normalize-vectors.json` passes; a test reads the vector file from the repo path so both languages share it.
 - [ ] **B-006a** backend: one room's song state machine (from S-003, design 034; M-1)
