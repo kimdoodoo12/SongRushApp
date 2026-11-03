@@ -185,7 +185,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From the cycle 037 review: `/ws` keeps Spring's same-origin check, so the dev server must proxy `/ws` and `/audio` without `changeOrigin` (or a dev-only allowed origin), else the handshake gets 403.
   - A start screen (nickname, song count) and a play screen: an audio-unlock click (`AudioContext.resume()`), fetch and decode of `prepare.audioUrl`, then `ready{index}`, playback at `start` (from offset `now - startAt` if late, stopping at `deadlineAt`), a remaining-time bar (D-060), chat input, "정답!" announcement, reveal card, final score; Korean UI; the credit line (D-023); an "update your browser/iOS" notice when Ogg Opus cannot play (D-053).
   - Acceptance (Vitest with a mocked WebSocket and AudioContext): message flow renders each phase; a late start uses the offset; unsupported audio shows the notice; `npm test`, `npm run lint`, `npm run build` exit 0.
-- [ ] **B-005a** backend: rooms and lobby (from S-003, design 034; M-2)
+- [~] **B-005a** backend: rooms and lobby (from S-003, design 034; M-2)
   - 5-character room codes from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` with collision retry; `join{code, nickname}` up to 8 players (D-046) with nickname dedupe ` (2)` (D-048); host and host transfer to the longest-connected player; `start` by the host with 5-30 songs (D-058); back to the lobby after `gameOver` (D-062); an empty room deleted after 2 minutes, an idle lobby after 10 minutes; roster broadcasts allow-listed (name, score, host, connected).
   - Acceptance (JUnit): codes, join limits, dedupe, host transfer, start rights, restart, cleanup with a fake clock, roster JSON allow-list.
 - [ ] **F-003** frontend: lobby screens (from S-003, design 034; M-2)
