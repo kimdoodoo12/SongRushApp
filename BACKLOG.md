@@ -192,7 +192,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From the cycle 040 review: the server now sends `joined{code, name}`, `roster{phase, players}` and `error{code:"room-closed"}`; a solo game returns to its lobby after `gameOver`, so 10 idle minutes later the cycle 039 final-score screen shows "오류가 발생했습니다 (room-closed)". Handle `room-closed` (a Korean message, back to the start), and close the socket when leaving the final-score screen.
   - Create a room, join by code or `/r/<code>`, nickname, roster with host mark, song count (host), start; restart after a game.
   - Acceptance (Vitest with a mocked WebSocket): each flow renders and sends the right messages; `npm test`, `lint`, `build` exit 0.
-- [ ] **B-005b** backend: reconnect (from S-003, design 034; M-3)
+- [~] **B-005b** backend: reconnect (from S-003, design 034; M-3)
   - From the cycle 040 review: `leave` frees the seat on the I/O thread but removes the player's queue only later on the lobby thread, so a quick `leave` then `create`/`join` can receive one stale frame from the old lobby (frames carry no room code); remove the player's queue from the lobby's map on the I/O thread at once.
   - A per-player token kept by the client; reconnect within 30 s keeps seat and score with an allow-listed snapshot; a second socket with the same token replaces the first with close code 4001; with zero connected players the game pauses and re-prepares the current song on the first reconnect.
   - Acceptance (JUnit, fake clock): reconnect within and after the grace; replacement; pause and resume; snapshot JSON contains no other player's token and no catalog field.
