@@ -70,3 +70,14 @@ When every player of a running game has disconnected, the game stops using up so
 - **Added rule.** While paused, when no Room player is connected or in grace any more (the last one's grace expires, or the last one in grace sends `leave`), the lobby abandons the game: it drops the `Room` (nothing more from it is delivered), clears the Room players, removes members whose grace expired, returns to LOBBY, sends `roster{phase:"lobby"}` to the connected members, arms the idle timer, and leaves an already running empty timer untouched (it is not re-armed, so the close time does not move). No `gameOver` is sent.
 - **Added criterion 2b (`LobbyAbandonTest`).** A spectator is connected; both Room players disconnect (pause); after `GRACE` the spectator receives `roster{phase:"lobby"}` with only themselves, `lobby.phase()` is LOBBY, the host can start again, and with nobody joining the lobby closes at `IDLE_TTL`. Variant: one Room player leaves while the other is in grace, then that grace expires — same result. Without a spectator, the existing empty-timer close still applies (no change).
 - **Test conflict (attempt 2).** The attempt-1 test `LobbyPauseTest.ifNobodyReconnectsNothingIsSentAndTheLobbyClosesAtTheEmptyTtl` asserted the game still paused (`PLAYING`) at `EMPTY_TTL - 1 ms`; under the added rule the game is abandoned once the last grace expires, so that one assertion now expects `LOBBY`. The lead unlocked the tests for this single-line change, made by the test writer, and locked them again; every other assertion in that test is unchanged.
+
+## Result
+- Attempt 1: tests `77f8308` (locked), implementation `478c4db`; verifier green (184 tests), but the critic found High H1 (a connected spectator could keep a paused game alive forever).
+- Attempt 2: abandon rule added to the spec (`5247893`), new test `LobbyAbandonTest` `42210d5` (red on attempt 1 for the right reason: no lobby roster, phase still PLAYING), one conflicting attempt-1 assertion corrected `b744b9a`, implementation `0764843`.
+- Verifier (attempt 2): `cleanTest test` and `build` exit 0; 190 tests, 0 failures (LobbyAbandonTest 6, LobbyPauseTest 6, RoomPauseTest 16); no test change in the feat commit; exactly one changed test line between `42210d5` and `b744b9a`.
+
+## Code review (critic, attempt 2)
+H1 fixed on every path (grace expiry, leave of the last player in grace, leave of a connected Room player, a spectator's reconnect cancelling the empty timer); the abandon cannot fire while a Room player is connected or in grace; the dropped Room sends nothing more.
+- **M1 (follow-up).** The connected-leave abandon path has no pinning test.
+- **M2 (to F-005).** The current client ignores a lobby roster that arrives without `gameOver`.
+- **Nit (follow-up).** That leave path sends a `playing` roster just before the `lobby` roster.
