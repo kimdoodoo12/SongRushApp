@@ -237,7 +237,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `deploy/Caddyfile`, `deploy/songrush.service` (`-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`, `SERVER_ADDRESS=127.0.0.1`), `deploy/setup.sh` (Ubuntu 24.04), `deploy/upload.sh` (OpenSSH `sftp` only, resumable, exact boot jar).
   - From the cycle 054 review: `upload.sh` always uploads `index.html` (a same-size new index would be skipped); the unit fixes `WorkingDirectory` to a folder with no `public/`, `static/` or `src/main/webapp/` (Boot also serves the servlet document root); the web folder holds no symlinks.
   - Acceptance (pytest `data/tests/test_deploy_kit.py`, offline): `bash -n`; ASCII + LF; unit env keys are `SongrushProperties` fields or allow-listed Spring keys; `upload.sh --dry-run` runs no `ssh`/`sftp` (stub PATH). The lead adds `"deploy": {"data"}` to the Stop hook's `EXTRA_AREAS`.
-- [~] **I-005** smoke check script (from M-4, design 052)
+- [x] **I-005** smoke check script (from M-4, design 052)
   - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
   - Acceptance (pytest, loopback stub server): all pass gives exit 0; a missing credit line or an `error` reply gives exit 1 naming the check.
 - [ ] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
@@ -260,7 +260,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 ## Needs decision
 
-- [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `deploy/README.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. Needs the owner's account and D-066.
+- [?] **I-007** Deploy and smoke (from M-4, design 052): the owner follows `deploy/README.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's account and D-066.
 - [?] **D-066** Hostname for HTTPS (design 052): (a) a free IP-based name such as `<ip>.sslip.io` with Caddy's automatic certificate (no cost, no account; changes with the IP) - recommended to start; (b) a bought domain (about 15,000 KRW/year) on an Elastic IP; (c) DuckDNS (free, needs an account).
 - [?] **D-068** AWS sign-up plan and host (design 053; refines D-065, whose "12 months free" no longer applies to new accounts): Free plan (closes itself at 6 months or when the $100 credit runs out; data deleted 90 days later) vs Paid plan (same credits, never closes; pay after credits). Recommended: Paid plan + EC2 t3.micro + 16 GB gp3 + an AWS Budgets alert (free while credits last, then about $15/month; Lightsail Micro $7 later is an option).
 - [?] **D-067** Revisit D-025/D-057 before going public (design 052): (a) keep the modified-client risk accepted for friends-only play - recommended; (b) encrypt each round's audio and send the key at `startAt` (about one backend + frontend cycle).
@@ -338,6 +338,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Smoke test gaps (critic, cycle 056): the stub does not check that the client sends a close frame and waits for the server's close; the send branches for frames over 125 bytes are unused and could be removed.
 - Static serving (critic, cycle 054): add `spring.web.resources.cache.cachecontrol.no-cache=true` so a stale cached `index.html` cannot point at deleted hashed assets after a redeploy; resolve both guard paths with `toRealPath()` (symlinks); select guarded locations through `ResourceLoader` instead of a case-sensitive `file:` prefix and reject locations that are neither `file:` nor `classpath:`; tighten `StaticGuardTest` to the guard's own message.
 - Per-IP limits (plan 052, dropped from M-4): open WebSocket connections and `create` rate per client IP, once the server is public; mind carrier NAT false positives.
 - Drift correction (critic, cycle 051): no test pins the `max` in `clockSync.lowerBound()` (a lower bound arriving after a higher one must not move the start); a backward clock step during a provisional song can move it slightly later (never earlier).

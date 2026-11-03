@@ -95,3 +95,28 @@
 ## Out of scope
 - Running against the real server (I-007).
 - Checking audio.
+
+## Result
+- **Commits.**
+  - `45b9813` fixed the spec-review Blocker: CRLF `deploy/` files on checkout. `deploy/**` is now LF, and a CLAUDE.md pitfall records it.
+  - `288e698` holds the tests (locked).
+  - `fbcdd47` holds the implementation (attempt 1).
+- **Red phase (verifier).** 13 of 19 failed on the missing `deploy/smoke.py`. The 721 others passed, including the 20 deploy-kit tests, and no `deploy/__pycache__` was written.
+- **Verifier.**
+  - `pytest tests/test_smoke.py`: 19 passed.
+  - Full suite: 734 passed, twice, with no `deploy/__pycache__` afterwards.
+  - `smoke.py` is ASCII with LF.
+  - **Real backend.** The jar was rebuilt and served a copy of `frontend/dist` on port 18081. `deploy/smoke.py http://127.0.0.1:18081` printed `OK health`, `OK credit`, `OK room-link` and `OK websocket`, and exited 0. Against a closed port it printed four `FAIL ... ConnectionRefusedError` lines and exited 1.
+
+## Code review (critic)
+No Blocker, High or Medium. Confirmed:
+- the RFC 6455 send and receive framing;
+- TLS with SNI and certificate checks;
+- the handshake passing Spring's same-origin check behind Caddy, through forwarded headers;
+- every blocking read bounded by a deadline;
+- a smoke lobby freed within about 2.5 minutes;
+- no other file needs an LF rule (`backend/gradlew` already has one).
+
+Nits (follow-up):
+- The wss and over-125-byte send branches only run against the real server (I-007).
+- The stub does not check the close handshake.
