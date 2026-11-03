@@ -125,3 +125,27 @@ The Stop hook maps top-level folders to test areas. The lead adds `"docs": {"dat
 ## Out of scope
 - Running anything on AWS (I-007).
 - Changing the deploy scripts. `upload.sh`'s `.\gradlew.bat` hint is a follow-up.
+
+## Result
+- **Commits.**
+  - Tests: `c3512ac` (locked).
+  - Guide: `a5b190c` (attempt 1) and `2ff2baa` (attempt 2, after the review High).
+  - Stop hook: `9a33364`, which maps `docs/` to the data tests.
+- **Red phase (verifier).** The 6 guide tests failed because the guide did not exist; the 33 parser self-tests passed, and each rule was proven to bite.
+- **Verifier, attempt 1.**
+  - 39 guide tests passed; the full suite passed with 790.
+  - The guide's local commands ran as written in Git Bash: `./gradlew.bat build`, then `npm ci && npm run build`, then the `upload.sh --dry-run` batch.
+  - The `icacls ... //inheritance:r //grant:r "${USERNAME}:R"` fix left only the user's read access on a dummy key.
+- **Verifier, attempt 2.** The same tests pass. Each fenced block in the restart section is local-only or server-only.
+
+## Code review (critic)
+- **Attempt 1, High.** The restart section had one block mixing a local `ssh` with server-side `setup.sh` and `exit` lines. Pasted as one, it either feeds the host-key prompt or runs on the PC and closes Git Bash. It was split in attempt 2.
+- **Mediums, fixed in attempt 2.**
+  - Wait for the certificate before the smoke check.
+  - A `Permission denied (publickey)` help entry.
+  - Do not reuse `setup.sh`'s key-less upload hint.
+  - A `pwd` check.
+- **Confirmed.**
+  - Step order and paths: `setup.sh` and `upload.sh` locate their files themselves.
+  - Costs match design 053.
+  - No secrets are pasted anywhere.
