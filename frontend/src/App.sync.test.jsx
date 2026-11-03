@@ -244,7 +244,7 @@ describe('synced offset', () => {
     ctx.currentTime = 10
     // Receipt offset 500, synced offset 2500: the song is 3 s away by the
     // synced clock and would be 5 s away by the receipt one.
-    deliver(socket, startAt(env, { receiptMs: 500, startInMs: 3000 }))
+    deliver(socket, startAt(env, { receiptMs: 4500, startInMs: 3000 }))
     await flushUntil(() => ctx.startedSources().length === 1)
     expect(ctx.startedSources()).toHaveLength(1)
     const source = ctx.startedSources()[0]
@@ -261,7 +261,7 @@ describe('synced offset', () => {
     const ctx = env.audio.last
     ctx.currentTime = 10
     // By the receipt offset (500) the song would be 1 s away instead.
-    deliver(socket, startAt(env, { receiptMs: 500, startInMs: -1000 }))
+    deliver(socket, startAt(env, { receiptMs: 4500, startInMs: -1000 }))
     await flushUntil(() => ctx.startedSources().length === 1 && screen.queryByRole('progressbar') !== null)
     const [when, offset] = ctx.startedSources()[0].start.mock.calls[0]
     expect(when).toBeCloseTo(10, 6)

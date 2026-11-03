@@ -87,3 +87,7 @@ The client also never starts a song early after its clock jumps (cycle 047 revie
 ## Out of scope
 - Automatic reconnect (F-006).
 - Restart controls beyond the cycle 041 `대기실로` flow.
+
+## Locked-test correction (attempt 1)
+- The implementer reported (and the lead confirmed from the test source) that two more cycle 047 tests in `App.sync.test.jsx` — "start schedules source.start from the synced offset, not the receipt offset (2 s apart)" and "a song 1 s late by the synced clock ..." — use `receiptMs: 500` against a synced offset of 2500. That is a drift of -2000, so under this cycle's rule the smaller (receipt) offset wins and they cannot keep `when` 13 / 10; the spec had missed them.
+- Declared change: those two tests use `receiptMs: 4500` instead (still 2 s apart, now on the side where the synced offset is the smaller one), so they keep asserting that the synced offset is used; nothing else in them changes. The lead unlocked the tests for this change only and locked them again.
