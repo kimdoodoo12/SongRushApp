@@ -96,3 +96,27 @@ Solo players and room hosts can choose 곡 종류 and a 연도 range next to the
 ## Out of scope
 - Popularity tiers (D-069).
 - Showing the host's choices to others before the game starts.
+
+## Result
+- Tests `a6924b2` (locked), implementation `ccece9e` (attempt 1).
+- The lead's first lock used globs that also covered the two new test files. The test writer stopped at the guard and reported it, and the lock was redone with explicit file names.
+- Red phase (verifier): 19 of 24 App tests failed on missing controls, and `filters.test.js` failed to import `./filters.js`. The 5 passing tests guard today's default behaviour.
+- Verifier:
+  - `npm test` twice (15 files, 222 tests), `npm run lint` and `npm run build` all exit 0.
+  - `git diff a6924b2 HEAD --stat` lists only production files.
+  - The built bundle contains `곡 종류` and `출제할 수 있는 곡이`.
+  - The real jar received exactly the client's solo message, `{type:'create',nickname:'V',songCount:5,types:['ED'],yearFrom:2010,yearTo:2019}`, and answered `joined`, `roster`, `token`, `settings{types:["ED"],yearFrom:2010,yearTo:2019}`, `prepare`. The field names match.
+
+## Code review (critic)
+No Blocker or High. Confirmed:
+- field names and types match the server parser;
+- the room `create` path carries no filter;
+- every listed clearing action clears the line, and `prepare` does not;
+- after a rejoin the line is cleared on `restore` and filled again on the following `settings`;
+- the one `errorText` call site;
+- immutable selection updates;
+- one label per select.
+
+Follow-ups:
+- (Medium) Tests for the rejoin and `restore` clearing paths.
+- (Nit) The hint's screen-reader role.
