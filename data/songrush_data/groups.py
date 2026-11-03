@@ -29,6 +29,8 @@ _KO_ANIMATION = "".join(chr(c) for c in (0xC560, 0xB2C8, 0xBA54, 0xC774, 0xC158)
 _KO_HWA = chr(0xD654)
 _DIGIT = "[0-9" + chr(0xFF10) + "-" + chr(0xFF19) + "]"
 _EPISODE_RE = re.compile(_DIGIT + "+" + _KO_HWA + r"\Z")
+_DIGITS = frozenset("0123456789" + "".join(chr(c) for c in range(0xFF10, 0xFF1A)))
+_FULL_WIDTH_COLON = chr(0xFF1A)
 _ANIMATION_SUFFIX_RE = re.compile(r" \([^()]*" + _KO_ANIMATION + r"\)\Z")
 
 
@@ -91,6 +93,43 @@ def _reveal(media: dict | None, labels: dict, korean: list, slots: dict) -> str 
         if slots[key]:
             return slots[key][0]
     return None
+
+
+def front_part(s: str) -> str | None:
+    """The text before the earliest separator, right-stripped (D-049).
+
+    Separators are ": ", a full-width colon, " -", and "/" unless both of its
+    neighbours are digits ("Ranma 1/2"). None when there is no separator, it
+    starts the string, or nothing is left before it.
+    """
+    found = [i for i in (s.find(": "), s.find(_FULL_WIDTH_COLON), s.find(" -")) if i >= 0]
+    for i, ch in enumerate(s):
+        if ch != "/":
+            continue
+        if 0 < i < len(s) - 1 and s[i - 1] in _DIGITS and s[i + 1] in _DIGITS:
+            continue
+        found.append(i)
+        break
+    if not found:
+        return None
+    cut = min(found)
+    if cut <= 0:
+        return None
+    result = s[:cut].rstrip()
+    return result or None
+
+
+def _front_accepted(s: str) -> set:
+    """normalize() of the front part and of its unqualified form (D-050 minimum)."""
+    f = front_part(s)
+    if f is None:
+        return set()
+    minimum = 2 if _has_cjk(f) else _MIN_BASE
+    out = set()
+    for candidate in (normalize(f), normalize(strip_qualifier(f))):
+        if len(candidate) >= minimum:
+            out.add(candidate)
+    return out
 
 
 class _UnionFind:
@@ -238,6 +277,7 @@ def build_titles(catalog_ids, media, wikidata, korean) -> dict[int, dict]:
         for s in found:
             folded.add(normalize(s))
             folded.add(normalize(strip_qualifier(s)))
+            folded.update(_front_accepted(s))
         folded.discard("")
         accepted[root] = sorted(folded)
 
