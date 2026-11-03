@@ -172,6 +172,17 @@ cd ..
 
 여기부터 `<address>`는 4단계에서 만든 주소, `<key.pem>`은 열쇠 파일 이름입니다. Git Bash가 프로젝트 폴더(SongRushApp)에 있는지 먼저 확인합니다.
 
+```bash
+pwd
+```
+
+이렇게 보이면 성공: 나온 줄의 끝이 SongRushApp입니다.
+안 되면: 아래 명령으로 프로젝트 폴더로 간 뒤 다시 확인합니다.
+
+```bash
+cd ~/Downloads/SongRushApp
+```
+
 ### 6-1. 설치 도구 보내기
 
 **scp** = 내 컴퓨터의 파일을 서버로 복사하는 프로그램입니다. 프로젝트 안의 deploy 폴더(설치 도구 모음)를 서버로 보냅니다.
@@ -187,7 +198,11 @@ Are you sure you want to continue connecting (yes/no/[fingerprint])?
 ```
 
 이렇게 보이면 성공: setup.sh, upload.sh 같은 파일 이름이 100%와 함께 몇 줄 지나갑니다.
-안 되면: "Connection timed out"이면 3-4단계의 보안 그룹(SSH 22, 내 IP)과 주소를 확인합니다. 열쇠 파일 오류는 8단계 끝의 "열쇠 파일 오류가 나면"을 봅니다.
+안 되면:
+
+- "Connection timed out"이면 3-4단계의 보안 그룹(SSH 22, 내 IP)과 주소를 확인합니다.
+- "Permission denied (publickey)"이면 열쇠 파일이나 사용자 이름이 틀린 것입니다. 5-1단계의 마지막 명령으로 `~/.ssh/` 안의 파일 이름을 다시 보고, 명령에 그 이름을 정확히 썼는지, 꺾쇠괄호를 지웠는지, 주소 앞이 ubuntu@인지 확인합니다.
+- 열쇠 파일 오류는 8단계 끝의 "열쇠 파일 오류가 나면"을 봅니다.
 
 ### 6-2. 서버에 접속하기
 
@@ -214,7 +229,7 @@ cd deploy && sudo bash setup.sh <address>
 done. Next, from the PC: bash deploy/upload.sh ubuntu@203-0-113-10.sslip.io
 ```
 
-이렇게 보이면 성공: 마지막 줄이 done.으로 시작합니다.
+이렇게 보이면 성공: 마지막 줄이 done.으로 시작합니다. 이 줄에 나온 upload.sh 명령에는 열쇠 파일이 빠져 있으니 그대로 쓰지 말고, 7단계의 명령을 씁니다.
 안 되면:
 
 - "lock"(잠금)이라는 말과 함께 멈추면, 서버가 처음 켜지면서 자체 업데이트를 하는 중입니다. 1분쯤 기다렸다가 같은 명령을 다시 실행합니다. 여러 번 다시 실행해도 안전합니다.
@@ -230,9 +245,10 @@ exit
 
 ## 7. 올리고 시작하기
 
-다시 내 컴퓨터의 Git Bash에서, 프로젝트 폴더(SongRushApp)에 있는 상태로 실행합니다. upload.sh가 빌드한 프로그램, 화면 파일, 곡 목록, 음원을 서버로 보내고 게임을 켭니다.
+다시 내 컴퓨터의 Git Bash에서, 프로젝트 폴더(SongRushApp)에 있는 상태로 실행합니다. upload.sh가 빌드한 프로그램, 화면 파일, 곡 목록, 음원을 서버로 보내고 게임을 켭니다. 첫 줄은 프로젝트 폴더로 가는 명령입니다.
 
 ```bash
+cd ~/Downloads/SongRushApp
 bash deploy/upload.sh ubuntu@<address> ~/.ssh/<key.pem>
 ```
 
@@ -257,9 +273,10 @@ upload.sh: songrush is not healthy on ubuntu@203-0-113-10.sslip.io. To restore t
 
 ## 8. 잘 되는지 확인하기
 
-smoke.py가 사이트를 네 가지로 검사합니다(서버 상태, 화면의 출처 문구, 방 링크, 실시간 연결). 내 컴퓨터의 Git Bash, 프로젝트 폴더에서 실행합니다.
+smoke.py가 사이트를 네 가지로 검사합니다(서버 상태, 화면의 출처 문구, 방 링크, 실시간 연결). 내 컴퓨터의 Git Bash, 프로젝트 폴더에서 실행합니다. 첫 줄은 프로젝트 폴더로 가는 명령입니다.
 
 ```bash
+cd ~/Downloads/SongRushApp
 python deploy/smoke.py https://<address>
 ```
 
@@ -280,7 +297,7 @@ OK websocket
 
 그다음 브라우저에서 `https://<address>`에 들어가 방을 만들어 봅니다. 주소창에 자물쇠가 보이면 HTTPS가 잘 된 것입니다. 이 주소를 친구들에게 보내면 됩니다.
 
-안 되면: FAIL로 시작하는 줄이 나옵니다. 아래를 순서대로 확인합니다.
+안 되면: FAIL로 시작하는 줄이 나옵니다. setup.sh를 막 실행했다면 인증서(HTTPS)를 뒤에서 받는 중일 수 있습니다. 1-2분 기다렸다가 smoke.py를 한 번 더 실행합니다. 그래도 FAIL이면 아래를 순서대로 확인합니다.
 
 1. **주소가 지금 IP와 맞는지.** EC2 화면에서 퍼블릭 IPv4를 다시 보고, 4단계대로 만든 주소와 같은지 봅니다. 서버를 껐다 켰다면 IP가 바뀌었습니다(10단계).
 2. **보안 그룹.** HTTP 80과 HTTPS 443이 어디서나(`0.0.0.0/0`) 열려 있는지 봅니다.
@@ -342,17 +359,30 @@ EC2 화면에서 인스턴스를 **시작**(Start)하면, 게임 서버와 웹 �
 
 1. **새 주소 만들기.** 3-5단계처럼 새 퍼블릭 IPv4를 적고, 4단계처럼 새 주소를 만듭니다. 이것이 `<new-address>`입니다.
 2. **내 IP 고치기.** 집 인터넷 IP도 바뀌었을 수 있습니다. 접속이 안 되면 보안 그룹에서 SSH 22 규칙의 출처를 다시 "내 IP"로 고칩니다.
-3. **새 주소로 인증서 받기.** 6-2단계처럼 새 주소로 서버에 접속합니다(첫 연결 질문이 다시 나오면 `yes`). 서버에 deploy 폴더가 남아 있으니, setup.sh를 새 주소로 다시 실행합니다.
+3. **새 주소로 인증서 받기.** 아래 명령은 상자 하나씩 따로 붙여 넣습니다. 한꺼번에 붙여 넣지 마세요.
+
+   먼저 내 컴퓨터의 Git Bash에서 6-2단계처럼 새 주소로 서버에 접속합니다. 첫 연결 질문이 다시 나오면 `yes`를 입력합니다.
 
    ```bash
    ssh -i ~/.ssh/<key.pem> ubuntu@<new-address>
+   ```
+
+   이제 서버 안입니다(맨 아래 줄이 ubuntu@ip-로 시작). 서버에 deploy 폴더가 남아 있으니, setup.sh를 새 주소로 다시 실행합니다.
+
+   ```bash
    cd deploy && sudo bash setup.sh <new-address>
+   ```
+
+   마지막 줄이 done.으로 시작하면, 서버에서 나옵니다.
+
+   ```bash
    exit
    ```
 
-4. **새 주소 쓰기.** 이제부터 upload.sh와 smoke.py에도 새 주소를 씁니다. 친구들에게도 새 주소를 알려 줍니다.
+4. **새 주소 쓰기.** 이제부터 upload.sh와 smoke.py에도 새 주소를 씁니다. 친구들에게도 새 주소를 알려 줍니다. setup.sh를 막 실행했으니 인증서를 받는 데 1-2분 걸릴 수 있습니다. 1-2분 기다렸다가 프로젝트 폴더에서 확인합니다. FAIL이 나오면 1-2분 더 기다렸다가 한 번 더 실행합니다.
 
    ```bash
+   cd ~/Downloads/SongRushApp
    python deploy/smoke.py https://<new-address>
    ```
 
