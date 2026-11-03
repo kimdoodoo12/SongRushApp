@@ -37,7 +37,7 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 // The raw WebSocket at /ws (docs/cycles/037-solo-websocket.md, 040-rooms-lobby.md,
-// 042-reconnect.md). Each session has an OutboundQueue for every frame it is sent, and at most one
+// 042-reconnect.md, 045-multiplayer-rounds.md). Each session has an OutboundQueue for every frame it is sent, and at most one
 // seat in a Lobby; a Lobby and its games run on the lobby's own thread. A seated player gets a
 // private token for rejoin; per lobby, each player is bound to the one session that holds the seat.
 // No handler method throws: Spring would close the socket with 1011. Logs carry session ids and
@@ -190,6 +190,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 				case "start" -> start(sessionId, node);
 				case "ready" -> ready(sessionId, node);
 				case "chat" -> chat(sessionId, node);
+				case "skipVote" -> skipVote(sessionId, node);
 				case "leave" -> leave(sessionId);
 				case "rejoin" -> rejoin(sessionId, node);
 				default -> sendError(sessionId, "bad-message");
@@ -403,6 +404,16 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		}
 		int i = index.intValue();
 		onLobby(sessionId, seat -> seat.hosted().lobby.ready(seat.playerId(), i));
+	}
+
+	private void skipVote(String sessionId, JsonNode node) {
+		JsonNode index = node.path("index");
+		if (!index.isInt()) {
+			sendError(sessionId, "bad-message");
+			return;
+		}
+		int i = index.intValue();
+		onLobby(sessionId, seat -> seat.hosted().lobby.skip(seat.playerId(), i));
 	}
 
 	private void chat(String sessionId, JsonNode node) {
