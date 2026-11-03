@@ -147,7 +147,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - It stops at once on a local write error (removing the `.part`) and after 5 consecutive failed downloads; a lock file prevents two runs, and a stale lock gives a clear message to delete it; a summary logs done/skipped/failed counts and bytes.
   - Acceptance (offline, fake transport, small real Ogg Opus fixture built in the test): sizes, headers and durations (within one 20 ms frame) are verified; a size mismatch or a non-Opus body leaves no final file and is reported; a rerun makes no request for complete files; a 404 is reported and the run continues; 5 consecutive failures and a write error stop the run; the gap and User-Agent are pinned; nothing is written outside the cache folder; the folder is gitignored.
   - **Then the lead starts the real prefetch in the background (D-054) and records the result.**
-- [ ] **C-016** data: size padding of cached audio (D-055, design 029)
+- [~] **C-016** data: size padding of cached audio (D-055, design 029)
   - After verification, rewrite the OpusTags packet of each cached file with an extra comment `SONGRUSH_PAD=<random bytes>` of random length (1-64 KiB), fixing the Ogg page segment table and CRC; record `paddedSize` in the index. Idempotent on rerun (a padded file is not padded again).
   - Acceptance (offline, fixture Ogg Opus files): the padded file decodes to the same audio packets (all pages after OpusTags byte-identical apart from page sequence numbers if they change, and every page CRC valid); the size differs from the original by the padding; two runs give different padding lengths across files; a rerun leaves padded files unchanged.
 - [ ] **B-002** backend: catalog loader (from S-002, design 029)
