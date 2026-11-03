@@ -19,7 +19,7 @@
 
 ## File ownership
 - Test writer: the two test files above.
-- Implementer: everything else under `frontend/` (`package.json`, `package-lock.json`, `index.html`, `vite.config.js`, `eslint.config.js`, `src/App.jsx`, `src/main.jsx`, the test setup file, ). The root `.gitignore` already ignores `node_modules/`, `dist/` and `coverage/`, so it is not changed. The implementer may run `npm install` (registry downloads of the dev tooling are expected); no `@types/*` packages (the create-vite template adds them), and `@testing-library/dom` is added explicitly.
+- Implementer: everything else under `frontend/` (`package.json`, `package-lock.json`, `index.html`, `vite.config.js`, `eslint.config.js`, `src/App.jsx`, `src/main.jsx`, any test setup file). The root `.gitignore` already ignores `node_modules/`, `dist/` and `coverage/`, so it is not changed. The implementer may run `npm install` (registry downloads of the dev tooling are expected); no `@types/*` packages (the create-vite template adds them), and `@testing-library/dom` is added explicitly.
 
 ## Review changes (spec round 1)
 - **High.** The no-TypeScript test gets positive controls, so a wrong root or a skip-everything bug cannot pass.
