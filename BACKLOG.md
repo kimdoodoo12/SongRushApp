@@ -235,7 +235,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **M-1** *(planned in design 034: B-004, B-006a, B-007, F-001, F-002)* Solo prototype: one player opens the site, hears a song from the start (at most 90 s), guesses the anime by chat, sees right/wrong and the reveal, and plays the next round.
 - [x] **M-2** *(planned in design 034: B-005a, F-003)* Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
 - [x] **M-3** *(planned in design 034: B-005b, B-006b, F-004, F-005)* Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
-- [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
+- [~] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
 - [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
 - [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
 
