@@ -228,7 +228,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - A single late `start` frame looks like a clock jump and makes that player start late by the delay. On drift, defer fixing the offset until the re-sync burst answers (there are 3 s of lead), using `min(receipt, estimate)` only if no new estimate exists shortly before `startAt`. Also fix the stale comments in the two cycle 047 `App.sync` tests changed in cycle 048 and add a no-drift case for them.
   - Acceptance (Vitest with fake timers): a delayed `start` with a good estimate still starts on time after the burst; a real clock jump starts no earlier than the true time.
 
-- [ ] **S-003** design: current AWS free terms (from M-4, design 052)
+- [~] **S-003** design: current AWS free terms (from M-4, design 052)
   - D-065 assumed "12 months free"; accounts created since 2025-07-15 may get a credit-based Free plan. Check the current AWS pages (eligible instance types, duration or credits, public IPv4, data transfer out, EBS), write a design doc, and add a Needs decision if the cost picture changes.
 - [ ] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
   - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
