@@ -52,6 +52,9 @@ The backend works behind a TLS-terminating proxy, so the WebSocket same-origin c
   - The welcome page is fixed at startup.
 - **Nit.** The `/r/{code}` mapping is unconditional.
 
+## Test-writing note
+- spring-websocket 7.0.10's `AbstractWebSocketClient.execute` drops user headers named in its special set, which includes `host`. The success case therefore uses a test-only subclass, `HostHeaderWebSocketClient`, that calls the protected `executeInternal`. The lead accepted this; it changes no behaviour under test.
+
 ## Test list
 - `backend/src/test/java/com/songrush/web/ProxyHandshakeTest.java`
 - `backend/src/test/java/com/songrush/web/StaticFrontendTest.java`
