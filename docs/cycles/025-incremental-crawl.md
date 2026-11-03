@@ -65,3 +65,12 @@ Same `crawl(client, cache, *, refresh_all=False, log=print) -> CrawlResult`.
 ## Out of scope
 A change with no net effect on the total (one anime deleted and one added in different pages) is not detected; this limit existed in cycles 017 and 023 too. `refresh_all` covers it.
 Line buffering of the build log and the gap/timeout test (cycle 023 follow-ups). Any change to `build.py`.
+
+## Result
+- Tests `a1e16e6` (criteria 1-9, 5b, 5c), attempt-2 tests `6be61d4` (criteria 10-12; criterion 6 expects the give-up clear). Implementation `2c23ce0` (attempt 1) and `22b476f` (attempt 2).
+- Red phase (verifier): attempt 1, 7 failed (old "any total change restarts" behaviour); attempt 2, 4 failed (criteria 6, 10, 11, 12).
+- Verifier (attempt 2): full suite exit 0, `524 passed in 17.14s`; `git diff 6be61d4 HEAD -- data/tests/` empty; criteria 1-12, 5b, 5c confirmed.
+
+## Code review (critic), attempt 2
+No Blocker, High or Medium. The critic re-ran its probes: H1 (`cache after run1: {}`, run 2 `lost [] stale []`, run 3 a single request), M1 (the next run raises again instead of succeeding with a warning) and N1 (page 1 keeps its first total) are fixed. A 3000-seed fuzz with mutations and injected failures found no wrong second run and no needless clear; the five clears it saw all followed real non-append changes. Transport and validation errors never reach the cap, so the give-up clear costs at most one extra full pass after a run that already spent three.
+- **Nit.** Commit `3f5f57c` (D-049 and C-013 in BACKLOG) sits on this branch although it is unrelated to C-012; it is a user decision recorded mid-cycle and is kept as its own commit.
