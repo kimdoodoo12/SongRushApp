@@ -192,7 +192,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - From the cycle 040 review: the server now sends `joined{code, name}`, `roster{phase, players}` and `error{code:"room-closed"}`; a solo game returns to its lobby after `gameOver`, so 10 idle minutes later the cycle 039 final-score screen shows "오류가 발생했습니다 (room-closed)". Handle `room-closed` (a Korean message, back to the start), and close the socket when leaving the final-score screen.
   - Create a room, join by code or `/r/<code>`, nickname, roster with host mark, song count (host), start; restart after a game.
   - Acceptance (Vitest with a mocked WebSocket): each flow renders and sends the right messages; `npm test`, `lint`, `build` exit 0.
-- [~] **B-005b** backend: reconnect (from S-003, design 034; M-3)
+- [x] **B-005b** backend: reconnect (from S-003, design 034; M-3)
   - From the cycle 040 review: `leave` frees the seat on the I/O thread but removes the player's queue only later on the lobby thread, so a quick `leave` then `create`/`join` can receive one stale frame from the old lobby (frames carry no room code); remove the player's queue from the lobby's map on the I/O thread at once.
   - A per-player token kept by the client; reconnect within 30 s keeps seat and score with an allow-listed snapshot; a second socket with the same token replaces the first with close code 4001. (The pause with zero connected players moved to B-005c in cycle 042.)
   - Acceptance (JUnit, fake clock): reconnect within and after the grace; replacement; snapshot JSON contains no other player's token and no catalog field.
@@ -208,6 +208,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - NTP-style ping/pong (8 on join, median of the 3 lowest-RTT, re-sync every 30 s and before each song), `startAt` scheduling on the `AudioContext` clock with `outputLatency`, the clock pair re-taken per song, re-sync when `start`'s server time disagrees by more than the RTT; a test page for I-003.
   - Acceptance (Vitest with fake timers and clocks): offset estimation picks low-RTT samples; scheduling maths; drift triggers re-sync.
 - [ ] **F-005** frontend: multiplayer game screen (from S-003, design 034; M-3)
+  - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
   - Skip button with the vote count, live scores, other players' chat, reconnect behaviour (no reconnect after code 4001), final ranking with shared ranks, restart.
   - Acceptance (Vitest with a mocked WebSocket): each phase renders; no reconnect after 4001; `npm test`, `lint`, `build` exit 0.
 
@@ -293,6 +294,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Reconnect (critic, cycle 042): a `create`/`join`/`rejoin` that lands while its lobby is closing is dropped by `shutdownNow()` and leaves a seat with no reply (clear seats again after shutdown, or re-check a closing flag after submit); a replacing socket can get other frames before its `joined`/`snapshot`, and two simultaneous rejoins both send their snapshot to the last socket; `leave` drops the token even when a racing rejoin won the binding; no handler-level concurrency test (parallel rejoins with one token).
 - Lobby screens (critic, cycle 041): a player who opens `/r/<code>` and presses Enter in the nickname field starts a solo game instead of joining (make 참가 the default action when a code is prefilled); new error texts and the copy button have no live-region feedback, and `navigator.clipboard` is missing on plain-http LAN addresses.
 - Solo screen (critic, cycle 039): the chat form shows while the socket is still connecting, and `send()` on a CONNECTING socket throws (hide the form until the first `prepare`, or check `readyState`); announcements ("정답!", errors, chat log) have no live region for screen readers.
 - Solo WebSocket (critic, cycle 037): no test pins that closing the socket or `leave` actually stops the room thread (dropping `discard`/`shutdownNow` would still pass; assert `room-*` threads return to their count, or expose an active-room count); a binary frame closes the socket with 1003 instead of `bad-message`; an unexpected handler exception sends the client nothing (send `bad-message`); a `create` racing a send-failure close can leave the room until `gameOver`.

@@ -91,3 +91,13 @@ A player whose connection drops gets 30 s to come back and keep their seat and s
 - The pause with nobody connected (B-005c, new).
 - Connected-only ready and skip (B-006b).
 - The client-side token storage and automatic reconnect (F-005).
+
+## Result
+- Tests `270cb6e` (locked); implementation `1f001d2` (attempt 1).
+- Red phase (verifier): `:compileTestJava FAILED`, 62 errors, all missing `Lobby.reconnect` (23), `Lobby.disconnect` (21), `Lobby.GRACE` (9) or `Room.currentSong` (9); against stubs every test source compiled.
+- Verifier: `cleanTest test` twice and `build`, exit 0; 22 suites, 0 failures (LobbyReconnectTest 24, RoomCurrentSongTest 6, ReconnectSocketTest 8; all earlier suites unchanged and passing); test sources unchanged since `270cb6e`; `OutboundQueue.java` unchanged; the `Room` diff only stores the prepared `audioUrl` and adds `currentSong()`; handler logs carry session ids and exception class names only.
+
+## Code review (critic)
+No Blocker or High. Traced by hand: token generation, delivery and disposal; no deadlock in the `compute` ordering scheme; three close-vs-rejoin interleavings and two simultaneous rejoins; spectators cannot crash the `Room`; snapshot contents; the grace, empty and idle timers.
+- **M1 (follow-up).** A request landing while its lobby is closing can leave a seat with no reply.
+- **Nits (follow-up / F-005).** Frames before the snapshot on a replacing socket; `leave` racing a rejoin drops the token; no concurrency test at the handler level.
