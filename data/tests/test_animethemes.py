@@ -731,7 +731,8 @@ def test_crawl_growth_that_does_not_add_up_restarts_then_raises(at, http, tmp_pa
     logs = [str(line) for line in logs]
     assert transport.called_pages() == [1, 2, 1, 3] * 3
     assert _count(logs, "does not match total") >= 2, logs
-    assert _count(logs, "cleared") == 2, logs
+    assert _count(logs, "cleared") == 3, logs
+    assert _count(logs, "giving up") == 1, logs
     assert not any("total changed" in line for line in logs), logs
     assert "total" in str(info.value).lower(), str(info.value)
 
@@ -755,6 +756,127 @@ def test_crawl_resume_changed_id_in_earlier_page_restarts(at, http, tmp_path):
     assert _count(logs, "cleared") == 1, logs
     assert item_ids(result) == current
     assert result.total == 250
+
+
+# Cycle 025 attempt 2, criteria 10-12 (rules 5 and 6): verification refetches
+# are not cached, and giving up at the restart cap clears the page prefix.
+
+def _page_entries(at, cache):
+    """Names of the cache files under the page key prefix."""
+    prefix = page_key(at, 1)[: -len("1.json")]
+    return sorted(path.name for path in Path(cache.root).iterdir() if path.name.startswith(prefix))
+
+
+class ChurningSource:
+    """Offset pagination over a mutable id list, PER_PAGE items per page.
+
+    While churning, every request for page 3 that directly follows a request
+    for page 2 first deletes the smallest id and appends two new ids, so page 3
+    reports a larger total and the verification refetch of page 2 sees shifted ids.
+    """
+
+    def __init__(self, clock, http, ids, per_page):
+        self.clock = clock
+        self.http = http
+        self.ids = list(ids)
+        self.per_page = per_page
+        self.next_id = 100
+        self.churning = True
+        self.calls = []
+
+    def _churn(self):
+        self.ids.pop(0)
+        self.ids += [self.next_id, self.next_id + 1]
+        self.next_id += 2
+
+    def body(self, page):
+        chunk = self.ids[(page - 1) * self.per_page: page * self.per_page]
+        body = synthetic_body(page, chunk, len(self.ids) > page * self.per_page, total=len(self.ids))
+        body["data"]["animePagination"]["paginatorInfo"]["perPage"] = self.per_page
+        return body
+
+    def send(self, method, url, headers, body, timeout):
+        call = Call(method, url, dict(headers or {}), body, timeout, self.clock.now())
+        previous = self.calls[-1].page() if self.calls else None
+        self.calls.append(call)
+        page = call.page()
+        if self.churning and page == 3 and previous == 2:
+            self._churn()
+        data = json.dumps(self.body(page)).encode("utf-8")
+        return self.http.Response(status=200, headers={"content-type": "application/json"}, body=data)
+
+    def called_pages(self):
+        return [call.page() for call in self.calls]
+
+
+def test_crawl_failed_verification_at_cap_leaves_no_page_entry(at, http, tmp_path, monkeypatch):
+    # Criterion 10 (code review H1): every pass, the source deletes its smallest
+    # id and adds two right before page 3 is fetched, so page 3 reports a larger
+    # total and the refetch of page 2 sees shifted ids; the third pass gives up.
+    monkeypatch.setattr(at, "PER_PAGE", 3)
+    clock = FakeClock()
+    source = ChurningSource(clock, http, range(1, 13), per_page=3)
+    client = make_client(http, source, clock)
+    cache = http.FileCache(tmp_path)
+    logs = []
+    with pytest.raises(ValueError):
+        at.crawl(client, cache, log=logs.append)
+    logs = [str(line) for line in logs]
+    assert source.called_pages() == [1, 2, 3, 2] * 3
+    assert _count(logs, "giving up") == 1, logs
+    assert _page_entries(at, cache) == [], logs
+    for page in range(1, 11):
+        assert cache.get(page_key(at, page)) is None, page
+
+    # The source is now stable; the next run starts from an empty cache.
+    source.churning = False
+    expected = list(source.ids)
+    start = len(source.calls)
+    again, logs2 = run_crawl(at, client, cache)
+    assert item_ids(again) == expected
+    assert again.total == len(expected)
+    pages = (len(expected) + 2) // 3
+    assert source.called_pages()[start:] == list(range(1, pages + 1))
+
+
+def test_crawl_count_mismatch_at_cap_leaves_no_page_entry(at, http, tmp_path):
+    # Criterion 11 (code review M1): criterion 6's static source; rule 3 raises at
+    # the cap, nothing stays cached, and the next run raises again.
+    pages = source_pages(range(1, 301), total=301)
+    pages[1] = synthetic_body(1, list(range(1, 101)), True, total=300)
+    client, transport, cache = crawl_setup(at, http, tmp_path, pages)
+    with pytest.raises(ValueError):
+        at.crawl(client, cache, log=[].append)
+    assert _page_entries(at, cache) == []
+    for page in range(1, 5):
+        assert cache.get(page_key(at, page)) is None, page
+
+    client2, transport2, _ = crawl_setup(at, http, tmp_path, pages)
+    logs = []
+    with pytest.raises(ValueError):
+        at.crawl(client2, cache, log=logs.append)
+    assert transport2.called_pages() == [1, 2, 1, 3] * 3
+    assert _page_entries(at, cache) == []
+
+
+def test_crawl_verification_refetch_does_not_rewrite_previous_page(at, http, tmp_path):
+    # Criterion 12 (code review N1): criterion 4's first crawl, but the refetch of
+    # page 1 returns the same ids with the grown total. Page 1's cache entry must
+    # stay the bytes of the first page 1 response.
+    pages = source_pages(range(1, 252))
+    first_page1 = synthetic_body(1, list(range(1, 101)), True, total=250)
+    sequence = {
+        1: [first_page1, pages[1]],
+        2: [pages[2]],
+        3: [pages[3]],
+    }
+    client, transport, cache = _sequence_setup(http, tmp_path, sequence)
+    result, logs = run_crawl(at, client, cache)
+    assert transport.called_pages() == [1, 2, 1, 3]
+    assert _count(logs, "total grew") == 1, logs
+    assert not any("cleared" in line for line in logs), logs
+    assert item_ids(result) == list(range(1, 252))
+    assert cache.get(page_key(at, 1)) == json.dumps(first_page1).encode("utf-8")
 
 
 def test_crawl_refresh_all_fetches_every_page_once(at, http, tmp_path):
