@@ -112,3 +112,12 @@ A player can open the site, type a nickname, pick a song count, and play a solo 
 - Reconnect (F-005, B-005b).
 - Skip (B-006b, F-005).
 - Visual polish beyond a clean, readable layout.
+
+## Result
+- Tests `e990c6f` (locked, after one pre-lock hardening round: bounded flushes instead of a fixed count, plus tests for the progressbar before `startAt`, every error message, a suspended context, an old-index decode and a reveal with no source); implementation `2482eb4` (attempt 1).
+- Red phase (verifier): `playback.test.js` failed only on the missing `./playback.js`; the App flow tests failed only on the missing UI (label 닉네임 not found); cycle 038 tests passed.
+- Verifier: `npm test` 3 runs, 4 files, 44 tests, exit 0; `npm run lint` (`--max-warnings 0`) and `npm run build` exit 0; locked files unchanged. End-to-end smoke against the real jar and data (883 candidates at the time) with a Node WebSocket client: `prepare` -> `/audio/<token>` 200, 3,615,735 bytes starting `OggS`, `audio/ogg`; `ready` -> `start` with `startAt - serverTime` 3000 and `deadlineAt - startAt` 89,881; a wrong guess echoed as chat; `leave` closed cleanly.
+
+## Code review (critic)
+No Blocker, High or Medium. Confirmed from the code: nothing plays before `startAt` (scheduling requires `start`, and a negative delay becomes an offset, never an earlier time), playback stops at the reveal and the deadline, stale decodes are dropped, the context is created and resumed synchronously in the click, StrictMode cannot open two sockets, no `eslint-disable`, and the Korean strings match the spec.
+- **Nits (follow-up).** The chat form can send on a still-connecting socket (throws); announcements lack live regions.

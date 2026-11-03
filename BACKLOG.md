@@ -180,7 +180,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
     - `npm test`, `npm run lint` and `npm run build` exit 0 from `frontend/`.
     - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 
-- [~] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
+- [x] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
   - From the cycle 038 review: make the lint script `eslint . --max-warnings 0` so React Hooks and React Refresh warnings fail lint; tests live at `src/**/*.test.{js,jsx}` (the Vitest projects only include that pattern), and a test that reads files through `import.meta.url` must be added to the `node` project.
   - From the cycle 037 review: `/ws` keeps Spring's same-origin check, so the dev server must proxy `/ws` and `/audio` without `changeOrigin` (or a dev-only allowed origin), else the handshake gets 403.
   - A start screen (nickname, song count) and a play screen: an audio-unlock click (`AudioContext.resume()`), fetch and decode of `prepare.audioUrl`, then `ready{index}`, playback at `start` (from offset `now - startAt` if late, stopping at `deadlineAt`), a remaining-time bar (D-060), chat input, "정답!" announcement, reveal card, final score; Korean UI; the credit line (D-023); an "update your browser/iOS" notice when Ogg Opus cannot play (D-053).
@@ -216,7 +216,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 ## Needs decision
 
-- [?] **I-003** Real-device audio check (from S-002): once a test page exists (after F-001), the owner opens it on their iPhone (iOS 18.4+) and confirms that a decoded Ogg Opus file plays through Web Audio. Agents cannot run this.
+- [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time. Agents cannot run this.
 
 - [?] **D-010** Hosting. It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
@@ -286,6 +286,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- Solo screen (critic, cycle 039): the chat form shows while the socket is still connecting, and `send()` on a CONNECTING socket throws (hide the form until the first `prepare`, or check `readyState`); announcements ("정답!", errors, chat log) have no live region for screen readers.
 - Solo WebSocket (critic, cycle 037): no test pins that closing the socket or `leave` actually stops the room thread (dropping `discard`/`shutdownNow` would still pass; assert `room-*` threads return to their count, or expose an active-room count); a binary frame closes the socket with 1003 instead of `bad-message`; an unexpected handler exception sends the client nothing (send `bad-message`); a `create` racing a send-failure close can leave the room until `gameOver`.
 - Java normalize (critic, cycle 035): Java 17 (Unicode 13.0) and Python 3.12 (Unicode 15.0) differ on 420 single code points added in Unicode 14/15; re-run the cross-check if the JDK is upgraded.
 - Audio endpoint (critic, cycle 033): no test pins streaming (the fixtures are ~100 bytes, so a `readAllBytes` regression would pass); reword the record `toString` comments to "server-log-safe only"; `Files.size` is read by path after opening the stream (harmless while the prefetch never overwrites files).
