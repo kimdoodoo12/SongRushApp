@@ -45,7 +45,7 @@ Both say a watcher's chat is "broadcast but not judged". Broadcasting it would l
 
 ## Acceptance criteria (JUnit 5, from `backend/`)
 1. **`RoomLateJoinTest`** (cycle 036 fakes, unchanged):
-   - **Joining mid-song.** A player added in PLAYING of song 0 is not counted in `skipState.needed`. Their `ready` and `skip` are ignored. A correct chat from them reaches only them, both before and after `startAt`, and does not score. Their miss after `startAt` is broadcast. They have their own rate limit.
+   - **Joining mid-song.** A player added in PLAYING of song 0 is not counted in `skipState.needed`. Their `ready` and `skip` are ignored. A correct chat from them reaches only them, both before and after `startAt`, and does not score. Their miss reaches only them as well (watcher chat is sender-only until the reveal). They have their own rate limit.
    - **Promotion.** At the next `prepare` they are in the ready set (the song waits for their `ready`, if connected), in `skipState.needed`, and in `scores` with 0 points, after the existing players. They score from then on, and the ranking includes them.
    - **Disconnected while pending.** A pending player marked disconnected before promotion is promoted as disconnected and not waited for; before promotion that `setConnected(false)` changes neither `skipState.needed` nor the ready wait.
    - **Watcher chat.** In PREPARE and PLAYING both a match and a miss from a watcher reach only the watcher; in REVEAL a watcher's chat reaches everyone.
