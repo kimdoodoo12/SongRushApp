@@ -254,7 +254,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `곡 종류` and 5-year `연도` selects; only non-default fields sent; from>to guard on 시작 and 게임 시작; `available` error text with the old text as fallback; the received `settings` shown to everyone; selections kept across games.
   - Acceptance (Vitest): see design 059 item 2.
 
-- [ ] **I-009** deploy: DuckDNS address and the Free plan in the kit and guide (from D-066, D-068)
+- [x] **I-009** deploy: DuckDNS address and the Free plan in the kit and guide (from D-066, D-068)
   - `setup.sh` takes a DuckDNS name (`<name>.duckdns.org`) and asks for the DuckDNS token interactively (never as an argument, never written to the repo); it stores it root-only on the server and installs a boot-time updater (systemd unit or timer calling the DuckDNS update URL) so the name follows the IP after a stop/start. `docs/deploy-guide.md` switches to DuckDNS and the Free plan (closure and deletion warnings, a month-5 reminder, no Budgets-only safety claim) and drops the sslip restart steps that DuckDNS makes unnecessary.
   - Acceptance (pytest): the kit tests cover the updater unit and that no token appears in any file or argument; the guide tests are updated for DuckDNS and the Free plan (declared changes to the cycle 058 guide test's required strings).
 - [ ] **B-012** backend: popularity tier filter (from D-069, design 059)
@@ -357,6 +357,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- DuckDNS (critic, cycle 062): `duckdns-setup.sh` writes the new token before checking it, so a wrong but well-formed token replaces a working one before the `KO` (check with the temp file first, then `mv`); the setup-time curl has no `--max-time`; the file-mode 600 check only runs on Linux.
 - Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
 - Draw filter null type (critic, cycle 060): `DrawFilter.matches` calls `Set.copyOf(...).contains(theme.type())`, which throws on a null type; the loader allows a null `type`, and a throw inside `Lobby.start` leaves the lobby stuck as in-game. Today's catalog has no null type (OP 5656, ED 8935). Check `theme.type() == null` first and add a test.
 - Deploy guide (critic, cycle 058): `upload.sh`'s missing-jar hint still says `.\gradlew.bat` (bash form is `./gradlew.bat`); `setup.sh`'s closing hint prints the upload command without the key; step 9 (updates) does not re-copy `deploy/`, so later unit or Caddyfile changes need the `scp` + `setup.sh` steps again.
