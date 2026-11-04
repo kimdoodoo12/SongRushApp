@@ -272,8 +272,11 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `docs/deploy-guide.md` gains "다른 와이파이에서 서버 접속이 안 될 때": AWS console, security group, edit inbound rules, the SSH rule's source "내 IP", save; players are unaffected because 80/443 stay open to everyone.
   - Acceptance (pytest): the section heading exists and mentions `보안 그룹`, `인바운드`, `내 IP` and `22`; all earlier guide rules still pass. (Checking a new DuckDNS token before it replaces the old one stays a follow-up: the locked cycle 062 test pins a single curl call on the final file.)
 
-- [ ] **S-004** design: Docker deployment (from D-071)
+- [~] **S-004** design: Docker deployment (from D-071; revised for D-072..D-078)
   - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
+
+- [ ] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
+- [ ] **S-006** design: audio on S3 + CloudFront (from D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
 ## Roadmap
 
@@ -295,6 +298,17 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-081** Repository and image visibility (user, 2026-11-04; resolves the Actions-minutes blocker of the S-004 round-2 review): make the GitHub repository public after a secret scan (the owner flips it), so Actions minutes are free and the 5-minute monitor (D-074) is affordable; the GHCR image is then public too (no pull token on the server). The catalog with answers becomes public; it is built from public sources.
+- **D-082** Hold (user, 2026-11-04: "일단 구현은 하지 말아줘. 서버 운영/배포쪽으로 내가 조금더 알아봐야할것 같아"): no implementation of S-004/S-005/S-006 until the owner has looked into operations and deployment; design 067 stays a draft, and open operations questions are asked one by one.
+- **D-080** Confirmed as they are (user, 2026-11-04): build and test tools (Gradle + JUnit 5, Vite + Vitest + ESLint, pytest) and the server (Ubuntu 24.04 LTS, ap-northeast-2, t3.micro).
+- **D-072** CI/CD (user, 2026-11-04): GitHub Actions. Every push runs the tests; a merge to `main` builds the image, pushes it to GHCR and deploys to the server automatically (the server's SSH key goes into GitHub Secrets).
+- **D-073** Image registry (user, 2026-11-04): GitHub Container Registry (GHCR).
+- **D-074** Monitoring (user, 2026-11-04): a scheduled GitHub Actions check of the public site every 5-10 minutes that posts to Discord when it fails (the Discord webhook goes into GitHub Secrets).
+- **D-075** Reverse proxy (user, 2026-11-04): Nginx with certbot for HTTPS, replacing Caddy.
+- **D-076** Realtime protocol (user, 2026-11-04): STOMP over WebSocket (Spring `@MessageMapping` and topics), replacing the raw WebSocket protocol, for both the web client and the Flutter app. The game rules (room, scores, answer checks, server arrival order) stay.
+- **D-077** Audio storage (user, 2026-11-04; about USD 0.2/month estimated): S3 + CloudFront. Objects use random names and are served through short-lived signed URLs, so no URL or file name reveals the song. The audio already on the server is copied to S3 from the server.
+- **D-078** Logs (user, 2026-11-04): CloudWatch Logs through Docker's awslogs driver (an IAM role on the instance).
+- **D-079** Kept as they are (user, 2026-11-04): Java 17; no database. Lead's call where the user said it does not matter: plain CSS for now (Tailwind to be proposed with a UI redesign), React Router for pages with React's own `useReducer` for state.
 - **D-071** Docker (user, 2026-11-04: "원래 서버운영 배포는 docker를 써야지. 나는 지금이라도 쓰고싶은데"): run the server with Docker now, replacing the native systemd install of the game server (design 052 had left Docker out without asking). The audio and catalog stay on the host and are mounted read-only, so the 5 GB upload is reused. Design first (S-004).
 - **D-066** Hostname (user, 2026-11-04): DuckDNS, for example `songrush.duckdns.org`. The name stays fixed when the IP changes; the server reports its IP to DuckDNS at boot. The DuckDNS token is a secret: it is typed on the server during setup and never stored in the repo.
 - **D-067** Preview risk (user, 2026-11-04; revisits D-025/D-057): keep it accepted for friends-only play; no audio encryption.
