@@ -275,7 +275,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [~] **S-004** design: Docker deployment (from D-071; revised for D-072..D-078)
   - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
 
-- [ ] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
+- [~] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [ ] **S-006** design: audio on S3 + CloudFront (from D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
 ## Roadmap
