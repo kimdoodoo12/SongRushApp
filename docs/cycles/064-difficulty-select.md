@@ -46,3 +46,19 @@ Solo players and hosts choose 난이도 (D-069). The choice reaches the server a
 ## Review changes (spec round 1)
 - **Blocker: `tier` was dropped before reaching the screen.** `session.js` forwards the `settings` message field by field, and so does the reducer in `state.js`. Both also pass `tier` through, so the line can show it. The implementer therefore also owns `src/game/session.js` and `src/game/state.js`.
 - **Medium: solo selection is not covered.** A solo test was added. After `다시 하기`, 난이도 still shows 어려움, and the next `create` carries `tier:'hard'`.
+
+## Result
+- Tests `16ef9d4` (locked), implementation `fa2e7fc` (attempt 1). `App.jsx` needed no change.
+- Red phase (verifier): 16 failures, all in the two new files, all for missing features. The 7 tests that already passed guard the default messages and unknown values.
+- Verifier:
+  - `npm test` twice (17 files, 245 tests), `npm run lint` and `npm run build` all exit 0. `git diff 16ef9d4 HEAD --stat` lists only the four production files.
+  - Real-jar end-to-end: the client's exact solo message `{type:'create',nickname:'D',songCount:5,types:['OP'],tier:'easy'}` got `settings{"types":["OP"],"tier":"easy"}`, then `prepare`.
+  - The served bundle contains `난이도`.
+
+## Code review (critic)
+No findings. Confirmed:
+- `normal` is never sent.
+- The settings line orders the parts the same way as the server's fields.
+- Unknown tiers are ignored.
+- The shared selection persists.
+- Every clearing action drops the whole `settings` object, tier included.
