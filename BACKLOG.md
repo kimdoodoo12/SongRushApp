@@ -268,6 +268,10 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `DrawFilter.matches` returns false for a theme whose `type` is null when `types` is set, instead of throwing from `Set.copyOf(...).contains(null)`.
   - Acceptance (JUnit): a filter with `types` and a null-type theme gives false; without `types` the null-type theme matches; `Room.start` with such a catalog draws without throwing and `available` excludes it.
 
+- [~] **I-010** docs: guide section for a changed home IP (the owner's question, 2026-11-04)
+  - `docs/deploy-guide.md` gains "다른 와이파이에서 서버 접속이 안 될 때": AWS console, security group, edit inbound rules, the SSH rule's source "내 IP", save; players are unaffected because 80/443 stay open to everyone.
+  - Acceptance (pytest): the section heading exists and mentions `보안 그룹`, `인바운드`, `내 IP` and `22`; all earlier guide rules still pass. (Checking a new DuckDNS token before it replaces the old one stays a follow-up: the locked cycle 062 test pins a single curl call on the final file.)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
