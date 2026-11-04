@@ -31,3 +31,9 @@ A live upload is running. Edit only the guide and the new test. Do not touch `de
 ## File ownership
 - **Test writer:** the test file.
 - **Implementer:** `docs/deploy-guide.md`.
+
+## Result
+- Test commit `9afb467` (locked). Guide commit `4cb3224` (attempt 1). Only docs were touched during the live upload.
+- Red phase: 3 guide tests failed because the heading was missing; 16 parser self-tests passed. The test writer ran this check; no separate verifier run.
+- Verifier: the data suite passed (`844 passed, 1 skipped`, the platform skip). `git diff 9afb467 HEAD --stat` lists only `docs/deploy-guide.md` (+16). The verifier printed the new section verbatim (guide lines 402-416).
+- Review: no critic was spawned for this 16-line docs-only cycle. The lead read the verbatim section against the spec. This deviates from the usual cycle and is recorded here.
