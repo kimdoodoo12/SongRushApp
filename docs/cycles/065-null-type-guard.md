@@ -30,3 +30,16 @@ A catalog theme with no `type` can never break a draw. Today `DrawFilter.matches
 
 ## Out of scope
 - The other follow-ups.
+
+## Result
+- Tests `808fbec` (locked), fix `844d309` (attempt 1). No build ran during the live upload; only `gradlew test` was used.
+- Red phase (verifier): 3 of the 6 new tests failed. The failures came from the `NullPointerException` at `ImmutableCollections$Set12.contains`, through `DrawFilter.matches` and `Room.start`. The other 45 suites passed.
+- Verifier: `cleanTest test` exits 0 with 46 suites and 366 tests, 0 failures. The diff touches only `DrawFilter.java` (+3/-2).
+
+## Code review (critic)
+No findings. Confirmed:
+- the short-circuit `theme.type() == null ||` avoids `contains(null)`;
+- `NONE` still matches a theme with a null type;
+- the reveal message for such a theme is built with `LinkedHashMap` (null-safe), and the frontend shows a null `themeSlug` as an empty line.
+
+A nit for later: no test draws a null-type theme under `NONE` through to the reveal.

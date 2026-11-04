@@ -264,7 +264,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - A `난이도` select: `쉬움`, `보통` (default, sends nothing), `어려움`; the settings line shows `쉬움`/`어려움`; kept across games like the other filters.
   - Acceptance (Vitest): defaults send today's messages; each choice adds `tier`; the line shows it.
 
-- [~] **B-013** backend: a null theme type never breaks the draw (from the cycle 060 review follow-up)
+- [x] **B-013** backend: a null theme type never breaks the draw (from the cycle 060 review follow-up)
   - `DrawFilter.matches` returns false for a theme whose `type` is null when `types` is set, instead of throwing from `Set.copyOf(...).contains(null)`.
   - Acceptance (JUnit): a filter with `types` and a null-type theme gives false; without `types` the null-type theme matches; `Room.start` with such a catalog draws without throwing and `available` excludes it.
 
@@ -363,7 +363,6 @@ Decided:
 ## Follow-ups
 - DuckDNS (critic, cycle 062): `duckdns-setup.sh` writes the new token before checking it, so a wrong but well-formed token replaces a working one before the `KO` (check with the temp file first, then `mv`); the setup-time curl has no `--max-time`; the file-mode 600 check only runs on Linux.
 - Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
-- Draw filter null type (critic, cycle 060): `DrawFilter.matches` calls `Set.copyOf(...).contains(theme.type())`, which throws on a null type; the loader allows a null `type`, and a throw inside `Lobby.start` leaves the lobby stuck as in-game. Today's catalog has no null type (OP 5656, ED 8935). Check `theme.type() == null` first and add a test.
 - Deploy guide (critic, cycle 058): `upload.sh`'s missing-jar hint still says `.\gradlew.bat` (bash form is `./gradlew.bat`); `setup.sh`'s closing hint prints the upload command without the key; step 9 (updates) does not re-copy `deploy/`, so later unit or Caddyfile changes need the `scp` + `setup.sh` steps again.
 - Restore hint (critic, cycle 057): on a first deploy there is no `songrush.jar.good`, so the printed restore command stops at `cp` (harmless; the runbook says so); the restore should copy to `.new` and `mv` like the deploy; a failed `.good` copy after a healthy start reports failure; the poll can last up to about 420 s when the JVM accepts but never answers (`curl -m 5`). Check on the real server whether `DPkg::Lock::Timeout` also covers `apt-get update`'s lists lock.
 - Smoke test gaps (critic, cycle 056): the stub does not check that the client sends a close frame and waits for the server's close; the send branches for frames over 125 bytes are unused and could be removed.
