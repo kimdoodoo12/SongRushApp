@@ -60,7 +60,7 @@ export const initialState = {
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
-  settings: null, // the applied filters { types, yearFrom, yearTo } of this game
+  settings: null, // the applied filters { types, yearFrom, yearTo, tier } of this game
 }
 
 export function reducer(state, action) {
@@ -84,7 +84,10 @@ export function reducer(state, action) {
     case 'settings':
       // Sent before the first prepare, so prepare never clears it; the
       // actions that end or replace a game do (spec 061 review B1).
-      return { ...state, settings: { types: action.types, yearFrom: action.yearFrom, yearTo: action.yearTo } }
+      return {
+        ...state,
+        settings: { types: action.types, yearFrom: action.yearFrom, yearTo: action.yearTo, tier: action.tier },
+      }
     case 'prepare': {
       // A new game (index 0) starts from a clean slate (D-062).
       const fresh =

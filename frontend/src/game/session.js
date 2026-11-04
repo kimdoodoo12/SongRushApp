@@ -515,7 +515,13 @@ export function startSession({
         break
       case 'settings':
         // The conditions the server applied to this game (F-008).
-        dispatch({ type: 'settings', types: msg.types, yearFrom: msg.yearFrom, yearTo: msg.yearTo })
+        dispatch({
+          type: 'settings',
+          types: msg.types,
+          yearFrom: msg.yearFrom,
+          yearTo: msg.yearTo,
+          tier: msg.tier,
+        })
         break
       case 'roster':
         if (!room) break

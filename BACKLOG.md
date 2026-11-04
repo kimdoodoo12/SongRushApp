@@ -260,7 +260,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-012** backend: popularity tier filter (from D-069, design 059)
   - `Candidate` gains `rank` (index in `drawSet`, 1-based); optional `tier` on `create`/`start`: `easy` = rank 1-300, `hard` = rank 501-1,500, absent = all; `bad-filter` for other values; `settings` carries `tier` when set.
   - Acceptance (JUnit): each tier draws only its ranks; combined with types/years; `available` counts after the tier; `settings` includes `tier`.
-- [ ] **F-009** frontend: difficulty select (from D-069)
+- [x] **F-009** frontend: difficulty select (from D-069)
   - A `난이도` select: `쉬움`, `보통` (default, sends nothing), `어려움`; the settings line shows `쉬움`/`어려움`; kept across games like the other filters.
   - Acceptance (Vitest): defaults send today's messages; each choice adds `tier`; the line shows it.
 
