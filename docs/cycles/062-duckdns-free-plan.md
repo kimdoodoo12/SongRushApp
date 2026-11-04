@@ -103,3 +103,30 @@ The DuckDNS token never appears in the repo, in a command line, or in output.
 ## Out of scope
 - `upload.sh`, `smoke.py`.
 - A custom domain.
+
+## Result
+- Tests `2f3ff33` (locked). Implementation `a1d1c54` (attempt 1; the implementer was cut off once by an API connection error and resumed). Small follow-up fixes after review: `08bae82`.
+- Red phase (verifier): 28 failed on missing files and behaviour, 7 guards passed, 1 skipped (file mode on Windows). No collection errors. The tests wrote nothing into the repo.
+- Verifier:
+  - The deploy tests passed: 111 passed, 1 skipped. The full data suite passed: 825 passed, 1 skipped.
+  - `deploy/` is all `i/lf w/lf` and ASCII.
+  - An independent stub run of `duckdns-setup.sh` with a uuid4 token gave the expected exit codes: OK 0, KO 1, bad name 2. It wrote the exact `url = ...` line and the lowercased name.
+  - The token was absent from every stub log and from stdout and stderr.
+  - After the fixes, the full suite still passed (825), and the fix commit touched only the three intended files.
+
+## Code review (critic)
+No Blocker or High. Confirmed:
+- No token leak path: no `set -x`, builtin `printf` only, `-K` only, `/etc/songrush` mode 700.
+- The timer is enabled only after the curl file exists.
+- A rerun replaces the token.
+- The order works: DuckDNS before apt, then Caddy.
+- The guide order is right: signup before setup, IP before name.
+- The Free-plan wording matches design 053.
+
+Fixed before merge (`08bae82`):
+- **M2.** Paste the token only after its prompt appears, and check that no token is visible before sending logs.
+- **M3.** Fall back to `ubuntu@<ip>` when the name points at an old IP.
+- **M1, part.** `TimeoutStartSec=2min` in the unit.
+- **N1.** Wording.
+
+Left as follow-ups: the setup-time `--max-time`, and N2 (validate the token before replacing it).
