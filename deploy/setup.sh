@@ -41,6 +41,17 @@ for f in songrush.service Caddyfile; do
     fi
 done
 
+# A <name>.duckdns.org hostname: point the name at this server first (it asks
+# for the DuckDNS token), so a wrong name or token stops before any install.
+host_lower=${host,,}
+if [[ $host_lower == *?.duckdns.org ]]; then
+    echo "== DuckDNS"
+    if ! bash "$here/duckdns-setup.sh" "${host_lower%.duckdns.org}"; then
+        echo "setup.sh: the DuckDNS step failed; nothing was installed. Fix it and run setup.sh again" >&2
+        exit 1
+    fi
+fi
+
 # On a fresh instance cloud-init may still be running apt; let it finish.
 if command -v cloud-init > /dev/null 2>&1; then
     echo "== waiting for cloud-init"
