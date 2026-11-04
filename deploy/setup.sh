@@ -47,7 +47,7 @@ host_lower=${host,,}
 if [[ $host_lower == *?.duckdns.org ]]; then
     echo "== DuckDNS"
     if ! bash "$here/duckdns-setup.sh" "${host_lower%.duckdns.org}"; then
-        echo "setup.sh: the DuckDNS step failed; nothing was installed. Fix it and run setup.sh again" >&2
+        echo "setup.sh: the DuckDNS step failed; no packages were installed yet. Fix it and run setup.sh again" >&2
         exit 1
     fi
 fi
