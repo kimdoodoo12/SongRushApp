@@ -185,9 +185,10 @@ public final class Room {
 		start(songCount, DrawFilter.NONE);
 	}
 
-	// Draws songCount songs from the grouped candidates that match the filter. Too few: everyone
-	// gets not-enough-songs with the narrowed count. With a non-empty filter, everyone gets settings
-	// (only its set fields) before the first prepare (docs/cycles/060-draw-filters.md).
+	// Draws songCount songs from the grouped candidates that match the filter, including its tier by
+	// draw-set rank. Too few: everyone gets not-enough-songs with the narrowed count. With a non-empty
+	// filter, everyone gets settings (only its set fields) before the first prepare
+	// (docs/cycles/060-draw-filters.md, 063-tier-filter.md).
 	public void start(int songCount, DrawFilter filter) {
 		Objects.requireNonNull(filter, "filter");
 		if (phase != Phase.LOBBY) {
@@ -202,7 +203,7 @@ public final class Room {
 			catalog.theme(c.themeId())
 					.flatMap(t -> catalog.anime(t.animeId()).map(a -> new Song(c, t, a)))
 					.filter(s -> s.anime().group() != null)
-					.filter(s -> filter.matches(s.theme(), s.anime()))
+					.filter(s -> filter.matches(s.theme(), s.anime()) && filter.matchesRank(catalog.rank(c.themeId())))
 					.ifPresent(drawable::add);
 		}
 		if (drawable.size() < songCount) {

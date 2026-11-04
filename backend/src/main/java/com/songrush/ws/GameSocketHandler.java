@@ -68,6 +68,8 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 
 	private static final Set<String> THEME_TYPES = Set.of("OP", "ED");
 
+	private static final Set<String> TIERS = Set.of(DrawFilter.EASY, DrawFilter.HARD, DrawFilter.NORMAL);
+
 	static final CloseStatus REPLACED = new CloseStatus(4001, "replaced");
 
 	private static final Logger log = LoggerFactory.getLogger(GameSocketHandler.class);
@@ -420,8 +422,9 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 
 	// The optional draw filter of create (solo) and start, or null when a present field is bad
 	// (docs/cycles/060-draw-filters.md): types a non-empty array of distinct "OP"/"ED" strings,
-	// yearFrom and yearTo JSON integers in MIN_YEAR..MAX_YEAR with yearFrom <= yearTo. A present
-	// JSON null is bad. NONE when no field is present.
+	// yearFrom and yearTo JSON integers in MIN_YEAR..MAX_YEAR with yearFrom <= yearTo, tier one of
+	// "easy", "hard" or "normal" (no tier; docs/cycles/063-tier-filter.md). A present JSON null is
+	// bad. NONE when no field is present.
 	private static DrawFilter filter(JsonNode node) {
 		Set<String> types = null;
 		if (node.has("types")) {
@@ -454,7 +457,15 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		if (yearFrom != null && yearTo != null && yearFrom > yearTo) {
 			return null;
 		}
-		return new DrawFilter(types, yearFrom, yearTo);
+		String tier = null;
+		if (node.has("tier")) {
+			JsonNode tierNode = node.get("tier");
+			if (!tierNode.isString() || !TIERS.contains(tierNode.stringValue())) {
+				return null;
+			}
+			tier = tierNode.stringValue();
+		}
+		return new DrawFilter(types, yearFrom, yearTo, tier);
 	}
 
 	// A JSON integer in MIN_YEAR..MAX_YEAR, or null.
