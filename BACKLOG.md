@@ -272,7 +272,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `docs/deploy-guide.md` gains "다른 와이파이에서 서버 접속이 안 될 때": AWS console, security group, edit inbound rules, the SSH rule's source "내 IP", save; players are unaffected because 80/443 stay open to everyone.
   - Acceptance (pytest): the section heading exists and mentions `보안 그룹`, `인바운드`, `내 IP` and `22`; all earlier guide rules still pass. (Checking a new DuckDNS token before it replaces the old one stays a follow-up: the locked cycle 062 test pins a single curl call on the final file.)
 
-- [ ] **S-004** design: Docker deployment (from D-071)
+- [~] **S-004** design: Docker deployment (from D-071)
   - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
 
 ## Roadmap
