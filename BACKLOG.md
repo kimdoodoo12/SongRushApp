@@ -275,6 +275,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [~] **S-004** design: Docker deployment (from D-071; revised for D-072..D-078)
   - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
 
+- [ ] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
+- [ ] **S-006** design: audio on S3 + CloudFront (from D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -295,6 +298,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-080** Confirmed as they are (user, 2026-11-04): build and test tools (Gradle + JUnit 5, Vite + Vitest + ESLint, pytest) and the server (Ubuntu 24.04 LTS, ap-northeast-2, t3.micro).
 - **D-072** CI/CD (user, 2026-11-04): GitHub Actions. Every push runs the tests; a merge to `main` builds the image, pushes it to GHCR and deploys to the server automatically (the server's SSH key goes into GitHub Secrets).
 - **D-073** Image registry (user, 2026-11-04): GitHub Container Registry (GHCR).
 - **D-074** Monitoring (user, 2026-11-04): a scheduled GitHub Actions check of the public site every 5-10 minutes that posts to Discord when it fails (the Discord webhook goes into GitHub Secrets).
