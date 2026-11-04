@@ -95,3 +95,25 @@ Owner decision D-076: STOMP over WebSocket, using Spring's `@MessageMapping` and
 - **D-085 (owner): A1 room topics plus a private queue, or A2 private queue only.**
   - **Recommended: A2.** It keeps today's exact ordering and privacy with the least risk to fairness.
   - Choose A1 if showing the standard topic layout in the portfolio matters. It adds a membership-checking SUBSCRIBE guard and a join-then-subscribe handshake, about one more cycle.
+
+## Review changes (round 1)
+- **Blocker. The items are re-split so that every item's tests can pass with that item's handlers.**
+  1. **B-014: extract a transport-independent core (review M1).** Pull the seat, token, binding and lobby registry and the per-message actions out of `GameSocketHandler` into a `GameService`. The raw handler and the STOMP controller both call it and share the same lobbies. This is a pure refactor: every existing test passes unchanged.
+  2. **B-015: STOMP endpoint for the game messages.** `ping`, `create`, `join`, `leave`, `start`, `ready`, `chat` and `skip` on STOMP, with the Solo, Lobby, Rounds, Filter and Tier socket tests ported. Includes the concurrent-correct-answer ordering test.
+  3. **B-016: STOMP connection lifecycle.** `rejoin`, replace, disconnect and grace, and heartbeats. The Reconnect, LateJoin and proxy-handshake tests are ported, and a leak test is added.
+  4. **F-010: frontend on STOMP.**
+  5. **B-017: remove the raw transport.** The `deploy/smoke.py` STOMP update is proposed to the owner rather than made directly (D-083, review M5).
+- **High.**
+  - **H1. Disconnect.** It is handled on the ordered inbound path: the STOMP DISCONNECT message under `setPreserveReceiveOrder`. A set of closed connection ids is also checked atomically at seat reservation. Together they mean a `join` still queued after a close can never seat a dead connection. Test: send, then close at once; no ghost seat is left.
+  - **H2. Replaced.** WebSocket close codes still work under STOMP, so the server closes the old session with `CloseStatus(4001)`, through a `WebSocketHandlerDecorator` that keeps each session by connection id. stompjs reports the code in `onWebSocketClose`. The 4001 assertions stay as they are. Whether `stomp_dart_client` exposes the code is checked in M-6.
+  - **H3. Test porting.** Each port cycle's spec carries a per-test table with three columns: kept as is, changed (with the reason), and removed (with its replacement). The critic reviews the rewritten tests as a diff against the originals.
+    - **Payloads.** Handlers take `JsonNode`, so strings, decimals and explicit nulls are still rejected exactly as today.
+    - **Unknown destinations.** A catch-all `/app/**` mapping answers `bad-message`.
+    - **OutboundQueue's cap.** Replaced by Spring's send-buffer and time limits, with a new test for a slow consumer being closed.
+- **Medium.**
+  - **M2. Size check.** The 4096-byte limit is checked in a `ChannelInterceptor.preSend` on `clientInboundChannel` before conversion. The `too-large` reply is sent and the frame is not parsed. STOMP frame errors still produce an ERROR frame and a close; this is documented.
+  - **M3. Heartbeats.** Server to client only (10 s), with no client-to-server heartbeat expected, so a throttled background tab is not dropped. The server heartbeat also keeps idle connections alive through Nginx.
+  - **M4. Frontend fake.** `FakeStompClient` records `{destination, body}`. A test-side helper maps it to today's `{type,...}` for the existing assertions, and a separate unit test pins the destination mapping.
+  - **M5.** See item 5: the `smoke.py` change is a proposal to the owner.
+- **Nit.** "16 members" means 8 players plus up to 8 watchers during a game (`Lobby.MAX_GAME_MEMBERS = 2 * MAX_PLAYERS`).
+- **D-085 framing.** D-076 says "`@MessageMapping` and topics". A2 drops topics for fairness and privacy, so the question is put to the owner in those terms.
