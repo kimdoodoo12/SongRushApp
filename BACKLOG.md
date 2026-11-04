@@ -278,7 +278,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [ ] **S-006** design: audio on S3 + CloudFront (from D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
-- [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
+- [~] **B-014** backend: transport-independent game core (from S-005, design 068)
   - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
 - [ ] **B-015** backend: STOMP endpoint for game messages (from S-005)
   - `/app/ping|create|join|leave|start|ready|chat|skip` with `JsonNode` payloads, a catch-all `bad-message`, a pre-conversion 4096-byte check, private-queue outbox (D-085), ordering flags; Solo/Lobby/Rounds/Filter/Tier socket tests ported with a per-test table, plus the concurrent-answer ordering test. Raw `/ws` stays.
