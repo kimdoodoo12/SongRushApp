@@ -257,7 +257,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-009** deploy: DuckDNS address and the Free plan in the kit and guide (from D-066, D-068)
   - `setup.sh` takes a DuckDNS name (`<name>.duckdns.org`) and asks for the DuckDNS token interactively (never as an argument, never written to the repo); it stores it root-only on the server and installs a boot-time updater (systemd unit or timer calling the DuckDNS update URL) so the name follows the IP after a stop/start. `docs/deploy-guide.md` switches to DuckDNS and the Free plan (closure and deletion warnings, a month-5 reminder, no Budgets-only safety claim) and drops the sslip restart steps that DuckDNS makes unnecessary.
   - Acceptance (pytest): the kit tests cover the updater unit and that no token appears in any file or argument; the guide tests are updated for DuckDNS and the Free plan (declared changes to the cycle 058 guide test's required strings).
-- [~] **B-012** backend: popularity tier filter (from D-069, design 059)
+- [x] **B-012** backend: popularity tier filter (from D-069, design 059)
   - `Candidate` gains `rank` (index in `drawSet`, 1-based); optional `tier` on `create`/`start`: `easy` = rank 1-300, `hard` = rank 501-1,500, absent = all; `bad-filter` for other values; `settings` carries `tier` when set.
   - Acceptance (JUnit): each tier draws only its ranks; combined with types/years; `available` counts after the tier; `settings` includes `tier`.
 - [ ] **F-009** frontend: difficulty select (from D-069)

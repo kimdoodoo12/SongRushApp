@@ -66,3 +66,23 @@ No Blocker or High. Added:
   - Generated catalogs use 1-byte audio files and are built once per class, with a static `@TempDir` and `@BeforeAll`.
   - The rank-2-uncached case uses its own small catalog, so the "easy + ED = 150" count holds on the main catalog.
 - **Constructor normalization.** The four-argument constructor maps `"normal"` to null and rejects any value other than `easy`, `hard` or null with `IllegalArgumentException`.
+
+## Result
+- Tests `185b292` (locked), implementation `2ba85f1` (attempt 1).
+- Red phase (verifier): `compileTestJava` failed with 70 errors, all for the missing API (4-arg `DrawFilter`, `matchesRank`, `tier()`), in `DrawFilterTierTest` and `RoomTierTest` only.
+- Verifier:
+  - `cleanTest test` and `build` exit 0, every suite green. The tier suites ran 13 + 10 + 10.
+  - `git diff 185b292 HEAD --stat` lists only the four main files.
+  - Real-jar smoke on the real catalog:
+    - solo `tier:"easy", types:["OP"]` sent `settings{"types":["OP"],"tier":"easy"}` and then `prepare`, and its five reveals were Black Clover, One Piece, Jujutsu Kaisen, Naruto and Fullmetal Alchemist: Brotherhood;
+    - `tier:"medium"` gave `bad-filter`;
+    - easy+OP 1986-1999 had at least 30 songs, and easy+OP 1986-1990 gave `available:0`.
+
+## Code review (critic)
+No Blocker, High or Medium. Confirmed:
+- the rank map is 1-based, built from `drawSet` rather than the candidates, immutable and safely published;
+- `"normal"` becomes an empty filter that equals `NONE`;
+- the constructor's `IllegalArgumentException` cannot be reached from client input;
+- no rank or id goes to clients.
+
+The cycle 060 null-type follow-up is still open.
