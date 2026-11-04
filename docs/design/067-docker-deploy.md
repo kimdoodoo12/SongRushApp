@@ -1,103 +1,196 @@
-# 067 Docker deployment (S-004)
+# 067 Docker deployment, CI/CD and operations (S-004)
+
+This design covers the owner's stack decisions of 2026-11-04:
+- D-071: Docker.
+- D-072: GitHub Actions CI/CD with automatic deployment when a change is merged to `main`.
+- D-073: GHCR as the image registry.
+- D-074: an Actions health check that alerts on Discord.
+- D-075: Nginx with certbot.
+- D-078: CloudWatch Logs.
+
+D-079 and D-080 confirm Java 17, no database, the build tools, and Ubuntu 24.04 on t3.micro in Seoul.
+
+STOMP (D-076) and S3/CloudFront (D-077) get their own designs (S-005 and S-006). This design must not block them:
+- The image runs whatever the jar is.
+- After S-006, the audio mount goes away.
 
 ## Questions
-1. How is the image built and moved to the server without a paid registry or a new account?
-2. What runs in containers: the game server only, or Caddy too? Where does DuckDNS run?
-3. How do the 5 GB of audio and the catalog reach the container without being copied into the image?
-4. How does the JVM fit in a container on a 1 GB t3.micro?
-5. What are the logs and restart policy, and what replaces the `systemctl`/`journalctl` commands in the guide?
-6. How do we move from the native install (cycles 055-062) that is being deployed now, without re-uploading audio?
+1. How does a merge to `main` become a running server, and which secrets does that need?
+2. How do Nginx and certbot run, and how is the certificate renewed and reloaded?
+3. Where do the 5 GB of audio and the catalog live until S-006 moves the audio to S3?
+4. How does everything fit in 1 GB of memory and a 16 GB disk?
+5. How do logs reach CloudWatch, and what does the instance need for that?
+6. How does the Actions health check alert on Discord without false alarms?
+7. How do we switch from the native install that is running now, and how do we roll back?
 
 ## Findings
-- **Local Docker.** This PC has Docker 29.9.2 (`docker --version`). The current jar is `backend/build/libs/backend-0.0.1-SNAPSHOT.jar`.
-- **Runtime contract of the jar (cycles 054, 055).**
-  - Inputs:
-    - `SONGRUSH_DATA_DIR` (catalog and audio);
-    - `SPRING_WEB_RESOURCES_STATIC_LOCATIONS` (built frontend);
-    - `SPRING_WEB_RESOURCES_CACHE_CACHECONTROL_NO_CACHE`;
-    - `SERVER_ADDRESS`;
-    - forwarded headers from a proxy on loopback or a private network. Tomcat's internal-proxy defaults include `10/8`, `172.16/12` and `192.168/16`, so a proxy on a Docker bridge network qualifies.
-  - The guard refuses a static location that overlaps the data dir.
-  - The backend writes nothing to the data dir (cycle 062 review).
-  - `-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`.
-- **Image size.** A Temurin 17 JRE base (`eclipse-temurin:17-jre`) is about 90 MB compressed. Adding the jar (about 30 MB) and the web files (about 0.3 MB) gives an image of about 120-130 MB compressed.
-- **Memory.** On 1 GB with 1 GB swap: the Docker daemon is about 40-60 MB, containerd about 20-30 MB, Caddy about 20-40 MB, and the JVM heap is 384 MB plus about 100 MB native. That fits, the same as today plus the daemons. The daemons are the one cost the native install avoided.
+- **The jar's runtime contract** (cycles 054 and 055):
+  - Configuration comes from `SONGRUSH_DATA_DIR`, `SPRING_WEB_RESOURCES_STATIC_LOCATIONS` and `SPRING_WEB_RESOURCES_CACHE_CACHECONTROL_NO_CACHE`.
+  - Forwarded headers are trusted from private ranges. The critic read Spring Boot 4.1.1's `RemoteIpValve` defaults, which include `172.16.0.0/12` and `192.168.0.0/16` and so cover Docker bridge networks.
+  - The static-location guard forbids overlap with the data dir.
+  - The backend never writes to the data dir.
+- **Tomcat binding in a container.** `SERVER_ADDRESS` must be unset or `0.0.0.0` inside the container. `127.0.0.1` would make the app unreachable from the proxy container (review M1).
+- **Disk.**
+  - Native need: about 12 GB (design 053).
+  - Docker adds docker-ce and containerd (a few hundred MB).
+  - containerd's image store (the default on Engine 29, confirmed on this PC) keeps both compressed and unpacked layers, so each image counts roughly twice.
+  - The JRE image is about 200 MB unpacked.
+  - Without pruning, every deploy adds tens of MB (review H4).
+- **Memory on 1 GB with 1 GB swap.**
+
+  | Part | Approx. memory |
+  |---|---|
+  | dockerd + containerd | 60-90 MB |
+  | Nginx | 10 MB |
+  | JVM | 384 MB heap + ~100 MB native |
+  | CloudWatch log driver | runs inside dockerd, no extra process |
+
+  It fits. Swap stays mandatory (review H2).
+- **GitHub Actions.**
+  - Hosted runners can build images and push to GHCR with the built-in `GITHUB_TOKEN` (`packages: write`).
+  - To deploy, a runner must SSH to the server. The runner's IP is not fixed, so the security group's SSH rule, today "My IP" only (cycle 066), cannot allow it as it stands.
+- **Scheduled workflows** run at most every 5 minutes. They can be delayed under load and are disabled after 60 days without repository activity.
 
 ## Options
-**A. Image build and transfer**
-- **A1. Build on the PC, then `docker save | gzip | ssh … docker load`.**
-  - No registry or account is needed.
-  - The image is built and tested locally.
-  - Each update sends about 130 MB, and only the changed layers matter for build time, not for transfer.
-- **A2. Upload the jar and a Dockerfile, then `docker build` on the server.**
-  - The transfer is small, but the server needs build time and pulls the base image itself.
-  - The image that runs is not the one tested on the PC.
-- **A3. A registry (GHCR or Docker Hub).** Standard practice, but it needs an account and a token on both machines, which is an external-account decision.
+**A. How Actions reaches the server**
+- **A1. Open SSH (22) to everyone.** Key-only login. This is simple but invites constant scanning (cycle 066 advised against it).
+- **A2. AWS Systems Manager (SSM) Run Command.**
+  - Actions authenticates to AWS with GitHub OIDC (no stored AWS keys) and runs `docker compose pull && up -d` on the instance.
+  - SSH stays limited to "My IP".
+  - Needs: the SSM agent (preinstalled on Ubuntu AMIs) and an IAM instance role. The same role also serves CloudWatch (D-078) and later S3 (D-077).
+  - Needs: an IAM OIDC provider and a deploy role for GitHub, in the owner's account.
+- **A3. Temporarily allow the runner's IP in the security group during the job.** Needs AWS credentials in Actions anyway and is fragile.
 
-**B. What runs where**
-- **B1. Docker Compose with two services, `app` (game server) and `caddy` (official `caddy:2` image).**
-  - Caddy gets its certificate volume and is the only service publishing 80/443.
-  - `app` is not published and is reached only on the Compose network.
-  - The DuckDNS updater stays a host systemd timer (cycle 062). It touches only DNS and needs no container.
-- **B2. Only `app` in Docker, Caddy stays on the host.** Fewer changes, but it is a half-Docker setup.
+**B. Nginx and certificates**
+- **B1. Containers.** `nginx:1.27-alpine` and `certbot/certbot` in Compose.
+  - certbot uses the webroot method through a shared volume.
+  - A renewal loop in the certbot container runs every 12 h.
+  - After a renewal, Nginx reloads from a deploy hook (`docker compose exec nginx nginx -s reload` run by a host systemd timer).
+  - The first certificate is obtained by setup with a temporary HTTP-only Nginx config.
+- **B2. Nginx and certbot on the host, app only in Docker.** Fewer moving parts, but half of the deploy stays outside Compose.
 
-**C. Data**
-- **C1. Bind-mount the host folders read-only:** `/opt/songrush/data:/data:ro` and `/opt/songrush/web:/web:ro`.
-  - The audio already uploaded stays where it is.
-  - The image carries only code.
-- **C2. Bake the web files into the image and bind-mount only the data.**
-  - Then a frontend change needs an image rebuild.
-  - In exchange, `upload.sh` uploads no web files: the image always holds a matching frontend and backend, which fixes the version-skew follow-up.
+**C. Image transfer** (decided by D-073: GHCR)
+- GHCR images can be public or private.
+- For a private image, the server needs a read token stored on the instance.
+- A public image needs no token on the server. It reveals only code that is already in the repository, never audio or answers (the audio is not in the image).
 
 ## Decision
-- **A1:** build and test on the PC, then stream the image over ssh. No account is needed, and the image that runs is the one tested. The image is tagged with the git short SHA and also `songrush:current`. The previous tag is kept as `songrush:good` after a healthy start; this replaces `.jar.good` from cycle 057.
-- **B1:** Docker Compose with `app` and `caddy`. The `docker compose` plugin comes from Docker's official apt repository. setup.sh installs it, with the existing `DPkg::Lock::Timeout`.
-- **C2:** the web files go inside the image. `/opt/songrush/data` is bind-mounted read-only at `/data`. Inside the container, `SONGRUSH_DATA_DIR=/data` and `SPRING_WEB_RESOURCES_STATIC_LOCATIONS=file:/app/web/`; the guard still holds.
-- **Images.**
-  - `app`: `eclipse-temurin:17-jre`, running as a non-root user.
-  - `caddy`: the official `caddy:2`, pinned to a minor version.
-  - Healthchecks: the `app` image has none, because the JRE image has no curl. Compose waits for the port, and `upload.sh` polls `/health` through `docker compose exec caddy wget -qO- http://app:8080/health`. `caddy:2` is Alpine-based and has busybox `wget`.
-- **Restart and logs.**
-  - `restart: unless-stopped` on both services.
-  - `-XX:+ExitOnOutOfMemoryError` stays.
-  - Logs use Docker's `json-file` driver with `max-size: 10m` and `max-file: 3`.
-  - The guide's commands become `docker compose logs app --tail 50` and `docker compose ps`.
-- **JVM.** `JAVA_TOOL_OPTIONS=-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`. The container memory limit is `mem_limit: 640m`, so a leak cannot take the whole machine down.
-- **Caddy.**
-  - The same Caddyfile, with `reverse_proxy app:8080`.
-  - Certificates live in a named volume `caddy_data`, so a restart keeps them and avoids Let's Encrypt rate limits.
-  - The hostname comes from `SONGRUSH_HOST` in a `.env` file next to the compose file, which setup.sh writes. Caddy expands `{$SONGRUSH_HOST}` from the container environment.
-- **Migration from the native install.**
-  - A new `deploy/docker/migrate.sh` runs once on the server. It:
-    1. stops and disables the native `songrush` service and the host `caddy` service;
-    2. leaves `/opt/songrush/data` in place;
-    3. starts Compose.
-  - The DuckDNS timer and its token file are unchanged.
-  - Rollback: `docker compose down`, then re-enable the native services. These are documented, not automated.
-- **Files.**
-  - `deploy/docker/Dockerfile`
-  - `deploy/docker/compose.yaml`
-  - `deploy/docker/Caddyfile`
-  - `deploy/docker/setup-docker.sh`: installs Docker and Compose and writes `.env`. It reuses `duckdns-setup.sh` when the name ends in `.duckdns.org`.
-  - `deploy/docker/deploy.sh`: replaces `upload.sh` for code. It runs the local build, `docker save`, the ssh load, `compose up -d` and the health poll, and keeps the `good` tag.
-  - `deploy/docker/upload-data.sh`: the audio and catalog part of today's `upload.sh`, with the same resumable sftp rules. It is needed only when songs change.
-  - The native files stay for one release as the documented rollback. They are removed in a later cycle.
-- **Tests.** pytest in `data/tests/`, like cycles 055-062. Checks:
-  - the Dockerfile has a pinned base, a non-root user and no audio copied;
-  - the compose file has the `ro` data mount, only `caddy` publishing ports, log rotation, `mem_limit` and restart policies;
-  - the scripts pass `bash -n`, are ASCII with LF, and pass stub-PATH behaviour tests, as in cycle 055;
-  - one optional local check: `docker build` succeeds and the container answers `/health` on a free port with a tiny fixture data dir. It is skipped when Docker is not running.
-- **Guide.** `docs/deploy-guide.md` switches to the Docker flow, and the native steps move to an appendix as the rollback.
+- **Compose project** (`deploy/docker/compose.yaml`, top-level `name: songrush`), three services:
+
+  | Service | Image | Ports | Mounts | Other |
+  |---|---|---|---|---|
+  | `app` | `ghcr.io/<owner>/songrush` | not published | `/opt/songrush/data:/data:ro` until S-006 | env listed below; `mem_limit: 640m`; `restart: unless-stopped` |
+  | `nginx` | `nginx:1.27-alpine`, pinned by digest | 80 and 443, the only service that publishes any | the certbot webroot and the certificate volume | `restart: unless-stopped` |
+  | `certbot` | `certbot/certbot`, pinned by digest | none | the same two volumes | runs `renew` every 12 h |
+
+  - The `app` environment: `SONGRUSH_DATA_DIR=/data`, `SPRING_WEB_RESOURCES_STATIC_LOCATIONS=file:/app/web/`, `SPRING_WEB_RESOURCES_CACHE_CACHECONTROL_NO_CACHE=true`, and no `SERVER_ADDRESS`.
+  - Logging is set per service in Compose (D-078). Every service uses the `awslogs` driver:
+    - log group `/songrush`;
+    - one stream per service;
+    - `awslogs-create-group: true`;
+    - retention set once to 14 days (by setup, through the AWS CLI under the instance role).
+- **Image.**
+  - `deploy/docker/Dockerfile` is multi-stage. It builds the frontend with Node, builds the backend with Gradle, and runs on `eclipse-temurin:17-jre`.
+  - All base images are pinned by digest.
+  - It runs as a non-root user from a `WORKDIR` that has no `public/`, `static/` or `webapp/` folder (cycle 054, M3).
+  - The web files are baked in at `/app/web`, so the frontend and backend always match (review: this solves cycle 054's M2 and M4).
+  - The entrypoint is in exec form: `java -Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -jar /app/songrush.jar`.
+  - The image is public on GHCR (C). The server pulls without a token.
+- **Deployment path (A2, SSM).**
+  - **`ci.yml`**, on every push and pull request: backend `gradlew test`, frontend `npm ci` + `npm test` + `npm run lint` + `npm run build`, and data `pytest`.
+  - **`deploy.yml`**, on a push to `main`:
+    1. build the image and push it as `:sha-<short>` and `:main`;
+    2. assume the deploy role via OIDC;
+    3. send an SSM command to the instance, which runs `/opt/songrush/docker/deploy-remote.sh <sha>`.
+  - **`deploy-remote.sh`**, on the server:
+    1. `docker compose pull app`, then `up -d app` with that tag;
+    2. poll `http://app:8080/health` through the Nginx container, for 120 s at most;
+    3. on success, record the tag as `good` and prune images other than `good` and the current one;
+    4. on failure, restart the previous `good` tag and exit non-zero, so the workflow fails visibly.
+  - **Manual equivalent.** The owner can run `deploy-remote.sh <sha>` over SSH for a manual deploy or a rollback.
+- **Monitoring (D-074).** `monitor.yml` runs every 5 minutes.
+  - It calls `deploy/smoke.py https://songrush.duckdns.org`.
+  - It alerts on Discord only after 2 consecutive failures. The workflow keeps the last result in the Actions cache.
+  - It sends one recovery message when the site is healthy again.
+  - The Discord webhook URL is a repository secret (`DISCORD_WEBHOOK`), separate from the dev-notification webhook.
+- **Server preparation (`deploy/docker/setup-docker.sh`, run once with sudo).** It does what the native `setup.sh` does for the OS, minus Java and Caddy:
+  - waits for cloud-init, with apt lock timeouts;
+  - creates swap;
+  - creates `/opt/songrush/{data,docker}`;
+  - runs DuckDNS through `duckdns-setup.sh`;
+  - installs Docker Engine and the Compose plugin from Docker's apt repository;
+  - installs the compose file and the scripts;
+  - obtains the first certificate;
+  - installs the reload timer.
+
+  The Compose files and scripts on the server are updated by `deploy-remote.sh`, which fetches them from the same commit through the image (copied out of `/app/deploy`). The repository is the only source.
+- **Data until S-006.** The existing upload path for audio stays as it is (cycle 055's `upload.sh`, audio part only) and is not used by CI. After S-006 the audio lives in S3, and the mount and the upload of audio are removed.
+- **Owner console steps.** Each is a guide section, marked as needing the owner's account:
+  1. Attach an IAM instance role with:
+     - `AmazonSSMManagedInstanceCore`;
+     - CloudWatch Logs write for `/songrush*`;
+     - later, S3 read for S-006.
+  2. Create the GitHub OIDC provider and a deploy role that may only send the SSM command to this instance.
+  3. Add these to GitHub Secrets and Variables: `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `INSTANCE_ID`, `DISCORD_WEBHOOK`.
+  4. Make the GHCR package public after the first push.
+- **Migration from the running native install (`deploy/docker/migrate.sh`).**
+  1. Run `setup-docker.sh`.
+  2. Stop and `mask` the native `songrush` and `caddy` services, so they cannot take 80/443 back after a reboot (review N3).
+  3. Run `docker compose up -d`. certbot obtains a new certificate; Caddy's certificate is not reused, and one new issuance is well within Let's Encrypt limits.
+  4. Run the smoke check.
+
+  Rollback: `docker compose down`, then `unmask` and start the native services. This is documented. The native kit stays in `deploy/` for one release and is then removed.
+- **Disk budget.** About 12 GB native, plus about 1 GB for Docker and two images, and the 5 GB of audio until S-006: about 14 GB on 16 GB. After S-006 it drops to about 9 GB. The prune step keeps it bounded.
 
 ## Resulting items
-1. **I-011 Docker image and compose.**
-   - Files: the Dockerfile, `compose.yaml` and the Caddyfile under `deploy/docker/`.
-   - Tests: static checks, plus the optional local `docker build` and `/health` check with a fixture data dir.
-2. **I-012 Docker scripts.**
-   - Files: `setup-docker.sh`, `deploy.sh`, `upload-data.sh` and `migrate.sh`.
-   - Tests: stub-PATH behaviour tests for every one; the token never appears in argv or output.
-3. **I-013 Guide and live migration.**
-   - Guide: rewrite `docs/deploy-guide.md` for Docker, with a rollback appendix.
-   - Live migration: the owner runs `migrate.sh` with the lead watching. This last step needs the owner's server, and is `[?]` until then.
+1. **I-011 Image.**
+   - The multi-stage Dockerfile, `.dockerignore` and the `compose.yaml` with three services.
+   - Static tests in pytest:
+     - pinned digests;
+     - non-root user;
+     - no audio in the image;
+     - only Nginx publishes ports;
+     - no `SERVER_ADDRESS`;
+     - the NO_CACHE env is set;
+     - `awslogs` options;
+     - `mem_limit`;
+     - restart policies.
+   - Verifier step (not pytest, review M4): `docker build`, run with a fixture data dir on a free port, `/health` and `smoke.py` against it. The command output goes into the cycle doc.
+2. **I-012 Nginx and certbot.**
+   - The Nginx config: HTTP to HTTPS redirect, `/.well-known/acme-challenge/` webroot, WebSocket upgrade headers on `/ws`, `X-Forwarded-Proto` and `-For`, and a `Host` passthrough (cycle 054's same-origin rule).
+   - The certbot renew loop and the reload timer.
+   - Tests:
+     - static checks on the config;
+     - a verifier step that runs Nginx in front of the app container with a self-signed certificate and checks the 101 handshake through it.
+3. **I-013 Server scripts.**
+   - `setup-docker.sh`, `deploy-remote.sh` and `migrate.sh`.
+   - Stub-PATH behaviour tests as in cycle 055:
+     - `sudo docker` usage;
+     - the health poll and the rollback to `good`;
+     - prune;
+     - DuckDNS reuse;
+     - the token never appears in argv or output.
+4. **I-014 GitHub Actions.**
+   - `ci.yml`, `deploy.yml` and `monitor.yml`.
+   - Tests:
+     - workflow YAML parses;
+     - required jobs and permissions are present (`id-token: write` and `packages: write` only where needed);
+     - secrets are referenced only through `secrets.*`;
+     - pinned action versions;
+     - the monitor alerts only after 2 consecutive failures, through a small tested Python helper.
+5. **I-015 Guide and owner steps.** `docs/deploy-guide.md` rewritten for the Docker flow and the console steps above, with the native flow kept as a rollback appendix.
+6. **I-016 Live migration (owner present, `[?]`).** The owner does the console steps and runs `migrate.sh`. The lead runs the smoke check. Then the first merge to `main` proves the CI/CD path.
 
-No needs-decision items: A3 (a registry account) was not chosen.
+**Order.** I-011 to I-015 can be built now, offline; I-016 needs the owner. S-005 (STOMP) and S-006 (S3) follow and reuse this pipeline.
+
+## Review changes (round 1, on the earlier Docker-only draft)
+The critic's points that still apply are folded in:
+- swap and folder creation in setup (H2);
+- pruning and the disk budget (H4);
+- the full env list, with no `SERVER_ADDRESS` (M1);
+- `sudo docker` (M3);
+- the image check as a verifier step (M4);
+- `mask` (N3);
+- an exec-form entrypoint without `JAVA_TOOL_OPTIONS` (N2).
+
+H1 (keep Caddy on the host) and H3 (Caddy certificate volume) are superseded by D-075 (Nginx). M5 (resumable `docker save` transfer) is superseded by D-073 (GHCR pull).
