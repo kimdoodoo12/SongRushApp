@@ -272,6 +272,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `docs/deploy-guide.md` gains "다른 와이파이에서 서버 접속이 안 될 때": AWS console, security group, edit inbound rules, the SSH rule's source "내 IP", save; players are unaffected because 80/443 stay open to everyone.
   - Acceptance (pytest): the section heading exists and mentions `보안 그룹`, `인바운드`, `내 IP` and `22`; all earlier guide rules still pass. (Checking a new DuckDNS token before it replaces the old one stays a follow-up: the locked cycle 062 test pins a single curl call on the final file.)
 
+- [ ] **S-004** design: Docker deployment (from D-071)
+  - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -292,6 +295,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-071** Docker (user, 2026-11-04: "원래 서버운영 배포는 docker를 써야지. 나는 지금이라도 쓰고싶은데"): run the server with Docker now, replacing the native systemd install of the game server (design 052 had left Docker out without asking). The audio and catalog stay on the host and are mounted read-only, so the 5 GB upload is reused. Design first (S-004).
 - **D-066** Hostname (user, 2026-11-04): DuckDNS, for example `songrush.duckdns.org`. The name stays fixed when the IP changes; the server reports its IP to DuckDNS at boot. The DuckDNS token is a secret: it is typed on the server during setup and never stored in the repo.
 - **D-067** Preview risk (user, 2026-11-04; revisits D-025/D-057): keep it accepted for friends-only play; no audio encryption.
 - **D-068** AWS sign-up (user, 2026-11-04; refines D-065): the Free plan (USD 100 credit, up to 6 months; the account closes by itself when the plan ends or the credit runs out, and data is deleted 90 days later unless upgraded). EC2 t3.micro, 16 GB gp3. The guide must warn clearly and remind the owner before month 5.
