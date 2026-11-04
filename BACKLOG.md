@@ -264,6 +264,10 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - A `난이도` select: `쉬움`, `보통` (default, sends nothing), `어려움`; the settings line shows `쉬움`/`어려움`; kept across games like the other filters.
   - Acceptance (Vitest): defaults send today's messages; each choice adds `tier`; the line shows it.
 
+- [~] **B-013** backend: a null theme type never breaks the draw (from the cycle 060 review follow-up)
+  - `DrawFilter.matches` returns false for a theme whose `type` is null when `types` is set, instead of throwing from `Set.copyOf(...).contains(null)`.
+  - Acceptance (JUnit): a filter with `types` and a null-type theme gives false; without `types` the null-type theme matches; `Room.start` with such a catalog draws without throwing and `available` excludes it.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
