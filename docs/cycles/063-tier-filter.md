@@ -57,3 +57,12 @@ The host or solo player can choose a popularity difficulty (D-069). Easy draws f
 
 ## Out of scope
 - The frontend select (F-009).
+
+## Review changes (spec round 1)
+No Blocker or High. Added:
+- **Socket test catalog size.** The `TierSocketTest` catalog has at least 510 themes, so a hard start (rank 501+, at least 5 songs) can succeed.
+- **More rank boundaries.** `matchesRank(1501)` is false for hard, and rank 0 is false for every tier.
+- **Catalog cost.**
+  - Generated catalogs use 1-byte audio files and are built once per class, with a static `@TempDir` and `@BeforeAll`.
+  - The rank-2-uncached case uses its own small catalog, so the "easy + ED = 150" count holds on the main catalog.
+- **Constructor normalization.** The four-argument constructor maps `"normal"` to null and rejects any value other than `easy`, `hard` or null with `IllegalArgumentException`.
