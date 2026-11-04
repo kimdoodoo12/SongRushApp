@@ -117,3 +117,6 @@ Owner decision D-076: STOMP over WebSocket, using Spring's `@MessageMapping` and
   - **M5.** See item 5: the `smoke.py` change is a proposal to the owner.
 - **Nit.** "16 members" means 8 players plus up to 8 watchers during a game (`Lobby.MAX_GAME_MEMBERS = 2 * MAX_PLAYERS`).
 - **D-085 framing.** D-076 says "`@MessageMapping` and topics". A2 drops topics for fairness and privacy, so the question is put to the owner in those terms.
+
+## Owner decision
+- D-085 (2026-11-04): private queue only (A2).
