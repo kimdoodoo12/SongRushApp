@@ -19,6 +19,9 @@ public final class Catalog {
 
 	private final List<Candidate> candidates;
 
+	// Draw-set theme id to its 1-based position.
+	private final Map<Integer, Integer> ranks;
+
 	Catalog(Map<Integer, Anime> anime, Map<Integer, Theme> themes, Map<Integer, List<String>> accepted,
 			List<Integer> drawSet, List<Candidate> candidates) {
 		this.anime = Map.copyOf(anime);
@@ -28,6 +31,11 @@ public final class Catalog {
 		this.accepted = Map.copyOf(copy);
 		this.drawSet = List.copyOf(drawSet);
 		this.candidates = List.copyOf(candidates);
+		Map<Integer, Integer> byTheme = new HashMap<>();
+		for (int i = 0; i < this.drawSet.size(); i++) {
+			byTheme.putIfAbsent(this.drawSet.get(i), i + 1);
+		}
+		this.ranks = Map.copyOf(byTheme);
 	}
 
 	public Optional<Anime> anime(int id) {
@@ -46,6 +54,12 @@ public final class Catalog {
 	// Draw-set theme ids in the file's order.
 	public List<Integer> drawSet() {
 		return drawSet;
+	}
+
+	// The theme's 1-based position in drawSet (its popularity rank, cached or not); 0 when the theme
+	// is not in the draw set.
+	public int rank(int themeId) {
+		return ranks.getOrDefault(themeId, 0);
 	}
 
 	// Cached draw-set themes in draw-set order.
