@@ -298,6 +298,8 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-081** Repository and image visibility (user, 2026-11-04; resolves the Actions-minutes blocker of the S-004 round-2 review): make the GitHub repository public after a secret scan (the owner flips it), so Actions minutes are free and the 5-minute monitor (D-074) is affordable; the GHCR image is then public too (no pull token on the server). The catalog with answers becomes public; it is built from public sources.
+- **D-082** Hold (user, 2026-11-04: "일단 구현은 하지 말아줘. 서버 운영/배포쪽으로 내가 조금더 알아봐야할것 같아"): no implementation of S-004/S-005/S-006 until the owner has looked into operations and deployment; design 067 stays a draft, and open operations questions are asked one by one.
 - **D-080** Confirmed as they are (user, 2026-11-04): build and test tools (Gradle + JUnit 5, Vite + Vitest + ESLint, pytest) and the server (Ubuntu 24.04 LTS, ap-northeast-2, t3.micro).
 - **D-072** CI/CD (user, 2026-11-04): GitHub Actions. Every push runs the tests; a merge to `main` builds the image, pushes it to GHCR and deploys to the server automatically (the server's SSH key goes into GitHub Secrets).
 - **D-073** Image registry (user, 2026-11-04): GitHub Container Registry (GHCR).

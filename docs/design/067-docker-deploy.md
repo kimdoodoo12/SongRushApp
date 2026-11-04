@@ -1,3 +1,5 @@
+> **Status: draft on hold (D-082).** The owner is researching operations and deployment before anything is built. Round-2 review findings (Actions minutes, first-certificate order, Nginx DNS caching, WebSocket timeouts, awslogs blocking mode, OIDC/SSM least privilege, release directories, deploy gating, first image bootstrap) are listed below and not yet folded in.
+
 # 067 Docker deployment, CI/CD and operations (S-004)
 
 This design covers the owner's stack decisions of 2026-11-04:
@@ -194,3 +196,24 @@ The critic's points that still apply are folded in:
 - an exec-form entrypoint without `JAVA_TOOL_OPTIONS` (N2).
 
 H1 (keep Caddy on the host) and H3 (Caddy certificate volume) are superseded by D-075 (Nginx). M5 (resumable `docker save` transfer) is superseded by D-073 (GHCR pull).
+
+## Review round 2 (open, not folded in while on hold)
+- **Blocker.** A 5-minute Actions monitor on a private repository uses about 8,640 of 2,000 free minutes a month. Resolved by D-081: the repository goes public.
+- **High.**
+  - **H1. First certificate order.** The native Caddy must stop before certbot runs.
+  - **H2. Nginx DNS caching.** Nginx keeps the old app IP after a redeploy. Add a resolver with a variable `proxy_pass`, or reload after each deploy. The health poll must go through Nginx.
+  - **H3. WebSocket timeout.** Nginx's default 60 s `proxy_read_timeout` drops idle WebSockets.
+  - **H4. awslogs blocking mode.** Without the role, containers fail to start. Use `mode: non-blocking`.
+  - **H5. OIDC and SSM least privilege.** Pin `sub` to `main` and allow only a dedicated SSM document.
+- **Medium.**
+  - **M1. Public image.** `.dockerignore` must exclude `data/`. The image must not contain `catalog.json`.
+  - **M2. Log retention.** Set it in the console, not through the AWS CLI on the server.
+  - **M3. Releases.** Use per-commit release directories with a `current` link, so Compose and Nginx changes and rollbacks apply together.
+  - **M4. Deploy gating.** Gate on CI, add concurrency control, and poll SSM with a long timeout.
+  - **M5. First image.** Bootstrap it with `workflow_dispatch`.
+- **Nits.**
+  - Disk is about 13 GB, then about 8 GB.
+  - Add the SSM agent's memory.
+  - Run certbot from a host timer.
+  - Restart the SSM agent after attaching the role.
+  - A deploy restarts games in progress.
