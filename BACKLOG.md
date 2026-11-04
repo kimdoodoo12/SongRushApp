@@ -278,7 +278,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [ ] **S-006** design: audio on S3 + CloudFront (from D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
-- [~] **B-014** backend: transport-independent game core (from S-005, design 068)
+- [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
   - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
 - [ ] **B-015** backend: STOMP endpoint for game messages (from S-005)
   - `/app/ping|create|join|leave|start|ready|chat|skip` with `JsonNode` payloads, a catch-all `bad-message`, a pre-conversion 4096-byte check, private-queue outbox (D-085), ordering flags; Solo/Lobby/Rounds/Filter/Tier socket tests ported with a per-test table, plus the concurrent-answer ordering test. Raw `/ws` stays.
@@ -309,6 +309,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-086** Order of work (user, 2026-11-04: "지금 일단 배포/운영에 집중하고싶어. 기능은 일단 배포 뒤에 ci/cd 연결한뒤 해보자"): deployment and operations first, built by the owner with the lead teaching (D-084). Feature work (B-014..B-017, F-010) waits until the site is deployed and CI/CD is connected; cycle 069's spec and its review are kept on branch `cycle/069-game-core`.
 - **D-085** STOMP routing (user, 2026-11-04; refines D-076): server-to-client messages go only to each recipient's private queue `/user/queue/game` (no room topics), so ordering and privacy stay exactly as today and nobody can listen to a room by knowing its code.
 - **D-084** Split of work (user, 2026-11-04: "코드는 네가 다해. 그런데 운영이나 배포만 내가 하겠다고"): the lead writes all code (backend, frontend, data, STOMP and any app-side change); the owner does operations and deployment personally, with the lead teaching step by step ("단계별 수업처럼": goal, reason and hints for each step, the owner writes the files, the lead reviews, full answers only when stuck). The native Caddy deployment is not brought up; the owner starts their own setup from scratch, reusing the uploaded audio. D-082's hold now applies only to deployment infrastructure.
 - **D-083** Owner builds operations and deployment by hand (user, 2026-11-04: "사실 배포 운영은 내가 직접 손수 해보고싶어"): the owner builds the Docker, Nginx, certbot, CI/CD, AWS and logging setup personally. The lead explains, guides step by step, debugs and reviews on request, and does not implement deployment infrastructure (S-004 and the infra part of S-006) itself. App-side changes that deployment needs are proposed to the owner first. D-077 (S3 vs server disk with Nginx serving audio) is reopened for the owner to decide while building.

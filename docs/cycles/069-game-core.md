@@ -52,3 +52,14 @@ A live upload is running from this PC. Run only `.\gradlew.bat test`, never `bui
 
 ## Out of scope
 - STOMP (B-015, B-016).
+
+## Paused (D-086, 2026-11-04)
+The owner wants to focus on deployment and operations first. STOMP and the other feature work resume after deployment and CI/CD are connected. The spec review round 1 findings below must be folded in before tests are written.
+- **B1.** The create order is `joined`, `roster`, `token`. Alternatively, require only `joined` first, with `roster` and `token` exactly once each.
+- **B2.** Replace `Function<String, GameScheduler>` with a package-private `LobbyScheduler` that has `execute`, throwing `RejectedExecutionException` after shutdown, and `shutdownNow`. Add a test that lobby close shuts down the scheduler.
+- **H1.** The test needs a ws-local manual `LobbyScheduler` fake, because the `game` package fakes are package-private.
+- **H2.** Keep `GameSocketHandler.MAX_LOBBIES` as an alias, and keep `SocketOutbox`'s public signature (the locked `FilterSocketTest` and `OutboundQueueTest`).
+- **H3.** Add `connected(conn)` or a closed-id set to the API. Seats and bindings hold a `GameConnection`.
+- **M1.** Explicit bean wiring, and `GameService` is a `DisposableBean`.
+- **M2.** `GameConnection.send` never throws and copies the message.
+- **Nits.** `pong.id` is compared as JSON. The 1008 close stays inside the transport.
