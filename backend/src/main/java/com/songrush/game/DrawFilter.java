@@ -53,9 +53,10 @@ public record DrawFilter(Set<String> types, Integer yearFrom, Integer yearTo, St
 		this(types, yearFrom, yearTo, null);
 	}
 
-	// True when every set field passes; a set year bound never matches an anime without a year.
+	// True when every set field passes; a set year bound never matches an anime without a year, and
+	// set types never match a theme without a type (Set.copyOf throws on contains(null)).
 	public boolean matches(Theme theme, Anime anime) {
-		if (types != null && !types.contains(theme.type())) {
+		if (types != null && (theme.type() == null || !types.contains(theme.type()))) {
 			return false;
 		}
 		if (yearFrom == null && yearTo == null) {
