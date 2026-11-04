@@ -42,3 +42,7 @@ Solo players and hosts choose 난이도 (D-069). The choice reaches the server a
 
 ## Out of scope
 - Server changes (done in cycle 063).
+
+## Review changes (spec round 1)
+- **Blocker: `tier` was dropped before reaching the screen.** `session.js` forwards the `settings` message field by field, and so does the reducer in `state.js`. Both also pass `tier` through, so the line can show it. The implementer therefore also owns `src/game/session.js` and `src/game/state.js`.
+- **Medium: solo selection is not covered.** A solo test was added. After `다시 하기`, 난이도 still shows 어려움, and the next `create` carries `tier:'hard'`.
