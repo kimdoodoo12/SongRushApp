@@ -48,7 +48,7 @@ function ChatForm({ onSend }) {
   }
 
   return (
-    <form className="chat-form flex items-end gap-2 border-t border-line bg-surface/80 p-3" onSubmit={handleSubmit}>
+    <form className="chat-form flex items-end gap-2 border-t border-line bg-surface/80 p-2 md:p-3" onSubmit={handleSubmit}>
       <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-muted">
         정답 입력
         <input
@@ -74,7 +74,7 @@ function ChatLog({ chat }) {
     if (el !== null) el.scrollTop = el.scrollHeight
   }, [chat])
   return (
-    <ul ref={ref} className="chat-log h-56 overflow-y-auto px-1 py-1 text-sm" aria-label="채팅">
+    <ul ref={ref} className="chat-log h-36 overflow-y-auto px-1 py-1 text-sm md:h-56" aria-label="채팅">
       {chat.map((line) => (
         <li key={line.id} className="rounded-lg px-3 py-1 break-words odd:bg-white/[0.03]">
           {line.text}
@@ -125,8 +125,8 @@ function SkipControls({ voted, count, onSkip }) {
         onClick={onSkip}
         className={
           voted
-            ? 'bg-warn/20 text-amber-200 shadow-none ring-1 ring-warn/50 hover:bg-warn/30'
-            : 'bg-white/10 text-ink shadow-none hover:bg-white/15'
+            ? 'bg-warn/20 text-amber-200 shadow-none ring-1 ring-warn/50 enabled:hover:bg-warn/30'
+            : 'bg-white/10 text-ink shadow-none enabled:hover:bg-white/15'
         }
       >
         {voted ? '스킵 취소' : '스킵'}
@@ -178,7 +178,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
   const stage = (
     <section
       aria-label="무대"
-      className="relative z-10 flex min-w-0 flex-col gap-4 rounded-2xl border border-line bg-surface/85 p-4 shadow-xl shadow-black/40 backdrop-blur md:col-start-2 md:row-start-1 md:p-6"
+      className="relative z-10 flex min-w-0 flex-col gap-3 rounded-2xl border border-line bg-surface/85 p-3 md:gap-4 shadow-xl shadow-black/40 backdrop-blur md:col-start-2 md:row-start-1 md:p-6"
     >
       <div className="status flex items-center justify-between gap-3 font-semibold">
         {round === null && !watching && !waitingNext && <span className="text-muted">서버에 연결하는 중...</span>}
@@ -238,11 +238,11 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
     </section>
   )
   return (
-    <div className="game flex flex-col gap-4">
+    <div className="game flex flex-col gap-3 md:gap-4">
       {room === null ? (
         stage
       ) : (
-        <div className="flex flex-col gap-4 md:grid md:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,10rem)] md:gap-x-6 lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,13rem)]">
+        <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,10rem)] md:gap-x-6 lg:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_minmax(0,13rem)]">
           <Seats
             layout="sides"
             players={players}

@@ -71,7 +71,7 @@ function LobbyScreen({ room, players, error, notice, selection, onSelectionChang
       </section>
       <section className="rounded-2xl border border-line bg-surface/60 p-4 shadow-xl shadow-black/30">
         <h2 className="mb-3 text-sm font-semibold text-muted">{`참가자 ${players.length} / 8`}</h2>
-        <ul className="roster sr-only">
+        <ul className="roster" hidden>
           {players.map((p) => (
             <li key={p.name}>{rowText(p, room.me)}</li>
           ))}
@@ -86,7 +86,7 @@ function LobbyScreen({ room, players, error, notice, selection, onSelectionChang
         )}
         {error !== null && <p className="error mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </section>
-      <button type="button" className="self-center bg-white/5 text-ink shadow-none ring-1 ring-line hover:bg-white/10" onClick={onLeave}>
+      <button type="button" className="self-center bg-white/5 text-ink shadow-none ring-1 ring-line enabled:hover:bg-white/10" onClick={onLeave}>
         나가기
       </button>
     </div>

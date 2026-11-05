@@ -152,7 +152,7 @@ function App({
   }
 
   return (
-    <div className="app mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-5 px-3 py-4 sm:px-5 md:py-6">
+    <div className="app mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
       <header className="flex items-center justify-center md:justify-start">
         <h1 className="bg-gradient-to-r from-accent-soft via-fuchsia-300 to-sky-300 bg-clip-text text-2xl font-black tracking-tight text-transparent md:text-3xl">
           SongRush

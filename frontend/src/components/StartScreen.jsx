@@ -81,7 +81,7 @@ function StartScreen({ canPlayOpus, error, initialCode, selection, onSelectionCh
         </label>
         <button
           type="button"
-          className="bg-white/10 text-ink shadow-none ring-1 ring-line hover:bg-white/15"
+          className="bg-white/10 text-ink shadow-none ring-1 ring-line enabled:hover:bg-white/15"
           disabled={!canJoin}
           onClick={handleJoin}
         >
