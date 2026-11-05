@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // Tests that read the file system through import.meta.url run in the node
 // environment: under jsdom, Vite's client transform rewrites
@@ -11,7 +12,7 @@ const NODE_TESTS = ['src/noTypeScript.test.js']
 // stay the dev-server origin so Spring's same-origin WebSocket check passes
 // (cycle 037 review).
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     proxy: {
       '/ws': { target: 'http://localhost:8080', ws: true },

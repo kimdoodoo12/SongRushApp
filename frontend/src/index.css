@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+/* The night theme (cycle 070, F-011). One accent, one "correct" green. */
+@theme {
+  --color-night: #0b1020;
+  --color-surface: #111827;
+  --color-surface-2: #1e293b;
+  --color-line: rgb(255 255 255 / 0.1);
+  --color-ink: #e2e8f0;
+  --color-muted: #94a3b8;
+  --color-accent: #8b5cf6;
+  --color-accent-soft: #a78bfa;
+  --color-good: #22c55e;
+  --color-warn: #f59e0b;
+  --color-bad: #f87171;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--color-night);
+    background-image:
+      radial-gradient(60rem 30rem at 50% -10%, rgb(139 92 246 / 0.18), transparent 70%),
+      radial-gradient(40rem 24rem at 100% 100%, rgb(56 189 248 / 0.08), transparent 70%);
+    background-attachment: fixed;
+    color: var(--color-ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Form controls share one dark look; utilities in JSX override it. */
+  input[type="text"],
+  select {
+    width: 100%;
+    min-width: 0;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-line);
+    background-color: rgb(15 23 42 / 0.8);
+    color: var(--color-ink);
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+
+  input[type="text"]:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgb(139 92 246 / 0.35);
+  }
+
+  button {
+    cursor: pointer;
+    border-radius: var(--radius-xl);
+    background-color: var(--color-accent);
+    color: #fff;
+    padding: 0.5rem 1rem;
+    font: inherit;
+    font-weight: 600;
+    box-shadow: 0 6px 20px -8px rgb(139 92 246 / 0.7);
+    transition: background-color 150ms, transform 150ms, opacity 150ms;
+  }
+
+  button:hover:not(:disabled) {
+    background-color: var(--color-accent-soft);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 2px;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+    box-shadow: none;
+  }
+
+  select option {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+  }
+}

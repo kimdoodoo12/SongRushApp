@@ -43,7 +43,7 @@ export const initialState = {
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  chat: [], // { id, text }
+  chat: [], // { id, name, body, text }
   chatSeq: 0,
   correct: null,
   reveal: null,
@@ -197,7 +197,7 @@ export function reducer(state, action) {
     case 'chat':
       return {
         ...state,
-        chat: [...state.chat, { id: state.chatSeq, text: `${action.name}: ${action.text}` }],
+        chat: [...state.chat, { id: state.chatSeq, name: action.name, body: action.text, text: `${action.name}: ${action.text}` }],
         chatSeq: state.chatSeq + 1,
       }
     case 'correct':

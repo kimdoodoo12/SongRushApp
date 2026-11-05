@@ -6,7 +6,6 @@ import { DEFAULT_SELECTION, isReversed, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
 import GameScreen from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
-import './App.css'
 
 const CREDIT = '데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata'
 const RECONNECTING_TEXT = '연결이 끊겨 다시 연결하는 중...'
@@ -153,10 +152,17 @@ function App({
   }
 
   return (
-    <div className="app">
-      <h1>SongRush</h1>
+    <div className="app mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
+      <header className="flex items-center justify-center md:justify-start">
+        <h1 className="bg-gradient-to-r from-accent-soft via-fuchsia-300 to-sky-300 bg-clip-text text-2xl font-black tracking-tight text-transparent md:text-3xl">
+          SongRush
+        </h1>
+      </header>
       {state.reconnecting && (
-        <p className="reconnecting" role="status">
+        <p
+          className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
+          role="status"
+        >
           {RECONNECTING_TEXT}
         </p>
       )}
@@ -194,7 +200,7 @@ function App({
           onUnlockSound={handleUnlockSound}
         />
       )}
-      <footer className="credit">{CREDIT}</footer>
+      <footer className="credit mt-auto pt-4 text-center text-xs text-muted/70">{CREDIT}</footer>
     </div>
   )
 }
