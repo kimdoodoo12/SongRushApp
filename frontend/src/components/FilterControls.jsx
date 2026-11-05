@@ -55,7 +55,7 @@ function FilterControls({ selection, onChange }) {
           ))}
         </select>
       </label>
-      {isReversed(selection) && <p className="hint">{REVERSED_HINT}</p>}
+      {isReversed(selection) && <p className="hint col-span-full text-sm text-bad">{REVERSED_HINT}</p>}
     </>
   )
 }

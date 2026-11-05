@@ -35,9 +35,10 @@ function StartScreen({ canPlayOpus, error, initialCode, selection, onSelectionCh
   }
 
   return (
-    <div className="start-screen">
-      <form className="start" onSubmit={handleSubmit}>
-        <label>
+    <div className="start-screen mx-auto flex w-full max-w-md flex-col gap-4">
+      <form className="start grid grid-cols-2 gap-3 rounded-2xl border border-line bg-surface/85 p-5 shadow-xl shadow-black/40 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted" onSubmit={handleSubmit}>
+        <h2 className="col-span-full text-lg font-bold">혼자 하기</h2>
+        <label className="col-span-full">
           닉네임
           <input type="text" maxLength={16} value={nickname} onChange={(e) => setNickname(e.target.value)} />
         </label>
@@ -55,14 +56,15 @@ function StartScreen({ canPlayOpus, error, initialCode, selection, onSelectionCh
           </select>
         </label>
         <FilterControls selection={selection} onChange={onSelectionChange} />
-        <button type="submit" disabled={!canStart}>
+        <button type="submit" className="col-span-full py-3 text-base" disabled={!canStart}>
           시작
         </button>
-        {!canPlayOpus && <p className="notice">{NO_OPUS}</p>}
-        {error !== null && <p className="error">{error}</p>}
+        {!canPlayOpus && <p className="notice col-span-full text-sm text-warn">{NO_OPUS}</p>}
+        {error !== null && <p className="error col-span-full rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </form>
-      <div className="start room-controls">
-        <button type="button" disabled={!canPlayOpus} onClick={() => onCreate(nickname)}>
+      <div className="start room-controls grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 rounded-2xl border border-line bg-surface/85 p-5 shadow-xl shadow-black/40 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted">
+        <h2 className="col-span-full text-lg font-bold">같이 하기</h2>
+        <button type="button" className="col-span-full py-3 text-base" disabled={!canPlayOpus} onClick={() => onCreate(nickname)}>
           방 만들기
         </button>
         <label>
@@ -74,9 +76,15 @@ function StartScreen({ canPlayOpus, error, initialCode, selection, onSelectionCh
             autoComplete="off"
             onChange={(e) => setCode(e.target.value.toUpperCase().slice(0, CODE_LENGTH))}
             onKeyDown={handleCodeKeyDown}
+            className="font-mono tracking-[0.25em] uppercase"
           />
         </label>
-        <button type="button" disabled={!canJoin} onClick={handleJoin}>
+        <button
+          type="button"
+          className="bg-white/10 text-ink shadow-none ring-1 ring-line hover:bg-white/15"
+          disabled={!canJoin}
+          onClick={handleJoin}
+        >
           참가
         </button>
       </div>
