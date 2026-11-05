@@ -28,6 +28,15 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew test --no-daemon
+      # On a failure, keep the test reports so the exact assertion can be read.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: |
+            backend/build/reports/tests/
+            backend/build/test-results/
+          retention-days: 7
 
   frontend:
     runs-on: ubuntu-latest
