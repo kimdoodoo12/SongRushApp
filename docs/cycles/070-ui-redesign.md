@@ -109,3 +109,35 @@ Game behaviour does not change.
 ## Out of scope
 - STOMP (F-010) and new game features.
 - Sound effects and animations beyond simple CSS transitions.
+
+## Revisions after spec review round 1
+These override the items above wherever they conflict.
+
+- **B1. Seats and the roster list.**
+  - Seats use no `<li>`. The seats are a `<div role="list" aria-label="자리">` holding `<div role="listitem">` children.
+  - The lobby keeps `<ul className="roster">` with exactly today's `<li>` rows (name plus `(방장)` and `(나)`). It may be visually hidden with `sr-only` or shown small. Locked `listRows()` helpers read every `<li>` on the lobby screen.
+- **H1. No game info in the top bar.**
+  - The top bar holds only `<h1>SongRush</h1>`.
+  - Round, score and the settings line stay where they are today, inside the game screen. They are styled, not duplicated.
+  - A seat shows its score as `N점` (for example `3점`). The text `점수:` is never used on a seat.
+- **H2. Seats props and the bubble text.**
+  - Signature: `Seats({ players, me, chat, scoreboard, correct, roundIndex })`.
+    - `players`: roster rows `{ name, score, host, connected }`.
+    - `me`: the own name, or null.
+    - `chat`: state chat entries `{ id, name, body, text }`.
+    - `scoreboard`: `[{ name, score }]` or null.
+    - `correct`: the winner's name, or null.
+    - `roundIndex`: the current round index, or null.
+  - State change (item 7): a chat entry is `{ id, name, body, text }`. `body` is the raw message; `text` stays exactly `"<name>: <body>"`.
+  - The bubble shows `body` without the name prefix, cut to its first 40 UTF-16 code units plus `…` when longer.
+- **H3. jsdom.** No `scrollIntoView` and no `matchMedia`. Auto-scroll sets `el.scrollTop = el.scrollHeight` in an effect. Responsive layout uses Tailwind `md:` classes only.
+- **M1. Bubble state lives inside `Seats`.**
+  - `Seats` keeps a chat-id watermark. When `roundIndex` changes, the watermark moves to the newest chat id, and only lines after it can show.
+  - Each player's bubble is the newest line after the watermark with that `name`.
+  - A `setTimeout` of 6000 ms hides it. A newer line from the same player restarts that player's timer.
+  - The reducer gains only the `name` and `body` fields.
+- **M2. Where the reducer test goes.** It lives in `App.layout.test.jsx`. It imports the reducer and the initial state from `game/state.js` and checks that a `chat` action gives an entry `{ id, name, body, text }`.
+- **M3. Narrower scope.**
+  - The start screen and the lobby keep their structure and only get Tailwind styling. Item 3's two-section card is a styling arrangement of the existing two blocks.
+  - The "재생 중" pulse is dropped.
+  - The seat `정답!` mark stays (D-089 room feel). It is a small badge.
