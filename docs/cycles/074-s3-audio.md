@@ -178,3 +178,20 @@ These override the items above wherever they conflict.
 - **Nit. Location path.** The `Location` path is `"/" + key`.
 
 - **Correction (test writer, verified).** With a Stubber attached, `before-call.s3.PutObject` handlers never run, because the Stubber answers first. The order test uses `before-parameter-build.s3.PutObject` instead.
+
+## Result
+- **Commits.**
+  - Tests and dependencies: `42a600c`.
+  - Implementation: `7e5adcb`.
+  - Regression test for transport errors: `87189e2`.
+  - Fixes: `85df530` (attempt 2).
+- **Verifier at `85df530`.**
+  - Data: 882 passed, 1 skipped.
+  - Backend: 434 tests, 0 failures (`--rerun-tasks`).
+  - The runtime classpath has no `apache5-client`, `apache-client`, `netty-nio-client`, `httpclient5` or `httpcore5`. The AWS SDK BOM is 2.57.3.
+  - The locked tests are unchanged since `87189e2`.
+- **Attempt 2 came from the code review.**
+  - **High.** A botocore transport error (`response` is `None`) crashed the upload loop. It now counts as `failed`, and the run continues. A new locked test pins this.
+  - **Medium.** `apache5-client` came in through the SDK's services pom, and it is now excluded.
+  - **Nit.** There is a single s3Mode rule.
+- **Real-name presign check.** The critic presigned locally with fake credentials, using the real bucket name. The host was `songrush-audio-7k2m-498952560408-ap-southeast-2-an.s3.ap-southeast-2.amazonaws.com`, and the URL carried `X-Amz-SignedHeaders=host`.
