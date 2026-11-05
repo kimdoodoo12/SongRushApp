@@ -291,6 +291,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
 
+- [~] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
