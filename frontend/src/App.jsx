@@ -6,6 +6,8 @@ import { DEFAULT_SELECTION, isReversed, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
 import GameScreen from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
+import ThemeDecor from './components/ThemeDecor.jsx'
+import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 
 const CREDIT = '데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata'
 const RECONNECTING_TEXT = '연결이 끊겨 다시 연결하는 중...'
@@ -41,6 +43,9 @@ function App({
   // 곡 수 and the filters, shared by solo and the host and kept for the
   // page's lifetime (F-008): neither 처음으로 nor 나가기 resets them.
   const [selection, setSelection] = useState(DEFAULT_SELECTION)
+  // The own room look (F-012): the start screen and solo games use it; a
+  // room uses the host's pick from the server instead.
+  const [ownTheme, setOwnTheme] = useState(loadOwnTheme)
   const ctxRef = useRef(null)
   const sessionRef = useRef(null)
 
@@ -146,61 +151,81 @@ function App({
     )
   }
 
+  function handleOwnTheme(id) {
+    const next = themeId(id)
+    setOwnTheme(next)
+    saveOwnTheme(next)
+  }
+
+  // The host's lobby pick; the pressed button follows the server's frame.
+  function handleRoomTheme(id) {
+    if (sessionRef.current !== null) sessionRef.current.setRoomTheme(id)
+  }
+
   function handleReset() {
     closeSession()
     dispatch({ type: 'reset' })
   }
 
+  const inRoom = state.room !== null
+  const roomTheme = themeId(state.roomTheme ?? DEFAULT_THEME)
+  const theme = inRoom ? roomTheme : ownTheme
+
   return (
-    <div className="app mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
-      <header className="flex items-center justify-center md:justify-start">
-        <h1 className="bg-gradient-to-r from-accent-soft via-fuchsia-300 to-sky-300 bg-clip-text text-2xl font-black tracking-tight text-transparent md:text-3xl">
-          SongRush
-        </h1>
-      </header>
-      {state.reconnecting && (
-        <p
-          className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
-          role="status"
-        >
-          {RECONNECTING_TEXT}
-        </p>
-      )}
-      {state.screen === 'start' && (
-        <StartScreen
-          canPlayOpus={opusOk}
-          error={state.startError}
-          initialCode={initialCode}
-          selection={selection}
-          onSelectionChange={setSelection}
-          onStart={handleStart}
-          onCreate={handleCreate}
-          onJoin={handleJoin}
-        />
-      )}
-      {state.screen === 'lobby' && (
-        <LobbyScreen
-          room={state.room}
-          players={state.players}
-          error={state.error}
-          notice={state.notice}
-          selection={selection}
-          onSelectionChange={setSelection}
-          onStartGame={handleStartGame}
-          onLeave={handleLeave}
-        />
-      )}
-      {state.screen !== 'start' && state.screen !== 'lobby' && (
-        <GameScreen
-          state={state}
-          onChat={handleChat}
-          onSkip={handleSkip}
-          onReset={handleReset}
-          onToLobby={handleToLobby}
-          onUnlockSound={handleUnlockSound}
-        />
-      )}
-      <footer className="credit mt-auto pt-4 text-center text-xs text-muted/70">{CREDIT}</footer>
+    <div className="app-shell min-h-screen" data-room-theme={theme}>
+      <ThemeDecor theme={theme} />
+      <div className="app relative z-[1] mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
+        <header className="flex items-center justify-center md:justify-start">
+          <h1 className="brand text-3xl tracking-tight md:text-4xl">SongRush</h1>
+        </header>
+        {state.reconnecting && (
+          <p
+            className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
+            role="status"
+          >
+            {RECONNECTING_TEXT}
+          </p>
+        )}
+        {state.screen === 'start' && (
+          <StartScreen
+            canPlayOpus={opusOk}
+            error={state.startError}
+            initialCode={initialCode}
+            theme={ownTheme}
+            onPickTheme={handleOwnTheme}
+            selection={selection}
+            onSelectionChange={setSelection}
+            onStart={handleStart}
+            onCreate={handleCreate}
+            onJoin={handleJoin}
+          />
+        )}
+        {state.screen === 'lobby' && (
+          <LobbyScreen
+            room={state.room}
+            players={state.players}
+            error={state.error}
+            notice={state.notice}
+            theme={roomTheme}
+            onPickTheme={handleRoomTheme}
+            selection={selection}
+            onSelectionChange={setSelection}
+            onStartGame={handleStartGame}
+            onLeave={handleLeave}
+          />
+        )}
+        {state.screen !== 'start' && state.screen !== 'lobby' && (
+          <GameScreen
+            state={state}
+            onChat={handleChat}
+            onSkip={handleSkip}
+            onReset={handleReset}
+            onToLobby={handleToLobby}
+            onUnlockSound={handleUnlockSound}
+          />
+        )}
+        <footer className="credit mt-auto pt-4 text-center text-xs text-muted">{CREDIT}</footer>
+      </div>
     </div>
   )
 }

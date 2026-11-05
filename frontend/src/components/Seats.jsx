@@ -1,28 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { nameColour } from '../game/themes.js'
 
 const SEAT_COUNT = 8
 const BUBBLE_MS = 6000
 const BUBBLE_MAX = 40
 const ELLIPSIS = String.fromCharCode(0x2026)
 const CROWN = String.fromCharCode(0x265b)
-
-// Avatar colours, picked from the name so a player keeps one colour.
-const AVATAR_COLOURS = [
-  'bg-rose-500',
-  'bg-orange-500',
-  'bg-amber-500',
-  'bg-emerald-500',
-  'bg-teal-500',
-  'bg-sky-500',
-  'bg-indigo-500',
-  'bg-fuchsia-500',
-]
-
-function avatarColour(name) {
-  let hash = 0
-  for (let i = 0; i < name.length; i += 1) hash = (hash * 31 + name.charCodeAt(i)) >>> 0
-  return AVATAR_COLOURS[hash % AVATAR_COLOURS.length]
-}
 
 // The same text as the lobby roster row: the name, (방장), then (나).
 function nameText(player, me) {
@@ -62,7 +45,10 @@ function newestByName(chat, watermark) {
 const MD_ROWS = ['md:row-start-1', 'md:row-start-2', 'md:row-start-3', 'md:row-start-4']
 const STRIP_BUBBLE =
   'top-1 right-1 bottom-1 left-11 flex items-center rounded-xl px-2 text-[11px] leading-tight [&>span:last-child]:line-clamp-2'
-const STRIP_TAIL = 'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2'
+// A tail is a rotated square showing only its two outer borders, so it
+// opens the bubble's border where they meet.
+const STRIP_TAIL =
+  'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 border-b-[length:var(--bw)] border-l-[length:var(--bw)]'
 const MD_BUBBLE =
   'md:bottom-auto md:block md:w-max md:max-w-48 md:rounded-2xl md:px-3 md:py-1.5 md:text-sm md:leading-normal md:[&>span:last-child]:line-clamp-none'
 const MD_LEFT = {
@@ -73,7 +59,7 @@ const MD_LEFT = {
 const MD_RIGHT = {
   seat: 'md:col-start-3',
   bubble: 'md:top-1/2 md:right-full md:left-auto md:mr-3 md:-translate-y-1/2',
-  tail: 'md:right-0 md:left-auto md:translate-x-1/2',
+  tail: 'md:right-0 md:left-auto md:translate-x-1/2 md:border-b-0 md:border-l-0 md:border-t-[length:var(--bw)] md:border-r-[length:var(--bw)]',
 }
 const GRID_PLACEMENT = {
   seat: 'flex-col items-center gap-1 p-2 text-center md:flex-row md:gap-3 md:p-3 md:text-left',
@@ -81,7 +67,7 @@ const GRID_PLACEMENT = {
   pills: 'justify-center md:justify-start',
   bubble:
     'top-full left-1/2 mt-2 w-max max-w-40 -translate-x-1/2 rounded-2xl px-3 py-1.5 text-sm md:max-w-48',
-  tail: '-top-1 left-1/2 -translate-x-1/2',
+  tail: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 border-t-[length:var(--bw)] border-l-[length:var(--bw)]',
 }
 
 function seatPlacement(layout, index) {
@@ -99,9 +85,9 @@ function seatPlacement(layout, index) {
 function Bubble({ text, placement }) {
   return (
     <div
-      className={`pointer-events-none absolute z-20 bg-white font-medium break-all text-slate-900 shadow-lg shadow-black/40 transition duration-200 ease-out starting:scale-90 starting:opacity-0 ${placement.bubble}`}
+      className={`bubble pointer-events-none absolute z-20 break-all transition duration-200 ease-out starting:scale-90 starting:opacity-0 ${placement.bubble}`}
     >
-      <span aria-hidden="true" className={`absolute size-2.5 rotate-45 bg-white ${placement.tail}`} />
+      <span aria-hidden="true" className={`bubble-tail absolute size-2.5 rotate-45 ${placement.tail}`} />
       <span className="relative">{text}</span>
     </div>
   )
@@ -110,33 +96,26 @@ function Bubble({ text, placement }) {
 function FilledSeat({ player, me, score, isCorrect, bubble, placement }) {
   const own = player.name === me
   const connected = player.connected !== false
-  const ring = isCorrect
-    ? 'border-good ring-2 ring-good shadow-[0_0_24px_-4px] shadow-good/60'
-    : own
-      ? 'border-accent/60 ring-2 ring-accent/70'
-      : 'border-line'
+  const mark = isCorrect ? 'seat-got' : own ? 'seat-me' : ''
   return (
     <div
       role="listitem"
       data-connected={String(connected)}
-      className={`relative flex min-w-0 rounded-2xl border bg-surface-2/70 shadow-md shadow-black/30 transition ${ring} ${connected ? '' : 'opacity-50'} ${placement.seat}`}
+      className={`seat panel relative flex min-w-0 transition ${mark} ${connected ? '' : 'opacity-50'} ${placement.seat}`}
     >
+      {isCorrect && <span className="seat-tag absolute -top-2.5 left-2.5 z-10 px-2 text-xs">정답!</span>}
       <div
         aria-hidden="true"
-        className={`relative grid size-9 shrink-0 place-items-center rounded-full text-base font-bold text-white md:size-11 md:text-lg ${avatarColour(player.name)}`}
+        className="avatar relative grid size-9 shrink-0 place-items-center text-base md:size-11 md:text-xl"
+        style={{ background: nameColour(player.name) }}
       >
         {Array.from(player.name)[0]}
-        {player.host && (
-          <span className="absolute -top-2 -right-1 text-sm text-amber-300 drop-shadow">{CROWN}</span>
-        )}
+        {player.host && <span className="crown absolute -top-2.5 -right-1.5 text-sm md:text-base">{CROWN}</span>}
       </div>
       <div className={`flex w-full min-w-0 flex-col gap-0.5 ${placement.text}`}>
-        <span className="w-full truncate text-xs font-semibold md:text-sm">{nameText(player, me)}</span>
+        <span className="font-display w-full truncate text-sm md:text-[15px]">{nameText(player, me)}</span>
         <span className={`flex flex-wrap items-center gap-1 ${placement.pills}`}>
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold text-ink tabular-nums">{`${score}점`}</span>
-          {isCorrect && (
-            <span className="rounded-full bg-good px-2 py-0.5 text-xs font-bold text-slate-950">정답!</span>
-          )}
+          <span className="text-xs text-muted tabular-nums md:text-[13px]">{`${score}점`}</span>
         </span>
       </div>
       {bubble !== null && <Bubble key={bubble.id} text={bubbleText(bubble.body)} placement={placement} />}
@@ -149,7 +128,7 @@ function EmptySeat({ layout, placement }) {
   return (
     <div
       role="listitem"
-      className={`grid place-items-center rounded-2xl border border-dashed border-white/15 p-2 text-xs text-muted ${size} ${placement.seat}`}
+      className={`seat-empty grid place-items-center p-2 text-xs ${size} ${placement.seat}`}
     >
       빈 자리
     </div>
@@ -159,11 +138,12 @@ function EmptySeat({ layout, placement }) {
 const LIST_CLASS = {
   // The lobby: a 4x2 grid, 2 columns on the narrowest phones.
   grid: 'grid grid-cols-2 gap-3 min-[420px]:grid-cols-4',
-  // A room game: below md one strip that scrolls inside itself (p-1 keeps
-  // the rings visible); from md the list spans the three columns of the
-  // parent grid (subgrid) and the stage sits in the empty middle column.
+  // A room game: below md one strip that scrolls inside itself (pt-3 keeps
+  // the 정답! tags visible); from md the list spans the three columns and
+  // both rows of the parent grid (subgrid columns) and the stage and the
+  // chat sit in the empty middle column.
   sides:
-    'flex min-w-0 gap-2 overflow-x-auto p-1 md:grid md:col-span-3 md:col-start-1 md:row-start-1 md:grid-cols-subgrid md:grid-rows-4 md:gap-y-4 md:overflow-visible md:p-0',
+    'flex min-w-0 gap-2 overflow-x-auto px-1 pt-3 pb-1.5 md:grid md:col-span-3 md:col-start-1 md:row-span-2 md:row-start-1 md:grid-cols-subgrid md:grid-rows-4 md:content-start md:gap-y-4 md:overflow-visible md:p-0 md:pt-2',
 }
 
 // The eight room seats in roster order, with each player's newest chat line

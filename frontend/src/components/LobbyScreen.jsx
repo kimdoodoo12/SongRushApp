@@ -2,6 +2,7 @@ import { SONG_COUNTS } from '../game/state.js'
 import { isReversed } from '../game/filters.js'
 import FilterControls from './FilterControls.jsx'
 import Seats from './Seats.jsx'
+import ThemePicker from './ThemePicker.jsx'
 
 // The lobby has no chat, so its seats show no bubbles.
 const NO_CHAT = []
@@ -43,34 +44,52 @@ function HostControls({ selection, onSelectionChange, onStartGame }) {
         </select>
       </label>
       <FilterControls selection={selection} onChange={onSelectionChange} />
-      <button type="button" className="col-span-full py-3 text-base" disabled={reversed} onClick={() => onStartGame()}>
+      <button type="button" className="go col-span-full py-3 text-base" disabled={reversed} onClick={() => onStartGame()}>
         게임 시작
       </button>
     </div>
   )
 }
 
-function LobbyScreen({ room, players, error, notice, selection, onSelectionChange, onStartGame, onLeave }) {
+// theme is the room look from the server (F-012): the host's picker sends
+// a pick through onPickTheme and shows the server's theme as pressed; the
+// other players see the picker disabled.
+function LobbyScreen({
+  room,
+  players,
+  error,
+  notice,
+  theme,
+  onPickTheme,
+  selection,
+  onSelectionChange,
+  onStartGame,
+  onLeave,
+}) {
   const link = `${window.location.origin}/r/${room.code}`
   const own = players.find((p) => p.name === room.me)
   const isHost = own !== undefined && own.host
   return (
-    <div className="lobby mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <section className="rounded-2xl border border-line bg-surface/85 p-5 shadow-xl shadow-black/40">
-        <p className="room-code text-sm text-muted">
+    <div className="lobby room mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <section className="flex flex-col gap-3">
+        <p className="room-code font-display flex flex-wrap items-center gap-2 text-base text-muted">
           <span>{'방 코드: '}</span>
-          <span className="ml-1 font-mono text-3xl font-extrabold tracking-[0.3em] text-white md:text-4xl">{room.code}</span>
+          <span className="code text-2xl md:text-3xl">{room.code}</span>
         </p>
-        <p className="share mt-3 flex min-w-0 items-center gap-2 rounded-xl border border-line bg-slate-950/50 py-1.5 pr-1.5 pl-3 text-sm">
+        <p className="share panel flex min-w-0 items-center gap-2 py-1.5 pr-1.5 pl-3 text-sm">
           <span className="min-w-0 flex-1 truncate text-muted">{link}</span>{' '}
           <button type="button" className="shrink-0 px-3 py-1 text-sm" onClick={() => copyLink(link)}>
             복사
           </button>
         </p>
-        {notice !== null && notice !== undefined && <p className="notice mt-3 text-sm text-warn">{notice}</p>}
+        {notice !== null && notice !== undefined && <p className="notice text-sm text-warn">{notice}</p>}
       </section>
-      <section className="rounded-2xl border border-line bg-surface/60 p-4 shadow-xl shadow-black/30">
-        <h2 className="mb-3 text-sm font-semibold text-muted">{`참가자 ${players.length} / 8`}</h2>
+      <section className="panel flex flex-col gap-2 p-4">
+        <span className="font-display text-sm text-muted">{isHost ? '분위기' : '분위기 (방장이 고름)'}</span>
+        <ThemePicker value={theme} onPick={onPickTheme} disabled={!isHost} />
+      </section>
+      <section className="panel p-4">
+        <h2 className="font-display mb-3 text-base text-muted">{`참가자 ${players.length} / 8`}</h2>
         <ul className="roster" hidden>
           {players.map((p) => (
             <li key={p.name}>{rowText(p, room.me)}</li>
@@ -78,7 +97,7 @@ function LobbyScreen({ room, players, error, notice, selection, onSelectionChang
         </ul>
         <Seats players={players} me={room.me} chat={NO_CHAT} scoreboard={null} correct={null} roundIndex={null} />
       </section>
-      <section className="rounded-2xl border border-line bg-surface/85 p-5 shadow-xl shadow-black/40">
+      <section className="panel p-5">
         {isHost ? (
           <HostControls selection={selection} onSelectionChange={onSelectionChange} onStartGame={onStartGame} />
         ) : (
@@ -86,7 +105,7 @@ function LobbyScreen({ room, players, error, notice, selection, onSelectionChang
         )}
         {error !== null && <p className="error mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </section>
-      <button type="button" className="self-center bg-white/5 text-ink shadow-none ring-1 ring-line enabled:hover:bg-white/10" onClick={onLeave}>
+      <button type="button" className="self-center" onClick={onLeave}>
         나가기
       </button>
     </div>

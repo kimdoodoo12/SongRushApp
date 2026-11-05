@@ -14,6 +14,7 @@ const ERROR_TEXT = {
   'room-closed': '방이 닫혔습니다.',
   'rejoin-failed': '다시 연결하지 못했습니다. 방에 다시 참가해 주세요.',
   'bad-filter': '조건이 올바르지 않습니다.',
+  'bad-room-theme': '알 수 없는 분위기입니다.',
 }
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -61,6 +62,7 @@ export const initialState = {
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
   settings: null, // the applied filters { types, yearFrom, yearTo, tier } of this game
+  roomTheme: null, // the room's look id from the server; null: none received
 }
 
 export function reducer(state, action) {
@@ -79,6 +81,8 @@ export function reducer(state, action) {
         players: action.players,
         lobbyOpen: action.phase === 'lobby' && state.screen === 'over' ? true : state.lobbyOpen,
       }
+    case 'roomTheme':
+      return { ...state, roomTheme: action.theme }
     case 'toLobby':
       return { ...state, screen: 'lobby', error: null, settings: null }
     case 'settings':
