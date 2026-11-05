@@ -116,6 +116,18 @@ def _listing(s3, bucket: str) -> dict:
         params = {"Bucket": bucket, "Prefix": KEY_PREFIX, "ContinuationToken": token}
 
 
+def _error_code(error: BaseException) -> str:
+    """The S3 error code of a service error, or "" when there is none.
+
+    Transport errors (botocore's HTTPClientError subclasses) carry response None,
+    and others have no response attribute at all.
+    """
+    response = getattr(error, "response", None)
+    details = response.get("Error") if isinstance(response, dict) else None
+    code = details.get("Code") if isinstance(details, dict) else None
+    return code if isinstance(code, str) else ""
+
+
 def run(s3, cache_dir, bucket: str, *, log: Callable[[str], None] = print,
         new_key: Callable[[], str] = None) -> dict:
     """Upload the cached audio to bucket and write the served map; return the run's counts."""
@@ -168,7 +180,8 @@ def run(s3, cache_dir, bucket: str, *, log: Callable[[str], None] = print,
                     s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType=CONTENT_TYPE)
                 except Exception as error:  # any client or transport error: count it and go on
                     result["failed"] += 1
-                    code = getattr(error, "response", {}).get("Error", {}).get("Code", "")
+                    # Never str(error): a transport error's text holds the endpoint URL, and so the key.
+                    code = _error_code(error)
                     log("s3 upload: file %d/%d failed (%s%s)"
                         % (position, len(names), type(error).__name__, " " + code if code else ""))
                 else:
