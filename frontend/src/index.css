@@ -568,6 +568,14 @@
   font-size: 3.1rem;
 }
 
+/* In Nanum Pen Script "71초" reads like the word 기초: digits and the clock
+   use a clearer face, at the same size. */
+[data-room-theme="chalk"] .clock,
+[data-room-theme="chalk"] .round-num {
+  font-family: "Gaegu", "Gowun Dodum", sans-serif;
+  font-weight: 700;
+}
+
 [data-room-theme="chalk"] .card h2 {
   font-size: 40px;
 }

@@ -40,8 +40,9 @@ function newestByName(chat, watermark) {
 // 'sides' (a room game): below md the seats are one horizontally scrolling
 // strip of compact cards, and a bubble covers the card's text area beside
 // the avatar (the strip scrolls, so nothing may hang outside a card). From md
-// seats 1-4 form the left column and 5-8 the right one, and their bubbles
-// point into the stage. 'grid' (the lobby) hangs a bubble under the seat.
+// seats 1-4 form the left column and 5-8 the right one, and each bubble sits
+// above its own seat, inside the seat's column, so it never covers the
+// stage. 'grid' (the lobby) hangs a bubble under the seat.
 const MD_ROWS = ['md:row-start-1', 'md:row-start-2', 'md:row-start-3', 'md:row-start-4']
 const STRIP_BUBBLE =
   'top-1 right-1 bottom-1 left-11 flex items-center rounded-xl px-2 text-[11px] leading-tight [&>span:last-child]:line-clamp-2'
@@ -50,16 +51,19 @@ const STRIP_BUBBLE =
 const STRIP_TAIL =
   'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2 border-b-[length:var(--bw)] border-l-[length:var(--bw)]'
 const MD_BUBBLE =
-  'md:bottom-auto md:block md:w-max md:max-w-48 md:rounded-2xl md:px-3 md:py-1.5 md:text-sm md:leading-normal md:[&>span:last-child]:line-clamp-none'
+  'md:top-auto md:bottom-[calc(100%+6px)] md:block md:w-max md:max-w-full md:translate-y-0 md:rounded-2xl md:px-3 md:py-1.5 md:text-sm md:leading-snug md:[&>span:last-child]:line-clamp-2'
+// The md tail hangs from the bubble's bottom edge, pointing down at the seat.
+const MD_TAIL =
+  'md:top-full md:bottom-auto md:translate-x-0 md:-translate-y-1/2 md:border-t-0 md:border-l-0 md:border-b-[length:var(--bw)] md:border-r-[length:var(--bw)]'
 const MD_LEFT = {
   seat: 'md:col-start-1',
-  bubble: 'md:top-1/2 md:right-auto md:left-full md:ml-3 md:-translate-y-1/2',
-  tail: '',
+  bubble: 'md:right-auto md:left-0',
+  tail: `${MD_TAIL} md:right-auto md:left-5`,
 }
 const MD_RIGHT = {
   seat: 'md:col-start-3',
-  bubble: 'md:top-1/2 md:right-full md:left-auto md:mr-3 md:-translate-y-1/2',
-  tail: 'md:right-0 md:left-auto md:translate-x-1/2 md:border-b-0 md:border-l-0 md:border-t-[length:var(--bw)] md:border-r-[length:var(--bw)]',
+  bubble: 'md:right-0 md:left-auto',
+  tail: `${MD_TAIL} md:right-5 md:left-auto`,
 }
 const GRID_PLACEMENT = {
   seat: 'flex-col items-center gap-1 p-2 text-center md:flex-row md:gap-3 md:p-3 md:text-left',
@@ -139,11 +143,12 @@ const LIST_CLASS = {
   // The lobby: a 4x2 grid, 2 columns on the narrowest phones.
   grid: 'grid grid-cols-2 gap-3 min-[420px]:grid-cols-4',
   // A room game: below md one strip that scrolls inside itself (pt-3 keeps
-  // the 정답! tags visible); from md the list spans the three columns and
+  // the 정답! tags visible); from md each seat has room above it for its
+  // two-line bubble (pt-14, gap-y-14), and the list spans the three columns and
   // both rows of the parent grid (subgrid columns) and the stage and the
   // chat sit in the empty middle column.
   sides:
-    'flex min-w-0 gap-2 overflow-x-auto px-1 pt-3 pb-1.5 md:grid md:col-span-3 md:col-start-1 md:row-span-2 md:row-start-1 md:grid-cols-subgrid md:grid-rows-[repeat(4,auto)] md:content-start md:items-start md:self-start md:gap-y-4 md:overflow-visible md:p-0 md:pt-2',
+    'flex min-w-0 gap-2 overflow-x-auto px-1 pt-3 pb-1.5 md:grid md:col-span-3 md:col-start-1 md:row-span-2 md:row-start-1 md:grid-cols-subgrid md:grid-rows-[repeat(4,auto)] md:content-start md:items-start md:self-start md:gap-y-14 md:overflow-visible md:p-0 md:pt-14',
 }
 
 // The eight room seats in roster order, with each player's newest chat line
