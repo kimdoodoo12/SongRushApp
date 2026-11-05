@@ -289,6 +289,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **B-017** backend: remove the raw transport (from S-005)
   - Remove raw `/ws`, `OutboundQueue` and the raw test helpers/tests; propose the `deploy/smoke.py` STOMP update to the owner (D-083).
 
+- [~] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -309,6 +311,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-089** UI redesign (user, 2026-11-05: "웹 프론트좀 꾸며줘... 멀티플레이(채팅) 위주", "캐치마인드의 배치 형식"): restyle the web client now, ahead of D-086's order, with Tailwind CSS (replacing D-079's plain CSS). Layout follows the classic chat-guessing room: player seats down both sides (4 + 4 for 8 players) with each player's latest message as a speech bubble by their seat, the song stage in the centre, the chat log and input below. Borrow the layout only; no CatchMind art, names or branding.
 - **D-088** Docker now (user, 2026-11-04: "아무리봐도 이거 사람이 할게 못되는데. 도커 써야할것 같아"): after deploying by hand up to systemd and a native Nginx, the owner switches the course to Docker next (before https and CI/CD). The native systemd service and Nginx on the new instance are retired in favour of containers.
 - **D-087** Clean slate (user, 2026-11-04: "aws 인스턴스는 다 삭제할게 duckdns도 없애야지"): the owner deletes the first EC2 instance (and its volume) and the DuckDNS name, and rebuilds by hand from server creation (D-083, D-084, D-086). The uploaded audio goes with the instance; the PC copy stays the source. D-066 (DuckDNS) is reopened for the owner's new setup. The owner's course order: deploy by hand first, then CI/CD, then Docker, then operations.
 - **D-086** Order of work (user, 2026-11-04: "지금 일단 배포/운영에 집중하고싶어. 기능은 일단 배포 뒤에 ci/cd 연결한뒤 해보자"): deployment and operations first, built by the owner with the lead teaching (D-084). Feature work (B-014..B-017, F-010) waits until the site is deployed and CI/CD is connected; cycle 069's spec and its review are kept on branch `cycle/069-game-core`.
