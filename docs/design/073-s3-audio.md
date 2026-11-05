@@ -79,3 +79,50 @@ Owner decision D-092 (2026-11-06): the 1,500 cached songs move from the server d
      - a missing or invalid key map fails startup;
      - the `Location` holds no basename or title.
    - The tests use static fake credentials and make no network call.
+
+## Review changes (round 1)
+- **H1. Two key maps.**
+  - The uploader keeps its key assignments in `audio-cache/s3-keys.work.json` (the work map).
+  - The server reads `audio-cache/s3-keys.json` (the served map).
+    - The uploader writes it last and atomically.
+    - It holds only objects that a final `ListObjectsV2` pass shows in the bucket with the index's size: `{basename: {key, size}}`.
+  - So a failed or interrupted upload never puts a missing object in front of players.
+  - Test: a basename whose upload failed is absent from the served map.
+- **H2. Failures become visible.**
+  - **Startup checks in S3 mode:**
+    - The server resolves the default credentials once. On failure it logs a clear error and fails startup.
+    - It logs the candidate count and the counts dropped per reason.
+  - **Presign errors.** A presign exception for a valid token answers 503, and the log carries the token prefix.
+  - **Health.** `/health` stays as is.
+  - **End-to-end check.** After the deploy, the lead runs a real-browser check: a room, a start, audio decoded. A scripted audio check for `deploy/smoke.py` is proposed to the owner (D-083).
+  - **Operations.** An operations item, I-011, is added below.
+- **M1. Item ids.** The ids are C-017 and B-018.
+- **M2. Empty or partial candidate sets.**
+  - In S3 mode, startup fails when `index.json` exists but no candidate remains.
+  - Startup also fails when the served map is missing or invalid.
+  - The disk mode logs its drop counts per reason. It no longer drops themes silently.
+- **M3. Size checks.**
+  - The uploader uploads a file only when its local size equals the index `size`, and reports a mismatch otherwise.
+  - The server checks each served-map entry's size against the index and drops a mismatch, with a count.
+- **M4. A corrupt map stops the tool.** If the work map or served map is unreadable or malformed, the uploader exits non-zero and touches nothing.
+- **M5. Tests on boto3's real shapes.** The S3 adapter is tested with `botocore.stub.Stubber`, offline and against the real S3 model. The cases include an empty bucket (no `Contents`) and a two-page listing.
+- **Nits.**
+  - **N1. SDK size.** Use the AWS SDK v2 BOM with exact versions, and exclude the `apache-client` and `netty-nio-client` HTTP clients, since presigning needs none.
+  - **N2. boto3 pins.** `boto3` and its transitive packages are pinned in `requirements.txt`, because the tests need botocore's Stubber. The import inside `s3upload` is lazy.
+  - **N3. Constants instead of settings.**
+    - The presigned URL lives 60 seconds and is signed on every request.
+    - The region is fixed to `ap-southeast-2`.
+    - The object `Cache-Control` is dropped.
+    - Only `songrush.audio.s3-bucket` remains a setting.
+
+## Resulting items (revised)
+1. **C-017 data: resumable S3 upload with random object names**, with the tests above.
+2. **B-018 backend: S3 presigned audio mode**, with the tests above.
+3. **I-011 owner operations, with the lead's help:**
+   - the read policy on the server role;
+   - create the upload key and run the upload;
+   - copy `index.json` and `s3-keys.json` to the server;
+   - set `SONGRUSH_AUDIO_S3_BUCKET`;
+   - deploy;
+   - real-browser audio check;
+   - delete the upload key.
