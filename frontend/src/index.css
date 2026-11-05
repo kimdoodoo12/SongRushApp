@@ -23,6 +23,7 @@
   --scheme: light;
   --bw: 3px; --r: 20px; --font-d: "Jua", "Malgun Gothic", sans-serif; --font-b: "Gowun Dodum", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   --bg: radial-gradient(circle at 12px 12px, #ffd36b 3px, transparent 3.5px) 0 0/28px 28px, #ffe7a8;
+  --solid-bg: #ffe7a8;
   --solid: #ffffff;
   --panel: #ffffff; --panel-me: #fff4f7; --line: #2b2340; --ink: #2b2340; --soft: #6b5f86;
   --a1: #ff6b8b; --a1-ink: #ffffff; --a2: #2b8fd1; --a3: #8a63e8; --good: #22a85a; --good-ink: #ffffff; --me: #2b2340;
@@ -42,6 +43,7 @@
   --scheme: dark;
   --bw: 1px; --r: 18px; --font-d: "Black Han Sans", "Malgun Gothic", sans-serif; --font-b: "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
   --bg: radial-gradient(ellipse at 50% -10%, #2a1356 0, transparent 60%), radial-gradient(ellipse at 100% 110%, #062a3a 0, transparent 55%), #07060f;
+  --solid-bg: #07060f;
   --solid: #110f22;
   --panel: #110f22; --panel-me: #110f22; --line: #2a2550; --ink: #ece9ff; --soft: #9a93c9;
   --a1: #ff3df2; --a1-ink: #12001a; --a2: #29f0ff; --a3: #b6ff3b; --good: #39ff88; --good-ink: #062012; --me: #29f0ff;
@@ -61,7 +63,8 @@
 [data-room-theme="sakura"] {
   --scheme: light;
   --bw: 2px; --r: 26px; --font-d: "Gaegu", "Malgun Gothic", sans-serif; --font-b: "Gowun Dodum", "Malgun Gothic", sans-serif;
-  --bg: linear-gradient(180deg, #ffe9f1 0%, #fff6f9 55%, #eef7ff 100%);
+  --bg: linear-gradient(180deg, #ffe9f1 0%, #fff6f9 55%, #eef7ff 100%), #fff6f9;
+  --solid-bg: #fff6f9;
   --solid: #ffffff;
   --panel: rgba(255,255,255,.85); --panel-me: #fff0f6; --line: #f3b9cf; --ink: #5a3446; --soft: #a07587;
   --a1: #ff7aa8; --a1-ink: #ffffff; --a2: #e0567f; --a3: #6f8de0; --good: #4fbf8a; --good-ink: #ffffff; --me: #ff7aa8;
@@ -82,6 +85,7 @@
   --scheme: dark;
   --bw: 2px; --r: 10px; --font-d: "Nanum Pen Script", "Malgun Gothic", cursive; --font-b: "Gowun Dodum", "Malgun Gothic", sans-serif;
   --bg: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.06), transparent 60%), #24453a;
+  --solid-bg: #24453a;
   --solid: #24453a;
   --frame: #8a5a33; --room-shadow: inset 0 0 0 8px #a26d40, inset 0 0 0 10px #6b4426;
   --panel: rgba(255,255,255,.04); --panel-me: rgba(255,255,255,.04); --line: rgba(240,240,225,.55); --ink: #f2f1e6; --soft: #c9d3c6;
@@ -103,6 +107,7 @@
   --scheme: dark;
   --bw: 1px; --r: 22px; --font-d: "Gowun Batang", "Batang", serif; --font-b: "Gowun Dodum", "Malgun Gothic", sans-serif;
   --bg: radial-gradient(ellipse at 80% 0%, #3b3a7a 0, transparent 55%), radial-gradient(ellipse at 0% 100%, #1b4a6b 0, transparent 50%), #0d1033;
+  --solid-bg: #0d1033;
   --solid: #0d1033;
   --panel: rgba(20,24,64,.72); --panel-me: rgba(20,24,64,.72); --line: #3a4185; --ink: #f4f1ff; --soft: #aeb3e6;
   --a1: #ffd36e; --a1-ink: #1a1640; --a2: #9ec5ff; --a3: #f5a3d6; --good: #9ef0c2; --good-ink: #10203a; --me: #ffd36e;
@@ -123,6 +128,7 @@
   --scheme: dark;
   --bw: 3px; --r: 0px; --font-d: "DotGothic16", "Do Hyeon", monospace; --font-b: "Do Hyeon", "Malgun Gothic", sans-serif;
   --bg: repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 2px, transparent 2px 4px), #101010;
+  --solid-bg: #101010;
   --solid: #101010;
   --panel: #1a1a1a; --panel-me: #1a1a1a; --line: #f5f5f5; --ink: #f5f5f5; --soft: #b8b8b8;
   --a1: #ffe14d; --a1-ink: #101010; --a2: #4dd2ff; --a3: #ff6b6b; --good: #5cff5c; --good-ink: #101010; --me: #ffe14d;
@@ -224,11 +230,22 @@
   .app-shell {
     position: relative;
     color-scheme: var(--scheme);
-    background: var(--bg);
-    background-attachment: fixed;
+    background: var(--solid-bg);
     color: var(--ink);
     font-family: var(--font-b);
     transition: color 0.4s;
+  }
+
+  /* The look's background on a fixed layer, so it covers the viewport at
+     any scroll position; the shell paints the solid colour under it, so a
+     full-page capture is covered too. */
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--bg);
   }
 
   .brand {
@@ -557,6 +574,21 @@
 
 [data-room-theme="chalk"] .chat-log {
   font-size: 17px;
+}
+
+[data-room-theme="chalk"] .seat .font-display {
+  font-size: 19px;
+}
+
+[data-room-theme="chalk"] .seat-empty,
+[data-room-theme="chalk"] .seat-tag,
+[data-room-theme="chalk"] .chip,
+[data-room-theme="chalk"] .code,
+[data-room-theme="chalk"] .pick,
+[data-room-theme="chalk"] .card-label,
+[data-room-theme="chalk"] .card-winner,
+[data-room-theme="chalk"] button {
+  font-size: 1.2em;
 }
 
 [data-room-theme="star"] .round-num,

@@ -120,13 +120,16 @@ export function reducer(state, action) {
       // The screen keeps its content; the timer is frozen by the session.
       return { ...state, reconnecting: true }
     case 'rejoined':
-      return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null }
+      // The server sends roomTheme after the join sequence only when it is
+      // not play, so a theme seen before the drop may be stale.
+      return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null, roomTheme: null }
     case 'restore': {
       // A rejoin snapshot: the lobby, or the game as a player (spec 049).
       const common = {
         ...state,
         reconnecting: false,
         settings: null,
+        roomTheme: null,
         players: action.players === null ? state.players : action.players,
         scoreboard: action.board === null ? state.scoreboard : action.board,
         score: action.score === null ? state.score : action.score,

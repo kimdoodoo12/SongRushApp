@@ -143,7 +143,7 @@ const LIST_CLASS = {
   // both rows of the parent grid (subgrid columns) and the stage and the
   // chat sit in the empty middle column.
   sides:
-    'flex min-w-0 gap-2 overflow-x-auto px-1 pt-3 pb-1.5 md:grid md:col-span-3 md:col-start-1 md:row-span-2 md:row-start-1 md:grid-cols-subgrid md:grid-rows-4 md:content-start md:gap-y-4 md:overflow-visible md:p-0 md:pt-2',
+    'flex min-w-0 gap-2 overflow-x-auto px-1 pt-3 pb-1.5 md:grid md:col-span-3 md:col-start-1 md:row-span-2 md:row-start-1 md:grid-cols-subgrid md:grid-rows-[repeat(4,auto)] md:content-start md:items-start md:self-start md:gap-y-4 md:overflow-visible md:p-0 md:pt-2',
 }
 
 // The eight room seats in roster order, with each player's newest chat line
