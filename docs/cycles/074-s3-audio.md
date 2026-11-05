@@ -176,3 +176,5 @@ These override the items above wherever they conflict.
   - Tests replace the provider with Spring Framework 7 `@TestBean`, or `@MockitoBean`, by that name.
 - **M1. 503 test.** A test provider whose first `resolveCredentials()` (at startup) succeeds and whose later calls throw makes a valid `/audio/{token}` answer **503** with no `Location`. Add this to criterion 12.
 - **Nit. Location path.** The `Location` path is `"/" + key`.
+
+- **Correction (test writer, verified).** With a Stubber attached, `before-call.s3.PutObject` handlers never run, because the Stubber answers first. The order test uses `before-parameter-build.s3.PutObject` instead.
