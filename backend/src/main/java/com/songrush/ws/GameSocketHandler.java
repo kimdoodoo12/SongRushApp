@@ -202,6 +202,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 				case "ready" -> ready(sessionId, node);
 				case "chat" -> chat(sessionId, node);
 				case "skipVote" -> skipVote(sessionId, node);
+				case "roomTheme" -> roomTheme(sessionId, node);
 				case "leave" -> leave(sessionId);
 				case "rejoin" -> rejoin(sessionId, node);
 				default -> sendError(sessionId, "bad-message");
@@ -505,6 +506,18 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		}
 		String t = text.stringValue();
 		onLobby(sessionId, seat -> seat.hosted().lobby.chat(seat.playerId(), t));
+	}
+
+	// A missing or non-string theme is bad-room-theme here; the lobby checks the id itself, before
+	// its not-host (docs/cycles/071-room-themes.md).
+	private void roomTheme(String sessionId, JsonNode node) {
+		JsonNode theme = node.path("theme");
+		if (!theme.isString()) {
+			sendError(sessionId, "bad-room-theme");
+			return;
+		}
+		String t = theme.stringValue();
+		onLobby(sessionId, seat -> seat.hosted().lobby.setRoomTheme(seat.playerId(), t));
 	}
 
 	// Frees the session's seat and queue entry at once (cycle 040 review M2: no frame after leave),

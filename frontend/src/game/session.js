@@ -528,6 +528,11 @@ export function startSession({
         dispatch({ type: 'roster', phase: msg.phase, players: msg.players })
         if (msg.phase === 'lobby' && inGame) abandon()
         break
+      case 'roomTheme':
+        // The look the host picked for the room (F-012); solo has none.
+        if (!room) break
+        dispatch({ type: 'roomTheme', theme: msg.theme })
+        break
       case 'error':
         onError(msg)
         break
@@ -675,6 +680,10 @@ export function startSession({
       send({ type: 'skipVote', index: round.index })
       skipsSent += 1
       dispatchOwnSkip()
+    },
+    // The host's room-look pick (F-012); the server broadcasts it back.
+    setRoomTheme(theme) {
+      if (active && room) send({ type: 'roomTheme', theme })
     },
     // Leaves the room on purpose: the server is told, then the socket closes.
     leave() {

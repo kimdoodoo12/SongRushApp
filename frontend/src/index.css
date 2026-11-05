@@ -1,73 +1,214 @@
 @import "tailwindcss";
 
-/* The night theme (cycle 070, F-011). One accent, one "correct" green. */
-@theme {
-  --color-night: #0b1020;
-  --color-surface: #111827;
-  --color-surface-2: #1e293b;
-  --color-line: rgb(255 255 255 / 0.1);
-  --color-ink: #e2e8f0;
-  --color-muted: #94a3b8;
-  --color-accent: #8b5cf6;
-  --color-accent-soft: #a78bfa;
-  --color-good: #22c55e;
-  --color-warn: #f59e0b;
-  --color-bad: #f87171;
+/* Room looks (cycle 071, F-012), ported from docs/design/071-room-mockup.html.
+   Each look is a token set on the app shell's data-room-theme; the Tailwind
+   colours below read the tokens directly (inline), so utilities such as
+   text-muted or bg-bad/10 follow the look. */
+@theme inline {
+  --color-surface: var(--panel);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--soft);
+  --color-accent: var(--a1);
+  --color-accent-soft: var(--a2);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-display: var(--font-d);
+}
+
+/* ---------- 1. 놀이터: bright cartoon (also the default) ---------- */
+.app-shell,
+[data-room-theme="play"] {
+  --scheme: light;
+  --bw: 3px; --r: 20px; --font-d: "Jua", "Malgun Gothic", sans-serif; --font-b: "Gowun Dodum", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+  --bg: radial-gradient(circle at 12px 12px, #ffd36b 3px, transparent 3.5px) 0 0/28px 28px, #ffe7a8;
+  --solid-bg: #ffe7a8;
+  --solid: #ffffff;
+  --panel: #ffffff; --panel-me: #fff4f7; --line: #2b2340; --ink: #2b2340; --soft: #6b5f86;
+  --a1: #ff6b8b; --a1-ink: #ffffff; --a2: #2b8fd1; --a3: #8a63e8; --good: #22a85a; --good-ink: #ffffff; --me: #2b2340;
+  --warn: #b45309; --bad: #d92d3a;
+  --shadow: 0 4px 0 #2b2340; --got-shadow: 0 4px 0 #22a85a; --room-shadow: 0 6px 0 #2b2340;
+  --code-bg: #2b2340; --code-ink: #fff; --code-line: transparent; --av-ink: #2b2340; --av-line: #2b2340; --av-r: 50%;
+  --bub: #fff; --bub-ink: #2b2340; --bub-line: #2b2340;
+  --record: repeating-radial-gradient(circle, #2b2340 0 3px, #3a3157 3px 6px); --label: #ff6b8b; --record-glow: none;
+  --eq: #4cc9f0; --eq2: #ffb347; --eq-line: #2b2340; --eq-r: 6px; --eq-glow: none;
+  --track: #f1ecff; --fill: repeating-linear-gradient(45deg, #ff6b8b 0 12px, #ff8fa8 12px 24px); --fill-glow: none;
+  --btn: #ffb347; --btn-ink: #2b2340; --btn-shadow: 0 3px 0 #2b2340; --go-line: #2b2340;
+  --card: #fffaf0; --card-line: #2b2340; --input: #ffffff;
+  --stage: #ffffff; --frame: #2b2340; --glow1: none; --glow2: none; --clock: #2b2340;
+}
+/* ---------- 2. 무대: dark neon ---------- */
+[data-room-theme="neon"] {
+  --scheme: dark;
+  --bw: 1px; --r: 18px; --font-d: "Black Han Sans", "Malgun Gothic", sans-serif; --font-b: "IBM Plex Sans KR", "Malgun Gothic", sans-serif;
+  --bg: radial-gradient(ellipse at 50% -10%, #2a1356 0, transparent 60%), radial-gradient(ellipse at 100% 110%, #062a3a 0, transparent 55%), #07060f;
+  --solid-bg: #07060f;
+  --solid: #110f22;
+  --panel: #110f22; --panel-me: #110f22; --line: #2a2550; --ink: #ece9ff; --soft: #9a93c9;
+  --a1: #ff3df2; --a1-ink: #12001a; --a2: #29f0ff; --a3: #b6ff3b; --good: #39ff88; --good-ink: #062012; --me: #29f0ff;
+  --warn: #fbbf24; --bad: #ff6b81;
+  --shadow: none; --got-shadow: 0 0 0 1px #39ff88, 0 0 22px rgba(57,255,136,.35); --room-shadow: none;
+  --stage: linear-gradient(180deg, #15122c, #0c0a1c);
+  --code-bg: transparent; --code-ink: #29f0ff; --code-line: #29f0ff; --av-ink: #0b0a18; --av-line: transparent; --av-r: 50%;
+  --bub: #ece9ff; --bub-ink: #0b0a18; --bub-line: #ece9ff;
+  --glow1: 0 0 14px rgba(41,240,255,.6); --clock: #ff3df2; --glow2: 0 0 18px rgba(255,61,242,.65);
+  --record: repeating-radial-gradient(circle, #0d0c18 0 2px, #1b1838 2px 4px); --label: conic-gradient(#ff3df2, #29f0ff, #ff3df2); --record-glow: 0 0 40px rgba(255,61,242,.35);
+  --eq: linear-gradient(0deg, #29f0ff, #ff3df2); --eq2: linear-gradient(0deg, #29f0ff, #ff3df2); --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 10px rgba(41,240,255,.45);
+  --track: #1c1838; --fill: linear-gradient(90deg, #29f0ff, #ff3df2); --fill-glow: 0 0 14px rgba(255,61,242,.6);
+  --btn: transparent; --btn-ink: #ece9ff; --btn-shadow: none; --go-line: #ff3df2;
+  --card: #0f0d22; --card-line: #29f0ff; --input: #0a0918; --frame: #2a2550;
+}
+/* ---------- 3. 벚꽃: pastel spring ---------- */
+[data-room-theme="sakura"] {
+  --scheme: light;
+  --bw: 2px; --r: 26px; --font-d: "Gaegu", "Malgun Gothic", sans-serif; --font-b: "Gowun Dodum", "Malgun Gothic", sans-serif;
+  --bg: linear-gradient(180deg, #ffe9f1 0%, #fff6f9 55%, #eef7ff 100%), #fff6f9;
+  --solid-bg: #fff6f9;
+  --solid: #ffffff;
+  --panel: rgba(255,255,255,.85); --panel-me: #fff0f6; --line: #f3b9cf; --ink: #5a3446; --soft: #a07587;
+  --a1: #ff7aa8; --a1-ink: #ffffff; --a2: #e0567f; --a3: #6f8de0; --good: #4fbf8a; --good-ink: #ffffff; --me: #ff7aa8;
+  --warn: #b45309; --bad: #d6345c;
+  --shadow: 0 6px 18px rgba(240,140,175,.25); --got-shadow: 0 0 0 3px #bdebd4, 0 6px 18px rgba(79,191,138,.25); --room-shadow: none;
+  --stage: rgba(255,255,255,.85);
+  --code-bg: #ff7aa8; --code-ink: #fff; --code-line: transparent; --av-ink: #5a3446; --av-line: transparent; --av-r: 50%;
+  --bub: #ffffff; --bub-ink: #5a3446; --bub-line: #f3b9cf;
+  --glow1: none; --glow2: none; --clock: #5a3446;
+  --record: repeating-radial-gradient(circle, #6b4a5a 0 3px, #7d5a6b 3px 6px); --label: #ffd1e0; --record-glow: none;
+  --eq: #ff9cc0; --eq2: #9cc4ff; --eq-line: transparent; --eq-r: 10px; --eq-glow: none;
+  --track: #ffe3ee; --fill: linear-gradient(90deg, #ffb3cf, #ff7aa8); --fill-glow: none;
+  --btn: #ffffff; --btn-ink: #e0567f; --btn-shadow: none; --go-line: #f3b9cf;
+  --card: #fff8fb; --card-line: #f3b9cf; --input: #ffffff; --frame: #f3b9cf;
+}
+/* ---------- 4. 칠판: classroom chalkboard ---------- */
+[data-room-theme="chalk"] {
+  --scheme: dark;
+  --bw: 2px; --r: 10px; --font-d: "Nanum Pen Script", "Malgun Gothic", cursive; --font-b: "Gowun Dodum", "Malgun Gothic", sans-serif;
+  --bg: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.06), transparent 60%), #24453a;
+  --solid-bg: #24453a;
+  --solid: #24453a;
+  --frame: #8a5a33; --room-shadow: inset 0 0 0 8px #a26d40, inset 0 0 0 10px #6b4426;
+  --panel: rgba(255,255,255,.04); --panel-me: rgba(255,255,255,.04); --line: rgba(240,240,225,.55); --ink: #f2f1e6; --soft: #c9d3c6;
+  --a1: #ffd166; --a1-ink: #24453a; --a2: #8fd3ff; --a3: #ffadad; --good: #b5f2a0; --good-ink: #1f3a30; --me: #ffd166;
+  --warn: #ffd166; --bad: #ffadad;
+  --shadow: none; --got-shadow: 0 0 0 2px #b5f2a0;
+  --stage: rgba(255,255,255,.04);
+  --code-bg: transparent; --code-ink: #ffd166; --code-line: #ffd166; --av-ink: #24453a; --av-line: transparent; --av-r: 50%;
+  --bub: #f2f1e6; --bub-ink: #24453a; --bub-line: #f2f1e6;
+  --glow1: none; --glow2: none; --clock: #f2f1e6;
+  --record: repeating-radial-gradient(circle, #1b332b 0 3px, #2c5446 3px 6px); --label: #ffd166; --record-glow: none;
+  --eq: #f2f1e6; --eq2: #ffd166; --eq-line: transparent; --eq-r: 2px; --eq-glow: none;
+  --track: rgba(255,255,255,.08); --fill: repeating-linear-gradient(90deg, #f2f1e6 0 10px, transparent 10px 14px); --fill-glow: none;
+  --btn: transparent; --btn-ink: #f2f1e6; --btn-shadow: none; --go-line: rgba(240,240,225,.55);
+  --card: rgba(0,0,0,.18); --card-line: rgba(240,240,225,.55); --input: rgba(0,0,0,.18);
+}
+/* ---------- 5. 별밤: starry night ---------- */
+[data-room-theme="star"] {
+  --scheme: dark;
+  --bw: 1px; --r: 22px; --font-d: "Gowun Batang", "Batang", serif; --font-b: "Gowun Dodum", "Malgun Gothic", sans-serif;
+  --bg: radial-gradient(ellipse at 80% 0%, #3b3a7a 0, transparent 55%), radial-gradient(ellipse at 0% 100%, #1b4a6b 0, transparent 50%), #0d1033;
+  --solid-bg: #0d1033;
+  --solid: #0d1033;
+  --panel: rgba(20,24,64,.72); --panel-me: rgba(20,24,64,.72); --line: #3a4185; --ink: #f4f1ff; --soft: #aeb3e6;
+  --a1: #ffd36e; --a1-ink: #1a1640; --a2: #9ec5ff; --a3: #f5a3d6; --good: #9ef0c2; --good-ink: #10203a; --me: #ffd36e;
+  --warn: #ffd36e; --bad: #ff9aa8;
+  --shadow: 0 8px 30px rgba(0,0,0,.35); --got-shadow: 0 0 0 1px #9ef0c2, 0 0 24px rgba(158,240,194,.3); --room-shadow: none;
+  --stage: rgba(20,24,64,.72);
+  --code-bg: rgba(255,211,110,.12); --code-ink: #ffd36e; --code-line: #ffd36e; --av-ink: #1a1640; --av-line: transparent; --av-r: 50%;
+  --bub: #f4f1ff; --bub-ink: #1a1640; --bub-line: #f4f1ff;
+  --glow1: 0 0 12px rgba(255,211,110,.5); --clock: #ffd36e; --glow2: 0 0 16px rgba(255,211,110,.45);
+  --record: repeating-radial-gradient(circle, #121539 0 2px, #22285e 2px 4px); --label: radial-gradient(circle, #fff6d6, #ffd36e); --record-glow: 0 0 36px rgba(255,211,110,.25);
+  --eq: linear-gradient(0deg, #9ec5ff, #f5a3d6); --eq2: linear-gradient(0deg, #9ec5ff, #f5a3d6); --eq-line: transparent; --eq-r: 6px; --eq-glow: none;
+  --track: rgba(255,255,255,.08); --fill: linear-gradient(90deg, #9ec5ff, #ffd36e); --fill-glow: none;
+  --btn: transparent; --btn-ink: #f4f1ff; --btn-shadow: none; --go-line: #ffd36e;
+  --card: rgba(13,16,51,.85); --card-line: #ffd36e; --input: rgba(10,12,40,.8); --frame: #3a4185;
+}
+/* ---------- 6. 오락실: retro arcade ---------- */
+[data-room-theme="arcade"] {
+  --scheme: dark;
+  --bw: 3px; --r: 0px; --font-d: "DotGothic16", "Do Hyeon", monospace; --font-b: "Do Hyeon", "Malgun Gothic", sans-serif;
+  --bg: repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 2px, transparent 2px 4px), #101010;
+  --solid-bg: #101010;
+  --solid: #101010;
+  --panel: #1a1a1a; --panel-me: #1a1a1a; --line: #f5f5f5; --ink: #f5f5f5; --soft: #b8b8b8;
+  --a1: #ffe14d; --a1-ink: #101010; --a2: #4dd2ff; --a3: #ff6b6b; --good: #5cff5c; --good-ink: #101010; --me: #ffe14d;
+  --warn: #ffe14d; --bad: #ff6b6b;
+  --shadow: 4px 4px 0 #ff2d75; --got-shadow: 4px 4px 0 #5cff5c; --room-shadow: 6px 6px 0 #4dd2ff;
+  --stage: #1a1a1a;
+  --code-bg: #ffe14d; --code-ink: #101010; --code-line: transparent; --av-r: 0; --av-ink: #101010; --av-line: transparent;
+  --bub: #f5f5f5; --bub-ink: #101010; --bub-line: #f5f5f5;
+  --glow1: none; --glow2: none; --clock: #ffe14d;
+  --record: repeating-conic-gradient(#101010 0 10deg, #2a2a2a 10deg 20deg); --label: #ff2d75; --record-glow: none;
+  --eq: #5cff5c; --eq2: #ffe14d; --eq-line: transparent; --eq-r: 0; --eq-glow: none;
+  --track: #101010; --fill: repeating-linear-gradient(90deg, #ffe14d 0 10px, #101010 10px 12px); --fill-glow: none;
+  --btn: #101010; --btn-ink: #f5f5f5; --btn-shadow: 3px 3px 0 #4dd2ff; --go-line: #f5f5f5;
+  --card: #101010; --card-line: #ffe14d; --input: #101010; --frame: #f5f5f5;
 }
 
 @layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
   }
 
+  /* A neutral fallback; the app shell paints the look over the whole page. */
   body {
     min-height: 100vh;
-    background-color: var(--color-night);
-    background-image:
-      radial-gradient(60rem 30rem at 50% -10%, rgb(139 92 246 / 0.18), transparent 70%),
-      radial-gradient(40rem 24rem at 100% 100%, rgb(56 189 248 / 0.08), transparent 70%);
-    background-attachment: fixed;
-    color: var(--color-ink);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background-color: #e9eef6;
+    color: #1f2430;
+    font-family: "Gowun Dodum", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
     line-height: 1.5;
     overflow-x: hidden;
   }
 
-  /* Form controls share one dark look; utilities in JSX override it. */
   input[type="text"],
   select {
     width: 100%;
     min-width: 0;
-    border-radius: var(--radius-xl);
-    border: 1px solid var(--color-line);
-    background-color: rgb(15 23 42 / 0.8);
-    color: var(--color-ink);
+    border-radius: calc(var(--r) - 6px);
+    border: var(--bw) solid var(--line);
+    background: var(--input);
+    color: var(--ink);
     padding: 0.5rem 0.75rem;
     font: inherit;
     transition: border-color 150ms, box-shadow 150ms;
   }
 
-  input[type="text"]:focus,
-  select:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 0 3px rgb(139 92 246 / 0.35);
+  input[type="text"]::placeholder {
+    color: var(--soft);
+  }
+
+  input[type="text"]:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--a1);
+    outline-offset: 1px;
+  }
+
+  select option {
+    background-color: var(--solid);
+    color: var(--ink);
   }
 
   button {
     cursor: pointer;
-    border-radius: var(--radius-xl);
-    background-color: var(--color-accent);
-    color: #fff;
+    border-radius: calc(var(--r) - 6px);
+    border: var(--bw) solid var(--line);
+    background: var(--btn);
+    color: var(--btn-ink);
+    box-shadow: var(--btn-shadow);
     padding: 0.5rem 1rem;
     font: inherit;
-    font-weight: 600;
-    box-shadow: 0 6px 20px -8px rgb(139 92 246 / 0.7);
-    transition: background-color 150ms, transform 150ms, opacity 150ms;
+    font-family: var(--font-d);
+    transition: filter 150ms, transform 150ms, opacity 150ms;
+  }
+
+  button.go {
+    background: var(--a1);
+    color: var(--a1-ink);
+    border-color: var(--go-line);
   }
 
   button:hover:not(:disabled) {
-    background-color: var(--color-accent-soft);
+    filter: brightness(1.08);
   }
 
   button:active:not(:disabled) {
@@ -75,18 +216,466 @@
   }
 
   button:focus-visible {
-    outline: 2px solid var(--color-accent-soft);
+    outline: 2px solid var(--a1);
     outline-offset: 2px;
   }
 
   button:disabled {
     cursor: not-allowed;
-    opacity: 0.4;
-    box-shadow: none;
+    opacity: 0.45;
+  }
+}
+
+@layer components {
+  .app-shell {
+    position: relative;
+    color-scheme: var(--scheme);
+    background: var(--solid-bg);
+    color: var(--ink);
+    font-family: var(--font-b);
+    transition: color 0.4s;
   }
 
-  select option {
-    background-color: var(--color-surface);
-    color: var(--color-ink);
+  /* The look's background on a fixed layer, so it covers the viewport at
+     any scroll position; the shell paints the solid colour under it, so a
+     full-page capture is covered too. */
+  .app-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--bg);
+  }
+
+  .brand {
+    font-family: var(--font-d);
+    color: var(--a1);
+    text-shadow: var(--glow1);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: var(--bw) solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+  }
+
+  /* The room frame around the lobby and the game. */
+  .room {
+    position: relative;
+    border: var(--bw) solid var(--frame);
+    border-radius: calc(var(--r) + 8px);
+    box-shadow: var(--room-shadow);
+    padding: 14px;
+  }
+
+  @media (min-width: 768px) {
+    .room {
+      padding: 18px;
+    }
+  }
+
+  .code {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    letter-spacing: 0.12em;
+    font-family: var(--font-d);
+    background: var(--code-bg);
+    color: var(--code-ink);
+    border: var(--bw) solid var(--code-line);
+  }
+
+  .chip {
+    display: inline-block;
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--soft);
+    border: var(--bw) solid var(--line);
+    font-family: var(--font-d);
+  }
+
+  /* The 분위기 picker. */
+  .pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px 5px 5px;
+    border-radius: 999px;
+    background: var(--solid);
+    color: var(--ink);
+    border: var(--bw) solid var(--line);
+    box-shadow: none;
+    font-size: 14px;
+  }
+
+  .pick[aria-pressed="true"] {
+    background: var(--a1);
+    color: var(--a1-ink);
+  }
+
+  .pick:disabled {
+    opacity: 0.6;
+  }
+
+  .pick[aria-pressed="true"]:disabled {
+    opacity: 1;
+  }
+
+  .pick-swatch {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgb(0 0 0 / 0.2);
+  }
+
+  /* Seats. */
+  .seat-me {
+    border-color: var(--me);
+    background: var(--panel-me);
+  }
+
+  .seat-got {
+    border-color: var(--good);
+    box-shadow: var(--got-shadow);
+  }
+
+  .seat-empty {
+    border: var(--bw) dashed var(--line);
+    border-radius: var(--r);
+    color: var(--soft);
+    font-family: var(--font-d);
+  }
+
+  .avatar {
+    border-radius: var(--av-r);
+    color: var(--av-ink);
+    border: var(--bw) solid var(--av-line);
+    font-family: var(--font-d);
+  }
+
+  .crown {
+    color: #ffc531;
+  }
+
+  .seat-tag {
+    border-radius: 999px;
+    background: var(--good);
+    color: var(--good-ink);
+    font-family: var(--font-d);
+  }
+
+  .bubble {
+    background: var(--bub);
+    color: var(--bub-ink);
+    border: var(--bw) solid var(--bub-line);
+  }
+
+  .bubble-tail {
+    background: var(--bub);
+    border: 0 solid var(--bub-line);
+  }
+
+  /* The stage. */
+  .stage {
+    background: var(--stage);
+  }
+
+  .round-num {
+    color: var(--a1);
+    text-shadow: var(--glow1);
+  }
+
+  .clock {
+    font-family: var(--font-d);
+    color: var(--clock);
+    text-shadow: var(--glow2);
+  }
+
+  .record {
+    width: 128px;
+    height: 128px;
+    border-radius: 50%;
+    position: relative;
+    animation: sr-spin 3.2s linear infinite;
+    background: var(--record);
+    border: var(--bw) solid var(--line);
+    box-shadow: var(--record-glow);
+  }
+
+  .record::after {
+    content: "";
+    position: absolute;
+    inset: 39%;
+    border-radius: 50%;
+    background: var(--label);
+    border: var(--bw) solid var(--line);
+  }
+
+  .eq {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 86px;
+  }
+
+  .eq span {
+    width: 12px;
+    border-radius: var(--eq-r);
+    animation: sr-bounce 1s ease-in-out infinite;
+    background: var(--eq);
+    border: var(--bw) solid var(--eq-line);
+    box-shadow: var(--eq-glow);
+  }
+
+  .eq span:nth-child(even) { background: var(--eq2); }
+  .eq span:nth-child(2) { animation-delay: -0.2s; }
+  .eq span:nth-child(3) { animation-delay: -0.5s; }
+  .eq span:nth-child(4) { animation-delay: -0.7s; }
+  .eq span:nth-child(5) { animation-delay: -0.35s; }
+  .eq span:nth-child(6) { animation-delay: -0.85s; }
+  .eq span:nth-child(7) { animation-delay: -0.15s; }
+
+  @media (min-width: 768px) {
+    .record {
+      width: 170px;
+      height: 170px;
+    }
+
+    .eq {
+      height: 110px;
+    }
+  }
+
+  .timebar {
+    background: var(--track);
+    border: var(--bw) solid var(--line);
+  }
+
+  .timebar-fill {
+    background: var(--fill);
+    box-shadow: var(--fill-glow);
+  }
+
+  .skip-on {
+    background: var(--a1);
+    color: var(--a1-ink);
+  }
+
+  .correct {
+    background: var(--good);
+    color: var(--good-ink);
+  }
+
+  /* The reveal: one card flipping in. */
+  .flip {
+    perspective: 900px;
+  }
+
+  .card {
+    border-radius: var(--r);
+    animation: sr-flip-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    background: var(--card);
+    border: var(--bw) solid var(--card-line);
+    box-shadow: var(--shadow);
+  }
+
+  .card-label {
+    color: var(--a1);
+  }
+
+  .card-slug {
+    background: color-mix(in srgb, var(--a1) 18%, transparent);
+    color: var(--a1);
+    font-family: var(--font-d);
+  }
+
+  .card-winner {
+    background: var(--good);
+    color: var(--good-ink);
+  }
+
+  .rank-row:first-child {
+    border-color: var(--a1);
+    color: var(--a1);
+    font-family: var(--font-d);
+  }
+
+  /* The chat under the stage. */
+  .send {
+    border-top: var(--bw) dashed var(--line);
+  }
+
+  .chat-mark {
+    border: 1px solid rgb(0 0 0 / 0.2);
+  }
+
+  /* Decorations behind the page: petals (벚꽃) and stars (별밤). */
+  .deco {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .petal {
+    position: absolute;
+    top: -20px;
+    width: 14px;
+    height: 10px;
+    border-radius: 14px 0;
+    background: #ffc0d6;
+    opacity: 0.8;
+    animation: sr-fall linear infinite;
+  }
+
+  .star {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #fff;
+    animation: sr-twinkle 3s ease-in-out infinite;
+  }
+}
+
+/* Per-look touches from the mockup. Unlayered, so they beat the utilities
+   (arcade's square corners over rounded-full, for example). */
+[data-room-theme="sakura"] .round,
+[data-room-theme="sakura"] .clock,
+[data-room-theme="sakura"] .card h2,
+[data-room-theme="sakura"] .brand {
+  font-weight: 700;
+}
+
+[data-room-theme="chalk"] .room {
+  padding: 26px;
+}
+
+/* Nanum Pen Script runs small: the mockup sets its type 1.15 times larger. */
+[data-room-theme="chalk"] .round {
+  font-size: 17px;
+}
+
+[data-room-theme="chalk"] .round-num {
+  font-size: 2.2rem;
+}
+
+[data-room-theme="chalk"] .clock {
+  font-size: 3.1rem;
+}
+
+/* In Nanum Pen Script "71초" reads like the word 기초: digits and the clock
+   use a clearer face, at the same size. */
+[data-room-theme="chalk"] .clock,
+[data-room-theme="chalk"] .round-num {
+  font-family: "Gaegu", "Gowun Dodum", sans-serif;
+  font-weight: 700;
+}
+
+[data-room-theme="chalk"] .card h2 {
+  font-size: 40px;
+}
+
+[data-room-theme="chalk"] .chat-log {
+  font-size: 17px;
+}
+
+[data-room-theme="chalk"] .seat .font-display {
+  font-size: 19px;
+}
+
+[data-room-theme="chalk"] .seat-empty,
+[data-room-theme="chalk"] .seat-tag,
+[data-room-theme="chalk"] .chip,
+[data-room-theme="chalk"] .code,
+[data-room-theme="chalk"] .pick,
+[data-room-theme="chalk"] .card-label,
+[data-room-theme="chalk"] .card-winner,
+[data-room-theme="chalk"] button {
+  font-size: 1.2em;
+}
+
+[data-room-theme="star"] .round-num,
+[data-room-theme="star"] .clock,
+[data-room-theme="star"] .card h2,
+[data-room-theme="star"] .brand {
+  font-weight: 700;
+}
+
+[data-room-theme="arcade"] .code,
+[data-room-theme="arcade"] .chip,
+[data-room-theme="arcade"] .pick,
+[data-room-theme="arcade"] .pick-swatch,
+[data-room-theme="arcade"] .seat-tag,
+[data-room-theme="arcade"] .card-slug,
+[data-room-theme="arcade"] .card-winner,
+[data-room-theme="arcade"] .correct,
+[data-room-theme="arcade"] .bubble,
+[data-room-theme="arcade"] .timebar,
+[data-room-theme="arcade"] .timebar-fill,
+[data-room-theme="arcade"] .chat-mark {
+  border-radius: 0;
+}
+
+[data-room-theme="arcade"] .record {
+  border-radius: 0;
+  animation-timing-function: steps(12);
+}
+
+[data-room-theme="arcade"] .record::after {
+  border-radius: 0;
+}
+
+@keyframes sr-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes sr-bounce {
+  0%, 100% { height: 22%; }
+  50% { height: 100%; }
+}
+
+@keyframes sr-flip-in {
+  from { transform: rotateY(-90deg); opacity: 0; }
+  to { transform: rotateY(0); opacity: 1; }
+}
+
+@keyframes sr-fall {
+  from { transform: translateY(-20px) rotate(0); }
+  to { transform: translateY(110vh) rotate(220deg); }
+}
+
+@keyframes sr-twinkle {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record,
+  .eq span,
+  .card,
+  .petal,
+  .star,
+  .sound-prompt {
+    animation: none !important;
+  }
+
+  .eq span {
+    height: 60%;
+  }
+
+  .petal {
+    display: none;
+  }
+
+  .app-shell,
+  .bubble,
+  button,
+  .timebar-fill {
+    transition: none !important;
   }
 }

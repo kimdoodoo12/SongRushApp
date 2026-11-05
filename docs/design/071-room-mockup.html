@@ -1,0 +1,340 @@
+<title>SongRush 방 시안</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600&family=Nanum+Pen+Script&family=Gaegu:wght@400;700&family=Do+Hyeon&family=DotGothic16&family=Gowun+Batang:wght@400;700&display=swap">
+<style>
+/* Layout: seats down both sides (4 + 4), a stage board in the centre, chat under the board.
+   Every look is a set of tokens on .room; the host picks one. */
+:root {
+  color-scheme: light;
+  --page: #e9eef6; --page-ink: #1f2430; --page-muted: #5b6475;
+  --pick: #ffffff; --pick-line: #c9d2e3; --pick-on: #1f2430; --pick-on-ink: #ffffff;
+}
+body { background: var(--page); color: var(--page-ink); font-family: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 20px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
+.controls { display: flex; flex-direction: column; gap: 10px; }
+.controls h1 { margin: 0; font-size: 18px; font-weight: 700; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row > span { font-size: 13px; color: var(--page-muted); min-width: 64px; }
+.pick { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--pick-line); background: var(--pick); color: var(--page-ink); padding: 6px 12px 6px 6px; border-radius: 999px; font: inherit; font-size: 14px; cursor: pointer; }
+.pick .sw { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(0,0,0,.2); }
+.pick[aria-pressed="true"] { background: var(--pick-on); color: var(--pick-on-ink); border-color: var(--pick-on); }
+.pick:focus-visible { outline: 2px solid #4f7cff; outline-offset: 2px; }
+.note { margin: 0; color: var(--page-muted); font-size: 13px; }
+
+/* ---------- the room: generic rules, all colours from tokens ---------- */
+.room {
+  --bw: 2px; --r: 20px; --font-d: "Jua", sans-serif; --font-b: "Gowun Dodum", sans-serif;
+  border-radius: calc(var(--r) + 8px); padding: 18px; display: grid; gap: 14px; position: relative; overflow: hidden;
+  background: var(--bg); color: var(--ink); font-family: var(--font-b);
+  border: var(--bw) solid var(--frame, var(--line)); box-shadow: var(--room-shadow, none);
+  transition: background .4s, color .4s;
+}
+.room-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.room-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.code { padding: 4px 12px; border-radius: 999px; font-size: 14px; letter-spacing: .12em; font-family: var(--font-d); background: var(--code-bg); color: var(--code-ink); border: var(--bw) solid var(--code-line, transparent); }
+.room-title .name { font-size: 22px; font-family: var(--font-d); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 3px 10px; border-radius: 999px; font-size: 13px; background: var(--panel); color: var(--soft); border: var(--bw) solid var(--line); font-family: var(--font-d); }
+
+.panel { background: var(--panel); border: var(--bw) solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+
+.main { display: grid; gap: 14px; grid-template-columns: 1fr; }
+.seats { display: flex; gap: 10px; overflow-x: auto; padding: 10px 2px 10px; }
+.seat { position: relative; flex: 0 0 auto; width: 132px; display: flex; align-items: center; gap: 10px; padding: 10px; }
+.seat.me { border-color: var(--me, var(--a2)); background: var(--panel-me, var(--panel)); }
+.seat.got { border-color: var(--good); box-shadow: var(--got-shadow, var(--shadow)); }
+.seat.empty { justify-content: center; font-size: 13px; background: transparent; border-style: dashed; box-shadow: none; color: var(--soft); }
+.avatar { width: 44px; height: 44px; flex: 0 0 auto; border-radius: var(--av-r, 50%); display: grid; place-items: center; font-size: 20px; position: relative; color: var(--av-ink); border: var(--bw) solid var(--av-line, transparent); font-family: var(--font-d); }
+.crown { position: absolute; top: -11px; right: -5px; font-size: 16px; color: var(--crown, #ffc531); }
+.who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.who b { font-weight: 400; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-d); }
+.pts { font-size: 13px; color: var(--soft); }
+.tag { position: absolute; top: -10px; left: 10px; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--good); color: var(--good-ink); font-family: var(--font-d); }
+.bubble { position: absolute; left: 50%; top: calc(100% + 6px); transform: translateX(-50%); padding: 6px 10px; border-radius: 14px; font-size: 13px; white-space: nowrap; z-index: 2; background: var(--bub); color: var(--bub-ink); border: var(--bw) solid var(--bub-line, var(--bub)); }
+.bubble::before { content: ""; position: absolute; left: 50%; top: -7px; margin-left: -7px; border: 7px solid transparent; border-top: 0; border-bottom-color: var(--bub-line, var(--bub)); }
+
+.stage { padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; min-height: 340px; position: relative; overflow: hidden; background: var(--stage, var(--panel)); }
+.stage-head { width: 100%; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.round { font-size: 15px; font-family: var(--font-d); }
+.round strong { font-size: 30px; font-weight: 400; color: var(--a1); text-shadow: var(--glow1, none); }
+.clock { font-variant-numeric: tabular-nums; font-size: 44px; line-height: 1; font-family: var(--font-d); color: var(--clock, var(--ink)); text-shadow: var(--glow2, none); }
+.clock small { font-size: 16px; }
+.disc-area { display: flex; align-items: center; justify-content: center; gap: 22px; flex-wrap: wrap; flex: 1; }
+.record { width: 170px; height: 170px; border-radius: 50%; position: relative; animation: spin 3.2s linear infinite; background: var(--record); border: var(--bw) solid var(--line); box-shadow: var(--record-glow, none); }
+.record::after { content: ""; position: absolute; inset: 39%; border-radius: 50%; background: var(--label); border: var(--bw) solid var(--line); }
+.eq { display: flex; align-items: flex-end; gap: 5px; height: 110px; }
+.eq span { width: 12px; border-radius: var(--eq-r, 6px); animation: bounce 1s ease-in-out infinite; background: var(--eq); border: var(--bw) solid var(--eq-line, transparent); box-shadow: var(--eq-glow, none); }
+.eq span:nth-child(even) { background: var(--eq2, var(--eq)); }
+.eq span:nth-child(2) { animation-delay: -.2s } .eq span:nth-child(3) { animation-delay: -.5s } .eq span:nth-child(4) { animation-delay: -.7s } .eq span:nth-child(5) { animation-delay: -.35s } .eq span:nth-child(6) { animation-delay: -.85s } .eq span:nth-child(7) { animation-delay: -.15s }
+.bar { width: 100%; height: 14px; border-radius: 999px; overflow: hidden; background: var(--track); border: var(--bw) solid var(--line); }
+.bar i { display: block; height: 100%; width: 62%; border-radius: 999px; background: var(--fill); box-shadow: var(--fill-glow, none); }
+.stage-foot { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hint { font-size: 14px; color: var(--soft); }
+.btn { font: inherit; font-family: var(--font-d); padding: 9px 16px; border-radius: calc(var(--r) - 6px); cursor: pointer; background: var(--btn); color: var(--btn-ink); border: var(--bw) solid var(--line); box-shadow: var(--btn-shadow, none); }
+.btn.go { background: var(--a1); color: var(--a1-ink); border-color: var(--go-line, var(--line)); }
+.flip { perspective: 900px; width: 100%; flex: 1; display: grid; place-items: center; }
+.card { width: min(420px, 100%); border-radius: var(--r); padding: 22px; text-align: center; animation: flipIn .7s cubic-bezier(.2,.8,.2,1) both; background: var(--card); border: var(--bw) solid var(--card-line, var(--line)); box-shadow: var(--shadow); }
+.card .label { font-size: 13px; letter-spacing: .14em; color: var(--a1); font-family: var(--font-d); }
+.card h2 { margin: 6px 0 4px; font-size: 30px; font-weight: 400; text-wrap: balance; font-family: var(--font-d); }
+.card .meta { font-size: 14px; color: var(--soft); }
+.card .winner { margin-top: 12px; display: inline-block; padding: 5px 14px; border-radius: 999px; font-size: 14px; background: var(--good); color: var(--good-ink); font-family: var(--font-d); }
+
+.chat { display: flex; flex-direction: column; min-height: 0; }
+.log { list-style: none; margin: 0; padding: 12px 14px; height: 170px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.log .n { margin-right: 6px; font-family: var(--font-d); }
+.log .n1 { color: var(--a2); } .log .n2 { color: var(--a3); }
+.log .sys { font-size: 14px; color: var(--good-text, var(--good)); font-family: var(--font-d); }
+.send { display: flex; gap: 8px; padding: 10px; border-top: var(--bw) dashed var(--line); }
+.send input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: calc(var(--r) - 6px); background: var(--input); color: var(--ink); border: var(--bw) solid var(--line); }
+.send input::placeholder { color: var(--soft); }
+.send input:focus-visible { outline: 2px solid var(--a1); outline-offset: 1px; }
+.deco { position: absolute; inset: 0; pointer-events: none; }
+
+@media (min-width: 860px) {
+  .main { grid-template-columns: 170px minmax(0, 1fr) 170px; grid-template-areas: "l stage r" "l chat r"; align-items: start; }
+  .seats { display: contents; }
+  .col { display: flex; flex-direction: column; gap: 12px; }
+  .col.left { grid-area: l; } .col.right { grid-area: r; }
+  .stage { grid-area: stage; } .chat { grid-area: chat; }
+  .seat { width: auto; }
+  .col.left .bubble { left: calc(100% + 10px); top: 50%; transform: translateY(-50%); }
+  .col.left .bubble::before { left: -7px; top: 50%; margin: -7px 0 0; border: 7px solid transparent; border-left: 0; border-right-color: var(--bub-line, var(--bub)); }
+  .col.right .bubble { left: auto; right: calc(100% + 10px); top: 50%; transform: translateY(-50%); }
+  .col.right .bubble::before { left: auto; right: -7px; top: 50%; margin: -7px 0 0; border: 7px solid transparent; border-right: 0; border-left-color: var(--bub-line, var(--bub)); }
+}
+@media (max-width: 859px) { .col { display: contents; } }
+
+@keyframes spin { to { transform: rotate(360deg) } }
+@keyframes bounce { 0%,100% { height: 22% } 50% { height: 100% } }
+@keyframes flipIn { from { transform: rotateY(-90deg); opacity: 0 } to { transform: rotateY(0); opacity: 1 } }
+@keyframes fall { from { transform: translateY(-20px) rotate(0); } to { transform: translateY(110%) rotate(220deg); } }
+@keyframes twinkle { 0%,100% { opacity: .35 } 50% { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .record, .eq span, .card, .petal, .star { animation: none !important } .eq span { height: 60% } }
+
+/* ---------- 1. 놀이터: bright cartoon ---------- */
+.room.t-play {
+  --bw: 3px; --r: 20px; --font-d: "Jua", sans-serif; --font-b: "Gowun Dodum", sans-serif;
+  --bg: radial-gradient(circle at 12px 12px, #ffd36b 3px, transparent 3.5px) 0 0/28px 28px, #ffe7a8;
+  --panel: #ffffff; --panel-me: #fff4f7; --line: #2b2340; --ink: #2b2340; --soft: #6b5f86;
+  --a1: #ff6b8b; --a1-ink: #ffffff; --a2: #2b8fd1; --a3: #8a63e8; --good: #22a85a; --good-ink: #ffffff; --me: #2b2340;
+  --shadow: 0 4px 0 #2b2340; --got-shadow: 0 4px 0 #22a85a; --room-shadow: 0 6px 0 #2b2340;
+  --code-bg: #2b2340; --code-ink: #fff; --av-ink: #2b2340; --av-line: #2b2340;
+  --bub: #fff; --bub-ink: #2b2340; --bub-line: #2b2340;
+  --record: repeating-radial-gradient(circle, #2b2340 0 3px, #3a3157 3px 6px); --label: #ff6b8b;
+  --eq: #4cc9f0; --eq2: #ffb347; --eq-line: #2b2340;
+  --track: #f1ecff; --fill: repeating-linear-gradient(45deg, #ff6b8b 0 12px, #ff8fa8 12px 24px);
+  --btn: #ffb347; --btn-ink: #2b2340; --btn-shadow: 0 3px 0 #2b2340; --card: #fffaf0; --input: #ffffff;
+}
+/* ---------- 2. 무대: dark neon ---------- */
+.room.t-neon {
+  --bw: 1px; --r: 18px; --font-d: "Black Han Sans", sans-serif; --font-b: "IBM Plex Sans KR", sans-serif;
+  --bg: radial-gradient(ellipse at 50% -10%, #2a1356 0, transparent 60%), radial-gradient(ellipse at 100% 110%, #062a3a 0, transparent 55%), #07060f;
+  --panel: #110f22; --line: #2a2550; --ink: #ece9ff; --soft: #9a93c9;
+  --a1: #ff3df2; --a1-ink: #12001a; --a2: #29f0ff; --a3: #b6ff3b; --good: #39ff88; --good-ink: #062012; --me: #29f0ff;
+  --shadow: none; --got-shadow: 0 0 0 1px #39ff88, 0 0 22px rgba(57,255,136,.35);
+  --stage: linear-gradient(180deg, #15122c, #0c0a1c);
+  --code-bg: transparent; --code-ink: #29f0ff; --code-line: #29f0ff; --av-ink: #0b0a18;
+  --bub: #ece9ff; --bub-ink: #0b0a18;
+  --glow1: 0 0 14px rgba(41,240,255,.6); --clock: #ff3df2; --glow2: 0 0 18px rgba(255,61,242,.65);
+  --record: repeating-radial-gradient(circle, #0d0c18 0 2px, #1b1838 2px 4px); --label: conic-gradient(#ff3df2, #29f0ff, #ff3df2); --record-glow: 0 0 40px rgba(255,61,242,.35);
+  --eq: linear-gradient(0deg, #29f0ff, #ff3df2); --eq-glow: 0 0 10px rgba(41,240,255,.45);
+  --track: #1c1838; --fill: linear-gradient(90deg, #29f0ff, #ff3df2); --fill-glow: 0 0 14px rgba(255,61,242,.6);
+  --btn: transparent; --btn-ink: #ece9ff; --go-line: #ff3df2; --card: #0f0d22; --card-line: #29f0ff; --input: #0a0918;
+}
+/* ---------- 3. 벚꽃: pastel spring ---------- */
+.room.t-sakura {
+  --bw: 2px; --r: 26px; --font-d: "Gaegu", sans-serif; --font-b: "Gowun Dodum", sans-serif;
+  --bg: linear-gradient(180deg, #ffe9f1 0%, #fff6f9 55%, #eef7ff 100%);
+  --panel: rgba(255,255,255,.85); --panel-me: #fff0f6; --line: #f3b9cf; --ink: #5a3446; --soft: #a07587;
+  --a1: #ff7aa8; --a1-ink: #ffffff; --a2: #e0567f; --a3: #6f8de0; --good: #4fbf8a; --good-ink: #ffffff; --me: #ff7aa8;
+  --shadow: 0 6px 18px rgba(240,140,175,.25); --got-shadow: 0 0 0 3px #bdebd4, 0 6px 18px rgba(79,191,138,.25);
+  --code-bg: #ff7aa8; --code-ink: #fff; --av-ink: #5a3446;
+  --bub: #ffffff; --bub-ink: #5a3446; --bub-line: #f3b9cf;
+  --record: repeating-radial-gradient(circle, #6b4a5a 0 3px, #7d5a6b 3px 6px); --label: #ffd1e0;
+  --eq: #ff9cc0; --eq2: #9cc4ff; --eq-r: 10px;
+  --track: #ffe3ee; --fill: linear-gradient(90deg, #ffb3cf, #ff7aa8);
+  --btn: #ffffff; --btn-ink: #e0567f; --card: #fff8fb; --input: #ffffff;
+}
+.room.t-sakura .round, .room.t-sakura .clock, .room.t-sakura .card h2, .room.t-sakura .room-title .name { font-weight: 700; }
+/* ---------- 4. 칠판: classroom chalkboard ---------- */
+.room.t-chalk {
+  --bw: 2px; --r: 10px; --font-d: "Nanum Pen Script", cursive; --font-b: "Gowun Dodum", sans-serif;
+  --bg: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.06), transparent 60%), #24453a;
+  --frame: #8a5a33; --room-shadow: inset 0 0 0 8px #a26d40, inset 0 0 0 10px #6b4426;
+  --panel: rgba(255,255,255,.04); --line: rgba(240,240,225,.55); --ink: #f2f1e6; --soft: #c9d3c6;
+  --a1: #ffd166; --a1-ink: #24453a; --a2: #8fd3ff; --a3: #ffadad; --good: #b5f2a0; --good-ink: #1f3a30; --me: #ffd166;
+  --shadow: none; --got-shadow: 0 0 0 2px #b5f2a0;
+  --code-bg: transparent; --code-ink: #ffd166; --code-line: #ffd166; --av-ink: #24453a;
+  --bub: #f2f1e6; --bub-ink: #24453a;
+  --record: repeating-radial-gradient(circle, #1b332b 0 3px, #2c5446 3px 6px); --label: #ffd166;
+  --eq: #f2f1e6; --eq2: #ffd166; --eq-r: 2px;
+  --track: rgba(255,255,255,.08); --fill: repeating-linear-gradient(90deg, #f2f1e6 0 10px, transparent 10px 14px);
+  --btn: transparent; --btn-ink: #f2f1e6; --card: rgba(0,0,0,.18); --input: rgba(0,0,0,.18);
+}
+.room.t-chalk { padding: 26px; }
+.room.t-chalk .round, .room.t-chalk .clock { font-size: 1.15em; }
+.room.t-chalk .card h2 { font-size: 40px; } .room.t-chalk .who b { font-size: 19px; } .room.t-chalk .log .n, .room.t-chalk .room-title .name { font-size: 1.25em; }
+/* ---------- 5. 별밤: starry night ---------- */
+.room.t-star {
+  --bw: 1px; --r: 22px; --font-d: "Gowun Batang", serif; --font-b: "Gowun Dodum", sans-serif;
+  --bg: radial-gradient(ellipse at 80% 0%, #3b3a7a 0, transparent 55%), radial-gradient(ellipse at 0% 100%, #1b4a6b 0, transparent 50%), #0d1033;
+  --panel: rgba(20,24,64,.72); --line: #3a4185; --ink: #f4f1ff; --soft: #aeb3e6;
+  --a1: #ffd36e; --a1-ink: #1a1640; --a2: #9ec5ff; --a3: #f5a3d6; --good: #9ef0c2; --good-ink: #10203a; --me: #ffd36e;
+  --shadow: 0 8px 30px rgba(0,0,0,.35); --got-shadow: 0 0 0 1px #9ef0c2, 0 0 24px rgba(158,240,194,.3);
+  --code-bg: rgba(255,211,110,.12); --code-ink: #ffd36e; --code-line: #ffd36e; --av-ink: #1a1640;
+  --bub: #f4f1ff; --bub-ink: #1a1640;
+  --glow1: 0 0 12px rgba(255,211,110,.5); --clock: #ffd36e; --glow2: 0 0 16px rgba(255,211,110,.45);
+  --record: repeating-radial-gradient(circle, #121539 0 2px, #22285e 2px 4px); --label: radial-gradient(circle, #fff6d6, #ffd36e); --record-glow: 0 0 36px rgba(255,211,110,.25);
+  --eq: linear-gradient(0deg, #9ec5ff, #f5a3d6);
+  --track: rgba(255,255,255,.08); --fill: linear-gradient(90deg, #9ec5ff, #ffd36e);
+  --btn: transparent; --btn-ink: #f4f1ff; --go-line: #ffd36e; --card: rgba(13,16,51,.85); --card-line: #ffd36e; --input: rgba(10,12,40,.8);
+}
+.room.t-star .round strong, .room.t-star .clock, .room.t-star .card h2 { font-weight: 700; }
+/* ---------- 6. 오락실: retro arcade ---------- */
+.room.t-arcade {
+  --bw: 3px; --r: 0px; --font-d: "DotGothic16", "Do Hyeon", monospace; --font-b: "Do Hyeon", sans-serif;
+  --bg: repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 2px, transparent 2px 4px), #101010;
+  --panel: #1a1a1a; --line: #f5f5f5; --ink: #f5f5f5; --soft: #b8b8b8;
+  --a1: #ffe14d; --a1-ink: #101010; --a2: #4dd2ff; --a3: #ff6b6b; --good: #5cff5c; --good-ink: #101010; --me: #ffe14d;
+  --shadow: 4px 4px 0 #ff2d75; --got-shadow: 4px 4px 0 #5cff5c; --room-shadow: 6px 6px 0 #4dd2ff;
+  --code-bg: #ffe14d; --code-ink: #101010; --av-r: 0; --av-ink: #101010;
+  --bub: #f5f5f5; --bub-ink: #101010;
+  --clock: #ffe14d;
+  --record: repeating-conic-gradient(#101010 0 10deg, #2a2a2a 10deg 20deg); --label: #ff2d75;
+  --eq: #5cff5c; --eq2: #ffe14d; --eq-r: 0;
+  --track: #101010; --fill: repeating-linear-gradient(90deg, #ffe14d 0 10px, #101010 10px 12px);
+  --btn: #101010; --btn-ink: #f5f5f5; --btn-shadow: 3px 3px 0 #4dd2ff; --card: #101010; --card-line: #ffe14d; --input: #101010;
+}
+.room.t-arcade .code, .room.t-arcade .chip, .room.t-arcade .tag, .room.t-arcade .card .winner, .room.t-arcade .bubble, .room.t-arcade .bar, .room.t-arcade .bar i { border-radius: 0; }
+.room.t-arcade .record { border-radius: 0; animation-timing-function: steps(12); }
+.room.t-arcade .record::after { border-radius: 0; }
+
+/* decorations */
+.petal { position: absolute; top: -20px; width: 14px; height: 10px; border-radius: 14px 0; background: #ffc0d6; opacity: .8; animation: fall linear infinite; }
+.star { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; animation: twinkle 3s ease-in-out infinite; }
+</style>
+
+<div class="wrap">
+  <div class="controls">
+    <h1>방 화면 시안</h1>
+    <div class="row" role="group" aria-label="분위기 (방장이 고름)" id="themes">
+      <span>분위기</span>
+      <button type="button" class="pick" data-t="t-play" aria-pressed="true"><i class="sw" style="background:#ffe7a8"></i>놀이터</button>
+      <button type="button" class="pick" data-t="t-neon" aria-pressed="false"><i class="sw" style="background:#ff3df2"></i>무대</button>
+      <button type="button" class="pick" data-t="t-sakura" aria-pressed="false"><i class="sw" style="background:#ffd1e0"></i>벚꽃</button>
+      <button type="button" class="pick" data-t="t-chalk" aria-pressed="false"><i class="sw" style="background:#24453a"></i>칠판</button>
+      <button type="button" class="pick" data-t="t-star" aria-pressed="false"><i class="sw" style="background:#0d1033"></i>별밤</button>
+      <button type="button" class="pick" data-t="t-arcade" aria-pressed="false"><i class="sw" style="background:#ffe14d"></i>오락실</button>
+    </div>
+    <div class="row" role="group" aria-label="장면">
+      <span>장면</span>
+      <button type="button" class="pick" id="s-play" aria-pressed="true">곡 재생 중</button>
+      <button type="button" class="pick" id="s-reveal" aria-pressed="false">정답 공개</button>
+    </div>
+  </div>
+  <p class="note">예시 화면입니다. 이름, 곡, 채팅은 모두 꾸민 예시입니다. 분위기는 방장이 대기실에서 고르고, 방 안의 모두에게 같은 분위기가 보입니다.</p>
+
+  <section class="room t-play" id="room" aria-label="방 화면 예시">
+    <div class="deco" id="deco" aria-hidden="true"></div>
+    <div class="room-top">
+      <div class="room-title"><span class="code">K7Q2M</span><span class="name">민수의 방</span></div>
+      <div class="chips"><span class="chip">OP만</span><span class="chip">2010~2020</span><span class="chip">쉬움</span></div>
+    </div>
+
+    <div class="main">
+      <div class="seats">
+        <div class="col left">
+          <div class="seat panel me got"><span class="tag">정답!</span><div class="avatar" style="background:#ff9fb3">민<span class="crown" aria-hidden="true">♛</span></div><div class="who"><b>민수 (나)</b><span class="pts">3점</span></div></div>
+          <div class="seat panel"><div class="avatar" style="background:#8fdcf5">철</div><div class="who"><b>철수</b><span class="pts">2점</span></div><div class="bubble">나루토 아냐?</div></div>
+          <div class="seat panel"><div class="avatar" style="background:#a6e6b0">영</div><div class="who"><b>영희</b><span class="pts">1점</span></div></div>
+          <div class="seat panel"><div class="avatar" style="background:#ffd08a">지</div><div class="who"><b>지훈</b><span class="pts">0점</span></div></div>
+        </div>
+        <div class="col right">
+          <div class="seat panel"><div class="avatar" style="background:#c9b6ff">하</div><div class="who"><b>하나</b><span class="pts">2점</span></div><div class="bubble">아 이거 아는데</div></div>
+          <div class="seat panel"><div class="avatar" style="background:#ffc2a1">준</div><div class="who"><b>준</b><span class="pts">0점</span></div></div>
+          <div class="seat panel empty">빈 자리</div>
+          <div class="seat panel empty">빈 자리</div>
+        </div>
+      </div>
+
+      <div class="stage panel">
+        <div class="stage-head">
+          <span class="round"><strong>4</strong> / 10 번째 곡</span>
+          <span class="clock" id="clock">56<small>초</small></span>
+        </div>
+        <div class="disc-area" id="playing">
+          <div class="record" aria-hidden="true"></div>
+          <div class="eq" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+        <div class="flip" id="reveal" hidden>
+          <div class="card">
+            <div class="label">정답 공개</div>
+            <h2>귀멸의 칼날</h2>
+            <div class="meta">OP1 · 홍련화 · LiSA</div>
+            <span class="winner">민수 정답! +1점</span>
+          </div>
+        </div>
+        <div class="bar" aria-label="남은 시간" role="progressbar" aria-valuemin="0" aria-valuemax="90" aria-valuenow="56"><i></i></div>
+        <div class="stage-foot">
+          <span class="hint" id="hint">들리는 곡의 애니 제목을 채팅으로 맞혀 보세요</span>
+          <button type="button" class="btn">스킵 1/3</button>
+        </div>
+      </div>
+
+      <div class="chat panel">
+        <ul class="log" aria-label="채팅">
+          <li><span class="n n1">철수</span>원피스?</li>
+          <li><span class="n n2">하나</span>아 이거 아는데</li>
+          <li><span class="n n1">철수</span>나루토 아냐?</li>
+          <li class="sys">민수 정답!</li>
+        </ul>
+        <form class="send" onsubmit="event.preventDefault()">
+          <input id="guess" aria-label="정답 입력" placeholder="애니 제목을 입력하세요" autocomplete="off">
+          <button type="submit" class="btn go">보내기</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  var room = document.getElementById('room');
+  var deco = document.getElementById('deco');
+  var picks = document.querySelectorAll('#themes .pick');
+  function decorate(t) {
+    deco.innerHTML = '';
+    var i, el;
+    if (t === 't-sakura') {
+      for (i = 0; i < 14; i++) {
+        el = document.createElement('i'); el.className = 'petal';
+        el.style.left = (i * 7.3 % 100) + '%';
+        el.style.animationDuration = (7 + (i % 5) * 1.6) + 's';
+        el.style.animationDelay = (-i * 0.9) + 's';
+        deco.appendChild(el);
+      }
+    } else if (t === 't-star') {
+      for (i = 0; i < 40; i++) {
+        el = document.createElement('i'); el.className = 'star';
+        el.style.left = ((i * 37) % 100) + '%'; el.style.top = ((i * 53) % 100) + '%';
+        el.style.animationDelay = (-(i % 7) * 0.45) + 's';
+        deco.appendChild(el);
+      }
+    }
+  }
+  picks.forEach(function (b) {
+    b.addEventListener('click', function () {
+      picks.forEach(function (o) { o.setAttribute('aria-pressed', 'false'); room.classList.remove(o.dataset.t); });
+      b.setAttribute('aria-pressed', 'true'); room.classList.add(b.dataset.t); decorate(b.dataset.t);
+    });
+  });
+  var sp = document.getElementById('s-play'), sr = document.getElementById('s-reveal');
+  var playing = document.getElementById('playing'), reveal = document.getElementById('reveal'), hint = document.getElementById('hint');
+  function press(on, off) { on.setAttribute('aria-pressed', 'true'); off.setAttribute('aria-pressed', 'false'); }
+  sp.onclick = function () { playing.hidden = false; reveal.hidden = true; hint.textContent = '들리는 곡의 애니 제목을 채팅으로 맞혀 보세요'; press(sp, sr); };
+  sr.onclick = function () { playing.hidden = true; reveal.hidden = false; hint.textContent = '잠시 뒤 다음 곡이 나옵니다'; press(sr, sp); };
+  var s = 56, clock = document.getElementById('clock');
+  setInterval(function () { s = s <= 1 ? 90 : s - 1; clock.firstChild.nodeValue = String(s); }, 1000);
+})();
+</script>

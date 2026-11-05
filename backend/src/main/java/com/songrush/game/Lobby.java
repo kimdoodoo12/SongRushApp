@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.random.RandomGenerator;
 
 import com.songrush.audio.AudioTokens;
@@ -33,6 +34,11 @@ public final class Lobby {
 
 	static final int MAX_NICKNAME = 16;
 
+	// The room theme ids (D-090, D-091), exact and case-sensitive; DEFAULT_THEME at creation.
+	static final Set<String> ROOM_THEMES = Set.of("play", "neon", "sakura", "chalk", "star", "arcade");
+
+	static final String DEFAULT_THEME = "play";
+
 	private final String code;
 
 	private final Catalog catalog;
@@ -54,6 +60,9 @@ public final class Lobby {
 	private final List<Member> members = new ArrayList<>();
 
 	private boolean closed;
+
+	// The host-picked look, kept across games (docs/cycles/071-room-themes.md).
+	private String roomTheme = DEFAULT_THEME;
 
 	// The current game, or null in LOBBY, and the outbox only that Room may send through.
 	private Room room;
@@ -164,11 +173,13 @@ public final class Lobby {
 		if (room == null) {
 			outbox.toPlayer(playerId, message("joined", "code", code, "name", name));
 			sendRoster();
+			sendRoomThemeTo(m);
 		}
 		else {
 			// A late joiner watches the current song and plays from the next one (D-059).
 			sendJoinedAndSnapshot(m);
 			sendRoster();
+			sendRoomThemeTo(m);
 			room.addPlayer(new PlayerRef(m.id, m.name));
 		}
 		return name;
@@ -251,6 +262,7 @@ public final class Lobby {
 		}
 		if (m.connected) {
 			sendJoinedAndSnapshot(m);
+			sendRoomThemeTo(m);
 			// The new socket starts with no vote, so a toggle never cancels a vote it cannot see.
 			if (isRoomPlayer(m.id)) {
 				room.clearSkipVote(m.id);
@@ -265,6 +277,7 @@ public final class Lobby {
 		cancelEmpty();
 		sendJoinedAndSnapshot(m);
 		sendRoster();
+		sendRoomThemeTo(m);
 		markRoomConnection(m.id, true);
 		if (isRoomPlayer(m.id)) {
 			room.clearSkipVote(m.id);
@@ -321,6 +334,25 @@ public final class Lobby {
 			return;
 		}
 		sendRoster();
+	}
+
+	// The host changes the room theme in any phase; every connected member gets roomTheme, also when
+	// the value is unchanged. A bad id is reported before the host check (cycle 071, review nits).
+	public void setRoomTheme(String playerId, String theme) {
+		Member m = member(playerId);
+		if (closed || m == null || !m.connected) {
+			return;
+		}
+		if (theme == null || !ROOM_THEMES.contains(theme)) {
+			error(playerId, "bad-room-theme");
+			return;
+		}
+		if (!playerId.equals(host())) {
+			error(playerId, "not-host");
+			return;
+		}
+		roomTheme = theme;
+		toConnected(roomThemeMessage());
 	}
 
 	public void ready(String playerId, int index) {
@@ -540,6 +572,18 @@ public final class Lobby {
 			settings.putAll(room.settings().toMessageFields());
 			outbox.toPlayer(m.id, settings);
 		}
+	}
+
+	// roomTheme to that player only, and only off the default, so default lobbies send what they did
+	// before cycle 071.
+	private void sendRoomThemeTo(Member m) {
+		if (!DEFAULT_THEME.equals(roomTheme)) {
+			outbox.toPlayer(m.id, roomThemeMessage());
+		}
+	}
+
+	private Map<String, Object> roomThemeMessage() {
+		return message("roomTheme", "theme", roomTheme);
 	}
 
 	private String phaseName() {

@@ -14,6 +14,7 @@ const ERROR_TEXT = {
   'room-closed': '방이 닫혔습니다.',
   'rejoin-failed': '다시 연결하지 못했습니다. 방에 다시 참가해 주세요.',
   'bad-filter': '조건이 올바르지 않습니다.',
+  'bad-room-theme': '알 수 없는 분위기입니다.',
 }
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -61,6 +62,7 @@ export const initialState = {
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
   settings: null, // the applied filters { types, yearFrom, yearTo, tier } of this game
+  roomTheme: null, // the room's look id from the server; null: none received
 }
 
 export function reducer(state, action) {
@@ -79,6 +81,8 @@ export function reducer(state, action) {
         players: action.players,
         lobbyOpen: action.phase === 'lobby' && state.screen === 'over' ? true : state.lobbyOpen,
       }
+    case 'roomTheme':
+      return { ...state, roomTheme: action.theme }
     case 'toLobby':
       return { ...state, screen: 'lobby', error: null, settings: null }
     case 'settings':
@@ -116,13 +120,16 @@ export function reducer(state, action) {
       // The screen keeps its content; the timer is frozen by the session.
       return { ...state, reconnecting: true }
     case 'rejoined':
-      return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null }
+      // The server sends roomTheme after the join sequence only when it is
+      // not play, so a theme seen before the drop may be stale.
+      return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null, roomTheme: null }
     case 'restore': {
       // A rejoin snapshot: the lobby, or the game as a player (spec 049).
       const common = {
         ...state,
         reconnecting: false,
         settings: null,
+        roomTheme: null,
         players: action.players === null ? state.players : action.players,
         scoreboard: action.board === null ? state.scoreboard : action.board,
         score: action.score === null ? state.score : action.score,

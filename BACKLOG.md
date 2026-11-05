@@ -291,6 +291,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
 
+- [x] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -311,6 +313,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-091** Six room themes (user, 2026-11-05, after mockup v2 with six looks: "일단 이대로 해보자. 괜찮아 다."): the host picks one of 놀이터, 무대, 벚꽃, 칠판, 별밤, 오락실, exactly as in the approved mockup `docs/design/071-room-mockup.html` (refines D-090's two looks).
 - **D-090** Room themes (user, 2026-11-05: "그 분위기 다 좋아. 방장이 선택할수있게 하자"): two looks, a bright cartoon theme and a dark neon theme; the host picks one in the lobby and every member of the room sees it (solo players pick their own). Cycle 070's look was rejected after a real-browser look (empty centre stage, dashboard feel, round status missing on desktop); the next UI cycle starts from an approved mockup.
 - **D-089** UI redesign (user, 2026-11-05: "웹 프론트좀 꾸며줘... 멀티플레이(채팅) 위주", "캐치마인드의 배치 형식"): restyle the web client now, ahead of D-086's order, with Tailwind CSS (replacing D-079's plain CSS). Layout follows the classic chat-guessing room: player seats down both sides (4 + 4 for 8 players) with each player's latest message as a speech bubble by their seat, the song stage in the centre, the chat log and input below. Borrow the layout only; no CatchMind art, names or branding.
 - **D-088** Docker now (user, 2026-11-04: "아무리봐도 이거 사람이 할게 못되는데. 도커 써야할것 같아"): after deploying by hand up to systemd and a native Nginx, the owner switches the course to Docker next (before https and CI/CD). The native systemd service and Nginx on the new instance are retired in favour of containers.
@@ -404,6 +407,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (071) Entering a room briefly shows `play` before the room theme arrives. Desktop seat columns are tall because of the bubble spacing (`gap-y-14`). Owner check on a real phone. The arcade dot font only covers Latin; Korean falls back to Do Hyeon.
 - (070) Check the lobby and room-game layouts in a real browser at 360 px and md+. Old browsers have no subgrid fallback. On md, seat cards stretch with a tall stage. A disconnected seat's opacity can put its bubble under the stage. `npm audit` reports 4 moderate findings (eslint's minimatch).
 - DuckDNS (critic, cycle 062): `duckdns-setup.sh` writes the new token before checking it, so a wrong but well-formed token replaces a working one before the `KO` (check with the temp file first, then `mv`); the setup-time curl has no `--max-time`; the file-mode 600 check only runs on Linux.
 - Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
