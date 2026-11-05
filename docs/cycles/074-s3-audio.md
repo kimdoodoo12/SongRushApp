@@ -145,3 +145,34 @@ New tests under `backend/src/test/java/com/songrush/`:
 - The client.
 - The operations themselves (I-011).
 - `deploy/smoke.py` (a proposal to the owner).
+
+## Revisions after spec review round 1
+These override the items above wherever they conflict.
+
+### Data tool
+- **H1. Test seam.**
+  - `main` parses the arguments, then validates the work map. If it is unreadable or malformed, `main` returns 1 with no client created, no S3 call and no file write.
+  - Only then does it create the client, as `import boto3` followed by `boto3.Session(profile_name=args.profile).client("s3", region_name="ap-southeast-2")`, all inside `main`.
+  - Tests monkeypatch `boto3.Session` to return an object whose `.client(...)` gives a Stubber-wrapped client built with fake credentials.
+- **M6. Served map.** The served map is output only. It is rebuilt every run and never read, so the corrupt-served-map check is dropped. Criterion 8 covers only a corrupt work map.
+- **Missing index.** `main` returns 1 with a message when `index.json` is missing.
+- **M2. Criteria 5 and 6** apply "when the bucket has no object with the index size for that key". The step 6 rule stands: an object listed with the index size is served even if the local file is gone.
+- **M3. Order proof.** The test proves the work map is written first by registering `s3.meta.events.register("before-call.s3.PutObject", handler)`. The handler asserts that the work map file exists and holds the key, and returns `None`.
+- **Nit. Exact call arguments** (Stubber compares them exactly):
+  - `list_objects_v2(Bucket=..., Prefix="a/")`, and `ContinuationToken=...` on later pages;
+  - `put_object(Bucket=..., Key=..., Body=<bytes from read_bytes()>, ContentType="audio/ogg")`, with no other arguments.
+- **Nit. Flag name.** The flag is `--cache`, as in `audio.py`, not `--cache-dir`.
+
+### Backend
+- **Setting name.** The setting is `songrush.audio.bucket` (env `SONGRUSH_AUDIO_BUCKET`), which avoids the `s3-bucket` env-binding ambiguity. A blank or absent value means disk mode (M5). A test starts a context with `songrush.audio.bucket=` (blank) and gets disk behaviour.
+- **H2. Missing index.** In S3 mode a missing `index.json` also fails startup.
+- **M4. Fixed API.**
+  - `com.songrush.catalog.S3CatalogLoader.load(Path catalogJson, Path indexJson, Path servedMapJson)` returns `S3Catalog(Catalog catalog, Map<String, String> keyByBasename)`.
+  - Invalid input throws `CatalogException`.
+  - In S3 mode the `Catalog` bean comes from `S3Catalog.catalog()`. A separate bean exposes `keyByBasename`.
+- **H3. Credentials.**
+  - There is exactly one `AwsCredentialsProvider` bean, named `awsCredentialsProvider`, created only in S3 mode. Its default is `DefaultCredentialsProvider`.
+  - The one-time `resolveCredentials()` runs in a separate startup check bean that takes the provider by injection, never inside the provider's factory method.
+  - Tests replace the provider with Spring Framework 7 `@TestBean`, or `@MockitoBean`, by that name.
+- **M1. 503 test.** A test provider whose first `resolveCredentials()` (at startup) succeeds and whose later calls throw makes a valid `/audio/{token}` answer **503** with no `Location`. Add this to criterion 12.
+- **Nit. Location path.** The `Location` path is `"/" + key`.
