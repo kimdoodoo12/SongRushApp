@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,6 +24,8 @@ import com.songrush.catalog.Catalog;
 // no Last-Modified, ETag, Content-Disposition or Range support (cycle 033). Every failure is a 404
 // raised before any body byte, so JsonErrorController writes {"error":"not found"}.
 // Logs carry only the token prefix.
+// In S3 mode (cycle 074) a candidate's token answers 302 to a 60-second presigned URL of its random
+// object key instead, with Cache-Control: no-store and no body; a signing failure is a 503.
 @RestController
 public class AudioController {
 
@@ -36,10 +39,15 @@ public class AudioController {
 
 	private final Path cacheDir;
 
-	public AudioController(AudioTokens tokens, Catalog catalog, SongrushProperties properties) {
+	// Null in disk mode.
+	private final S3AudioLinks links;
+
+	public AudioController(AudioTokens tokens, Catalog catalog, SongrushProperties properties,
+			ObjectProvider<S3AudioLinks> links) {
 		this.tokens = tokens;
 		this.catalog = catalog;
 		this.cacheDir = properties.dataDir().resolve("audio-cache");
+		this.links = links.getIfAvailable();
 	}
 
 	@GetMapping("/audio/{token}")
@@ -54,6 +62,10 @@ public class AudioController {
 		if (candidate == null) {
 			log.warn("audio token {}...: not a draw candidate", prefix);
 			throw notFound();
+		}
+		if (links != null) {
+			redirect(prefix, candidate, response);
+			return;
 		}
 		Path file = cacheDir.resolve(candidate.audioBasename());
 		InputStream in;
@@ -82,6 +94,26 @@ public class AudioController {
 			// Streams in fixed-size chunks: memory per request stays constant.
 			in.transferTo(response.getOutputStream());
 		}
+	}
+
+	private void redirect(String prefix, Candidate candidate, HttpServletResponse response) {
+		String url;
+		try {
+			url = links.presign(candidate.audioBasename()).orElse(null);
+		}
+		catch (RuntimeException e) {
+			// Only the type: a message could carry the bucket or the key.
+			log.warn("audio token {}...: presigning failed ({})", prefix, e.getClass().getSimpleName());
+			throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE);
+		}
+		if (url == null) {
+			log.warn("audio token {}...: candidate has no object key", prefix);
+			throw notFound();
+		}
+		response.setStatus(HttpServletResponse.SC_FOUND);
+		response.setHeader("Location", url);
+		response.setHeader("Cache-Control", "no-store");
+		response.setContentLength(0);
 	}
 
 	private static ResponseStatusException notFound() {

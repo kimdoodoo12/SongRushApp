@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +32,21 @@ public final class CatalogLoader {
 	}
 
 	public static Catalog load(Path catalogJson, Path audioIndexJson) {
+		Parsed parsed = parse(catalogJson);
+		if (!Files.exists(audioIndexJson)) {
+			log.warn("audio index not found, no draw candidates: {}", audioIndexJson);
+			return parsed.withCandidates(List.of());
+		}
+		JsonNode index = readJson(audioIndexJson, "audio index");
+		Path cacheDir = audioIndexJson.toAbsolutePath().getParent();
+		// D-056: the cached file must have exactly the entry's size (paddedSize when present).
+		List<Candidate> candidates = candidates(parsed, index, true,
+				(basename, size) -> diskCheck(cacheDir.resolve(basename), size), "disk");
+		return parsed.withCandidates(candidates);
+	}
+
+	// The catalog file without candidates; S3CatalogLoader shares it.
+	static Parsed parse(Path catalogJson) {
 		JsonNode root = readJson(catalogJson, "catalog");
 		Parser parser = new Parser(catalogJson);
 		parser.required(root, "version", "catalog");
@@ -73,56 +89,94 @@ public final class CatalogLoader {
 			}
 			drawSet.add(id);
 		}
-
-		List<Candidate> candidates = candidates(drawSet, themes, audioIndexJson);
-		return new Catalog(anime, themes, accepted, drawSet, candidates);
+		return new Parsed(anime, themes, accepted, drawSet);
 	}
 
-	// D-056: a draw-set theme with an index entry of the same basename, a positive duration, and a
-	// cached file of exactly the entry's size (paddedSize when present). Others are left out.
-	private static List<Candidate> candidates(List<Integer> drawSet, Map<Integer, Theme> themes, Path indexJson) {
-		if (!Files.exists(indexJson)) {
-			log.warn("audio index not found, no draw candidates: {}", indexJson);
-			return List.of();
-		}
-		JsonNode index = readJson(indexJson, "audio index");
-		Path cacheDir = indexJson.toAbsolutePath().getParent();
+	// A draw-set theme with an index entry of the same basename, a positive duration and a size, whose
+	// audio passes the check. Others are left out, and the count of each reason is logged at INFO.
+	// paddedSize: whether the index paddedSize, when present, replaces size (disk mode, D-056).
+	static List<Candidate> candidates(Parsed parsed, JsonNode index, boolean paddedSize, AudioCheck check,
+			String mode) {
+		Map<Drop, Integer> drops = new EnumMap<>(Drop.class);
 		List<Candidate> candidates = new ArrayList<>();
-		for (int themeId : drawSet) {
-			Theme theme = themes.get(themeId);
+		for (int themeId : parsed.drawSet()) {
+			Theme theme = parsed.themes().get(themeId);
+			Drop drop;
 			JsonNode entry = index.get(Integer.toString(themeId));
-			if (entry == null || !entry.isObject()) {
-				continue;
+			if (entry == null) {
+				drop = Drop.NO_INDEX_ENTRY;
 			}
-			JsonNode basename = entry.get("basename");
-			JsonNode duration = entry.get("durationMs");
-			JsonNode size = entry.has("paddedSize") ? entry.get("paddedSize") : entry.get("size");
-			if (basename == null || !basename.isString() || !basename.stringValue().equals(theme.audioBasename())
-					|| !isSafeBasename(theme.audioBasename())) {
-				continue;
+			else {
+				JsonNode basename = entry.isObject() ? entry.get("basename") : null;
+				JsonNode duration = entry.isObject() ? entry.get("durationMs") : null;
+				JsonNode size = !entry.isObject() ? null
+						: paddedSize && entry.has("paddedSize") ? entry.get("paddedSize") : entry.get("size");
+				if (basename == null || !basename.isString() || !basename.stringValue().equals(theme.audioBasename())
+						|| !isSafeBasename(theme.audioBasename())) {
+					drop = Drop.BAD_ENTRY;
+				}
+				else if (!isLong(duration) || duration.longValue() <= 0 || !isLong(size)) {
+					drop = Drop.BAD_ENTRY;
+				}
+				else {
+					drop = check.check(theme.audioBasename(), size.longValue());
+					if (drop == null) {
+						candidates.add(new Candidate(themeId, theme.audioBasename(), duration.longValue()));
+					}
+				}
 			}
-			if (!isLong(duration) || duration.longValue() <= 0 || !isLong(size)) {
-				continue;
-			}
-			if (hasSize(cacheDir.resolve(theme.audioBasename()), size.longValue())) {
-				candidates.add(new Candidate(themeId, theme.audioBasename(), duration.longValue()));
+			if (drop != null) {
+				drops.merge(drop, 1, Integer::sum);
 			}
 		}
+		log.info("{} mode: {} candidates of {} draw-set themes; dropped: no index entry {}, bad entry {}, "
+				+ "no file or key {}, size mismatch {}", mode, candidates.size(), parsed.drawSet().size(),
+				drops.getOrDefault(Drop.NO_INDEX_ENTRY, 0), drops.getOrDefault(Drop.BAD_ENTRY, 0),
+				drops.getOrDefault(Drop.NOT_STORED, 0), drops.getOrDefault(Drop.SIZE_MISMATCH, 0));
 		return candidates;
 	}
 
-	private static boolean hasSize(Path file, long expected) {
+	private static Drop diskCheck(Path file, long expected) {
 		if (!Files.isRegularFile(file)) {
-			return false;
+			return Drop.NOT_STORED;
 		}
 		try {
-			return Files.size(file) == expected;
+			return Files.size(file) == expected ? null : Drop.SIZE_MISMATCH;
 		}
 		catch (IOException e) {
 			// The file vanished or became unreadable after the check: it is not cached.
 			log.warn("cannot read audio file size, leaving it out: {} ({})", file, e.getMessage());
-			return false;
+			return Drop.NOT_STORED;
 		}
+	}
+
+	// Why a draw-set theme is not a candidate.
+	enum Drop {
+		NO_INDEX_ENTRY, BAD_ENTRY, NOT_STORED, SIZE_MISMATCH
+	}
+
+	// Checks that the audio of a basename is stored with the index size; null means it is.
+	@FunctionalInterface
+	interface AudioCheck {
+
+		Drop check(String basename, long indexSize);
+
+	}
+
+	// The catalog file's content, before candidates are chosen.
+	record Parsed(Map<Integer, Anime> anime, Map<Integer, Theme> themes, Map<Integer, List<String>> accepted,
+			List<Integer> drawSet) {
+
+		Catalog withCandidates(List<Candidate> candidates) {
+			return new Catalog(anime, themes, accepted, drawSet, candidates);
+		}
+
+		// Ids only: titles and basenames reveal answers (cycle 033).
+		@Override
+		public String toString() {
+			return "Parsed[themes=" + themes.size() + "]";
+		}
+
 	}
 
 	// A plain file name: the index must not point outside the cache folder.
@@ -131,7 +185,7 @@ public final class CatalogLoader {
 				&& !basename.contains("\\") && !basename.contains(":");
 	}
 
-	private static JsonNode readJson(Path path, String what) {
+	static JsonNode readJson(Path path, String what) {
 		byte[] bytes;
 		try {
 			bytes = Files.readAllBytes(path);
@@ -156,7 +210,7 @@ public final class CatalogLoader {
 		return node != null && node.isIntegralNumber() && node.canConvertToInt();
 	}
 
-	private static boolean isLong(JsonNode node) {
+	static boolean isLong(JsonNode node) {
 		return node != null && node.isIntegralNumber() && node.canConvertToLong();
 	}
 
