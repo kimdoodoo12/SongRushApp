@@ -276,7 +276,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
-- [ ] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
+- [x] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
 - [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
   - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
@@ -292,6 +292,12 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
 
 - [x] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
+
+- [ ] **C-017** data: resumable S3 upload with random object names (from S-006, design 073)
+  - Work map `s3-keys.work.json`, served map `s3-keys.json` (only objects verified by a final listing with the index size), size check against the index, corrupt map exits non-zero, Stubber tests (empty bucket, two pages), no secret in output, strict CLI.
+- [ ] **B-018** backend: S3 presigned audio mode (from S-006, design 073)
+  - With `songrush.audio.s3-bucket`: served map loaded at startup (missing/invalid or zero candidates fails startup), candidates need a served-map entry with the index size, `/audio/{token}` -> 302 to a 60 s presigned URL with `Cache-Control: no-store`, presign error -> 503, credentials resolved once at startup, drop counts logged; without it, unchanged.
+- [?] **I-011** owner: move the audio to S3 (from S-006) - read policy on the server role, upload key and upload, copy the maps, set the env, deploy, real-browser check, delete the upload key.
 
 ## Roadmap
 
