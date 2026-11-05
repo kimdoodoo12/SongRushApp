@@ -137,3 +137,38 @@ Ids and Korean names (the order is the picker order):
 - Sounds.
 - New game rules.
 - Custom uploaded backgrounds.
+
+## Revisions after spec review round 1
+These override the items above wherever they conflict.
+
+- **H1. Six themes.** D-091 records the six themes.
+- **H2. The visual source of truth is `docs/design/071-room-mockup.html`** (a copy of mockup version 2).
+  - Port its per-theme tokens (`.room.t-*` blocks), its layout rules and its decorations.
+  - Before merging, the lead takes real-browser screenshots of the lobby, a room game while playing, and the reveal, for at least `play`, `neon` and `arcade` at 1280 px and 390 px. The owner confirms them.
+- **H3. Where the theme lives.**
+  - `App` renders a full-width outer `<div className="app-shell min-h-screen" data-room-theme=...>` that paints the theme background (`--bg`) over the whole page. Inside it is today's `.app` max-width wrapper.
+  - The body background becomes a neutral fallback.
+  - Tests query `[data-room-theme]` with `document.querySelector`.
+- **M1. When joiners get the theme.**
+  - On paths that send `roster` after `sendJoinedAndSnapshot` (lobby join, in-game join, grace rejoin), the room-theme message is sent to that player right after that `roster`. It comes before anything `room.resume()` broadcasts.
+  - On the replace path (connected-member reconnect, no roster), it is sent right after `snapshot`, or after `settings` when there is one.
+  - It is sent only when the theme is not `play`.
+  - LobbyThemeTest adds the replace case: joined, snapshot, roomTheme.
+- **M2. Wire names.**
+  - Message `{type:"roomTheme", theme}`, error `bad-room-theme`.
+  - Java method `setRoomTheme`. State field `roomTheme`. Action `{type:'roomTheme', theme}`. Session API `setRoomTheme`.
+  - localStorage key `songrush.roomTheme`.
+  - The test names in the criteria change accordingly.
+- **M3. DOM invariants the locked tests rely on.**
+  - No new `<li>` anywhere on the start or lobby screens. The picker and decorations use `div`, `span` and `button`.
+  - The `.settings` `<p>` renders in both solo and room games under the same condition as today, exactly once, above the stage.
+  - Reveal texts render once. The flip is a CSS animation of the single card, never a duplicated face.
+  - The chat marker is an empty `aria-hidden` span before the text node. The line text stays exactly `"<name>: <body>"`.
+- **M4. Cycle size.** One cycle with two implementers working in parallel on disjoint files. Disagreement recorded: the critic preferred a split. The lead keeps one cycle because the backend part is small and independent.
+- **Nits.**
+  - Validation runs before the host check: a bad theme from a non-host gives `bad-room-theme`.
+  - A `setRoomTheme` from a disconnected member or a closed lobby is ignored silently.
+  - The client adds `ERROR_TEXT['bad-room-theme'] = '알 수 없는 분위기입니다.'`.
+  - The clock shows `Math.ceil(remainingMs / 1000)`.
+  - "In a room" means `state.room !== null`, including the over and disconnected screens.
+  - The client never sends `roomTheme` in solo games.
