@@ -172,3 +172,33 @@ These override the items above wherever they conflict.
   - The clock shows `Math.ceil(remainingMs / 1000)`.
   - "In a room" means `state.room !== null`, including the over and disconnected screens.
   - The client never sends `roomTheme` in solo games.
+
+## Result
+- **Commits.**
+  - Tests: `2f5bca3`.
+  - Backend: `950fe5f`.
+  - Frontend: `ef77325`.
+  - Fixes: `6611236` (attempt 2) and `432af9c` (attempt 3).
+- **Attempt 2** was driven by the code review and the lead's real-browser screenshots:
+  - seats on desktop stretched to the full stage and chat height;
+  - chalk text was tiny;
+  - the theme background did not cover the whole page;
+  - a rejoin kept a stale theme.
+- **Attempt 3** fixed a regression from attempt 2. Desktop bubbles covered the round text, so they now sit above the seats. It also made the chalk clock readable ("71초" had read like 기초).
+- **Verifier at `432af9c`.**
+  - `npm test`: 20 files, 277 tests passed.
+  - `npm run lint` and `npm run build`: exit 0.
+  - Backend: 387 tests, 0 failures. The backend sources were unchanged since that run.
+  - The diff of the locked tests from `2f5bca3` is empty.
+- **Visual check.** Playwright drove Edge against the real jar and built client: two players, lobby, playing, chat bubbles, and a skip-vote reveal.
+  - At 1280 px: play, neon, sakura, chalk, star and arcade.
+  - At 390 px: play and chalk.
+
+## Code review
+- No Blocker or High.
+- Medium findings fixed in `6611236`:
+  - M1: stale theme after a rejoin;
+  - M2: seat stretch;
+  - M3: chalk sizes;
+  - the background layer.
+- Nit (spec-conformant): a brief flash from the own pick to `play` and then to the room theme when entering a room.

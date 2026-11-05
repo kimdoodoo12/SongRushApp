@@ -291,7 +291,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
 
-- [~] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
+- [x] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
 
 ## Roadmap
 
@@ -407,6 +407,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (071) Entering a room briefly shows `play` before the room theme arrives. Desktop seat columns are tall because of the bubble spacing (`gap-y-14`). Owner check on a real phone. The arcade dot font only covers Latin; Korean falls back to Do Hyeon.
 - (070) Check the lobby and room-game layouts in a real browser at 360 px and md+. Old browsers have no subgrid fallback. On md, seat cards stretch with a tall stage. A disconnected seat's opacity can put its bubble under the stage. `npm audit` reports 4 moderate findings (eslint's minimatch).
 - DuckDNS (critic, cycle 062): `duckdns-setup.sh` writes the new token before checking it, so a wrong but well-formed token replaces a working one before the `KO` (check with the temp file first, then `mv`); the setup-time curl has no `--max-time`; the file-mode 600 check only runs on Linux.
 - Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
