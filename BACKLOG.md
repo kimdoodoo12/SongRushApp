@@ -276,7 +276,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
-- [ ] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
+- [~] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
 - [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
   - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
