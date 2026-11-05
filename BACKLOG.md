@@ -289,7 +289,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **B-017** backend: remove the raw transport (from S-005)
   - Remove raw `/ws`, `OutboundQueue` and the raw test helpers/tests; propose the `deploy/smoke.py` STOMP update to the owner (D-083).
 
-- [~] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
+- [x] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
 
 ## Roadmap
 
@@ -403,6 +403,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (070) Check the lobby and room-game layouts in a real browser at 360 px and md+. Old browsers have no subgrid fallback. On md, seat cards stretch with a tall stage. A disconnected seat's opacity can put its bubble under the stage. `npm audit` reports 4 moderate findings (eslint's minimatch).
 - DuckDNS (critic, cycle 062): `duckdns-setup.sh` writes the new token before checking it, so a wrong but well-formed token replaces a working one before the `KO` (check with the temp file first, then `mv`); the setup-time curl has no `--max-time`; the file-mode 600 check only runs on Linux.
 - Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
 - Deploy guide (critic, cycle 058): `upload.sh`'s missing-jar hint still says `.\gradlew.bat` (bash form is `./gradlew.bat`); `setup.sh`'s closing hint prints the upload command without the key; step 9 (updates) does not re-copy `deploy/`, so later unit or Caddyfile changes need the `scp` + `setup.sh` steps again.

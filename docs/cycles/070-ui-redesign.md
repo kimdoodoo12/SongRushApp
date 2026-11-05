@@ -141,3 +141,23 @@ These override the items above wherever they conflict.
   - The start screen and the lobby keep their structure and only get Tailwind styling. Item 3's two-section card is a styling arrangement of the existing two blocks.
   - The "재생 중" pulse is dropped.
   - The seat `정답!` mark stays (D-089 room feel). It is a small badge.
+
+## Result
+- **Commits.** Tests `b7a3da6`, implementation `e42c96b`, then fixes `fa0e4d2`. The fixes are attempt 2, after code review: M1 hidden roster, M2 phone seat strip and shorter chat, N1 `enabled:hover`.
+- **Verifier at `fa0e4d2`.**
+  - `npm test`: 19 files, 266 tests passed.
+  - `npm run lint`: exit 0.
+  - `npm run build`: exit 0, CSS 38.29 kB, JS 256.12 kB.
+  - The locked-test diff from `b7a3da6` is empty.
+  - `npm ci` reproduced the lockfile at `e42c96b`.
+- **Versions.** Tailwind `tailwindcss` 4.3.4 and `@tailwindcss/vite` 4.3.4, both pinned exactly, as devDependencies only.
+- **Visual check.** Headless Edge screenshots of the start screen at 1280 px and inside a 360 px frame. Both render the dark theme with no horizontal overflow.
+  - Edge enforces a minimum window width, so the 375 px window shot was not representative. The 360 px iframe shot was used instead.
+  - The lobby and room-game layouts were not checked in a browser. They need a live backend.
+
+## Code review
+- No Blocker or High findings. M1, M2 and N1 were fixed in `fa0e4d2`.
+- Recorded below the reporting bar:
+  - there is no subgrid fallback for old browsers;
+  - a disconnected seat's opacity creates a stacking context;
+  - md seat cards stretch with a tall stage.
