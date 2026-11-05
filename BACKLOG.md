@@ -293,9 +293,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
 
-- [ ] **C-017** data: resumable S3 upload with random object names (from S-006, design 073)
+- [~] **C-017** data: resumable S3 upload with random object names (from S-006, design 073)
   - Work map `s3-keys.work.json`, served map `s3-keys.json` (only objects verified by a final listing with the index size), size check against the index, corrupt map exits non-zero, Stubber tests (empty bucket, two pages), no secret in output, strict CLI.
-- [ ] **B-018** backend: S3 presigned audio mode (from S-006, design 073)
+- [~] **B-018** backend: S3 presigned audio mode (from S-006, design 073)
   - With `songrush.audio.s3-bucket`: served map loaded at startup (missing/invalid or zero candidates fails startup), candidates need a served-map entry with the index size, `/audio/{token}` -> 302 to a 60 s presigned URL with `Cache-Control: no-store`, presign error -> 503, credentials resolved once at startup, drop counts logged; without it, unchanged.
 - [?] **I-011** owner: move the audio to S3 (from S-006) - read policy on the server role, upload key and upload, copy the maps, set the env, deploy, real-browser check, delete the upload key.
 
