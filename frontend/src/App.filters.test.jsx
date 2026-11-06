@@ -1,8 +1,9 @@
 // Cycle 061 (F-008): the filter controls. 곡 종류 and 연도 시작 / 연도 끝
-// next to 곡 수 in solo and for the host, the non-default fields in create
-// (solo) and start (lobby), the reversed-range guard, the applied-conditions
-// line (.settings) and when it is cleared, the filter error texts, and one
-// App-level selection kept across games, 나가기 and 다시 하기.
+// next to 곡 수 for the host, the non-default fields in start (lobby), the
+// reversed-range guard, the applied-conditions line (.settings) and when it
+// is cleared, the filter error texts, and one App-level selection kept
+// across games and 나가기. Cycle 078 (D-093): no solo form; one player plays
+// alone in a room of their own.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
@@ -69,6 +70,8 @@ async function openSocket(env, count = 1) {
 const player = (name, { host = false, score = 0, connected = true } = {}) => ({ name, score, host, connected })
 const roster = (players, phase = 'lobby') => ({ type: 'roster', phase, players })
 const HOST_PLAYERS = [player('하루', { host: true }), player('Joon')]
+// A room of one: how a player plays alone (D-093).
+const ALONE = [player('하루', { host: true })]
 
 const prepare = (index = 0) => ({ type: 'prepare', index, total: 5, audioUrl: '/audio/abc' })
 const SETTINGS = { type: 'settings', types: ['OP'], yearFrom: 2010, yearTo: 2019 }
@@ -96,20 +99,13 @@ async function prepareAndReady(socket, index = 0, readyCount = 1) {
   )
 }
 
-// Clicks the solo 시작 with the current selects; returns the opened socket.
-async function clickSoloStart(env, count = 1) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
-  return openSocket(env, count)
-}
-
 // 방 만들기 as 하루, then joined and a roster that makes 하루 host.
-async function hostLobby(env, count = 1) {
+async function hostLobby(env, count = 1, players = HOST_PLAYERS) {
   setNickname('하루')
   fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
-  deliver(socket, roster(HOST_PLAYERS))
+  deliver(socket, roster(players))
   expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
   return socket
 }
@@ -118,6 +114,15 @@ async function clickStartGame(socket, total = 1) {
   fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
   await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(total))
   return socket.sentOfType('start')[total - 1]
+}
+
+// Alone in a new room: 게임 시작 with the current selects, then
+// roster{playing}. Returns the socket, ready for settings and prepare.
+async function aloneStarted(env, count = 1) {
+  const socket = await hostLobby(env, count, ALONE)
+  await clickStartGame(socket)
+  deliver(socket, roster(ALONE, 'playing'))
+  return socket
 }
 
 const gameOver = (score = 1) => ({
@@ -163,36 +168,11 @@ function expectFilterOptions() {
 }
 
 describe('the controls', () => {
-  it('the start screen shows 곡 종류, 연도 시작 and 연도 끝 with their options and defaults', () => {
-    setup()
-    expectFilterOptions()
-    expect(valueOf('곡 수')).toBe('10')
-  })
-
   it('the host controls show the same selects with the same defaults', async () => {
     const env = setup()
     await hostLobby(env)
     expectFilterOptions()
     expect(valueOf('곡 수')).toBe('10')
-  })
-})
-
-describe('solo create', () => {
-  it('with the defaults 시작 sends exactly create{nickname, songCount:10}', async () => {
-    const env = setup()
-    const socket = await clickSoloStart(env)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 10 }])
-  })
-
-  it('엔딩만 and 2010 to 2019 add types, yearFrom and yearTo', async () => {
-    const env = setup()
-    choose('곡 종류', 'ED')
-    choose('연도 시작', '2010')
-    choose('연도 끝', '2019')
-    const socket = await clickSoloStart(env)
-    expect(socket.sent).toEqual([
-      { type: 'create', nickname: '하루', songCount: 10, types: ['ED'], yearFrom: 2010, yearTo: 2019 },
-    ])
   })
 })
 
@@ -203,6 +183,21 @@ describe('host start', () => {
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10 })
   })
 
+  it('엔딩만 and 2010 to 2019 add types, yearFrom and yearTo', async () => {
+    const env = setup()
+    const socket = await hostLobby(env)
+    choose('곡 종류', 'ED')
+    choose('연도 시작', '2010')
+    choose('연도 끝', '2019')
+    expect(await clickStartGame(socket)).toEqual({
+      type: 'start',
+      songCount: 10,
+      types: ['ED'],
+      yearFrom: 2010,
+      yearTo: 2019,
+    })
+  })
+
   it('오프닝만 adds types:["OP"]', async () => {
     const env = setup()
     const socket = await hostLobby(env)
@@ -210,44 +205,36 @@ describe('host start', () => {
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10, types: ['OP'] })
   })
 
-  it('the room create message carries no filter fields', async () => {
+  it('the room create message carries no filter fields, also with filters chosen before it', async () => {
     const env = setup()
+    const first = await hostLobby(env)
+    expect(first.sent[0]).toEqual({ type: 'create', nickname: '하루' })
     choose('곡 종류', 'ED')
     choose('연도 시작', '2010')
-    const socket = await hostLobby(env)
-    expect(socket.sent[0]).toEqual({ type: 'create', nickname: '하루' })
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const second = await hostLobby(env, 2)
+    expect(valueOf('곡 종류')).toBe('ED')
+    expect(second.sent[0]).toEqual({ type: 'create', nickname: '하루' })
   })
 })
 
 describe('reversed range guard', () => {
-  it('solo: 2010 to 1999 disables 시작 and shows the hint; fixing the range enables it', () => {
-    setup()
-    setNickname('하루')
+  it('alone: 2010 to 1999 disables 게임 시작 and shows the hint; fixing either end enables it', async () => {
+    const env = setup()
+    await hostLobby(env, 1, ALONE)
     expect(screen.queryByText(HINT)).toBeNull()
     choose('연도 시작', '2010')
     choose('연도 끝', '1999')
     expect(screen.getByText(HINT)).toBeTruthy()
-    expect(screen.getByRole('button', { name: '시작' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: '게임 시작' }).disabled).toBe(true)
     choose('연도 끝', '2019')
     expect(screen.queryByText(HINT)).toBeNull()
-    expect(screen.getByRole('button', { name: '시작' }).disabled).toBe(false)
+    expect(screen.getByRole('button', { name: '게임 시작' }).disabled).toBe(false)
     choose('연도 끝', '1999')
-    expect(screen.getByRole('button', { name: '시작' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: '게임 시작' }).disabled).toBe(true)
     choose('연도 시작', '')
     expect(screen.queryByText(HINT)).toBeNull()
-    expect(screen.getByRole('button', { name: '시작' }).disabled).toBe(false)
-  })
-
-  it('solo: submitting the form with a reversed range opens no socket', async () => {
-    const env = setup()
-    setNickname('하루')
-    choose('연도 시작', '2010')
-    choose('연도 끝', '1999')
-    fireEvent.submit(screen.getByRole('button', { name: '시작' }).closest('form'))
-    // Let any effect run before checking nothing was opened.
-    await act(async () => {})
-    expect(env.sockets.sockets).toHaveLength(0)
-    expect(env.audio.factory).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: '게임 시작' }).disabled).toBe(false)
   })
 
   it('host: 2010 to 1999 disables 게임 시작 and shows the hint; fixing the range enables it', async () => {
@@ -267,9 +254,9 @@ describe('reversed range guard', () => {
 })
 
 describe('the applied-conditions line', () => {
-  it('solo: settings then prepare shows 오프닝만 · 2010~2019 in one .settings line', async () => {
+  it('alone in a room: settings then prepare shows 오프닝만 · 2010~2019 in one .settings line', async () => {
     const env = setup()
-    const socket = await clickSoloStart(env)
+    const socket = await aloneStarted(env)
     deliver(socket, SETTINGS)
     await prepareAndReady(socket, 0)
     expect(screen.getByText('1 / 5')).toBeTruthy()
@@ -278,7 +265,7 @@ describe('the applied-conditions line', () => {
 
   it('a game without settings shows no .settings line', async () => {
     const env = setup()
-    const socket = await clickSoloStart(env)
+    const socket = await aloneStarted(env)
     await prepareAndReady(socket, 0)
     expect(screen.getByText('1 / 5')).toBeTruthy()
     expectNoLine()
@@ -329,15 +316,17 @@ describe('the applied-conditions line', () => {
     expectLine('엔딩만 · 2020~')
   })
 
-  it('solo: after 다시 하기, a new game without settings has no line', async () => {
+  it('alone: after 나가기, a game in a new room without settings has no line', async () => {
     const env = setup()
-    const first = await clickSoloStart(env)
+    const first = await aloneStarted(env)
     deliver(first, SETTINGS)
     await prepareAndReady(first, 0)
     expectLine(LINE)
     deliver(first, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 1 }] })
-    fireEvent.click(screen.getByRole('button', { name: '다시 하기' }))
-    const second = await clickSoloStart(env, 2)
+    deliver(first, roster(ALONE, 'lobby'))
+    fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const second = await aloneStarted(env, 2)
     await prepareAndReady(second, 0)
     expect(screen.getByText('1 / 5')).toBeTruthy()
     expectNoLine()
@@ -359,26 +348,29 @@ describe('the applied-conditions line', () => {
 })
 
 describe('filter errors', () => {
-  it('solo not-enough-songs with available:3 shows the count on the start screen', async () => {
+  it('alone: not-enough-songs with available:3 shows the count in the lobby', async () => {
     const env = setup()
+    const socket = await hostLobby(env, 1, ALONE)
     choose('곡 종류', 'ED')
-    const socket = await clickSoloStart(env)
+    await clickStartGame(socket)
     deliver(socket, { type: 'error', code: 'not-enough-songs', available: 3 })
     expect(screen.getByText('출제할 수 있는 곡이 3곡뿐입니다.')).toBeTruthy()
     expect(screen.queryByText(OLD_NOT_ENOUGH)).toBeNull()
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
   })
 
   it('not-enough-songs without available keeps the old text', async () => {
     const env = setup()
-    const socket = await clickSoloStart(env)
+    const socket = await hostLobby(env, 1, ALONE)
+    await clickStartGame(socket)
     deliver(socket, { type: 'error', code: 'not-enough-songs' })
     expect(screen.getByText(OLD_NOT_ENOUGH)).toBeTruthy()
   })
 
   it('bad-filter shows its text', async () => {
     const env = setup()
-    const socket = await clickSoloStart(env)
+    const socket = await hostLobby(env, 1, ALONE)
+    await clickStartGame(socket)
     deliver(socket, { type: 'error', code: 'bad-filter' })
     expect(screen.getByText(BAD_FILTER)).toBeTruthy()
   })
@@ -415,30 +407,37 @@ describe('kept across games', () => {
     expect(await clickStartGame(socket, 2)).toEqual(expected)
   })
 
-  it('solo selections survive 다시 하기 and are sent again', async () => {
+  it('alone: selections survive a game, 나가기 and a new room, and are sent again', async () => {
     const env = setup()
+    const first = await hostLobby(env, 1, ALONE)
     choose('곡 수', '15')
     choose('곡 종류', 'ED')
     choose('연도 시작', '2010')
-    const first = await clickSoloStart(env)
-    const expected = { type: 'create', nickname: '하루', songCount: 15, types: ['ED'], yearFrom: 2010 }
-    expect(first.sent).toEqual([expected])
+    const expected = { type: 'start', songCount: 15, types: ['ED'], yearFrom: 2010 }
+    expect(await clickStartGame(first)).toEqual(expected)
+    deliver(first, roster(ALONE, 'playing'))
     await prepareAndReady(first, 0)
     deliver(first, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 1 }] })
-    fireEvent.click(screen.getByRole('button', { name: '다시 하기' }))
+    deliver(first, roster(ALONE, 'lobby'))
+    fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const second = await hostLobby(env, 2, ALONE)
     expect(valueOf('곡 수')).toBe('15')
     expect(valueOf('곡 종류')).toBe('ED')
     expect(valueOf('연도 시작')).toBe('2010')
-    const second = await clickSoloStart(env, 2)
-    expect(second.sent).toEqual([expected])
+    expect(await clickStartGame(second)).toEqual(expected)
   })
 
-  it('solo and host share one selection, kept through 나가기', async () => {
+  it('one selection, kept through 나가기 and into the next room', async () => {
     const env = setup()
+    const first = await hostLobby(env)
     choose('곡 수', '15')
     choose('곡 종류', 'OP')
     choose('연도 끝', '2009')
-    const socket = await hostLobby(env)
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
+    expect(first.sentOfType('start')).toEqual([])
+    const socket = await hostLobby(env, 2)
     expect(valueOf('곡 수')).toBe('15')
     expect(valueOf('곡 종류')).toBe('OP')
     expect(valueOf('연도 끝')).toBe('2009')
@@ -451,7 +450,8 @@ describe('kept across games', () => {
       yearTo: 2009,
     })
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
+    await hostLobby(env, 3)
     expect(valueOf('곡 수')).toBe('15')
     expect(valueOf('곡 종류')).toBe('OP')
     expect(valueOf('연도 시작')).toBe('1990')
