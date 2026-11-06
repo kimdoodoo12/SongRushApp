@@ -26,7 +26,7 @@ Owner decision D-093 (2026-11-06): every cycle reaches `dev` through a PR, and m
 ## Decision
 Use the third option.
 
-- **Merge:** after CI passes, the lead merges locally and pushes `dev`. GitHub should mark the PR merged when its head reaches `dev`. This cycle is the first test of that.
+- **Merge:** after CI passes, the lead merges locally and pushes `dev`. GitHub marks the PR merged when its head reaches `dev`. PR 4 confirmed this: its state was `MERGED` after the push.
 - **PR merge commands:** the procedure never uses `gh pr merge` or `gh api` to merge a PR.
 - **Tested commit:** the lead checks that the local head equals the PR head before merging.
 - **Lock:** tests stay locked until CI passes, so a fix for a CI failure cannot edit them.
