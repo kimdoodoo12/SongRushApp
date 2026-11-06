@@ -202,10 +202,29 @@ class TierSocketTest {
 		return fail("no roster with " + players + " players within " + TestClient.WAIT_MS + " ms");
 	}
 
+	// The first received frame of the type, whatever order it arrived in, within WAIT_MS. Reads the
+	// list of every frame, so it does not consume the frames that await() reads (as in
+	// ReconnectSocketTest).
+	private static JsonNode firstReceived(TestClient client, String type) throws InterruptedException {
+		long deadline = System.currentTimeMillis() + TestClient.WAIT_MS;
+		while (System.currentTimeMillis() < deadline) {
+			for (JsonNode node : frames(client)) {
+				if (node != null && node.isObject() && type.equals(node.path("type").asString(null))) {
+					return node;
+				}
+			}
+			Thread.sleep(20);
+		}
+		return fail("no '" + type + "' frame within " + TestClient.WAIT_MS + " ms");
+	}
+
+	// Also waits for the host's token, which the handler sends after the lobby's joined and roster:
+	// otherwise a later received().size() mark could be taken before it arrives (cycle 075).
 	private String createLobby(TestClient host) throws Exception {
 		host.send("create", "nickname", "Host");
 		String code = host.await("joined").path("code").asString(null);
 		assertThat(code).isNotNull();
+		firstReceived(host, "token");
 		return code;
 	}
 

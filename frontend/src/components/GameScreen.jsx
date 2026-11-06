@@ -42,14 +42,18 @@ function Disc() {
 // The answer card; the flip-in is a CSS animation of this one card.
 function RevealCard({ reveal }) {
   return (
-    <div className="flip grid w-full flex-1 place-items-center">
-      <section className="reveal card w-full max-w-[420px] p-5 text-center md:p-6">
-        <p className="card-label font-display text-[13px] tracking-[0.14em]">정답 공개</p>
-        <h2 className="font-display mt-1.5 mb-1 text-[26px] leading-tight break-words md:text-[30px]">{reveal.title}</h2>
-        <p className="card-slug mt-1 inline-block rounded-full px-3 py-0.5 text-xs tracking-wide">{reveal.themeSlug}</p>
-        {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 text-base">{reveal.song}</p>}
-        {reveal.artists.length > 0 && <p className="text-sm text-muted">{reveal.artists.join(', ')}</p>}
-        <p className="card-winner font-display mt-3 inline-block rounded-full px-3.5 py-1 text-sm">
+    <div className="flip grid w-full min-w-0 max-w-full flex-1 grid-cols-1 place-items-center">
+      <section className="reveal card w-full min-w-0 max-w-[min(420px,100%)] p-5 text-center md:p-6">
+        <p className="card-label font-display h-5 truncate text-[13px] leading-5 tracking-[0.14em]">정답 공개</p>
+        {/* Two lines are kept for the title in every look, so the card has
+            the same box whichever font wraps it. */}
+        <div className="mt-1.5 mb-1 flex h-[65px] w-full min-w-0 max-w-full items-center justify-center md:h-[75px]">
+          <h2 className="font-display line-clamp-2 w-full min-w-0 text-[26px] leading-tight wrap-anywhere md:text-[30px]">{reveal.title}</h2>
+        </div>
+        <p className="card-slug mx-auto mt-1 block h-6 w-24 max-w-full truncate rounded-full px-3 py-0.5 text-xs leading-5 tracking-wide">{reveal.themeSlug}</p>
+        {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 min-w-0 truncate text-base leading-6 wrap-anywhere">{reveal.song}</p>}
+        {reveal.artists.length > 0 && <p className="h-5 min-w-0 truncate text-sm leading-5 wrap-anywhere text-muted">{reveal.artists.join(', ')}</p>}
+        <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
           {reveal.winner === null || reveal.winner === undefined ? '정답자 없음' : `정답: ${reveal.winner}`}
         </p>
       </section>
@@ -79,7 +83,7 @@ function ChatForm({ onSend }) {
           placeholder="애니 제목을 입력하세요"
         />
       </label>
-      <button type="submit" className="go shrink-0">
+      <button type="submit" className="go h-11 w-24 shrink-0 truncate px-2">
         보내기
       </button>
     </form>
@@ -96,7 +100,7 @@ function ChatLog({ chat }) {
   return (
     <ul ref={ref} className="chat-log flex h-36 flex-col gap-1 overflow-y-auto px-3 py-2 text-[15px] md:h-44" aria-label="채팅">
       {chat.map((line) => (
-        <li key={line.id} className="break-words">
+        <li key={line.id} className="min-w-0 wrap-anywhere">
           <span
             aria-hidden="true"
             className="chat-mark mr-2 inline-block size-2.5 rounded-full align-middle"
@@ -113,16 +117,26 @@ const WATCHING_TEXT = '이번 곡은 구경 중입니다. 다음 곡부터 참�
 const DISCONNECTED_TEXT = '서버와 연결이 끊어졌습니다.'
 const REPLACED_TEXT = '다른 창에서 접속해 이 연결이 끊겼습니다.'
 
-// One score or ranking row; the player's own row ends with (나).
-function ownMark(text, name, me) {
-  return name === me ? `${text} (나)` : text
+// The tail of a score or ranking row: " N점", and " (나)" on the player's
+// own row. These parts never shrink, so a long name is cut instead; the
+// leading spaces are kept (whitespace-pre) because the row is a flex box.
+function ScoreTail({ row, me }) {
+  return (
+    <>
+      <span className="shrink-0 whitespace-pre">{` ${row.score}점`}</span>
+      {row.name === me && <span className="shrink-0 whitespace-pre">{' (나)'}</span>}
+    </>
+  )
 }
 
 function Scoreboard({ rows, me }) {
   return (
-    <ul className="scoreboard flex flex-wrap justify-center gap-1.5 text-xs" aria-label="점수판">
+    <ul className="scoreboard grid grid-cols-2 gap-1.5 text-xs md:grid-cols-4" aria-label="점수판">
       {rows.map((row) => (
-        <li key={row.name} className="chip px-2.5 py-0.5">{ownMark(`${row.name} ${row.score}점`, row.name, me)}</li>
+        <li key={row.name} className="chip flex h-6 min-w-0 items-center justify-center px-2.5 py-0.5 leading-4">
+          <span className="min-w-0 truncate">{row.name}</span>
+          <ScoreTail row={row} me={me} />
+        </li>
       ))}
     </ul>
   )
@@ -134,8 +148,12 @@ function Ranking({ rows, me }) {
       {rows.map((row) => (
         <li
           key={row.name}
-          className="rank-row panel px-4 py-2 text-sm"
-        >{ownMark(`${row.rank}위 ${row.name} ${row.score}점`, row.name, me)}</li>
+          className="rank-row panel flex h-10 min-w-0 items-center px-4 py-2 text-sm leading-5"
+        >
+          <span className="shrink-0 whitespace-pre">{`${row.rank}위 `}</span>
+          <span className="min-w-0 truncate">{row.name}</span>
+          <ScoreTail row={row} me={me} />
+        </li>
       ))}
     </ul>
   )
@@ -144,12 +162,12 @@ function Ranking({ rows, me }) {
 // The skip vote: the button toggles the own vote; the count is from skipState.
 function SkipControls({ voted, count, onSkip }) {
   return (
-    <div className="skip flex items-center gap-3">
-      <button type="button" onClick={onSkip} className={voted ? 'skip-on' : ''}>
+    <div className="skip flex items-center gap-3 md:col-start-2">
+      <button type="button" onClick={onSkip} className={`h-11 w-28 shrink-0 truncate px-2 ${voted ? 'skip-on' : ''}`}>
         {voted ? '스킵 취소' : '스킵'}
       </button>
       {count !== null && (
-        <span className="chip px-3 py-1 text-sm tabular-nums">{`스킵 ${count.votes}/${count.needed}`}</span>
+        <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{`스킵 ${count.votes}/${count.needed}`}</span>
       )}
     </div>
   )
@@ -204,34 +222,39 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {round === null && !watching && !waitingNext && <span className="text-muted">서버에 연결하는 중...</span>}
         {round === null && waitingNext && <span className="text-muted">다음 곡을 기다리는 중...</span>}
         {round !== null && (
-          <span className="round font-display text-[15px]">
-            <span className="round-num text-2xl tabular-nums md:text-3xl">{`${round.index + 1} / ${round.total}`}</span>{' '}
+          <span className="round font-display flex h-10 w-40 items-center gap-1 overflow-hidden text-[15px] leading-5 whitespace-nowrap md:h-12 md:w-46">
+            <span className="round-num block h-8 w-[3.9em] shrink-0 overflow-hidden text-left text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9">{`${round.index + 1} / ${round.total}`}</span>{' '}
             번째 곡
           </span>
         )}
-        {score !== null && <span className="chip px-3 py-1 text-sm tabular-nums">{`점수: ${score}`}</span>}
-        {clock !== null && <span className="clock ml-auto text-4xl leading-none tabular-nums md:text-[44px]">{clock}</span>}
+        {score !== null && <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{`점수: ${score}`}</span>}
+        {clock !== null && <span className="clock ml-auto h-10 w-24 text-4xl leading-10 tabular-nums md:h-12 md:w-29 md:text-[44px] md:leading-12">{clock}</span>}
       </div>
       {screen === 'game' && watching && (
-        <p className="watching chip rounded-xl px-3 py-2 text-center text-sm">{WATCHING_TEXT}</p>
+        <p className="watching chip line-clamp-2 h-15 rounded-xl px-3 py-2 text-center text-sm leading-5">{WATCHING_TEXT}</p>
       )}
       {screen === 'game' && soundBlocked && (
-        <button type="button" className="sound-prompt go self-center animate-pulse" onClick={onUnlockSound}>
+        <button type="button" className="sound-prompt go h-11 w-44 self-center truncate px-2 py-0 animate-pulse" onClick={onUnlockSound}>
           탭하여 소리 켜기
         </button>
       )}
       {load !== null && LOAD_TEXT[load] !== undefined && (
-        <p className={`text-center text-sm ${load === 'failed' ? 'text-bad' : 'text-muted'}`}>{LOAD_TEXT[load]}</p>
+        <p className={`h-5 truncate text-center text-sm leading-5 ${load === 'failed' ? 'text-bad' : 'text-muted'}`}>{LOAD_TEXT[load]}</p>
       )}
       {playing && <Disc />}
       {correct !== null && (
-        <p className="correct font-display self-center rounded-full px-4 py-1.5 text-center text-lg">{`${correct} 정답!`}</p>
+        // Right-to-left on the box, left-to-right on the text: when the line is
+        // too long the ellipsis cuts the start of the name, so " 정답!" stays.
+        // The text stays one node, so the banner reads "<name> 정답!" as is.
+        <p className="correct font-display h-10 w-60 max-w-full self-center truncate rounded-full px-4 py-1.5 text-center text-lg leading-7 [direction:rtl]">
+          <span className="[direction:ltr] [unicode-bidi:isolate]">{`${correct} 정답!`}</span>
+        </p>
       )}
       {reveal !== null && <RevealCard reveal={reveal} />}
       {timer !== null && <TimeBar max={timer.max} remaining={timer.remaining} />}
       {(playing || canSkip) && (
-        <div className="stage-foot flex flex-wrap items-center justify-between gap-3">
-          {playing && <span className="stage-hint text-sm text-muted">{HINT}</span>}
+        <div className="stage-foot grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          {playing && <span className="stage-hint line-clamp-2 h-10 text-sm leading-5 text-muted">{HINT}</span>}
           {canSkip && <SkipControls voted={skipVoted} count={skipCount} onSkip={onSkip} />}
         </div>
       )}
@@ -240,14 +263,14 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       {ranking !== null && <Ranking rows={ranking} me={me} />}
       {screen === 'over' && (
         <section className="over flex flex-col items-center gap-3 text-center">
-          {finalScore !== null && <p className="font-display text-2xl">{`최종 점수: ${finalScore}점`}</p>}
+          {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{`최종 점수: ${finalScore}점`}</p>}
           {room === null && (
-            <button type="button" className="go" onClick={onReset}>
+            <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onReset}>
               다시 하기
             </button>
           )}
           {room !== null && lobbyOpen && (
-            <button type="button" className="go" onClick={onToLobby}>
+            <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onToLobby}>
               대기실로
             </button>
           )}
@@ -255,9 +278,9 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       )}
       {screen === 'disconnected' && (
         <section className="over flex flex-col items-center gap-3 text-center">
-          {finalScore !== null && <p className="font-display text-2xl">{`최종 점수: ${finalScore}점`}</p>}
+          {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{`최종 점수: ${finalScore}점`}</p>}
           <p className="text-sm text-bad">{replaced ? REPLACED_TEXT : DISCONNECTED_TEXT}</p>
-          <button type="button" className="go" onClick={onReset}>
+          <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onReset}>
             처음으로
           </button>
         </section>
@@ -273,9 +296,9 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
   // The title row: the room code chip (no 방 코드: label in a game) and the
   // one settings line of this game.
   const titleRow = (room !== null || line !== '') && (
-    <div className="room-top flex flex-wrap items-center justify-between gap-3">
-      {room !== null && <span className="code text-sm md:text-base">{room.code}</span>}
-      {line !== '' && <p className="settings chip px-3 py-0.5 text-[13px]">{line}</p>}
+    <div className="room-top flex items-center justify-between gap-3">
+      {room !== null && <span className="code shrink-0 text-sm leading-[1.5] md:text-base">{room.code}</span>}
+      {line !== '' && <p className="settings chip h-7 w-52 min-w-0 truncate px-3 py-0.5 text-center text-[13px] leading-5">{line}</p>}
     </div>
   )
   if (room === null) {

@@ -176,7 +176,7 @@ function App({
       <ThemeDecor theme={theme} />
       <div className="app relative z-[1] mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
         <header className="flex items-center justify-center md:justify-start">
-          <h1 className="brand text-3xl tracking-tight md:text-4xl">SongRush</h1>
+          <h1 className="brand w-56 text-center text-3xl whitespace-nowrap tracking-tight md:text-left md:text-4xl">SongRush</h1>
         </header>
         {state.reconnecting && (
           <p
