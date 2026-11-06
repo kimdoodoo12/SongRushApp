@@ -1,6 +1,6 @@
 ---
 name: vibe-cycle
-description: Run one autonomous development cycle for this repo. It takes the next Ready item from BACKLOG.md, specs it, has critic review the spec, writes and locks tests, delegates implementation, has the verifier and critic check the result, merges to dev, and logs to PROGRESS.md. For `S-` design items it investigates, writes a design doc, and appends the resulting items to Ready. When Ready is empty it plans the next Roadmap milestone into Ready. Use it for "/vibe-cycle" or "/loop /vibe-cycle". Never block waiting for the user.
+description: Run one autonomous development cycle for this repo. It takes the next Ready item from BACKLOG.md, specs it, has critic review the spec, writes and locks tests, delegates implementation, has the verifier and critic check the result, opens a PR to dev, waits for GitHub CI, merges to dev, and logs to PROGRESS.md. For `S-` design items it investigates, writes a design doc, and appends the resulting items to Ready. When Ready is empty it plans the next Roadmap milestone into Ready. Use it for "/vibe-cycle" or "/loop /vibe-cycle". Never block waiting for the user.
 ---
 
 # vibe-cycle
@@ -74,12 +74,20 @@ Spawn `critic` with:
 Blocker and High findings send the cycle back to step 4, and the attempt counter increases. Record Medium and Nit findings under **Follow-ups** in BACKLOG.md, not under Ready, so review nits never feed the loop by themselves.
 
 ## 7. Integrate
-1. Run `python -I .claude/hooks/lock.py unlock`.
-2. Run `git switch dev`, then `git merge --no-ff cycle/NNN-<slug>`.
-3. If `origin` exists, run `git push origin dev`.
-4. If `origin` exists, make sure a PR from dev to main is open (`gh pr list --base main --head dev`; if none, `gh pr create --base main --head dev --title "dev -> main" --body "<PROGRESS summary>"`). **Never merge it.**
-5. In BACKLOG.md, change the item to `[x]`.
-6. Update PROGRESS.md, **the owner's progress report** (user, 2026-11-02: it must read as the owner's report, not as notes for the AI).
+GitHub CI runs on a clean Linux runner, so it catches what the local verifier cannot: missing files, environment differences and flaky tests. Tests stay locked until CI passes, so a CI fix cannot edit them either (D-093).
+
+1. Confirm the branch contains `dev` (`git merge-base --is-ancestor dev HEAD`). If it does not, run `git merge dev` on the cycle branch first, so CI tests what `dev` will become.
+2. Run `git push -u origin cycle/NNN-<slug>`.
+3. Open the PR: `gh pr create --base dev --head cycle/NNN-<slug> --title "NNN: <title>" --body-file <file>`. Write the body file outside the repo, with these sections: **Goal**, **Acceptance criteria** (each with its result), **Verification** (the commands the verifier ran and their exit codes), and **Cycle doc** (its path).
+4. Wait in-turn with `gh pr checks <number> --watch --interval 30`, using a 10-minute tool timeout. Checks can take a moment to appear after the PR opens, so retry for up to 2 minutes.
+   - **All passed:** continue with step 5.
+   - **A check failed:** read it with `gh run view <run-id> --log-failed`, treat it as a verifier finding, go back to step 4 of the cycle and increase the attempt counter. After steps 5 and 6 pass again, push the same branch (never force-push) and wait again.
+   - **CI could not finish** (no result after 20 minutes, Actions outage, or minutes used up): do not merge. Follow **Blocked path** and log it as NEEDS DECISION.
+5. Run `python -I .claude/hooks/lock.py unlock`.
+6. Run `git switch dev`, then `git merge --no-ff cycle/NNN-<slug>`, then `git push origin dev`. GitHub marks the PR merged when its head reaches `dev`; confirm with `gh pr view <number> --json state`. **Never run `gh pr merge`:** agents hold no PR merge permission, so the dev to main PR stays the user's alone.
+7. Make sure a PR from dev to main is open (`gh pr list --base main --head dev`; if none, `gh pr create --base main --head dev --title "dev -> main" --body "<PROGRESS summary>"`). **Never merge it.**
+8. In BACKLOG.md, change the item to `[x]`.
+9. Update PROGRESS.md, **the owner's progress report** (user, 2026-11-02: it must read as the owner's report, not as notes for the AI).
    - **Append** one entry at the **end** of `## Log`, so the log reads oldest first and newest last (user, 2026-11-03): `### <date> · <plain Korean title> — 완료|막힘|결정 필요`, then 2-4 plain Korean sentences covering what now exists in game terms, why it matters, and at most one notable problem caught. End with one line `기록: docs/cycles/NNN-slug.md`.
    - Refresh `## 현재 상태` when the picture changes.
    - **Rewrite `## 다음 진행 예정` every time; it is the last section of the file, after the Log** (user, 2026-11-03) (user, 2026-11-02). Delete the previous plan entirely and write the next 3-5 items in plain words, plus any long background job. Old plans are never kept.
@@ -117,7 +125,7 @@ If 3 attempts are used up, or the work requires a human decision:
 1. Unlock the tests.
 2. Commit any work in progress on the cycle branch.
 3. Run `git switch dev` without merging.
-4. Mark the item `[!]` (or `[?]`).
+4. Mark the item `[!]` (or `[?]`). If a PR to `dev` is open, leave it open and unmerged.
 5. Log BLOCKED (or NEEDS DECISION) in PROGRESS.md, with the last verifier and critic output and what was tried.
 
 ## Evidence rules
