@@ -1,5 +1,5 @@
 // The draw filters (F-008): the selects' choices, the message fields they
-// add to create (solo) and start (lobby), and the applied-conditions line.
+// add to start (lobby), and the applied-conditions line.
 
 // 곡 종류 options: [value, text].
 export const TYPE_OPTIONS = [

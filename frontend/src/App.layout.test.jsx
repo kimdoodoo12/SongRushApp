@@ -1,7 +1,7 @@
 // Cycle 070 (F-011): the redesigned layout through the whole app. The room
 // lobby and a room game show the eight seats (list 자리); a chat frame from
-// another player shows its body in that player's seat; a solo game has no
-// seats; the reveal card title shows. Also the chat entry shape of the
+// another player shows its body in that player's seat; the reveal card
+// title shows. Also the chat entry shape of the
 // reducer: { id, name, body, text }.
 // Timer rule: real timers and waitFor, as in App.multi.test.jsx.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -110,15 +110,6 @@ async function roomSongStarted(env) {
   return socket
 }
 
-async function startSolo(env) {
-  setNickname('하루')
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
-  const socket = await openSocket(env)
-  expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }])
-  return socket
-}
-
 function seats() {
   return within(screen.getByRole('list', { name: '자리' })).getAllByRole('listitem')
 }
@@ -165,19 +156,6 @@ describe('room game', () => {
     const socket = await roomSongStarted(env)
     deliver(socket, revealMsg({ winner: 'Mina' }))
     expect(screen.getByText('진격의 거인')).toBeTruthy()
-  })
-})
-
-describe('solo game', () => {
-  it('shows no 자리 list', async () => {
-    const env = setup()
-    const socket = await startSolo(env)
-    await prepareAndReady(socket, 0)
-    expect(screen.queryByRole('list', { name: '자리' })).toBeNull()
-    deliver(socket, startMsg())
-    await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
-    expect(screen.queryByRole('list', { name: '자리' })).toBeNull()
-    expect(screen.getByRole('progressbar', { name: '남은 시간' })).toBeTruthy()
   })
 })
 

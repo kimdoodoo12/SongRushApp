@@ -168,15 +168,6 @@ async function roomSongStarted(env) {
   return socket
 }
 
-async function startSolo(env) {
-  setNickname('하루')
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
-  const socket = await openSocket(env)
-  expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }])
-  return socket
-}
-
 // A real-time pause, so that anything already queued would have run.
 async function settle(ms = 50) {
   await act(async () => {
@@ -352,15 +343,6 @@ describe('skip', () => {
       { type: 'skipVote', index: 0 },
       { type: 'skipVote', index: 1 },
     ])
-  })
-
-  it('solo shows no 스킵', async () => {
-    const env = setup()
-    const socket = await startSolo(env)
-    await prepareAndReady(socket, 0)
-    deliver(socket, startMsg())
-    await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
-    expect(skipButton()).toBeNull()
   })
 })
 

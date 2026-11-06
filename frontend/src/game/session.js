@@ -1,12 +1,10 @@
-// One session over one WebSocket, solo or in a room. It sends the opening
-// message, loads and schedules each song, runs the remaining-time timer and
-// reports everything to the screen through dispatch. All server messages are
+// One room session over one WebSocket. It sends the opening message, loads
+// and schedules each song, runs the remaining-time timer and reports
+// everything to the screen through dispatch. All server messages are
 // handled in onMessage.
 //
-// mode 'solo' sends create{nickname, songCount, ...fields} (the non-default
-// filter fields, F-008), ignores joined and roster,
-// and closes the socket at gameOver. mode 'create' and 'join' are room
-// sessions: they open a lobby with create{nickname} or join{code, nickname},
+// mode 'create' and 'join' open a lobby with create{nickname} or
+// join{code, nickname} (the client has no solo mode, D-093); sessions
 // stay open across games, and find the player's own rows by the name that
 // joined assigned. A room session whose joined is followed by a snapshot of
 // a playing game watches the current song (no ready, no skip) and plays from
@@ -74,17 +72,13 @@ export function startSession({
   now,
   mode,
   nickname,
-  songCount,
-  fields = {},
   code,
   dispatch,
 }) {
   let socket = socketFactory(url)
-  const room = mode !== 'solo'
   // false once this session is closed; late callbacks then do nothing.
   let active = true
-  let prepared = false
-  // Room sessions: whether joined has arrived, and the assigned name.
+  // Whether joined has arrived, and the assigned name.
   let joined = false
   let myName = null
   // The current song: { index, revealed, buffer, start, source, watching,
@@ -93,7 +87,7 @@ export function startSession({
   // used a drifted receipt and fresh pongs may move it earlier (spec 051);
   // a new round (prepare, snapshot, reconnect) starts without it.
   let round = null
-  // Room sessions: a game is on (prepare or a playing snapshot) and its
+  // A game is on (prepare or a playing snapshot) and its
   // gameOver has not arrived; a lobby roster then means it was abandoned.
   let inGame = false
   // The own skip vote for the current song (spec 050): skipVote clicks sent
@@ -102,8 +96,7 @@ export function startSession({
   let skipsSent = 0
   let skipsRefused = 0
   let timer = null
-  // Room sessions only; solo keeps the receipt offset and sends no ping.
-  const sync = room ? createClockSync({ now, send, schedule: scheduleTimeout }) : null
+  const sync = createClockSync({ now, send, schedule: scheduleTimeout })
   let resyncTimer = null
   // Reconnect state: the last token and the room code; whether a rejoin is
   // in progress (from the drop until joined); whether the socket is a rejoin
@@ -146,7 +139,7 @@ export function startSession({
       clearInterval(resyncTimer)
       resyncTimer = null
     }
-    if (sync !== null) sync.stop()
+    sync.stop()
   }
 
   // The sound prompt: shown while the context is not running.
@@ -158,10 +151,10 @@ export function startSession({
     return Number.isFinite(ctx.outputLatency) ? ctx.outputLatency : 0
   }
 
-  // Ready for the song; in a room the link is idle now, so it re-syncs.
+  // Ready for the song; the link is idle now, so it re-syncs.
   function sendReady(index) {
     send({ type: 'ready', index })
-    if (sync !== null) sync.burst(RESYNC_PINGS)
+    sync.burst(RESYNC_PINGS)
   }
 
   // The offset used at start: the synced estimate when there is one, else
@@ -172,7 +165,7 @@ export function startSession({
   // pongs may still move it earlier (cycle 051).
   function startOffset(serverTime) {
     const receipt = serverTime - now()
-    const estimate = sync === null ? null : sync.current()
+    const estimate = sync.current()
     if (estimate === null) return { offsetMs: receipt, provisional: false }
     if (Math.abs(receipt - estimate.offsetMs) <= estimate.rttMs + DRIFT_MARGIN_MS) {
       return { offsetMs: estimate.offsetMs, provisional: false }
@@ -223,10 +216,8 @@ export function startSession({
     r.source = source
   }
 
-  // The player's own row in scores or ranking. Solo: the first row is
-  // always the player, whose server name may differ from the input.
+  // The player's own row in scores or ranking, by the name joined assigned.
   function ownRow(rows) {
-    if (!room) return rows[0]
     return rows.find((row) => row.name === myName)
   }
 
@@ -249,8 +240,7 @@ export function startSession({
       dispatchOwnSkip()
     }
     const text = errorText(code, msg)
-    const beforeGame = room ? !joined : !prepared
-    if (beforeGame || (room && code === 'room-closed')) {
+    if (!joined || code === 'room-closed') {
       // Back to the start screen with the message.
       close()
       dispatch({ type: 'startError', text })
@@ -289,8 +279,7 @@ export function startSession({
   function onPrepare(msg) {
     const r = newRound(msg.index, false, null)
     round = r
-    prepared = true
-    if (room) inGame = true
+    inGame = true
     resetSkips()
     dispatch({ type: 'prepare', index: msg.index, total: msg.total })
     soundCheck()
@@ -380,7 +369,7 @@ export function startSession({
   // joined, then a snapshot of a playing game: watch its current song.
   // On a rejoin socket the snapshot rebuilds instead.
   function onSnapshot(msg) {
-    if (!room || !joined) return
+    if (!joined) return
     if (rejoined) {
       onRejoinSnapshot(msg)
       return
@@ -458,26 +447,21 @@ export function startSession({
         break
       case 'scores': {
         const row = ownRow(msg.scores)
-        dispatch({ type: 'scores', score: row === undefined ? null : row.score, board: room ? msg.scores : null })
+        dispatch({ type: 'scores', score: row === undefined ? null : row.score, board: msg.scores })
         break
       }
       case 'gameOver': {
         const row = ownRow(msg.ranking)
-        // Solo: the server's solo lobby empties once this socket closes, so
-        // nothing (such as room-closed) can reach the final-score screen.
-        if (!room) close()
         stopTimer()
         inGame = false
         dispatch({
           type: 'gameOver',
           score: row === undefined ? null : row.score,
-          ranking: room ? msg.ranking : null,
+          ranking: msg.ranking,
         })
         break
       }
       case 'joined':
-        // The server runs solo games in a lobby too; solo ignores it.
-        if (!room) break
         joined = true
         myName = msg.name
         roomCode = msg.code
@@ -494,7 +478,6 @@ export function startSession({
         }
         break
       case 'pong':
-        if (sync === null) break
         sync.onPong(msg)
         if (round !== null) {
           lateStart(round)
@@ -505,8 +488,7 @@ export function startSession({
         onSnapshot(msg)
         break
       case 'token':
-        // Private to this session; solo never reconnects.
-        if (!room) break
+        // Private to this session.
         token = msg.token
         storeRejoin({ token, code: roomCode })
         break
@@ -524,13 +506,11 @@ export function startSession({
         })
         break
       case 'roster':
-        if (!room) break
         dispatch({ type: 'roster', phase: msg.phase, players: msg.players })
         if (msg.phase === 'lobby' && inGame) abandon()
         break
       case 'roomTheme':
-        // The look the host picked for the room (F-012); solo has none.
-        if (!room) break
+        // The look the host picked for the room (F-012).
         dispatch({ type: 'roomTheme', theme: msg.theme })
         break
       case 'error':
@@ -628,12 +608,11 @@ export function startSession({
       scheduleAttempt()
       return
     }
-    if (room && token !== null) {
+    if (token !== null) {
       beginReconnect()
       return
     }
-    // A solo session is already closed after gameOver, and a room without a
-    // token cannot rejoin, so this close ends the session.
+    // A room without a token cannot rejoin, so this close ends the session.
     shutdown()
     dispatch({ type: 'disconnected' })
   }
@@ -642,7 +621,6 @@ export function startSession({
     s.onopen = () => {
       if (s !== socket) return
       if (rejoined) send({ type: 'rejoin', token })
-      else if (mode === 'solo') send({ type: 'create', nickname, songCount, ...fields })
       else if (mode === 'create') send({ type: 'create', nickname })
       else send({ type: 'join', code, nickname })
     }
@@ -674,16 +652,16 @@ export function startSession({
       if (active) send({ type: 'start', songCount: count, ...startFields })
     },
     // Toggles the own skip vote for the current song, between its start and
-    // its reveal. Watchers and solo do not vote.
+    // its reveal. Watchers do not vote.
     skipVote() {
-      if (!active || !room || round === null || round.watching || round.start === null || round.revealed) return
+      if (!active || round === null || round.watching || round.start === null || round.revealed) return
       send({ type: 'skipVote', index: round.index })
       skipsSent += 1
       dispatchOwnSkip()
     },
     // The host's room-look pick (F-012); the server broadcasts it back.
     setRoomTheme(theme) {
-      if (active && room) send({ type: 'roomTheme', theme })
+      if (active) send({ type: 'roomTheme', theme })
     },
     // Leaves the room on purpose: the server is told, then the socket closes.
     leave() {
