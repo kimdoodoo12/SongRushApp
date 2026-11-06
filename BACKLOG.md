@@ -299,6 +299,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - With `songrush.audio.s3-bucket`: served map loaded at startup (missing/invalid or zero candidates fails startup), candidates need a served-map entry with the index size, `/audio/{token}` -> 302 to a 60 s presigned URL with `Cache-Control: no-store`, presign error -> 503, credentials resolved once at startup, drop counts logged; without it, unchanged.
 - [x] **I-011** owner: move the audio to S3 (from S-006; done 2026-11-06: 1,499 objects served, role read policy, maps on the server, first automated deploy in S3 mode, live solo round fetched audio from S3 with the CORS header; the upload key decision is left to the owner) - read policy on the server role, upload key and upload, copy the maps, set the env, deploy, real-browser check, delete the upload key.
 
+- [~] **F-013** frontend: remove solo mode from the client; the record visibly spins in every theme (from D-093)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -319,6 +321,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-093** No solo mode in the client (user, 2026-11-07: "혼자하기 기능도 필요 없는 것 같아. 어차피 방만들고 그대로 시작하면 되니까"): the start screen keeps nickname, theme, 방 만들기 and 방 코드/참가 only; one player plays alone by creating a room and starting it. The server's solo path stays for now (removal is a later cleanup). Also: the record must visibly spin in every theme (user: "CD가 돌아가지 않는 것들(예: 놀이터)").
 - **D-093** PR per cycle (user, 2026-11-06: "그러면 그렇게 해야할듯"): every cycle opens a PR from its branch to `dev`, and merges only after GitHub CI passes on it. Reason: CI ran only after a cycle had reached `dev`, and no step required reading its result. The private repo has no branch protection, so the skill enforces the wait. Deployment is unchanged: only the user's merge of `dev` into `main` deploys.
 - **D-092** Audio storage, revised (user, 2026-11-06; refines D-077 and D-083): the 1,500 cached songs move to a private S3 general-purpose bucket in the account-regional namespace (ap-southeast-2), under random object names. The server hands out short-lived **S3 presigned URLs** signed with the EC2 instance role (no stored key, no CloudFront for now; CloudFront can be put in front later). The upload uses an upload-only IAM user key on the owner's PC and a resumable tool that skips objects already uploaded; the key is deleted after the upload. Reason: the simplified account blocks OIDC and may block CloudFront key groups, and presigned S3 needs no secret.
 - **D-091** Six room themes (user, 2026-11-05, after mockup v2 with six looks: "일단 이대로 해보자. 괜찮아 다."): the host picks one of 놀이터, 무대, 벚꽃, 칠판, 별밤, 오락실, exactly as in the approved mockup `docs/design/071-room-mockup.html` (refines D-090's two looks).
