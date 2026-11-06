@@ -32,3 +32,6 @@ The stricter theme-layout test passes on `1daf393`, because no current theme rul
 
 ## Red evidence (lead, before the implementation, build of `1732c02`)
 The browser check on the real jar at 390×844 probed `.round-num` with the longest counters. All six themes clipped: `10 / 10` at 75–84 px against a 67 px box, and `30 / 30` at 81–84 px against 67 px, for 12 clippings in total. Box differences between themes were 0.
+
+## Note: a mixed commit
+Commit `0cee4f5` ("docs(077): red evidence ...") also holds the implementation (`GameScreen.jsx`, `index.css`). The lead used `git commit -a` while the implementer's edits were still uncommitted. The content is the implementation that was then verified. Only the message understates it. Pushed history is not rewritten.
