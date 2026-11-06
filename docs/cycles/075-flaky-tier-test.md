@@ -20,3 +20,8 @@ Also check the other socket tests that take a `received().size()` mark right aft
 1. `.\gradlew.bat test` passes.
 2. `TierSocketTest` passes 30 times in a row (`--tests` with a loop, or `@RepeatedTest` is not added).
 3. The diff touches only test files under `backend/src/test/java/com/songrush/ws/`.
+
+## Result
+- The fix commit is test-only and changes `TierSocketTest` alone. The writer ran `TierSocketTest` 30 times in a row and all 30 passed. The full suite passed: 434 tests, 0 failures.
+- No other socket test had the race; each one was checked by reading the code.
+- Independent check: the GitHub Actions CI run on dev after the merge.
