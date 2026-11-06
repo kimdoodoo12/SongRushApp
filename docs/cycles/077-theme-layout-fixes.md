@@ -26,3 +26,6 @@ Finish cycle 076. It reached zero box differences across the six themes but was 
 ## File ownership
 - **Test writer:** `frontend/src/themeLayout.test.js`.
 - **Implementer:** `frontend/src/index.css`, `frontend/src/components/*.jsx`, `frontend/src/App.jsx`.
+
+## Note after the test writer
+The stricter theme-layout test passes on `1daf393`, because no current theme rule uses the newly forbidden forms. So it guards against regressions and is not the red check of this cycle. The red evidence for H1 and M1 is the lead's browser clipping check (acceptance 3), run before and after the implementation.
