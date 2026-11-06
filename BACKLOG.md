@@ -299,7 +299,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - With `songrush.audio.s3-bucket`: served map loaded at startup (missing/invalid or zero candidates fails startup), candidates need a served-map entry with the index size, `/audio/{token}` -> 302 to a 60 s presigned URL with `Cache-Control: no-store`, presign error -> 503, credentials resolved once at startup, drop counts logged; without it, unchanged.
 - [x] **I-011** owner: move the audio to S3 (from S-006; done 2026-11-06: 1,499 objects served, role read policy, maps on the server, first automated deploy in S3 mode, live solo round fetched audio from S3 with the CORS header; the upload key decision is left to the owner) - read policy on the server role, upload key and upload, copy the maps, set the env, deploy, real-browser check, delete the upload key.
 
-- [~] **F-013** frontend: remove solo mode from the client; the record visibly spins in every theme (from D-093)
+- [x] **F-013** frontend: remove solo mode from the client; the record visibly spins in every theme (from D-093)
 
 ## Roadmap
 
@@ -418,6 +418,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (078) The record's `::before` sheen paints over its inset ring; use `inset: var(--ring)`. That is a layout property, so it needs the `themeLayout` var rule in mind; the alternative is drawing the ring on `::after`. The round counter is right-aligned in its fixed box, which shows as a left indent for short counters; the owner's call. Remove the server's solo path (D-093).
 - (077) `themeLayout.test.js` should also forbid Tailwind theme namespaces in theme rules: `--spacing`, `--text-*`, `--leading-*`, `--tracking-*`, `--font-weight-*`, `--container-*`, `--breakpoint-*`. It should also forbid `direction`, `unicode-bidi`, `text-indent`, `font-stretch`, `font-kerning`, `text-rendering`, `word-break`, `line-break`, `hyphens` and `tab-size`. The lead's Playwright box and clipping probe should be committed as a repeatable check. Where it lives (a new `frontend/e2e/` or similar) is the owner's choice.
 - (074) Pin `X-Amz-SignedHeaders=host` in a test so that an SDK upgrade adding signed headers cannot break browser fetches unseen. Make `s3upload.main`'s catch-all print only the type name and error code: today a listing transport error shows the endpoint URL, which holds the bucket and the `a/` prefix but no key. Propose an audio check for `deploy/smoke.py` to the owner (room, start, follow `audioUrl` with Origin, expect 200, the CORS header and `OggS`).
 - (072, fixed in cycle 075) Flaky `TierSocketTest.lobbyStartWithNormalSendsNoSettingsAndPrepareComesFirst` (failed once on GitHub Actions run 42042611967, passed in run 42042609757 on the same code). Likely cause: the `token` frame from create can arrive after the mark taken following `assertPingWorks`, so it is counted as the first frame after start. Fix the test to wait for `token` before the mark, in a test cycle.

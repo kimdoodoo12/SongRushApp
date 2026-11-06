@@ -53,3 +53,43 @@ Playwright took two clips of `.record` 400 ms apart in a room game and counted t
 | arcade | 9.9% |
 
 Target: at least 5% in every theme.
+
+## Test rewrite record (declared; test writer's table, checked by the critic)
+| File | Tests before → after | Removed (why) |
+|---|---|---|
+| difficulty | 12→10 | The start-screen 난이도 select (the screen lost it; the host-side test stays). The solo create default message shape (the solo protocol itself; the host default test covers the meaning). |
+| filters | 24→21 | The start-screen filter options (the host-side test stays). The solo create defaults. The reversed-range solo form submit (the solo form itself; the host test "button disabled, no start" stays). |
+| flow | 27→27 | None. An `it.each` row moved into its own test. |
+| layout | 6→5 | "Solo game shows no 자리 list." |
+| lobby | 25→23 | Three solo session tests: the socket closes at gameOver, joined/roster are ignored, lobby frames do not affect a solo game. A new start-screen test was added. |
+| multi | 26→25 | "Solo shows no 스킵." |
+| reconnect | 20→19 | "A solo session never reconnects." |
+| sync | 28→27 | "A solo session sends no ping." The solo rows became "alone" (a one-player room) rows. |
+| theme | 11→11 | None. The check button changed from 시작 to 방 만들기. |
+
+The total went from 295 to 284: 12 removed, 1 added. The meaning changes the critic accepted:
+- Errors that come after `start` now appear in the lobby, with the socket kept open.
+- `bad-nickname` and an unknown code stay on the start screen.
+- "다시 하기" paths became "대기실로, then 나가기, then a new room".
+
+## Result
+- **Commits.**
+  - Tests: `efa173b`.
+  - Implementation: `03f584e`.
+  - Right-aligned round counter: attempt 2.
+- `npm test` passed 284 tests; `npm run lint` and `npm run build` exited 0 (implementer's runs). The test commit is locked and unchanged.
+- **Lead's browser check, local jar plus the built client.** In 400 ms the record changes visibly in every theme:
+
+  | Theme | Changed pixels |
+  |---|---|
+  | play | 22.9% |
+  | neon | 13.9% |
+  | sakura | 22.3% |
+  | chalk | 13.5% |
+  | star | 18.1% |
+  | arcade | 23.2% |
+
+  Before, it was 0.0–9.9%. Box differences are 0 at 1280 and 390, and clippings are 0. The start screen has no solo controls.
+- **Code review.** No Blocker or High.
+  - The Medium (the missing test table) is resolved above.
+  - The Nit (the sheen paints over the record's inset ring) is moved to Follow-ups.
