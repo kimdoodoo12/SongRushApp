@@ -40,11 +40,11 @@ function App({
   const opusOk = canPlayOpus === undefined ? detectedOpus : canPlayOpus
   // Read once at mount (D-048 share links).
   const [initialCode] = useState(codeFromPath)
-  // 곡 수 and the filters, shared by solo and the host and kept for the
-  // page's lifetime (F-008): neither 처음으로 nor 나가기 resets them.
+  // 곡 수 and the filters, the host's lobby controls, kept for the page's
+  // lifetime (F-008): neither 처음으로 nor 나가기 resets them.
   const [selection, setSelection] = useState(DEFAULT_SELECTION)
-  // The own room look (F-012): the start screen and solo games use it; a
-  // room uses the host's pick from the server instead.
+  // The own room look (F-012): the start screen uses it; a room uses the
+  // host's pick from the server instead.
   const [ownTheme, setOwnTheme] = useState(loadOwnTheme)
   const ctxRef = useRef(null)
   const sessionRef = useRef(null)
@@ -73,7 +73,8 @@ function App({
     })
   }
 
-  // Starts a session: mode 'solo', 'create' or 'join' (see session.js).
+  // Starts a room session: mode 'create' or 'join' (see session.js). There is
+  // no solo mode in the client (D-093): every game is a room game.
   function openSession(options) {
     // The audio-unlock gesture: create and resume synchronously in the click,
     // before anything is awaited (design 029). One context for every game.
@@ -98,11 +99,6 @@ function App({
       dispatch,
       ...options,
     })
-  }
-
-  function handleStart(nickname) {
-    if (isReversed(selection)) return
-    openSession({ mode: 'solo', nickname, songCount: Number(selection.songCount), fields: toFields(selection) })
   }
 
   function handleCreate(nickname) {
@@ -193,9 +189,6 @@ function App({
             initialCode={initialCode}
             theme={ownTheme}
             onPickTheme={handleOwnTheme}
-            selection={selection}
-            onSelectionChange={setSelection}
-            onStart={handleStart}
             onCreate={handleCreate}
             onJoin={handleJoin}
           />

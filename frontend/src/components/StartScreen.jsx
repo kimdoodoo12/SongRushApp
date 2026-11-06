@@ -1,40 +1,19 @@
 import { useState } from 'react'
-import { SONG_COUNTS } from '../game/state.js'
-import { isReversed } from '../game/filters.js'
-import FilterControls from './FilterControls.jsx'
 import ThemePicker from './ThemePicker.jsx'
 
 const NO_OPUS =
   '이 브라우저에서는 음원을 재생할 수 없습니다. 브라우저 또는 iOS를 최신 버전으로 업데이트해 주세요.'
 const CODE_LENGTH = 5
 
-// The solo form (닉네임, 곡 수, 시작) and, outside it, the room controls
-// (방 만들기, 방 코드, 참가). The code field is outside the form so Enter in
-// it joins the room instead of starting a solo game. 곡 수 and the filters
-// are the App-level selection, shared with the host controls (F-008).
-// theme is the own room look, changed with the 분위기 picker (F-012).
-function StartScreen({
-  canPlayOpus,
-  error,
-  initialCode,
-  theme,
-  onPickTheme,
-  selection,
-  onSelectionChange,
-  onStart,
-  onCreate,
-  onJoin,
-}) {
+// One card, top to bottom: 닉네임, the 분위기 picker, 방 만들기, then 방 코드
+// with 참가. Every game is a room game (D-093): there is no solo form, and
+// 곡 수 and the filters are host controls in the lobby. Enter in the code
+// field joins the room. theme is the own room look, changed with the
+// 분위기 picker (F-012).
+function StartScreen({ canPlayOpus, error, initialCode, theme, onPickTheme, onCreate, onJoin }) {
   const [nickname, setNickname] = useState('')
   const [code, setCode] = useState(initialCode)
   const canJoin = canPlayOpus && code !== ''
-  const canStart = canPlayOpus && !isReversed(selection)
-
-  function handleSubmit(event) {
-    event.preventDefault()
-    if (!canStart) return
-    onStart(nickname)
-  }
 
   function handleJoin() {
     if (!canJoin) return
@@ -49,41 +28,23 @@ function StartScreen({
 
   return (
     <div className="start-screen mx-auto flex w-full max-w-md flex-col gap-4">
-      <div className="panel flex flex-col gap-2 p-4">
-        <span className="font-display h-5 truncate text-sm leading-5 text-muted">분위기</span>
-        <ThemePicker value={theme} onPick={onPickTheme} />
-      </div>
-      <form className="start grid grid-cols-2 gap-3 panel p-5 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted" onSubmit={handleSubmit}>
-        <h2 className="font-display col-span-full h-7 truncate text-xl leading-7">혼자 하기</h2>
+      <div className="start room-controls panel grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-3 gap-y-4 p-5 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted">
         <label className="col-span-full">
           닉네임
           <input type="text" maxLength={16} value={nickname} onChange={(e) => setNickname(e.target.value)} />
         </label>
-        <label>
-          곡 수
-          <select
-            value={selection.songCount}
-            onChange={(e) => onSelectionChange({ ...selection, songCount: e.target.value })}
-          >
-            {SONG_COUNTS.map((n) => (
-              <option key={n} value={String(n)}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-        <FilterControls selection={selection} onChange={onSelectionChange} />
-        <button type="submit" className="go col-span-full h-13 truncate py-0 text-base leading-6" disabled={!canStart}>
-          시작
-        </button>
-        {!canPlayOpus && <p className="notice col-span-full text-sm text-warn">{NO_OPUS}</p>}
-        {error !== null && <p className="error col-span-full rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
-      </form>
-      <div className="start room-controls grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 panel p-5 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted">
-        <h2 className="font-display col-span-full h-7 truncate text-xl leading-7">같이 하기</h2>
+        <div className="col-span-full flex flex-col gap-1">
+          <span className="h-4 truncate text-xs leading-4 font-medium text-muted">분위기</span>
+          <ThemePicker value={theme} onPick={onPickTheme} />
+        </div>
         <button type="button" className="go col-span-full h-13 truncate py-0 text-base leading-6" disabled={!canPlayOpus} onClick={() => onCreate(nickname)}>
           방 만들기
         </button>
+        <div className="col-span-full flex h-4 items-center gap-3 text-xs leading-4 text-muted" aria-hidden="true">
+          <span className="h-px flex-1 bg-line" />
+          또는 코드로 참가
+          <span className="h-px flex-1 bg-line" />
+        </div>
         <label>
           방 코드
           <input
@@ -104,6 +65,8 @@ function StartScreen({
         >
           참가
         </button>
+        {!canPlayOpus && <p className="notice col-span-full text-sm text-warn">{NO_OPUS}</p>}
+        {error !== null && <p className="error col-span-full rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </div>
     </div>
   )

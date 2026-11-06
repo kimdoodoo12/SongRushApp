@@ -264,11 +264,6 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       {screen === 'over' && (
         <section className="over flex flex-col items-center gap-3 text-center">
           {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{`최종 점수: ${finalScore}점`}</p>}
-          {room === null && (
-            <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onReset}>
-              다시 하기
-            </button>
-          )}
           {room !== null && lobbyOpen && (
             <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onToLobby}>
               대기실로

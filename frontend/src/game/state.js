@@ -36,7 +36,7 @@ export function errorText(code, message) {
 export const initialState = {
   screen: 'start',
   startError: null,
-  room: null, // { code, me } once joined; null in solo play
+  room: null, // { code, me } once joined; null before
   players: [], // the last roster: { name, score, host, connected }
   lobbyOpen: false, // the room is back in its lobby after a game
   notice: null, // a lobby notice, such as ABANDONED_TEXT
@@ -51,8 +51,8 @@ export const initialState = {
   score: null,
   error: null,
   finalScore: null,
-  scoreboard: null, // room only: the last scores rows { name, score }
-  ranking: null, // room only: the gameOver rows { rank, name, score }
+  scoreboard: null, // the last scores rows { name, score }
+  ranking: null, // the gameOver rows { rank, name, score }
   watching: false, // joined mid-song: watching it, playing from the next
   started: false, // the song is between its start and its reveal
   skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
@@ -212,7 +212,7 @@ export function reducer(state, action) {
     case 'reveal':
       return { ...state, timer: null, reveal: action.reveal, started: false, skipCount: null }
     case 'scores':
-      // score is null without an own row; board is null in solo.
+      // score is null without an own row.
       return {
         ...state,
         score: action.score === null ? state.score : action.score,
