@@ -1,6 +1,6 @@
 ---
 name: vibe-cycle
-description: Run one autonomous development cycle for this repo. It takes the next Ready item from BACKLOG.md, specs it, has critic review the spec, writes and locks tests, delegates implementation, has the verifier and critic check the result, merges to dev, and logs to PROGRESS.md. For `S-` design items it investigates, writes a design doc, and appends the resulting items to Ready. When Ready is empty it plans the next Roadmap milestone into Ready. Use it for "/vibe-cycle" or "/loop /vibe-cycle". Never block waiting for the user.
+description: Run one autonomous development cycle for this repo. It takes the next Ready item from BACKLOG.md, specs it, has critic review the spec, writes and locks tests, delegates implementation, has the verifier and critic check the result, opens a PR to dev, waits for GitHub CI, merges to dev, and logs to PROGRESS.md. For `S-` design items it investigates, writes a design doc, and appends the resulting items to Ready. When Ready is empty it plans the next Roadmap milestone into Ready. Use it for "/vibe-cycle" or "/loop /vibe-cycle". Never block waiting for the user.
 ---
 
 # vibe-cycle
@@ -74,12 +74,22 @@ Spawn `critic` with:
 Blocker and High findings send the cycle back to step 4, and the attempt counter increases. Record Medium and Nit findings under **Follow-ups** in BACKLOG.md, not under Ready, so review nits never feed the loop by themselves.
 
 ## 7. Integrate
-1. Run `python -I .claude/hooks/lock.py unlock`.
-2. Run `git switch dev`, then `git merge --no-ff cycle/NNN-<slug>`.
-3. If `origin` exists, run `git push origin dev`.
-4. If `origin` exists, make sure a PR from dev to main is open (`gh pr list --base main --head dev`; if none, `gh pr create --base main --head dev --title "dev -> main" --body "<PROGRESS summary>"`). **Never merge it.**
-5. In BACKLOG.md, change the item to `[x]`.
-6. Update PROGRESS.md, **the owner's progress report** (user, 2026-11-02: it must read as the owner's report, not as notes for the AI).
+GitHub CI runs on a clean Linux runner, so it catches what the local verifier cannot: missing files and environment differences. It runs `backend` and `frontend` only, so it does not cover `data/`. Tests stay locked until CI passes, so a CI fix cannot edit them either (D-093). "Sub-step" below means a numbered step of this section; "section" means a numbered section of this skill.
+
+1. Run `git fetch origin dev`, then `git merge origin/dev` on the cycle branch. On a conflict, resolve it through section 4 (Implement), then repeat sections 5 and 6.
+2. Run `git push -u origin cycle/NNN-<slug>`. `guard.py` rejects a push whose text has `main` as a word, so keep that word out of the slug.
+3. Open the PR: `gh pr create --base dev --head cycle/NNN-<slug> --title "NNN: <title>" --body-file <doc>`, where `<doc>` is the cycle doc, or the design doc in a design or planning cycle.
+4. Wait in-turn with `gh pr checks <number> --watch --interval 30`, using a 10-minute tool timeout. Checks can take a moment to appear after the PR opens, so retry for up to 2 minutes.
+   - **All passed:** continue with sub-step 5.
+   - **A test the diff did not touch failed:** read it with `gh run view <run-id> --log-failed`. It may be flaky, so retrigger once with `git commit --allow-empty -m "ci(NNN): retrigger"` and a push, without counting an attempt. If it fails again, treat it as a failure below.
+   - **A check failed because of this change:** read the log, treat it as a verifier finding, return to section 4 (Implement) and increase the attempt counter. After sections 5 and 6 pass again, push the same branch (never force-push) and repeat this sub-step.
+   - **A check failed in a design or planning cycle:** nothing there can be implemented, so follow **Blocked path** and record the failing check.
+   - **CI could not finish** (no result after 20 minutes, Actions outage, or minutes used up): do not merge. Follow **Blocked path** with `[?]`, keep the branch and PR, and end `/loop`, because the next cycle would hit the same problem. To resume, switch to the branch, lock the tests again and continue at sub-step 4.
+5. Confirm that `git rev-parse HEAD` equals `gh pr view <number> --json headRefOid`, so the merge contains exactly what CI tested. Then run `python -I .claude/hooks/lock.py unlock`.
+6. Run `git switch dev`, then `git merge --no-ff cycle/NNN-<slug>`, then `git push origin dev`. GitHub marks the PR merged when its head reaches `dev`; confirm with `gh pr view <number> --json state`. If it is still `OPEN` after a minute, the work is on `dev` anyway, so continue and log it under Needs decision. **Never run `gh pr merge` or merge a PR through `gh api`:** merging `dev` into `main` deploys, and it is the user's alone. This rule is what protects it, so never work around it.
+7. Make sure a PR from dev to main is open (`gh pr list --base main --head dev`; if none, `gh pr create --base main --head dev --title "dev -> main" --body "<PROGRESS summary>"`). **Never merge it.**
+8. In BACKLOG.md, change the item to `[x]`.
+9. Update PROGRESS.md, **the owner's progress report** (user, 2026-11-02: it must read as the owner's report, not as notes for the AI).
    - **Append** one entry at the **end** of `## Log`, so the log reads oldest first and newest last (user, 2026-11-03): `### <date> · <plain Korean title> — 완료|막힘|결정 필요`, then 2-4 plain Korean sentences covering what now exists in game terms, why it matters, and at most one notable problem caught. End with one line `기록: docs/cycles/NNN-slug.md`.
    - Refresh `## 현재 상태` when the picture changes.
    - **Rewrite `## 다음 진행 예정` every time; it is the last section of the file, after the Log** (user, 2026-11-03) (user, 2026-11-02). Delete the previous plan entirely and write the next 3-5 items in plain words, plus any long background job. Old plans are never kept.
@@ -93,6 +103,8 @@ Then update section "기록" of `docs/vibe-coding-system.md`. It is the user's p
 - Keep these counts current: total cycles, cycles that passed on the first attempt, BLOCKED cycles.
 - Add any case where a hook blocked something, and any bug the critic caught.
 - If hooks, agents, or this skill changed in a way that alters how the system works, describe the change and why. Routine permission allowlist edits are not recorded there (user, 2026-11-03).
+
+Finally, commit the BACKLOG, PROGRESS and record changes from sections 7 and 8 on `dev` in one `docs(NNN): record the cycle` commit, and run `git push origin dev`. They are written after the merge so that "완료" is only logged once CI has passed.
 
 ## Design cycle (`S-` items)
 A design item answers open questions and turns the answers into implementation items. Its output is a design doc and new backlog items, not product code, so there is no test-first step and no lock.
@@ -117,7 +129,7 @@ If 3 attempts are used up, or the work requires a human decision:
 1. Unlock the tests.
 2. Commit any work in progress on the cycle branch.
 3. Run `git switch dev` without merging.
-4. Mark the item `[!]` (or `[?]`).
+4. Mark the item `[!]` (or `[?]`). If a PR to `dev` is open, leave it open and unmerged.
 5. Log BLOCKED (or NEEDS DECISION) in PROGRESS.md, with the last verifier and critic output and what was tried.
 
 ## Evidence rules
