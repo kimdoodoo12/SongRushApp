@@ -67,3 +67,22 @@ Fonts with different metrics also change line heights and text widths.
 - New themes.
 - Server changes.
 - The mockup file.
+
+## Result: BLOCKED at the retry cap
+- **Commits.**
+  - Test: `6fbcb5f`.
+  - Attempts: `85c6ceb` (1), `7659f8c` (2), `fb04e0a` (3).
+- **Verifier at `fb04e0a`.**
+  - `npm test`: 21 files, 290 tests passed.
+  - `npm run lint` and `npm run build`: exit 0.
+  - The locked-test diff is empty.
+- **Lead's real-browser measurement.** Playwright drove the real jar and the built client through all six themes: lobby, stage and reveal, at 1280×820 and 390×844. There were 0 box differences.
+- **Code review: High H1.**
+  - `.round-num` is 2.8em wide with overflow hidden. That box clips `10 / 10` in every theme, and `1 / 10` in neon and arcade, so the last round of a default game reads "10 / 1".
+  - The measurement could not catch it, because the clipped box has the same size in every theme.
+- **Retry cap.** Three implementation attempts were used, so by the retry cap this cycle is BLOCKED and is not merged as is. The fix continues in cycle 077, which starts from this branch.
+- **Mediums carried to 077.**
+  - M1: names, scores and "정답!" share one truncated line, so the score is cut first.
+  - M2: the chalk wood frame now almost touches the content.
+  - M3: `themeLayout.test.js` lets `border:` shorthands that reset the width, `content`, and layout custom properties under other names through.
+- **Nit, carried to 077.** The time bar fill covers the inset ring.
