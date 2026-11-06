@@ -43,8 +43,8 @@ def changed_files():
 
 
 # A change under these top-level folders also runs these areas' tests
-# (contracts/normalize-vectors.json is checked by both JUnit and pytest, design 011).
-EXTRA_AREAS = {"contracts": {"backend", "data"}}
+# (shared cross-language contracts are checked by both JUnit and pytest).
+EXTRA_AREAS = {"contracts": {"backend", "data"}, "deploy": {"data"}, "docs": {"data"}}
 
 
 def runners():
@@ -62,10 +62,11 @@ def runners():
     data_ready = os.path.exists(py) and os.path.isdir(os.path.join(data, "tests"))
 
     return {
-        "frontend": (frontend_ready, [npm, "test", "--silent"], frontend, 900),
-        # A cold Gradle daemon plus Spring context tests can take minutes.
-        "backend": (os.path.exists(gradlew), [gradlew, "test", "--console=plain", "-q"], backend, 1500),
-        "data": (data_ready, [py, "-m", "pytest", "-q"], data, 900),
+        # settings.json caps the whole Stop hook at 900 s, so each runner stays below it.
+        # The first Gradle download is done manually in the bootstrap cycle, never here.
+        "frontend": (frontend_ready, [npm, "test", "--silent"], frontend, 850),
+        "backend": (os.path.exists(gradlew), [gradlew, "test", "--console=plain", "-q"], backend, 850),
+        "data": (data_ready, [py, "-m", "pytest", "-q"], data, 850),
     }
 
 
@@ -74,7 +75,7 @@ def counter_path(session):
 
 
 def main():
-    data = json.load(sys.stdin)
+    data = json.loads(sys.stdin.buffer.read().decode("utf-8"))
     session = (data.get("session_id") or "nosession")[:40]
     agent = data.get("agent_type") or ""
     if agent in READ_ONLY_AGENTS:

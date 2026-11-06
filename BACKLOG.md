@@ -3,366 +3,469 @@
 Status marks:
 - `[ ]` ready
 - `[~]` in progress
-- `[x]` done (merged to dev)
+- `[x]` done
 - `[!]` blocked
-- `[?]` needs the user's decision
+- `[?]` needs a user decision
 
-Cycles take the first `[ ]` under **Ready**. When Ready is empty, a planning cycle turns the first `[ ]` milestone under **Roadmap** into Ready items.
+Id prefixes:
+- `B-` backend (Java)
+- `F-` frontend (React JS)
+- `C-` data tools (Python)
+- `I-` infra
+- `S-` research and design
 
-- Only the user reorders or deletes items, and only the user adds Roadmap milestones. The user may also edit anything an agent added.
-- Design and planning cycles append the items they produce to the **end** of Ready, marked `(from S-NNN)` or `(from M-x)`.
-- Review nits go under **Follow-ups**, which cycles never pick. The user promotes them to Ready if wanted.
-
-Id prefixes: `B-` backend (`backend/`, Spring Boot), `F-` frontend (`frontend/`, React JS), `C-` catalog and data tools (`data/`, Python), `I-` infra, `S-` design (investigation; output is a design doc plus new items), `M-` roadmap milestone, `D-` user decision.
-
-The repo restarted with a fresh history (D-031). Ready below is design 011 "Resulting items", in that order. Item ids reuse the original numbers so designs 001-010 still match. The acceptance criteria carry over design 011 "Lessons carried over", so the bugs found in the discarded implementation are pinned from the first test.
-
-Shared conventions for every item:
-- Tests never touch the network. Data tests use the saved fixtures in `data/tests/fixtures/`. Clocks, sleeps, randomness, HTTP and the ffmpeg runner are injected.
-- The SongRushBot User-Agent is `SongRushBot/<version> (+https://github.com/kimdoodoo12/SongRushApp)`.
-- File contracts between `data/` and `backend/` are design 011 decision 4. The normalize contract is design 011 decision 3.
+Acceptance values come only from user decisions, external sources, raw fixtures and the new design docs. Nothing from the discarded TypeScript attempt is used (D-031, D-032).
 
 ## Ready
 
-### Backend first (blocks M-1)
-
-- [ ] **B-001** backend: Spring Boot bootstrap (from design 011)
-  - `backend/`: Spring Boot 4.1.x on Java 17, the Gradle wrapper committed (`gradlew`, `gradlew.bat`, `gradle/wrapper/`), JUnit 5. No database (design 011 decision 6).
+- [x] **B-001** backend: Spring Boot bootstrap
+  - `backend/`: Spring Boot 4.1.x on Java 17, the Gradle wrapper committed, JUnit 5. No database.
   - Acceptance:
-    - `GET /health` returns 200, `Content-Type: application/json`, and the body `{"ok":true}`.
-    - Any other path (for example `GET /nope`) returns 404 with a JSON body, not the Whitelabel HTML page.
-    - The tests start the app on a random port (`@SpringBootTest(webEnvironment = RANDOM_PORT)`) and call it over HTTP.
-    - `gradlew.bat test` and `gradlew.bat build` exit 0 from `backend/`, with no network access needed after the first wrapper download.
-    - The data directory is read from `songrush.data-dir`, which defaults to `../data` (design 011 decision 1). A test pins the default.
-    - The lead adds the `backend` row to the CLAUDE.md Commands table and makes the Stop hook run `gradlew.bat test` when files under `backend/` changed.
-
-- [ ] **B-006** backend: chat answer matcher with the shared normalize vectors (from design 011 / design 008)
-  - A pure `normalize(text)` and `isCorrect(text, accepted)` in the backend's `game` package. Design 008 decisions 3-4, design 011 F2-F3 and decision 3.
-  - Rule, in order: NFKC; lowercase with `Locale.ROOT`; NFD; remove U+0300-U+036F; NFC; remove every character in categories P*, S*, Z* and Cf, the explicit whitespace set, U+115F, U+1160, U+3164 and U+FE00-U+FE0F.
-  - The explicit whitespace set is written out character by character, never `\s` (Java's `\s` is ASCII-only without `UNICODE_CHARACTER_CLASS`, and Python's also matches U+001C-U+001F and U+0085). The spec lists the set and records, for U+001C-U+001F and U+0085, whether they are removed; the vectors then pin that choice for both languages.
-  - This item creates `contracts/normalize-vectors.json`: a list of `{input, expected}` pairs. Inputs that need invisible or combining characters are stored as JSON escapes, and the file is pure ASCII (checked by a test).
+    - `GET /health` returns 200 `application/json` `{"ok":true}`.
+    - Unknown paths return 404 JSON, even with `Accept: text/html`.
+    - `POST /health` returns 405 JSON.
+    - The HTTP tests run on a random port.
+    - `songrush.data-dir` defaults to `../data`.
+    - From `backend/`, `gradlew.bat test` and `gradlew.bat build` exit 0, and they also pass `--offline`.
+  - The lead updates the CLAUDE.md Commands row. Spec: `docs/cycles/012-backend-bootstrap.md`.
+- [x] **I-002** data: Python bootstrap
+  - `data/`: package `songrush_data/`, a `tests/` folder run by pytest, `requirements.txt` with pinned versions, and a `.venv` created by a documented command.
   - Acceptance:
-    - The vectors include every design 008 example: "귀멸의 칼날" and "귀멸의칼날" give "귀멸의칼날"; "SPY×FAMILY" and "spy family" give "spyfamily"; "Ōkami-san" gives "okamisan"; "ガールズ＆パンツァー" gives "ガールズパンツァー"; "ｶﾞｰﾙｽﾞ" gives "ガールズ"; "Re:ゼロから始める異世界生活" gives "reゼロから始める異世界生活"; "【최애의 아이】" gives "최애의아이"; full-width "ＡＢＣ１２３" gives "abc123"; "Lucky☆Star" gives "luckystar"; "Gintama°" gives "gintama".
-    - The vectors include one case per edge character in design 011 decision 3: U+001C-U+001F, U+0085, U+00A0, U+3000, U+200B, U+00AD, U+FEFF, U+115F, U+1160, U+3164, U+FFA0 (NFKC gives U+1160), U+FE0F after ☆, U+0130 `İ` (gives "i"), and a word ending in capital sigma (final sigma).
-    - The vectors include at least one title per script present in the catalog (Hangul, kana, kanji, Latin with diacritics, Cyrillic or Greek if present). Every vector character is assigned in Unicode 13, so Java 17 and Python 3.12 should agree (D-030).
-    - A JUnit test runs every vector through `normalize` and fails with the vector index on a mismatch.
-    - `isCorrect`, with accepted = {normalize("진격의 거인")}: "진격의 거인!!" and "  진격의거인 " are true; "진격의 거" (prefix), "진격의 거인 2기" (extra text), "" and "!!! ..." are false. With accepted = {normalize("귀멸의 칼날")}, "귀멸의 칼남" is false. An accepted set containing "" never matches an empty or punctuation-only message.
-    - `isCorrect` does not modify the accepted set.
-    - The Java source holds no raw invisible or combining characters: a test reads the source file and asserts it is pure ASCII.
-    - Lowercasing does not depend on the default locale: the vectors pass with `Locale.setDefault(new Locale("tr"))`.
-
-- [ ] **B-002** backend: ranking, pure (from design 011 / design 009)
-  - Design 009 D3.
+    - One smoke test passes.
+    - `.venv\Scripts\python.exe -m pytest` exits 0 from `data/`.
+    - The Stop hook runs the `data` area.
+- [x] **S-001** design: song data and catalog (new research for this stack)
+  - Re-research from the sources:
+    - which songs and anime exist, and how to fetch them (AnimeThemes API);
+    - popularity and series relations (AniList);
+    - accepted titles in Korean, English, Japanese and romaji (D-015, D-020, D-022);
+    - each source's terms and rate limits.
+  - Decide how the Python tools build the catalog file, and what the backend reads.
+  - Output: a design doc plus C- items.
+- [x] **C-001** data: normalize, trailing qualifiers, scripts (from design 014)
+  - `data/songrush_data/titles.py`.
+  - `normalize(s)` (D-015): ignores spaces, punctuation, symbols, case and width, and keeps spelling. The exact Unicode steps are fixed in the spec.
+  - `strip_qualifier(s)` removes one trailing qualifier: `Season N`, `, season N`, `Nth Season`, `Part N`, `(The) Final Season`, `第N期`, `N기`, `시즌 N`, `N화`, `(YYYY)`, `(TV)`, `(...애니메이션)`. It does not strip when fewer than 4 characters would remain.
+  - `has_hangul(s)` uses U+AC00-U+D7A3.
+  - `head(s)` is the part before the first `/` or `:`.
   - Acceptance:
-    - `rank([{A,3},{B,5},{C,3},{D,0}])` gives B 1, A 2, C 2, D 4.
-    - Three players with 0 points share rank 1.
-    - The class exposes no time-based score function, because design 009 removed the speed formula.
-
-- [ ] **B-013** backend: realtime core (from design 011)
-  - Raw Spring WebSocket handler at `/ws`. Every frame is a JSON envelope `{type, id?, payload}`; event names are design 009 D7's. A request that carries `id` gets one reply with the same `id` (the ack), shaped `{type, id, payload: {ok: true, ...}}` or `{type, id, payload: {ok: false, error}}`.
-  - Each room owns a single-thread executor. Every inbound message for the room and every timer of the room runs on it, in submission order (design 011 decision 2, design 009 F2). A message's arrival order is the order in which it was submitted to the room executor.
-  - Sends to one session are serialized (Spring's `WebSocketSession` is not safe for concurrent sends; use a decorator such as `ConcurrentWebSocketSessionDecorator` or an equivalent).
-  - The core provides the token binding that B-003's join uses: one open session per `playerToken`.
-  - Acceptance (integration tests with real WebSocket clients on a random port, plus unit tests on the executor):
-    - Malformed JSON, a missing `type`, or a non-object `payload` gets `{ok:false, error:"bad_request"}` (with the `id` when one was parseable) and the session stays open. An unknown `type` gets `unknown_type`.
-    - A frame above the size limit fixed in the spec closes the session with status 1009.
-    - **Arrival order.** Two sessions in one room send a correct answer to a test handler at the same moment, released together by a `CountDownLatch`. Repeated 100 times: every run has exactly one winner, and the winner is the message submitted first to the room executor. The loser's message is handled after the round ended.
-    - **Deadline vs answer.** A round deadline timer and a correct answer are scheduled for the same instant, repeated 100 times: the round ends exactly once per run (either `timeout` or `correct`, never both, never neither), and exactly one end event is broadcast.
-    - **Replace.** A second session presenting a `playerToken` already bound to an open session receives the binding; the old session receives `room:replaced` and is then closed. A later close of the old session does not mark the player disconnected.
-    - A session close removes its binding and is delivered to its room's executor as a disconnect.
-    - A room's executor is shut down when the room is deleted; tasks submitted after that are dropped without an exception reaching the caller.
-    - An exception inside one handler is logged, answers that request with `{ok:false, error:"internal"}`, and the room's executor keeps running the next task.
-
-- [ ] **B-003** backend: room registry, pure, with injected clock and random (from design 011 / design 002, 009)
-  - Design 002 D4, design 009 D5. No WebSocket and no timers inside; time and randomness are injected. The registry stores no score: the engine owns points, keyed by a `playerId` that is stable across reconnects.
-  - Acceptance:
-    - **Codes.** 4 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ` (no I or O), each `ALPHABET[floor(random * 24)]`. With `random` scripted as `[0, 0.5, 0.99, 0.25]` the code is "ANZG". 200 seeded codes all match `^[A-HJ-NP-Z]{4}$`. A forced collision retries.
-    - **Join errors.** The 13th distinct token gets `full` (disconnected players count). An unknown code gets `not_found`. An unknown token gets `in_game` in each of `loading`, `playing`, `reveal` and `paused`, and is accepted in `lobby` and `finished`. An empty or 17-character trimmed nickname gets `bad_nickname` on create and join.
-    - **Reconnect.** After a disconnect, rejoining with the same token returns the same `playerId` with `reconnected:true`, also when the room holds 12 players.
-    - **Replace.** The same token from a new socket while the old one is connected returns `replaced` = the old socket id; a later `disconnect(oldSocketId)` returns null and the player stays connected.
-    - **Host.** The host is the connected player with the earliest join. When the host leaves, the next earliest connected player becomes host; a disconnected earlier joiner is skipped and gets the host back on reconnect. With nobody connected, `hostId` is null. `leave` returns the new `hostId`.
-    - **Empty rooms.** With 0 connected players, `sweep()` keeps the room at +59 999 ms and lists it in `deletedRooms` at +60 000 ms. A reconnect at +30 000 ms prevents the deletion. A lobby room whose last player was removed as a ghost survives until 60 s after it became empty.
-    - **Ghosts.** In `lobby` or `finished`, a player disconnected for 30 000 ms is listed in `removedPlayers` and leaves the snapshot. The same player in `playing` is kept.
-    - **Snapshot.** Shape `{code, state, settings:{rounds}, hostId, players:[{playerId, nickname, connected, isHost}]}` in join order. Serialized to JSON it contains neither the keys `playerToken` or `socketId` nor any token or socket id value used in the test.
-    - **Settings.** Without `settings`, `rounds` is 10. Rounds 4, 31, 10.5 and the string "10" give `bad_settings`; 5 and 30 are accepted. The host can change `rounds` in `lobby`; a non-host gets `not_host`; in `playing` the call gets `not_lobby`.
-
-- [ ] **B-009** backend: room registry hardening (from design 011)
-  - Pins the registry defects found in the discarded implementation. New tests go in their own test class; B-003's tests stay unedited.
-  - Acceptance:
-    - **Ghost timer.** It restarts only on a move from a non-sweepable state (`loading`, `playing`, `reveal`, `paused`) to a sweepable one (`lobby`, `finished`). Scenario: disconnected for 45 s during `playing`, then `finished`: an immediate `sweep` keeps the player and a sweep 30 s later removes them; a rejoin in between keeps the same `playerId`. A move from `lobby` to `finished` (sweepable to sweepable) does not restart it.
-    - **Reconnect resets the ghost timer.** Disconnect, reconnect after 10 s, disconnect after another 15 s: the player is still kept 31 s after the first disconnect.
-    - **One room per socket.** A socket moves rooms only after the new room accepts it: `create` or `join` with a `socketId` that is current in another room first succeeds in the new room, then marks the old membership disconnected, and the result reports the old room as `left: {code, playerId}`. A failed join (`full`, `not_found`, `in_game`, `bad_nickname`) leaves the old membership untouched and reports no `left`. Afterwards `disconnect(socketId)` affects only the new room.
-    - **`bad_request` first.** These return `{ok:false, error:"bad_request"}`, never throw, and win over every other error (an unknown code with a null token gets `bad_request`, not `not_found`): null or non-object `settings`; an empty or non-string `playerToken` or `socketId`; a null settings argument to `setSettings`. Two joins with an empty token never share an identity.
-    - Re-joining from the same socket gives no `replaced`.
-    - **Code retry limit.** It is 20 retries, which is 21 draws. Scripted randomness where the first 20 draws collide and the 21st is fresh succeeds with the 21st code (84 values, then a fresh 4-value block). Where all 21 draws collide, `create` fails with a clear error (the spec fixes the exception or error code) and makes no 22nd draw.
-
-- [ ] **B-007** backend: audio store, tokens and route (from design 011 / design 010)
-  - Design 010 decisions 1-2; the manifest contract is design 011 decision 4.
-  - Acceptance:
-    - **Manifest.** `<data-dir>/cache/audio/manifest.json` is `{themeId: {cacheKey, durationMs}}`. With a manifest listing themes 3373 and 3374 where only 3373's `<cacheKey>.m4a` exists, `cached(3373)` gives its `durationMs`, `cached(3374)` is empty, and an unlisted theme is empty. A missing manifest gives an empty store. A corrupt manifest fails startup with a message naming the file. `add(themeId, entry)` makes a theme cached at once, after checking its file exists.
-    - **Tokens.** `issue(themeId, roomId)` returns 32 lowercase hex characters from 16 random bytes; with injected fixed bytes the token is exactly their hex, so it is not derived from the key or the id. Two issues give different tokens. Issuing for an uncached theme throws.
-    - **Route** (real HTTP on a random port, a temp dir with a 1000-byte fake `.m4a`):
-      - GET returns 200 with `Content-Type: audio/mp4`, `Cache-Control: no-store`, `Accept-Ranges: bytes`, `Content-Length: 1000`, no `ETag` and no `Last-Modified`, and a body equal to the file.
-      - Range is single only, per RFC 9110: `bytes=0-99` returns 206, 100 bytes and `Content-Range: bytes 0-99/1000`; `bytes=990-` returns 10 bytes; `bytes=-10` returns the last 10; `bytes=0-1999` is clamped to `bytes 0-999/1000`; `bytes=-2000` returns the whole file as 206.
-      - `bytes=1000-`, `bytes=5000-` and `bytes=-0` return 416 with `Content-Range: bytes */1000`. Any range on a 0-byte file returns 416 `bytes */0`.
-      - A malformed header (`bytes=50-10`, `items=0-1`, `bytes=abc`) or a multi-range request returns 200 with the whole file.
-      - HEAD returns the same status and headers with an empty body and does not open the file.
-    - **Expiry.** An unknown token returns 404. After `expireAfterRound(token)` the token still serves at +59 s on the injected clock and returns 404 at +60 s. `revokeRoom` makes that room's tokens 404 and leaves another room's token serving. `sweep()` with 2 expired tokens and 1 live one returns 2, and the live token still serves; `issue` also sweeps.
-    - **Traversal.** `/audio/..%2Fmanifest.json`, `/audio/../manifest.json`, `/audio/<32 hex>/../x` and an uppercase-hex token return 404.
-    - **Resilience.** A file deleted after `issue` returns 404 and `/health` still returns 200. Through an injected file opener that counts open streams: a client that aborts after the first chunk of an 8 MB file leaves 0 open streams within 1 s; 50 clients that abort immediately (including while the file lookup is pending) leave 0 open streams and log no ERROR; the server keeps serving afterwards.
-
-### Frontend
-
-- [ ] **F-001** frontend: React JavaScript bootstrap (from design 011)
-  - `frontend/`: React with JSX in plain JavaScript (no `.ts` or `.tsx` files and no TypeScript dependency), Vite, Vitest with jsdom and Testing Library, ESLint with a flat config (`eslint.config.js`).
-  - Acceptance:
-    - One smoke test renders the app and finds `getByRole("heading", { level: 1, name: "SongRush" })`.
-    - The test setup cleans up between tests (`afterEach(cleanup)` or Vitest globals).
-    - `npm test` runs once with no watch; `npm run lint` runs ESLint over `src` and `tests` with zero warnings allowed; `npm run build` writes `frontend/dist/` (gitignored). All three exit 0 from `frontend/`.
-    - A test or lint rule fails if any `.ts` or `.tsx` file appears under `frontend/src`.
-    - The lead adds the `frontend` row to the CLAUDE.md Commands table and makes the Stop hook run `npm test --silent` when files under `frontend/` changed and `node_modules` exists.
-    - The credit line (D-023) is not required yet; it lands with the first real page.
-
-### Data
-
-- [ ] **I-002** data: Python data bootstrap (from design 011)
-  - `data/`: Python 3.12, package `songrush_data/`, `tests/` with pytest, `requirements.txt` pinning `pytest`, `zstandard` and `imageio-ffmpeg`, and a local `data/.venv` (gitignored).
-  - Acceptance:
-    - `py -3.12 -m venv data/.venv` then `data/.venv/Scripts/python.exe -m pip install -r data/requirements.txt` succeeds on this machine, and `data/.venv/Scripts/python.exe -m pytest -q` exits 0 from `data/`.
-    - `songrush_data/common.py` defines the SongRushBot `USER_AGENT`, the gaps (AnimeThemes 3 s, AniList 2 s, audio host 3 s), the request timeout (at least 60 s), and the paths `data/cache/` and `data/catalog.json` resolved from the module file, not the working directory. A smoke test pins each value and checks the UA format.
-    - CLIs call `sys.stdout.reconfigure(encoding="utf-8")`; a test runs one CLI entry point with `--help` and decodes its output as UTF-8.
-    - `.gitignore` covers `data/.venv/`, `data/cache/` and `__pycache__/`, and does not ignore `data/catalog.json`.
-    - `.gitattributes` puts the `-text` rule for `data/tests/fixtures/` **last**, after `*.json text eol=lf` and `*.graphql text eol=lf` (design 011 decision 4). A test reads `git check-attr` output, or the file itself, to confirm the fixture rule wins.
-    - The lead adds the `data` row to the CLAUDE.md Commands table and makes the Stop hook run `data/.venv/Scripts/python.exe -m pytest -q` when files under `data/` changed and the venv exists. A change under `contracts/` runs both the backend and the data tests.
-
-- [ ] **C-012** data: HTTP infrastructure (from design 011)
-  - `songrush_data/http.py`, `filecache.py` and `lock.py`. Every later data item uses these; there is no second retry loop anywhere. Clock, sleep, the HTTP transport and the timeout factory are injected.
-  - Acceptance, retry:
-    - Up to 3 attempts, backoff 10 s then 20 s. A 5xx, a thrown request and a body-read failure (the body raises after the headers arrived) are retried.
-    - A 4xx other than 429 fails at once after exactly 1 request; the message names the status and the caller's label (for example `page 3`).
-    - A 429 counts as an attempt and waits `Retry-After` seconds (fallback 30 s when missing or not a number, cap 300 s): `Retry-After: 5` sleeps 5000 ms, `99999` sleeps 300000 ms, `abc` sleeps 30000 ms.
-    - A 429 on the final attempt still records its `Retry-After` as a not-before time in the shared gap state, so the **next** request (another page, another theme, another caller sharing the state) waits for it.
-    - `max_attempts=1` and `retry_server_errors=False` options exist (AniDB uses `max_attempts=1`, so even a 429 is not retried).
-  - Acceptance, gap and timeout:
-    - The gap counts from the end of the previous response body. With a fake transport whose body takes 30 s, every request after the first is preceded by a sleep of the full gap (3000 ms for AnimeThemes).
-    - Each attempt gets a fresh timeout of at least 60 s created **after** the gap sleep: the recorded call order is sleep, then timeout creation, then request.
+    - `contracts/normalize-vectors.json` is hand-written from D-015 and design 014, never from program output. It has at least 40 input/expected pairs and covers full-width characters, case, punctuation, spaces, symbols such as ☆ and ×, Hangul, kana and the edge characters (NBSP, ideographic space, zero-width space, soft hyphen).
+    - pytest runs every vector.
+    - The qualifier cases have tests, including the no-strip cases (`Steins;Gate 0`, `Mob Psycho 100`, `86`).
+- [x] **C-002** data: polite HTTP client and file cache (from design 014)
+  - `songrush_data/http.py`.
+  - Acceptance (all with an injected transport and clock, offline):
     - Every request sends `USER_AGENT`.
-  - Acceptance, file cache:
-    - Writes are atomic (temp file, then rename); a write interrupted mid-body leaves no entry.
-    - `get`, `put`, `delete(key)` and `clear(prefix)`; `clear("")` raises `ValueError` and deletes nothing. A refresh clears only the given prefix: other prefixes survive.
-    - Entries carry their write time so callers can apply a TTL on the injected clock.
-    - A helper `get_or_fetch` deletes a corrupt entry (invalid JSON, or rejected by the caller's validator) and fetches once more; if the refetch is also invalid, the error names the cache key and says to delete it.
-  - Acceptance, lock:
-    - `with_lock(path, tool, fn)` creates parent directories, writes `{pid, startedAt}` exclusively, runs `fn` and removes the file, also when `fn` raises and on `KeyboardInterrupt` (Ctrl+C).
-    - A held lock (the current pid) rejects without running `fn`; the message names the tool, the path, the pid and `startedAt`, and says to delete the file if no run is active.
-    - A lock with a pid that is not alive (for example 999999), or with unreadable or non-JSON content, is stale: it is removed and the lock taken. Before removing, the content is re-read and compared, so two processes that find the same stale lock cannot both take it.
-    - The liveness probe uses `OpenProcess` through `ctypes` on Windows (`os.kill(pid, 0)` is not a probe there); a test checks that the current pid is alive and 999999 is not.
-
-- [ ] **C-002** data: AnimeThemes GraphQL crawler (from design 011 / design 001, 007)
-  - POSTs the pinned query in `data/animethemes.graphql` to `https://graphql.animethemes.moe/` with `first:100` and `page` = 1.., following `paginatorInfo.hasMorePages`. Uses C-012. Design 007 decision 3.
+    - Requests run one at a time, with at least the configured gap counted from the end of the previous response.
+    - The per-attempt timeout is at least 60 s.
+    - 5xx and network errors are retried up to 3 times with backoff.
+    - 429 waits for `Retry-After`, including on the final attempt, and the next request waits too.
+    - Any other 4xx fails at once, with no retry.
+    - The file cache (`data/cache/`) holds responses by key and is written atomically. A corrupt entry is fetched again once. `clear("")` is rejected.
+    - The test network guard is extended to let loopback through (Follow-up from cycle 013).
+- [x] **C-003** data: AnimeThemes crawl and theme selection (from design 014)
+  - Pages through GraphQL `animePagination` with the saved query, using C-002 with a 3 s gap.
+  - Keeps OP/ED themes that have audio, choosing the audio deterministically: entries by version, null first, then id; videos by id.
+  - Acceptance (offline, on `gql_page1.json`):
+    - Theme count and the selected audio per theme are computed in the test from the fixture with the stated rule.
+    - Themes with no audio and non-OP/ED types are excluded.
+    - The AniList id comes from `resources`.
+    - Artists may be empty.
+    - A shifted page on resume restarts the crawl from page 1.
+- [x] **C-004** data: AniList enrichment (from design 014)
+  - Only for the ids that AnimeThemes lists (D-036): batches of 50, at least 2 s apart, at most 30/min.
+  - Selects `popularity`, `title{romaji english native}`, `synonyms` and `relations{edges{relationType node{id type format title{romaji english}}}}`.
+  - Acceptance (offline, with fixtures and an injected client):
+    - 120 ids make 3 requests.
+    - Missing ids give `null`.
+    - Per-id caching means a rerun makes 0 requests.
+- [x] **C-005** data: Wikidata labels and aod Korean strings (from design 014)
+  - Wikidata SPARQL by AniList id (P8729) for the `ko`, `en` and `ja` labels.
+  - aod release `2026-27` (pinned URL) for Hangul strings per AniList id.
+  - Acceptance (offline fixtures saved in this cycle's spec step):
+    - Labels are keyed by AniList id and language.
+    - Only strings with Hangul syllables count as Korean from aod.
+    - A source that fails is skipped with a warning, and the build continues.
+- [x] **C-010** data: AniList cache keeps the raw media; aod Hangul check on NFC (from the cycle 018 and 019 reviews)
+  - `fetch_media` stores the raw AniList media object (`{"media": <raw or null>}`) and normalizes it when reading, as the AnimeThemes crawl does. A later fix to the normalization then applies to records already cached.
+  - Acceptance (offline):
+    - A record cached before a change to the normalizer is returned in the new shape, with 0 requests.
+    - Every cycle 018 behaviour still holds; the cycle 018 tests keep passing (only the tests that pin the stored record's format may change).
+    - aod: a synonym stored in NFD (decomposed jamo) counts as Korean and is returned in NFC; AniList 157295 in the real release keeps its Korean title (pin with an inline record).
+- [x] **C-006** data: groups, accepted titles and reveal titles, pure (from design 014)
+  - The title-sharing join rule (D-041, D-042), the per-slot titles (D-037), Korean taking every collected title (D-039), official-only English, Japanese and romaji with the D-035 fallback, trailing-qualifier forms (D-038), and the reveal order.
+  - Acceptance (on the saved relation fixtures):
+    - Fate/Zero and Fate/stay night join.
+    - Bakemonogatari and Nisemonogatari stay separate, and Koyomimonogatari stays separate.
+    - The Attack on Titan movies and the Re:Zero OVAs join.
+    - "Demon Slayer" alone is not accepted, while "Kimetsu no Yaiba" and "Demon Slayer: Kimetsu no Yaiba" are.
+    - "Attack on Titan" is accepted for a Season 3 theme.
+    - "OP" is not accepted for One Piece.
+    - A `COMPILATION` or `CONTAINS` edge joins the two entries even when their titles differ (D-045); every other edge keeps the title-sharing rule.
+    - Every accepted string equals `normalize` of some source string or of its stripped form.
+- [x] **C-007** data: catalog assembly and draw set (from design 014; part 1 of 2, cycle 022)
+  - `songrush_data/catalog.py`: builds `data/catalog.json` (UTF-8, LF, sorted keys, one record per line, 12 MB cap) from the source outputs, the draw set (popularity, then AnimeThemes anime id, then theme id; deduplicated by audio basename; first 1,500, D-034), the Korean-gap list (D-040) and the build report (unplayable anime, synonym-fallback English counts, 20 largest groups with titles).
+  - Acceptance: see `docs/cycles/022-catalog-build.md`.
+- [x] **C-011** data: crawl freshness, build CLI and the first real build (from design 014; part 2 of C-007)
+  - From the cycle 017 review, the crawl gains two behaviours:
+    - **Total check:** it records `paginatorInfo.total` per page. If it changes mid-crawl, it clears the prefix and restarts, at most twice.
+    - **Freshness:** at the end it refetches the last page once. A `refresh_all` option, exposed on the CLI, refetches every page and also clears the AniList (`al-`) and Wikidata (`wd-`) caches (cycle 019 review: an empty Wikidata result is otherwise cached for good).
+  - A CLI (`python -m songrush_data.build`) runs crawl, AniList, Wikidata and aod with the CLAUDE.md gaps, then C-007's assembly; it writes `data/catalog.json` and `data/korean_gaps.json`, logs the report, and uses a lock file so two builds cannot run at once.
   - Acceptance:
-    - A test asserts the query file equals the query in `data/tests/fixtures/gql_page_request.json`.
-    - Requests use the AnimeThemes gap (3 s), a fresh 60 s timeout per attempt and the SongRushBot UA, asserted on the injected clock and transport.
-    - With `gql_page1.json` as page 1 and a synthetic last page with `hasMorePages:false`, it makes exactly 2 requests and returns both pages.
-    - Pages are cached under a key that includes a hash of the query text: a second run with a full cache makes 0 requests; changing the query text fetches again. `refresh=True` clears only this query's prefix.
-    - A 200 with a non-empty `errors` array fails at once with `page N` in the message, after exactly 1 request, and caches nothing.
-    - A page item missing `animethemes` or `id` fails and names the page. A cached page that fails this check is deleted and fetched once more.
-    - Page ids must ascend: page k+1's first id is greater than page k's last id; otherwise one warning names both pages. A duplicate id across pages fails and names both pages.
-    - **Page shift on resume.** When resuming from cache, the last cached page is refetched and compared; a mismatch clears the query's cache and restarts from page 1 with one warning.
-    - A total different from `paginatorInfo.total` logs one warning.
-    - Progress is logged per page: `AnimeThemes page N/lastPage (cached|fetched)`.
-
-- [ ] **C-001** data: AnimeThemes anime to catalog transform, pure (from design 011 / design 001, 007, 008)
-  - A pure function from one GraphQL `anime` item (the shape of `gql_page1.json` items) to `{anime, themes}`. Design 001 decisions 2 and 5, design 007 decision 2.
-  - Acceptance (over `data/tests/fixtures/`):
-    - `gql_bakemonogatari.json` gives exactly 6 themes: theme ids 3373-3378, audio ids OP1 2563, OP2 2564, OP3 2565, OP4 2566, OP5 2567, ED1 2562. OP5 (all nsfw) is kept. OP1 has `estDurationSec` 90 (informational; the game reads `durationMs` from the audio manifest). The anime has AniList id 5081, `seriesIds` [116], season `summer` and `anidbIds` [6327] (every ANIDB resource).
-    - In `gql_page1.json`: `akuma_no_riddle` OP1 (theme 5705) yields audio 4743, the lowest version; `akage_no_anne` ED1 (1,415,172 B) is excluded by the 1.5 MB floor and `ajin` ED1 (2,254,676 B) is kept, so exactly 349 of the page's 358 themes are kept; `aishen_qiaokeli_ing` OP1 (`song` null) is kept with an empty song title and no artists.
-    - A synthetic theme with no audio is excluded. An anime whose themes are all excluded is still returned with zero themes (it is needed for grouping).
-    - A theme whose `type` is not OP, ED or IN is dropped; across a page, one warning gives the count and the distinct values (a synthetic `type: "XX"` produces one warning containing "XX").
-    - No output field contains the audio basename or link except `audioUrl`.
-
-- [ ] **C-003** data: AniList enrichment (from design 011 / design 001, 008)
-  - Batches AniList ids into `media(id_in: [...])` queries of at most 50, selecting `id popularity title{romaji english native} synonyms relations{edges{relationType(version:2) node{id type}}}`. Adds a nested `anilist: {popularity, titles {romaji, english, native}, synonyms, relatedIds} | null`, so AnimeThemes `synonyms` stay intact. `relatedIds` are ANIME nodes reached by SEQUEL, PREQUEL or SUMMARY edges. Uses C-012 with a 2 s gap. Design 008 decisions 1-2.
+    - An end-to-end build with injected sources over the fixtures gives byte-identical output on two runs.
+    - The draw-set order and deduplication are checked end to end.
+    - The Korean-gap report lists the expected anime.
+    - A second build while the lock is held fails at once without touching the outputs.
+    - From the cycle 022 review: the build report counts draw-set anime whose reveal title is missing; the Korean-gap file lists each AniList id once; an over-cap build leaves an existing `catalog.json` unchanged (test).
+  - **The lead then runs the first real build and records the counts** (anime, themes, draw set, Korean gaps, unplayable, synonym-fallback English, largest groups, catalog size).
+- [x] **C-012** data: incremental AnimeThemes crawl (from the cycle 023 review)
+  - With real 100-item pages, an anime added at the end that spills onto a new page is treated as an append (the fresh last page is full and keeps the old ids as a prefix; the following pages are fetched; at the end the item count must equal the new total, else restart).
+  - A total change during a resumed or first crawl where every page already read keeps its ids updates the remembered total and continues instead of clearing the cache.
+  - Acceptance (offline, 100-item synthetic pages): +1 anime on a full last page makes requests [last, next] only and clears nothing; +1 during a resumed crawl clears nothing; a changed id in an earlier page still clears and restarts.
+- [x] **C-013** data: accept the front part of titles (D-049)
+  - `groups.build_titles`: for every source string that already feeds `accepted`, also add `normalize(front(s))` and `normalize(strip_qualifier(front(s)))`, where `front` cuts at the first `: `, `：`, `/` or ` -`; the D-050 minimum applies (4 Latin characters, 2 with Hangul, kana or CJK).
+  - Acceptance (offline): `Demon Slayer` is accepted for 101922 and for a later Kimetsu season; `Fate` for Fate/Zero; `rezero` for 21355 (from its English title); `Gintama` for `Gintama: THE FINAL`; `K` is not accepted for `K: Return of Kings`; a title with only `Re:Zero kara ...` (no spaced separator) gains no extra string; the cycle 021 tests that pinned the old D-038 rule ("Demon Slayer" alone rejected, Kizumonogatari front part rejected) are updated to the new rule, and every other cycle 021 test passes; the real catalog is rebuilt from cache and the change in accepted-string counts is recorded.
+- [x] **C-014** data: more subtitle separators (D-051)
+  - `groups.front_part` also cuts at `~`, `～`, `〜`, `–`, `—`, `―`, `／`, `－`, wherever they appear; the part before every separator is accepted (D-052); the digit rule for `/` also applies to `／` and to the wave dashes.
+  - Acceptance (offline): `Attack on Titan ~Chronicle~` gives `Attack on Titan`; `Chainsaw Man – The Movie: Reze Arc` gives `Chainsaw Man`; `ゾイド新世紀／ゼロ` gives `ゾイド新世紀`; `86－エイティシックス－` gives `86`, which D-050 then rejects; a full-width `１／２` between digits is not cut; every cycle 026 test still passes. The real catalog is rebuilt from the cache and the accepted-string count recorded.
+- [x] **C-008** data: AniDB Korean titles (from design 014, D-040, D-043).
+  - Not run live before 2026-11-03 18:34 KST. At most once per 24 h, with an attempt marker written before the request and no retry.
+  - Acceptance (offline fixture): Korean titles are parsed per aid and mapped to anime through the AnimeThemes ANIDB resource.
+- [x] **C-009** data: manual Korean supplement (from design 014, D-040)
+  - `data/korean_titles_manual.json` maps an AniList id to Korean titles. It is merged as Korean titles.
   - Acceptance:
-    - With `anilist_id_in.json` as the response, anime 101922 gets popularity 1010700 and the synonym "귀멸의 칼날", and anime 5081 gets popularity 347014.
-    - With `anilist_titles_sample.json` (`top50`), anime 16498 gets romaji "Shingeki no Kyojin", english "Attack on Titan" and native "進撃の巨人".
-    - With `anilist_relations_franchises.json`, anime 356 (Fate/stay night) has 11741 in `relatedIds`, and CHARACTER or ALTERNATIVE edges are not included.
-    - Anime without an AniList id keep `popularity: null` and empty titles. 120 ids produce 3 requests. The request text contains `relationType(version:2)`.
-    - Retry paths through C-012: a thrown request is retried; two 503s then success sleep 10000 and 20000; a 403 fails after 1 request; `{"data":{}}` fails with `chunk 1` in the message.
-    - `refresh=True` clears only the AniList prefix. A corrupted cached chunk is deleted and fetched once more.
-    - Progress is logged per chunk: `AniList chunk k/n`.
+    - The merge is tested.
+    - An empty file is fine.
+    - The Korean-gap report from C-007 drops an anime once the user adds it.
+- [x] **S-002** design: audio delivery (new research for this stack)
+  - Re-research how to fetch, cache and serve the songs (D-009, D-018, D-019, D-021, D-026, D-027), including what browsers can play and how every player starts at the same moment.
+  - Output: a design doc plus C-, B- and F- items.
+  - Real-device checks need the user (Needs decision).
+- [x] **C-015** data: audio prefetch (from S-002, design 029)
+  - `python -m songrush_data.audio` downloads every draw-set theme's audio from `audio.url` to `data/audio-cache/<basename>` (folder gitignored): `GET` only (`HEAD` is 403), the SongRush User-Agent, one request at a time, at least 3 s apart, timeout of at least 60 s, `Retry-After` honoured; each file is written to `<basename>.part`, checked against the catalog's `audio.size` and the Ogg `OpusHead` header, then renamed; leftover `.part` files are overwritten; files already present and listed in the index are skipped, so a rerun resumes.
+  - It writes `data/audio-cache/index.json`: theme id -> `{basename, size, durationMs}`, duration from the last granule position minus pre-skip at 48 kHz.
+  - It stops at once on a local write error (removing the `.part`) and after 5 consecutive failed downloads; a lock file prevents two runs, and a stale lock gives a clear message to delete it; a summary logs done/skipped/failed counts and bytes.
+  - Acceptance (offline, fake transport, small real Ogg Opus fixture built in the test): sizes, headers and durations (within one 20 ms frame) are verified; a size mismatch or a non-Opus body leaves no final file and is reported; a rerun makes no request for complete files; a 404 is reported and the run continues; 5 consecutive failures and a write error stop the run; the gap and User-Agent are pinned; nothing is written outside the cache folder; the folder is gitignored.
+  - **Then the lead starts the real prefetch in the background (D-054) and records the result.**
+- [x] **C-016** *(dropped by D-057; cycle 031 stopped at spec review)* data: size padding of cached audio (D-055, design 029)
+  - After verification, rewrite the OpusTags packet of each cached file with an extra comment `SONGRUSH_PAD=<random bytes>` of random length (1-64 KiB), fixing the Ogg page segment table and CRC; record `paddedSize` in the index. Idempotent on rerun (a padded file is not padded again).
+  - Acceptance (offline, fixture Ogg Opus files): the padded file decodes to the same audio packets (all pages after OpusTags byte-identical apart from page sequence numbers if they change, and every page CRC valid); the size differs from the original by the padding; two runs give different padding lengths across files; a rerun leaves padded files unchanged.
+- [x] **B-002** backend: catalog loader (from S-002, design 029)
+  - Reads `data/catalog.json` (path from `songrush.data-dir`) at startup into immutable lookups: anime by id, theme by id, group accepted strings by group id, and the ordered draw set; also reads `data/audio-cache/index.json` and keeps as draw candidates only draw-set themes with an indexed file present (D-056), with their `durationMs`. A missing or malformed catalog fails startup with a clear message; a missing index gives zero candidates and a warning.
+  - Acceptance (JUnit, small fixture catalog under `backend/src/test/resources`): every lookup returns the fixture values; the draw-set order is kept; a malformed file and a missing file each fail with a message naming the path.
+- [x] **B-003** backend: opaque audio endpoint (from S-002, design 029)
+  - `AudioTokens.issue(themeId, ttl)` returns a random 128-bit URL-safe token (the TTL is chosen by the caller, S-003); `GET /audio/{token}` returns the whole cached file as `200` with only `Content-Type: audio/ogg`, `Content-Length` and `Cache-Control: no-store` among the content headers; a `Range` header is ignored; unknown or expired tokens and missing files return 404 JSON without the basename; expired tokens are removed.
+  - From the cycle 032 review: `Anime`, `Theme` and `Candidate` override `toString` to print ids only (no title, reveal, song, artists or basename), and a test pins it; the audio endpoint handles a candidate whose file disappeared after startup.
+  - Acceptance (JUnit with a temp cache folder): the response bytes equal the file; a Range request still gets `200` with the whole file; `Last-Modified`, `ETag`, `Content-Disposition`, `Content-Range` and `Accept-Ranges` are absent; no header or body contains the basename or theme id; expired and unknown tokens give 404; two tokens for one theme differ; expired entries are purged.
+- [x] **S-003** design: game protocol and rounds (new research for this stack)
+  - From the cycle 022 review: `data/catalog.json` theme records (`audio.basename`/`url` carry the anime slug, plus `song`, `artists`) and anime titles reveal the answer. Audio must be proxied under opaque per-round ids, and none of these fields may reach a client before the round ends.
+  - Design the realtime connection between the Spring Boot backend and the React frontend, the room flow, the round timing, chat matching, skip and scoring. These follow D-011..D-017, D-024 and D-025.
+  - From the cycle 033 review: catalog theme and anime ids are the public AnimeThemes ids, so the protocol must use only per-round opaque values (such as the audio token) before the reveal; record `toString` is safe for server logs only.
+  - From S-002 (design 029): include the clock-offset exchange, the server-announced `startAt`, Web Audio scheduling with full decode before start, the audio-unlock click, and the round end at `min(duration, 90 s)`.
+  - Output: a design doc plus B- and F- items.
 
-- [ ] **C-005** data: Korean title sources (from design 011 / design 008)
-  - Parsers and fetchers for anime-offline-database (aod), Wikidata and AniDB, using C-012. Design 008 decisions 2 and 7.
-    - aod: decompress `.zst` with `zstandard` and parse JSON Lines; map `https://anilist.co/anime/<id>` to its strings that contain Hangul.
-    - Wikidata: one SPARQL query by P8729 for `ko` labels and altLabels.
-    - AniDB: gunzip `anime-titles.xml.gz` and parse it with a real XML parser (`xml.etree.ElementTree`), so self-closing tags, CDATA and comments are handled; keep `xml:lang="ko"` titles with their type, keyed by aid. AniList ids are joined through C-001's `anidbIds` (all of them).
+- [x] **B-004** backend: Java normalize (from S-003, design 034; M-1)
+  - `com.songrush.game.Normalize.normalize(String)` reproduces `data/songrush_data/titles.py` `normalize` step by step (NFKC, lowercase with Locale.ROOT plus `ß`->`ss` and final sigma, strip U+0300-U+036F, `×`->`x`, remove categories P/S/Z/Cc/Cf and the extra code points, final NFC).
+  - Acceptance (JUnit): every vector in `contracts/normalize-vectors.json` passes; a test reads the vector file from the repo path so both languages share it.
+- [x] **B-006a** backend: one room's song state machine (from S-003, design 034; M-1)
+  - A `Room` runs on its own single-threaded executor with an injected `Clock` and a manually advanced scheduler for tests. It draws N distinct candidates (5-30), and per song: `prepare` (fresh audio token, TTL prepare + 90 s + 30 s), `start{startAt, deadlineAt}`, judging of chat by `normalize` against the group's accepted list (a matching message is never broadcast; it scores 1 point only between `startAt` and the end), the end at the first correct answer or `deadlineAt` (`min(durationMs, 90 s)`), `reveal` (reveal title, titles by slot, song, artists, winner), scores, a 5 s pause, and `gameOver` with standard competition ranking; every timer and per-song message carries the song index and stale ones are ignored; fewer candidates than N gives `not-enough-songs`. Output goes to listeners, not sockets.
+  - Acceptance (JUnit, fake clock and scheduler): the full sequence for N songs; a correct answer ends the song, scores, and the old deadline timer does not end the next song; a stale `ready`/timer is ignored; a matching message before `startAt` is not broadcast and does not score; ties rank 1, 1, 3; no message to clients contains a theme or anime id, basename or title before its reveal.
+- [x] **B-007** backend: minimal WebSocket endpoint for solo play (from S-003, design 034; M-1)
+  - `/ws` raw WebSocket with JSON `{type, ...}`: `create{nickname, songCount}` makes a one-player room that starts at once; the client receives `prepare`, `start`, `chat`, `correct`, `reveal`, `scores`, `gameOver`, `pong`, `error`; it sends `ready{index}`, `chat`, `ping`, `leave`. Each session has a bounded outbound queue drained by its own sender, so the room executor never blocks; a session whose queue overflows is closed. From the cycle 036 review: the `Outbox` must never throw into the room (a throw mid-transition leaves the room stuck in REVEAL); per-recipient failures are dropped and logged, and a test pins it. Message size 4 KiB; nickname 1-16, chat 200 characters.
+  - Acceptance (JUnit, RANDOM_PORT, `StandardWebSocketClient`, fixture catalog and audio cache in a temp data dir): a solo game of 5 songs runs to `gameOver` with correct answers and timeouts; `prepare.audioUrl` downloads through `/audio/<token>`; oversize input gives `error`; ping returns server time.
+- [x] **F-001** frontend: React JavaScript bootstrap
+  - `frontend/`: React with JSX, Vite, Vitest with jsdom and Testing Library, ESLint with a flat config. No `.ts` or `.tsx` files, and no TypeScript dependency.
   - Acceptance:
-    - `wikidata_ko_labels_sample.json` (`top50`) gives AniList 5114 "강철의 연금술사 BROTHERHOOD". A synthetic response with a `ko` altLabel "강철의 연금술사 FA" for 5114 adds it too.
-    - A synthetic aod line (compressed in the test with `zstandard`) with source `https://anilist.co/anime/16498` and synonyms ["Attack on Titan","진격의 거인"] gives 16498 only ["진격의 거인"].
-    - A synthetic AniDB XML (gzipped in the test) with aid 9541, titles ko "진격의 거인" (official) and ja "進撃の巨人", plus a self-closing title, a comment and a CDATA title, yields [["official","진격의 거인"]] for aid 9541 (plus the CDATA title if it is `ko`).
-    - **TTL on the injected clock.** AniDB is not refetched at 23 h and is refetched at 25 h; aod and Wikidata are not refetched at 6 days and are refetched at 8 days; a second run inside the windows makes 0 requests.
-    - **AniDB once per 24 h.** `data/cache/korean-anidb-attempt.json` `{attemptedAt: <epoch ms>}` is written **before** the request (asserted by call order). With an attempt less than 24 h old there is no AniDB request at all. AniDB is never retried: a 500, a thrown request or a 429 each make exactly 1 call and give `anidb: null` (or the stale cache).
-    - **Failures.** aod and Wikidata use up to 3 attempts. A source that fails is skipped and logs `korean source <name> unavailable`; with an expired cache entry present, that entry is used and `korean source <name> stale` is logged. An interrupted download leaves no cache file.
-    - Every request sends the SongRushBot UA.
+    - The app renders an `h1` "SongRush". A test pins it.
+    - `npm test`, `npm run lint` and `npm run build` exit 0 from `frontend/`.
+    - A check fails if a `.ts` or `.tsx` file appears under `frontend/`, outside `node_modules`.
 
-- [ ] **C-006** data: series groups and accepted strings, pure (from design 011 / design 008)
-  - Python `normalize` in `songrush_data/` plus grouping. Design 008 decisions 1-3 and 5, D-020, D-022.
-  - Acceptance:
-    - Python `normalize` passes every vector in `contracts/normalize-vectors.json` (the same file JUnit runs). It uses `unicodedata.category` per character and the explicit whitespace set, never `re`'s `\s`. A test asserts the module source is pure ASCII.
-    - Synthetic anime for AniList 4654, 8937, 6213 and 16049, all with `seriesIds` [170] and `relatedIds` from `anilist_relations_franchises.json`: 4654 and 8937 share a group, and no Index entry shares a group with a Railgun entry.
-    - AniList 10087, 11741 and 356, all with `seriesIds` [42], share one group.
-    - An anime with empty `seriesIds` is alone, even if `relatedIds` link it to others. An anime without an AniList id is alone.
-    - Chain through a missing node: A (relatedIds [B]) and C (relatedIds [B]), B not in the catalog, A and C sharing series 1, are united; with no shared series they are not.
-    - `groupId` is the smallest AnimeThemes anime id in the group. Accepted strings per group are sorted, de-duplicated and equal to `normalize(raw)`; an empty normalized string is never stored.
-    - "Rurouni Kenshin: Meiji Kenkaku Romantan (2023)" also adds the string without " (2023)". "나루토 (애니메이션)" also adds "나루토".
-    - Reveal titles: 16498 with AniDB official "진격의 거인" and english "Attack on Titan" reveals "진격의 거인"; an anime whose only Korean is the Wikidata label "나루토 (애니메이션)" reveals "나루토"; with no Korean it falls back to english, then romaji.
-    - Every alias from the sources is kept (D-022).
+- [x] **F-002** frontend: solo play screen (from S-003, design 034; M-1)
+  - From the cycle 038 review: make the lint script `eslint . --max-warnings 0` so React Hooks and React Refresh warnings fail lint; tests live at `src/**/*.test.{js,jsx}` (the Vitest projects only include that pattern), and a test that reads files through `import.meta.url` must be added to the `node` project.
+  - From the cycle 037 review: `/ws` keeps Spring's same-origin check, so the dev server must proxy `/ws` and `/audio` without `changeOrigin` (or a dev-only allowed origin), else the handshake gets 403.
+  - A start screen (nickname, song count) and a play screen: an audio-unlock click (`AudioContext.resume()`), fetch and decode of `prepare.audioUrl`, then `ready{index}`, playback at `start` (from offset `now - startAt` if late, stopping at `deadlineAt`), a remaining-time bar (D-060), chat input, "정답!" announcement, reveal card, final score; Korean UI; the credit line (D-023); an "update your browser/iOS" notice when Ogg Opus cannot play (D-053).
+  - Acceptance (Vitest with a mocked WebSocket and AudioContext): message flow renders each phase; a late start uses the offset; unsupported audio shows the notice; `npm test`, `npm run lint`, `npm run build` exit 0.
+- [x] **B-005a** backend: rooms and lobby (from S-003, design 034; M-2)
+  - 5-character room codes from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` with collision retry; `join{code, nickname}` up to 8 players (D-046) with nickname dedupe ` (2)` (D-048); host and host transfer to the longest-connected player; `start` by the host with 5-30 songs (D-058); back to the lobby after `gameOver` (D-062); an empty room deleted after 2 minutes, an idle lobby after 10 minutes; roster broadcasts allow-listed (name, score, host, connected).
+  - Acceptance (JUnit): codes, join limits, dedupe, host transfer, start rights, restart, cleanup with a fake clock, roster JSON allow-list.
+- [x] **F-003** frontend: lobby screens (from S-003, design 034; M-2)
+  - From the cycle 040 review: the server now sends `joined{code, name}`, `roster{phase, players}` and `error{code:"room-closed"}`; a solo game returns to its lobby after `gameOver`, so 10 idle minutes later the cycle 039 final-score screen shows "오류가 발생했습니다 (room-closed)". Handle `room-closed` (a Korean message, back to the start), and close the socket when leaving the final-score screen.
+  - Create a room, join by code or `/r/<code>`, nickname, roster with host mark, song count (host), start; restart after a game.
+  - Acceptance (Vitest with a mocked WebSocket): each flow renders and sends the right messages; `npm test`, `lint`, `build` exit 0.
+- [x] **B-005b** backend: reconnect (from S-003, design 034; M-3)
+  - From the cycle 040 review: `leave` frees the seat on the I/O thread but removes the player's queue only later on the lobby thread, so a quick `leave` then `create`/`join` can receive one stale frame from the old lobby (frames carry no room code); remove the player's queue from the lobby's map on the I/O thread at once.
+  - A per-player token kept by the client; reconnect within 30 s keeps seat and score with an allow-listed snapshot; a second socket with the same token replaces the first with close code 4001. (The pause with zero connected players moved to B-005c in cycle 042.)
+  - Acceptance (JUnit, fake clock): reconnect within and after the grace; replacement; snapshot JSON contains no other player's token and no catalog field.
+- [x] **B-005c** backend: pause with nobody connected (from S-003, design 034 H3; split from B-005b in cycle 042; M-3)
+  - When the last connected player of a running game disconnects, the `Room` pauses (its timers stop, the current song is abandoned); on the first reconnect it prepares the current song again with a fresh token. Until then a solo player who drops for 20 s loses the songs that play meanwhile.
+  - Acceptance (JUnit, fake clock): with everyone disconnected no further `prepare`/`start` is sent and no song is used up; a reconnect within the grace re-prepares the same index; the empty-lobby TTL still closes an abandoned game.
+- [x] **B-006b** backend: multiplayer rounds (from S-003, design 034; M-3)
+  - From the cycle 042 review: add the receiver's own skip vote to the reconnect `snapshot`. (Replaced in cycle 045: every reconnect clears the player's vote instead; the locked snapshot keys stay.)
+  - The ready set counts only connected players (D-061; the ready step itself moved to B-006a in cycle 036); skip votes over connected players (D-061) with re-evaluation when players leave; the chat token bucket (burst 5, 2 per second, D-024) whose excess is dropped unjudged; late joiners (D-059) spectate until the next `prepare`. From the cycle 036 review: with two or more players, a matching guess before `startAt` is echoed only to its sender while a miss goes to everyone, so a second tab can tell a match from a miss before the song is audible; before `startAt`, every judged chat is echoed only to its sender (match or miss), and the locked cycle 036 test for that window is updated in this cycle.
+  - Acceptance (JUnit, fake clock): a disconnected player is not waited for; skip passes at more than half and re-evaluates on leave; rate limit. (Late joiners moved to B-006c in cycle 045.)
+- [x] **B-006c** backend: late joiners (from S-003, D-059; split from B-006b in cycle 045; M-3)
+  - A player who joins a running game (today rejected with `in-game`) and a member who was in grace at `start` (a spectator since cycle 042) spectate the current song and join the `Room` at the next `prepare` with 0 points; until then they are in neither the ready set nor the skip count, and their chat reaches only themselves until the reveal (cycle 046 review; broadcasting it unjudged would leak the answer).
+  - Acceptance (JUnit, fake clock): a mid-game join gets `joined` and a `playing` snapshot, sees chat, cannot score in the current song, is in the next `prepare`'s ready set and scores from then; the 8-player cap still applies; ranking includes them.
+- [x] **F-004** frontend: clock sync and synchronized playback (from S-003, design 034; M-3)
+  - From the cycle 041 review: the audio context is resumed inside a user gesture only on 시작/방 만들기/참가. A host who switches apps to share the link (iOS suspends the context) or a joiner who waits in the lobby may have a suspended context when the first song starts, and a resume outside a gesture can fail on iOS: call `resume()` synchronously in every later click (게임 시작, 대기실로) and add a "탭하여 소리 켜기" prompt when the context is not running at `prepare`.
+  - NTP-style ping/pong (8 on join, median of the 3 lowest-RTT, re-sync every 30 s and before each song), `startAt` scheduling on the `AudioContext` clock with `outputLatency`, the clock pair re-taken per song, re-sync when `start`'s server time disagrees by more than the RTT; a test page for I-003.
+  - Acceptance (Vitest with fake timers and clocks): offset estimation picks low-RTT samples; scheduling maths; drift triggers re-sync.
+- [x] **F-005** frontend: multiplayer game screen (from S-003, design 034; M-3)
+  - From the cycle 047 review (fairness): when the drift rule fires, the song still uses the old estimate, so a client whose clock stepped forward starts early, and stale samples can survive a few bursts; on drift use `Math.min(receipt, estimate.offsetMs)` (never early), drop samples with a negative RTT, and consider clearing the samples on a drift burst (the locked cycle 047 drift test changes with it); use `Number.isFinite` for `outputLatency`.
+  - From the cycle 044 review: a `roster{phase:"lobby"}` that arrives during a game without `gameOver` means the game was abandoned (everyone else left); stop audio and timers and show the lobby.
+  - (The reconnect notes moved to F-006 in cycle 048.)
+  - Skip button with the vote count, live scores, other players' chat, reconnect behaviour (no reconnect after code 4001), final ranking with shared ranks, restart.
+  - Acceptance (Vitest with a mocked WebSocket): each phase renders; `npm test`, `lint`, `build` exit 0.
+- [x] **F-006** frontend: automatic reconnect (split from F-005 in cycle 048; M-3)
+  - From the cycle 042 review: keep the `token{token}` frame in `sessionStorage`, send `rejoin{token}` on reconnect, treat the `snapshot` as the source of truth (frames before it may arrive), time out a rejoin that gets no reply, and never reconnect after close status 4001.
+  - An unexpected close of a room session retries with backoff (0.5 s doubling to 10 s) within the 30 s grace; a `rejoin-failed` or a time-out returns to the start screen with a message; the snapshot restores the lobby or the game (loading and scheduling the current song as a late start).
+  - Acceptance (Vitest with a mocked WebSocket): reconnect after a drop restores the lobby and a running song; no reconnect after 4001; rejoin-failed and time-out paths; `npm test`, `lint`, `build` exit 0.
 
-- [ ] **C-004** data: catalog build CLI (from design 011 / design 001)
-  - Chains C-002, C-001, C-003, C-005 and C-006 and writes `data/catalog.json` in the design 011 decision 4 format.
-  - Acceptance:
-    - **Format.** Keys sorted at every depth; one compact record per array element on its own line; LF line endings; trailing newline; `version: 1`; `anime` records have exactly `{anidbIds, anilistId, groupId, id, name, popularity, revealTitle, season, seriesIds, slug, year}`, `themes` exactly `{animeId, artists, audioId, audioSize, audioUrl, estDurationSec, id, slug, song, type}`, `groups` exactly `{accepted, groupId}`; arrays sorted by id or groupId. The file parses back as JSON.
-    - **End to end with fixtures.** AnimeThemes `gql_page1.json` (`hasMorePages:false`, `total:100`, `lastPage:1`); synthetic AniList media for page 1's ids (popularity = 1000 + id; two anime sharing a series linked by a SEQUEL edge; other ids missing); Wikidata `random50` from `wikidata_ko_labels_sample.json`; a small zstd aod; a small gzip AniDB. Then 100 anime and 349 themes; the group count equals 100 minus the merges the test set up; the linked anime share a `groupId`; an anime with a Wikidata ko label reveals it; every anime's `groupId` appears in `groups`; every theme has `audioId`.
-    - **Determinism.** Two runs with fresh fakes produce byte-identical output.
-    - A Korean source returning 500 still gives a successful build.
-    - Output above 8 MB fails with a message containing "8 MB" and the actual size. The run logs anime, theme and group counts and the byte size.
-    - The CLI writes atomically (temp file, then rename), holds `data/cache/catalog-build.lock` through C-012 `with_lock` with the tool name, accepts `--refresh`, and rejects bare positional arguments and unknown flags with a usage message.
-  - After merge (lead): one real build under the External source rules. AniDB may be requested only from **2026-11-03 18:34 KST**; a build before that runs with AniDB skipped by the attempt marker, or waits. Record counts, size, duration and whether page ids ascended in PROGRESS.md, and commit `data/catalog.json`.
+- [x] **B-008** backend: confirmed own skip vote (from the cycle 048 review; M-3)
+  - `skipState` is broadcast without voters, so the client guesses its own vote from its clicks, and a `skipState` that arrives between a click and its `rate-limited` error makes the guess wrong. Send each connected player their own `voted` flag (per-player `skipState`, or a `for:"skipVote"` field on the rate-limit error) and let the client use it.
+  - Acceptance (cycle 050 design): a refused skip's error carries `for:"skipVote"` and a refused chat's does not; the client's own vote is the parity of its clicks minus the tagged refusals, independent of `skipState` order.
+- [x] **F-007** frontend: drift without lateness (from the cycle 048 review; M-3)
+  - A single late `start` frame looks like a clock jump and makes that player start late by the delay. On drift, defer fixing the offset until the re-sync burst answers (there are 3 s of lead), using `min(receipt, estimate)` only if no new estimate exists shortly before `startAt`. Also fix the stale comments in the two cycle 047 `App.sync` tests changed in cycle 048 and add a no-drift case for them.
+  - Acceptance (Vitest with fake timers): a delayed `start` with a good estimate still starts on time after the burst; a real clock jump starts no earlier than the true time.
 
-- [ ] **C-007** data: audio cache builder (from design 011 / design 010)
-  - Downloads the top N (default 1500) themes from `a.animethemes.moe` one at a time and encodes each to `data/cache/audio/<cacheKey>.m4a`. Design 010 decision 1, D-019, D-027, design 011 decision 4. Uses C-012; ffmpeg comes from `imageio-ffmpeg` and runs through an injected runner. The single-theme step `cache_one` is a public function with typed errors (`fetch`, `encode`, `fs`).
-  - Acceptance:
-    - **Selection** counts themes, not anime: OP or ED only, with non-null `audioId` and `audioUrl`, sorted by the anime's popularity (null last), ties by anime id then theme id. Synthetic anime with popularity 100, 300, 200 and null, 2 themes each, N = 6: 300's pair, then 200's, then 100's; the null anime's themes come last. IN themes and themes without audio are never selected.
-    - **cacheKey** is the first 16 hex of `sha256("themeId:audioId:audioSize")`: stable, and different when only the size changes. One fixed triple and its expected key are pinned here and reused verbatim by B-008's test.
-    - **ffmpeg args** are exactly `-y -i src -t 90 -vn -c:a aac -b:a 96k -movflags +faststart out`, output under `<dir>/tmp/` then renamed after exit 0. The ffmpeg call has a timeout (5 min) that kills the process. The duration is parsed from `Duration: HH:MM:SS.cc` (`"  Duration: 00:01:30.02, start: 0.000000"` gives 90020; none gives null, which is an encode failure).
-    - **Etiquette.** Every request sends the UA and `Accept-Encoding: identity`; with responses taking 5000 ms each request starts at least 3000 ms after the previous body ended; `Retry-After: 7` sleeps 7000 then succeeds; a 404 makes exactly 1 request and the theme is `failed`; a final 429's `Retry-After` delays the next theme's request.
-    - **Body checks.** A body that yields one chunk and then stalls for 60 s without bytes fails that attempt, and the attempt's connection is closed before the next attempt's request starts. A `Content-Length: 1000` response with 500 bytes fails the attempt. An `audioSize` mismatch only warns.
-    - **Failures.** A corrupt upstream file (ffmpeg nonzero) fails only that theme: no rename, no manifest entry, the next theme is cached. A theme that fails its fetch 3 times is `failed` and the run continues. An fs error (simulated ENOSPC), 3 encode failures in a row, or 10 fetch failures in a row stop the run with no further requests.
-    - **Crash safety.** After every cached theme the manifest is written to `manifest.json.tmp` and renamed; a run that dies on theme 3 of 4 keeps 2 entries. The `.src` download is deleted in every case.
-    - **Re-run and sharing.** A second run with every file present makes 0 requests; a missing file is refetched. Two selected themes with the same `audioId` and size are fetched and encoded once and share a `cacheKey`.
-    - **CLI.** `--limit N` (also `--limit=N`), default 1500; bare positional arguments and unknown flags are rejected with a usage message; it holds `data/cache/audio-cache.lock` with the tool name, removed on Ctrl+C; a missing ffmpeg binary exits with a message naming `imageio-ffmpeg`.
-    - **Real ffmpeg smoke test** with no media in git: generate a 120 s sine as `.ogg` with `-f lavfi -i sine=frequency=440:duration=120` in a temp dir, encode it, and check `ftyp` at bytes 4-8 and a parsed duration between 89900 and 90100 ms.
-  - After merge (lead): run `--limit 3` and record sizes, durations and time per file, then the full top-1500 run in the background (about 25.6 s per theme, about 11 h).
+- [x] **S-003** design: current AWS free terms (from M-4, design 052)
+  - D-065 assumed "12 months free"; accounts created since 2025-07-15 may get a credit-based Free plan. Check the current AWS pages (eligible instance types, duration or credits, public IPv4, data transfer out, EBS), write a design doc, and add a Needs decision if the cost picture changes.
+- [x] **B-009** backend: behind a TLS proxy, and serving the built frontend (from M-4, design 052)
+  - `server.forward-headers-strategy=native`; Boot's standard static resources from `spring.web.resources.static-locations` (set by env); one mapping forwards `/r/{code}` to `/index.html`; startup fails if the static location is inside `songrush.data-dir`.
+  - Acceptance (JUnit): proxied handshake (`Origin: https://play.test`, `X-Forwarded-Proto: https`) gets 101 and a foreign origin 403; forwarded client address; `/`, `/assets/x.js`, `/r/ABCDE` served; traversal not served; `/ws`, `/audio/*`, `/health` unchanged; no static location keeps today's 404; overlap with data-dir fails startup.
+- [x] **I-004** deploy kit files (from M-4, design 052)
+  - `deploy/Caddyfile`, `deploy/songrush.service` (`-Xmx384m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError`, `SERVER_ADDRESS=127.0.0.1`), `deploy/setup.sh` (Ubuntu 24.04), `deploy/upload.sh` (OpenSSH `sftp` only, resumable, exact boot jar).
+  - From the cycle 054 review: `upload.sh` always uploads `index.html` (a same-size new index would be skipped); the unit fixes `WorkingDirectory` to a folder with no `public/`, `static/` or `src/main/webapp/` (Boot also serves the servlet document root); the web folder holds no symlinks.
+  - Acceptance (pytest `data/tests/test_deploy_kit.py`, offline): `bash -n`; ASCII + LF; unit env keys are `SongrushProperties` fields or allow-listed Spring keys; `upload.sh --dry-run` runs no `ssh`/`sftp` (stub PATH). The lead adds `"deploy": {"data"}` to the Stop hook's `EXTRA_AREAS`.
+- [x] **I-005** smoke check script (from M-4, design 052)
+  - `deploy/smoke.py <base-url>`, stdlib only with a hand-written minimal WebSocket client: `/health`, the credit line inside the module bundle, `/r/ABCDE`, and `create` -> `joined`.
+  - Acceptance (pytest, loopback stub server): all pass gives exit 0; a missing credit line or an `error` reply gives exit 1 naming the check.
+- [x] **I-008** deploy kit hardening before the first real deploy (from the cycle 055 review)
+  - `setup.sh`: wait for `cloud-init status --wait` and pass `-o DPkg::Lock::Timeout=600` to every `apt-get` (a fresh EC2 often holds the dpkg lock); make the Caddy repo step recover from a half-written key or list (download to a temp file and `mv`, or re-download every run). `upload.sh`: put the jar first in the batch, keep `songrush.jar.prev`, and after the restart poll `http://127.0.0.1:8080/health` on the server for up to 60 s, printing `journalctl -u songrush -n 50` and exiting non-zero on failure. Unit: `ConditionPathExists=/opt/songrush/app/songrush.jar`.
+  - Acceptance (pytest, extending the deploy-kit checks in a new test file): each of these is present and ordered as stated; the stubbed real run sees the jar `put` before any web file and a final ssh command containing the health poll.
+- [x] **I-006** owner runbook (from M-4, design 052)
+  - `docs/deploy-guide.md` (moved from `deploy/README.md`: the locked cycle 055 test keeps `deploy/` ASCII) in plain Korean: AWS console steps per D-068 (plan, instance type, 16 GB gp3, Budgets alert, the two credit-earning activities), hostname (D-066), setup, upload, start, smoke, costs (design 053).
+  - Acceptance (pytest): commands only in fenced `bash` blocks; every `deploy/<file>` they name exists; every `[A-Z_]{3,}=` key is set by the unit or Caddyfile.
 
-### Then
+- [x] **B-011** backend: OP/ED and year filters on the cached draw set (from M-5, design 059)
+  - Optional `types` / `yearFrom` / `yearTo` on `create` and `start`; `bad-filter` for invalid values; `not-enough-songs` gains `available` (one declared `RoomTest` assertion change); a `settings` message to all members before the first `prepare` and to late joiners.
+  - Acceptance (JUnit): see design 059 item 1.
+- [x] **F-008** frontend: filter controls for solo and host (from M-5, design 059)
+  - `곡 종류` and 5-year `연도` selects; only non-default fields sent; from>to guard on 시작 and 게임 시작; `available` error text with the old text as fallback; the received `settings` shown to everyone; selections kept across games.
+  - Acceptance (Vitest): see design 059 item 2.
 
-- [ ] **B-008** backend: catalog load, room theme draw and lobby prefetch (from design 011 / design 010, D-026, D-027)
-  - Loads `data/catalog.json`, draws a room's themes, and fetches and encodes uncached ones in one server-wide queue, in Java (design 011 decision 5: `ProcessBuilder` ffmpeg, `songrush.ffmpeg-path` defaulting to `FFMPEG_PATH` or the `imageio-ffmpeg` binary). Depends on B-003, B-007 and B-013.
-  - Acceptance:
-    - **Catalog contract.** A fixture in the design 011 decision 4 shape loads; a file with a `version` other than 1, or with a missing required key, fails startup with a message naming the field. On load every `accepted` string is re-normalized with B-006's `normalize`.
-    - **acceptedForAudio.** For a theme whose `audioId` also appears under another anime, the accepted set is the union of both anime's groups (D-020). An empty union is logged as a warning naming the theme.
-    - **Draw.** On `room:create` with `rounds` 10, 10 themes plus 3 spares are drawn without repetition from the top 1500 OP/ED themes by popularity (the C-007 selection rule, pinned with C-007's synthetic case). A seeded random gives a deterministic list. The range size is a parameter (M-5). A room never draws two themes with the same `audioId`.
-    - `room:settings {rounds: 12}` in the lobby redraws 12 + 3 and cancels queued fetches no longer needed.
-    - **Queue.** Uncached drawn themes go to one server-wide queue: one upstream fetch at a time, at least 3 s after the previous body ended, SongRushBot UA, a fresh timeout per attempt created after the gap, 429 `Retry-After` honored and delaying the next request even after a final failed attempt. A theme queued by two rooms is fetched once. A room's queued (not started) fetches are dropped when the room is deleted.
-    - **Encode contract.** The cacheKey of C-007's pinned triple matches exactly; the ffmpeg arguments equal C-007's; the stall, `Content-Length` and ffmpeg-timeout rules match C-007.
-    - `room:prep {ready, total}` is emitted as themes become ready. `game:start` before `ready == total` gets `not_ready`. A drawn theme that fails 3 times is replaced by a new draw, which is queued.
-    - After a lobby encode, B-007's `cached` reports the theme with its `durationMs` and `issue` serves it without a restart. The manifest on disk is rewritten via temp file and rename, under `data/cache/audio-cache.lock` with the `{pid, startedAt}` format; a stale lock is detected with `ProcessHandle.of(pid)`, and a lock held by a live process makes the queue wait rather than write.
-    - No event or snapshot field contains a drawn theme's id, title or cache key; only counts.
+- [x] **I-009** deploy: DuckDNS address and the Free plan in the kit and guide (from D-066, D-068)
+  - `setup.sh` takes a DuckDNS name (`<name>.duckdns.org`) and asks for the DuckDNS token interactively (never as an argument, never written to the repo); it stores it root-only on the server and installs a boot-time updater (systemd unit or timer calling the DuckDNS update URL) so the name follows the IP after a stop/start. `docs/deploy-guide.md` switches to DuckDNS and the Free plan (closure and deletion warnings, a month-5 reminder, no Budgets-only safety claim) and drops the sslip restart steps that DuckDNS makes unnecessary.
+  - Acceptance (pytest): the kit tests cover the updater unit and that no token appears in any file or argument; the guide tests are updated for DuckDNS and the Free plan (declared changes to the cycle 058 guide test's required strings).
+- [x] **B-012** backend: popularity tier filter (from D-069, design 059)
+  - `Candidate` gains `rank` (index in `drawSet`, 1-based); optional `tier` on `create`/`start`: `easy` = rank 1-300, `hard` = rank 501-1,500, absent = all; `bad-filter` for other values; `settings` carries `tier` when set.
+  - Acceptance (JUnit): each tier draws only its ranks; combined with types/years; `available` counts after the tier; `settings` includes `tier`.
+- [x] **F-009** frontend: difficulty select (from D-069)
+  - A `난이도` select: `쉬움`, `보통` (default, sends nothing), `어려움`; the settings line shows `쉬움`/`어려움`; kept across games like the other filters.
+  - Acceptance (Vitest): defaults send today's messages; each choice adds `tier`; the line shows it.
 
-- [ ] **B-004** backend: round lifecycle, with injected clock and random (from design 011 / design 002, 009, 010)
-  - Runs on the room executor (B-013). Uses the drawn list (B-008) and `durationMs` (B-007). Design 009 D1, D6 and D7; design 002 D1 for the quorum and swap.
-  - Acceptance (each is a test):
-    - `round:prepare` for round n+1 is sent when round n starts, with `round`, `prepareId` and an opaque `audioUrl`, and no anime id, name, slug or `offsetSec`.
-    - Only a ready with the latest `prepareId` counts. After a swap the ready set starts empty.
-    - Ready timeout 15 s on the injected clock: with 4 connected and 1 ready the theme is swapped; the 3rd consecutive timeout for a round ends the game with `audio_unavailable`; with 0 connected the state is `paused`. A swap with no unused spare ends the game with `audio_unavailable`.
-    - Players not ready at round start are `missed`.
-    - `playDurationMs` is `min(durationMs, 90000)`: 293000 gives 90000, 66000 gives 66000. At `roundStartTime + playDurationMs` the round ends with `timeout` and no winner.
-    - `endRound(correct, winnerId)` and `endRound(skipped)` move to `reveal` at once; the reveal lasts 6 s.
-    - **Stale timers.** Round 1 ends `correct` at +2 s and round 2 starts after the reveal. At round 1's start +90 s, round 2 is still `playing` and no second reveal for round 1 is sent (every timer checks a `roundSeq`).
-    - After `settings.rounds` reveals (tested with 5 and 12) the state is `finished` with a B-002 ranking.
-    - Themes come from the drawn list in order; a swap takes the next spare.
-    - Every room in `registry.sweep().deletedRooms` gets `audio.revokeRoom(roomId)` and its executor shut down. A round's token gets `expireAfterRound` on **every** end path: correct, skip, timeout, swap and game abort; a swapped-out prepare token is expired too.
+- [x] **B-013** backend: a null theme type never breaks the draw (from the cycle 060 review follow-up)
+  - `DrawFilter.matches` returns false for a theme whose `type` is null when `types` is set, instead of throwing from `Set.copyOf(...).contains(null)`.
+  - Acceptance (JUnit): a filter with `types` and a null-type theme gives false; without `types` the null-type theme matches; `Room.start` with such a catalog draws without throwing and `available` excludes it.
 
-- [ ] **B-005** backend: chat, skip, reveal and snapshot (from design 011 / design 009)
-  - Runs on the room executor. Uses B-004 and B-006. Design 009 D2, D4 and D7.
-  - Acceptance (each is a test):
-    - **Chat.** In `playing`, a matching message from an active player ends the round `correct` with that `winnerId`, gives 1 point, and is **not** broadcast; "<name> 정답!" is announced. A wrong message is broadcast as `chat:message`. Two matching messages handled back to back: only the first wins; the second arrives in `reveal`, is broadcast as normal chat and gives no point. During the lead-in (after `round:start`, before `roundStartTime`) a matching message neither wins nor is broadcast, and a non-matching one is broadcast.
-    - **Restricted senders.** During `playing`, any message from a `missed` player gets `{error:"missed"}` and is neither compared nor broadcast, including "답 귀멸의칼날임". In `reveal` a missed player's message is broadcast.
-    - **Limits.** Text over 100 characters, or empty after trimming, is rejected. Token bucket burst 5, 2 per second (D-024): six messages at one injected instant, the 6th gets `rate_limited` and is not compared, and a rejected message uses no token; at +0.5 s one message is accepted and a second at the same instant rejected.
-    - **Skip.** With 5 connected, `needed` is 3 and the 3rd `on` vote ends the round `skipped` with no winner. With 2 connected, one vote does not pass and two do. An `off` vote removes the vote. A disconnect removes that player's vote and recomputes `needed`: with 4 connected and 2 votes, a non-voter disconnecting passes the skip. A vote for a stale round is ignored.
-    - `round:reveal` has `anime {revealTitle, year}`, `theme {slug, song, artists}`, `reason`, `winnerId` (when there is one) and `scores`.
-    - **Snapshot** during `playing` is built per player with `elapsedMs`, `playDurationMs`, `myStatus`, `skip {votes, needed, mine}`, `nextPrepare` and `settings`; it contains no `playerToken`, no anime id, name or group, no accepted string and no hidden message, and `audioUrl` is opaque.
+- [x] **I-010** docs: guide section for a changed home IP (the owner's question, 2026-11-04)
+  - `docs/deploy-guide.md` gains "다른 와이파이에서 서버 접속이 안 될 때": AWS console, security group, edit inbound rules, the SSH rule's source "내 IP", save; players are unaffected because 80/443 stay open to everyone.
+  - Acceptance (pytest): the section heading exists and mentions `보안 그룹`, `인바운드`, `내 IP` and `22`; all earlier guide rules still pass. (Checking a new DuckDNS token before it replaces the old one stays a follow-up: the locked cycle 062 test pins a single curl call on the final file.)
 
-- [ ] **F-002** frontend: WebSocket client wrapper (from design 011)
-  - `frontend/src/net/`. The `WebSocket` constructor, timers and storage are injected, so it runs under Vitest without a server. Envelope `{type, id?, payload}` (design 009 D7).
-  - Acceptance:
-    - `request(type, payload)` sends an envelope with a fresh `id` and resolves with the reply that carries the same `id`; replies arriving out of order resolve the right requests. A reply with an unknown `id` is ignored.
-    - A request with no reply within the timeout (fixed in the spec) rejects with `timeout`, and a late reply for it is ignored.
-    - Server events without `id` go to subscribers by `type`; unsubscribing stops delivery.
-    - When the socket closes, pending requests reject with `disconnected`. The client reconnects with backoff on the injected timer and, once open, re-sends the stored `playerToken` and room code (`room:join`) before any queued request.
-    - `room:replaced` stops reconnecting and is surfaced to the app.
-    - The `playerToken` lives in `sessionStorage` and is created once per tab.
+- [~] **S-004** design: Docker deployment (from D-071; revised for D-072..D-078)
+  - Image build and transfer (build on the server from the uploaded jar, `docker save | ssh docker load`, or a registry), Docker Compose layout (game server, Caddy in a container or on the host), the data mount, JVM memory inside a container on 1 GB, logs and restart policy, DuckDNS (stays a host timer or a container), migration from the running native install without re-uploading audio, and changes to setup.sh, upload.sh, the guide and their tests.
 
-- [ ] **F-003** frontend: audio loader controller (from design 011 / design 010)
-  - `frontend/src/audio/`. Design 010 decision 3. The media element, fetch and timers are injected.
-  - Acceptance:
-    - `unlock()` on the first tap calls `play()` then `pause()` on the single element.
-    - On prepare it fetches the URL once and sends ready with the latest `prepareId` when the Blob is complete; no media event is needed.
-    - A newer `prepareId` aborts the older fetch and drops its Blob, and no ready is sent for the old one.
-    - The next Blob is set as `src` when the previous reveal starts, or at once for round 1.
-    - On start it calls `play()` after `delayMs` on the injected timer, from `currentTime` 0. It pauses on `round:reveal` or at `playDurationMs`, and revokes the Object URL.
-    - On resume with `elapsedMs` 12000, a missing Blob is fetched again; if the fetch plus overlay took 3000 ms on the injected clock, it sets `currentTime` 15 before `play()`.
+- [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
+- [x] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
-- [?] **I-001** spike: playback on real browsers (from design 010), before F-003 ships to players. **Needs the user's devices** (iPhone, Android); agents prepare the spike page and the user runs it
-  - Using a minimal static page, play one 90 s AAC/M4A file via fetch, then Blob, then one `<audio>` unlocked by a tap (design 010 decision 3) on desktop Chrome, Firefox and Safari, and on iOS Safari and Android Chrome. Record OS and browser versions, whether it played, and the audible start, in PROGRESS.md. Any failure sends design 010's format choice back for review.
+- [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
+  - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
+- [ ] **B-015** backend: STOMP endpoint for game messages (from S-005)
+  - `/app/ping|create|join|leave|start|ready|chat|skip` with `JsonNode` payloads, a catch-all `bad-message`, a pre-conversion 4096-byte check, private-queue outbox (D-085), ordering flags; Solo/Lobby/Rounds/Filter/Tier socket tests ported with a per-test table, plus the concurrent-answer ordering test. Raw `/ws` stays.
+- [ ] **B-016** backend: STOMP connection lifecycle (from S-005)
+  - `rejoin`, replace with close 4001, disconnect on the ordered path with a closed-connection guard, server-to-client heartbeat; Reconnect/LateJoin/proxy tests ported, leak test, no-ghost-seat test, slow-consumer close test.
+- [ ] **F-010** frontend: session over `@stomp/stompjs` (from S-005)
+  - Private-queue subscription in `onConnect`, own reconnect ladder (`reconnectDelay: 0`), 4001 from `onWebSocketClose`; `FakeStompClient` recording `{destination, body}` with a test-side mapping helper (declared change to `fakes.js`); real-jar STOMP smoke.
+- [ ] **B-017** backend: remove the raw transport (from S-005)
+  - Remove raw `/ws`, `OutboundQueue` and the raw test helpers/tests; propose the `deploy/smoke.py` STOMP update to the owner (D-083).
+
+- [x] **F-011** frontend: Tailwind and a seat-based room layout (from D-089)
+
+- [x] **F-012** frontend+backend: six host-picked room themes and the mockup room layout (from D-090)
+
+- [x] **C-017** data: resumable S3 upload with random object names (from S-006, design 073)
+  - Work map `s3-keys.work.json`, served map `s3-keys.json` (only objects verified by a final listing with the index size), size check against the index, corrupt map exits non-zero, Stubber tests (empty bucket, two pages), no secret in output, strict CLI.
+- [x] **B-018** backend: S3 presigned audio mode (from S-006, design 073)
+  - With `songrush.audio.s3-bucket`: served map loaded at startup (missing/invalid or zero candidates fails startup), candidates need a served-map entry with the index size, `/audio/{token}` -> 302 to a 60 s presigned URL with `Cache-Control: no-store`, presign error -> 503, credentials resolved once at startup, drop counts logged; without it, unchanged.
+- [?] **I-011** owner: move the audio to S3 (from S-006) - read policy on the server role, upload key and upload, copy the maps, set the env, deploy, real-browser check, delete the upload key.
 
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
-- [ ] **M-1** Solo prototype: one player opens the site, hears a song from the start (at most 90 s, designs 009 and 010), guesses the anime by chat, sees right/wrong and the reveal, and plays the next round.
-- [ ] **M-2** Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
-- [ ] **M-3** Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
-- [ ] **M-4** Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 (prefetch fairness) before planning.
-- [ ] **M-5** Anime-specific modes: OP/ED filter, year range, popularity difficulty.
+- [x] **M-1** *(planned in design 034: B-004, B-006a, B-007, F-001, F-002)* Solo prototype: one player opens the site, hears a song from the start (at most 90 s), guesses the anime by chat, sees right/wrong and the reveal, and plays the next round.
+- [x] **M-2** *(planned in design 034: B-005a, F-003)* Rooms: create a room, share a code or link, others join with a nickname, lobby shows players, host starts the game.
+- [x] **M-3** *(planned in design 034: B-005b, B-006b, F-004, F-005)* Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
+- [x] **M-4** *(planned in design 052: S-003, B-009, I-004, I-005, I-006; I-007 needs the owner)* Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
+- [x] **M-5** *(planned in design 059: B-011, F-008; tiers wait on D-069, widening on D-070)* Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
+- [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
 
 ## Needs decision
 
-- [?] **D-010** Hosting choice (design 005). There is no recommendation, because it depends on which of these the user accepts:
-  - a credit card (required on Fly, Koyeb and Cloud Run; practically required on Oracle; likely on Lightsail);
-  - a cold start (Render: sleeps after 15 min, about 1 min to wake; a JVM start adds to it);
-  - idle reclamation (Oracle);
-  - a region outside Seoul or Tokyo (Render, Railway and Hetzner reach Singapore at best; Koyeb's free tier is EU/US only).
+- [?] **I-007** *(superseded by the owner's hand-built deployment, D-087)* Deploy and smoke (from M-4, design 052): the owner follows `docs/deploy-guide.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's AWS and DuckDNS accounts (D-066, D-068) and I-009 first.
 
-  Constraints from the stack (D-029, design 011) and design 010: the host must run a long-lived JVM (Java 17) process with WebSocket support, a persistent disk of at least 2 GB for the audio cache, and an ffmpeg binary for the lobby fetch (D-026). This rules out Cloudflare Workers, Render free, Railway free, Koyeb free and Cloud Run's in-memory filesystem. Free tiers with little memory may be tight for a JVM; that is unmeasured. Seoul or Tokyo is available on Oracle, Lightsail, Cloud Run and Fly (Tokyo). Egress cost is at most about $5/mo even under D-009 option C. Non-blocking until M-4.
-- [?] **I-001** Real-device playback check (see Ready). Needs the user's iPhone and Android phones.
+- [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time; then joins one room from the PC browser and the iPhone and reports whether both start the song together (no echo between the two). The silent switch should not matter (cycle 047 sets the audio session to playback). Agents cannot run this.
+
+- [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
-- **D-001** GitHub remote: private repo `kimdoodoo12/SongRushApp` (user, 2026-11-02).
-- **D-002** Audio source: AnimeThemes direct playback (user, 2026-11-02). *Superseded by D-009.*
-- **D-003** Answer target: anime title (user, 2026-11-02).
-- **D-004** Round format: fixed clip + time limit (user, 2026-11-02). *Replaced by D-018/D-021.*
-- **D-005** Answer leak: resolved by D-009 (opaque URLs).
-- **D-006** Dataset (user, 2026-11-02): do not use `nonlooped/anime-op-ed-dataset`; build our own catalog from AnimeThemes + AniList (C-001..C-004), linked by AniList id. AnimeThemes stays the audio source. Korean titles come from C-005 (aod, Wikidata, AniDB). Evidence: `docs/research/game-mechanics-2026-11-02.md`, `docs/research/animethemes-scope-2026-11-02.md`.
-- **D-007/D-008** Answer matching (user, 2026-11-02): a guess is correct only if it is a full official title (Korean, English or Japanese; no nicknames or abbreviations). Season and sequel suffixes ("Season 2", "Final Season", etc.) are not required: any title of the same series counts. The reveal shows the exact entry's title, season included. Open at the time: whether romaji counts as "Japanese" (assumed yes, since it is the AnimeThemes primary name), how series are grouped, and where Korean official titles come from (design 008). Resolved later: romaji counts (D-015), grouping (D-020), Korean sources (design 008). "No nicknames" is relaxed by D-022 (all source aliases accepted for now).
-- **D-009** Audio delivery (user, 2026-11-02): the server fetches audio from AnimeThemes and serves only the round's highlight clip through opaque URLs, like songspot.co. (The highlight clip was later replaced by the whole song from the start: D-018, D-021, design 010.) Reverses D-002 after designs 003/004 measured direct playback as unusable. Pipeline: design 010.
-- **D-011** Scoring (user, 2026-11-02): only the first correct answer in a round scores (like the StarCraft use-map quiz). Replaces design 002's speed formula; details in design 009.
-- **D-012** Skip (user, 2026-11-02): players can vote to skip a round. Details in design 009.
-- **D-013** Hints (user, 2026-11-02): none for now; revisit at feature expansion.
-- **D-014** Rounds per game (user, 2026-11-02): the host sets it when creating the room. Details in design 009.
-- **D-015** Answer input (user, 2026-11-02): chat, like the StarCraft use-map quiz. Every chat message is compared on the server with the full official titles (KO/EN/JA/romaji), ignoring spaces, punctuation, case and width; spelling must match. Unlimited attempts, no cooldown. Wrong guesses are visible as chat; the correct message is hidden and announced. Replaces autocomplete (design 002 D3).
-- **D-016** "First" = server arrival order (user, 2026-11-02). No latency compensation.
-- **D-017** Skip vote passes with more than half of connected players (user, 2026-11-02).
-- **D-018** Playback (user, 2026-11-02): the whole AnimeThemes file (TV size, ~90 s) from the start; the round ends at the first correct answer, a passed skip, or the song's end. The round ends immediately on a correct answer. Replaces the fixed-clip/highlight plan; no cutting.
-- **D-019** Caching (user, 2026-11-02): pre-fetch the popular top ~1500 themes; fetch the rest on demand. (The on-demand part was refined by D-026 and D-027.)
-- **D-020** Series grouping (user, 2026-11-02): the automatic rule as-is (AnimeThemes `series` intersected with AniList SEQUEL/PREQUEL/SUMMARY chains); no manual splits, so Fate/Zero and Fate/stay night stay together. Principle: the revealed answer is the entry's own title, but the accepted range is wide.
-- **D-021** Long files (user, 2026-11-02): play at most the first 90 s; if nobody answers, reveal.
-- **D-022** Aliases (user, 2026-11-02): keep every alias from the sources for now; filtering rules come later (Follow-ups).
-- **D-023** Attribution (user, 2026-11-02): yes, one line in the footer or an about page: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata".
-- **D-024** Chat flood limit (user, 2026-11-02): keep the token bucket (burst 5, 2/s) from design 009 D2.
-- **D-025** Prefetch fairness (user, 2026-11-02): accept for now (friends-only); revisit before M-4.
-- **D-026** Uncached themes (user, 2026-11-02): the room's themes are drawn when the room is created (and redrawn when the host changes `rounds`), and uncached ones are fetched and encoded while the lobby waits. Start is enabled only when every drawn theme is ready. Replaces design 010's "cached only" pool; see design 010 "Decision update".
-- **D-027** Draw range (user, 2026-11-02): rooms draw from the top 1500 OP/ED themes by popularity (the pre-cached set). Widening the range is an M-5 mode or difficulty setting. Uncached draws, such as failed or new entries, still use the lobby prefetch (D-026). This keeps lobby waits short and bounds disk growth.
-- **D-028** Working mode (user, 2026-11-02): when a decision is needed and the user is present, ask at once and never block. When the user is absent, use Needs decision. CLAUDE.md and the vibe-cycle skill updated.
-- **D-029** Stack (user, 2026-11-02): **Spring Boot + React (JS, no TypeScript) + Python**: a Java Spring Boot backend, a React frontend in plain JavaScript (JSX), and Python data processing. The user also wants no TypeScript anywhere unless it is truly needed, for consistency; nothing needs it. The user had assumed this stack (the same one as BlueArchiveBriefingApp) from the start. The lead had chosen Node.js + TypeScript in design 001 without asking, which was a mistake. Plan: design 011. Game rules and decisions D-001..D-028 carry over unchanged. What happens to the earlier implementation and its outputs is D-031.
-- **D-030** Layout and Java version (user, 2026-11-02): the folders are `frontend/`, `backend/` and `data/`, like BlueArchive. The backend uses Java 17. The user accepted that Java 17 (Unicode 13) and Python 3.12 (Unicode 15) can normalize a rare character differently; the shared normalize vectors detect such drift rather than prevent it (design 011 F3).
-- **D-031** Fresh start (user, 2026-11-02): discard the TypeScript implementation, its cycle records, the old git history and every artifact it produced (`catalog.json`, the HTTP caches and the 124 cached audio files); the repo restarts with a new history. Kept: the decisions, the designs (rewritten for the stack), the research, the raw API fixtures and the vibe-cycle tooling. The AniDB titles dump was last requested 2026-11-02 18:34 KST, so the next AniDB request is allowed from **2026-11-03 18:34 KST** (design 011 F6).
+- **D-092** Audio storage, revised (user, 2026-11-06; refines D-077 and D-083): the 1,500 cached songs move to a private S3 general-purpose bucket in the account-regional namespace (ap-southeast-2), under random object names. The server hands out short-lived **S3 presigned URLs** signed with the EC2 instance role (no stored key, no CloudFront for now; CloudFront can be put in front later). The upload uses an upload-only IAM user key on the owner's PC and a resumable tool that skips objects already uploaded; the key is deleted after the upload. Reason: the simplified account blocks OIDC and may block CloudFront key groups, and presigned S3 needs no secret.
+- **D-091** Six room themes (user, 2026-11-05, after mockup v2 with six looks: "일단 이대로 해보자. 괜찮아 다."): the host picks one of 놀이터, 무대, 벚꽃, 칠판, 별밤, 오락실, exactly as in the approved mockup `docs/design/071-room-mockup.html` (refines D-090's two looks).
+- **D-090** Room themes (user, 2026-11-05: "그 분위기 다 좋아. 방장이 선택할수있게 하자"): two looks, a bright cartoon theme and a dark neon theme; the host picks one in the lobby and every member of the room sees it (solo players pick their own). Cycle 070's look was rejected after a real-browser look (empty centre stage, dashboard feel, round status missing on desktop); the next UI cycle starts from an approved mockup.
+- **D-089** UI redesign (user, 2026-11-05: "웹 프론트좀 꾸며줘... 멀티플레이(채팅) 위주", "캐치마인드의 배치 형식"): restyle the web client now, ahead of D-086's order, with Tailwind CSS (replacing D-079's plain CSS). Layout follows the classic chat-guessing room: player seats down both sides (4 + 4 for 8 players) with each player's latest message as a speech bubble by their seat, the song stage in the centre, the chat log and input below. Borrow the layout only; no CatchMind art, names or branding.
+- **D-088** Docker now (user, 2026-11-04: "아무리봐도 이거 사람이 할게 못되는데. 도커 써야할것 같아"): after deploying by hand up to systemd and a native Nginx, the owner switches the course to Docker next (before https and CI/CD). The native systemd service and Nginx on the new instance are retired in favour of containers.
+- **D-087** Clean slate (user, 2026-11-04: "aws 인스턴스는 다 삭제할게 duckdns도 없애야지"): the owner deletes the first EC2 instance (and its volume) and the DuckDNS name, and rebuilds by hand from server creation (D-083, D-084, D-086). The uploaded audio goes with the instance; the PC copy stays the source. D-066 (DuckDNS) is reopened for the owner's new setup. The owner's course order: deploy by hand first, then CI/CD, then Docker, then operations.
+- **D-086** Order of work (user, 2026-11-04: "지금 일단 배포/운영에 집중하고싶어. 기능은 일단 배포 뒤에 ci/cd 연결한뒤 해보자"): deployment and operations first, built by the owner with the lead teaching (D-084). Feature work (B-014..B-017, F-010) waits until the site is deployed and CI/CD is connected; cycle 069's spec and its review are kept on branch `cycle/069-game-core`.
+- **D-085** STOMP routing (user, 2026-11-04; refines D-076): server-to-client messages go only to each recipient's private queue `/user/queue/game` (no room topics), so ordering and privacy stay exactly as today and nobody can listen to a room by knowing its code.
+- **D-084** Split of work (user, 2026-11-04: "코드는 네가 다해. 그런데 운영이나 배포만 내가 하겠다고"): the lead writes all code (backend, frontend, data, STOMP and any app-side change); the owner does operations and deployment personally, with the lead teaching step by step ("단계별 수업처럼": goal, reason and hints for each step, the owner writes the files, the lead reviews, full answers only when stuck). The native Caddy deployment is not brought up; the owner starts their own setup from scratch, reusing the uploaded audio. D-082's hold now applies only to deployment infrastructure.
+- **D-083** Owner builds operations and deployment by hand (user, 2026-11-04: "사실 배포 운영은 내가 직접 손수 해보고싶어"): the owner builds the Docker, Nginx, certbot, CI/CD, AWS and logging setup personally. The lead explains, guides step by step, debugs and reviews on request, and does not implement deployment infrastructure (S-004 and the infra part of S-006) itself. App-side changes that deployment needs are proposed to the owner first. D-077 (S3 vs server disk with Nginx serving audio) is reopened for the owner to decide while building.
+- **D-081** Repository and image visibility (user, 2026-11-04; resolves the Actions-minutes blocker of the S-004 round-2 review): make the GitHub repository public after a secret scan (the owner flips it), so Actions minutes are free and the 5-minute monitor (D-074) is affordable; the GHCR image is then public too (no pull token on the server). The catalog with answers becomes public; it is built from public sources.
+- **D-082** Hold (user, 2026-11-04: "일단 구현은 하지 말아줘. 서버 운영/배포쪽으로 내가 조금더 알아봐야할것 같아"): no implementation of S-004/S-005/S-006 until the owner has looked into operations and deployment; design 067 stays a draft, and open operations questions are asked one by one.
+- **D-080** Confirmed as they are (user, 2026-11-04): build and test tools (Gradle + JUnit 5, Vite + Vitest + ESLint, pytest) and the server (Ubuntu 24.04 LTS, ap-northeast-2, t3.micro).
+- **D-072** CI/CD (user, 2026-11-04): GitHub Actions. Every push runs the tests; a merge to `main` builds the image, pushes it to GHCR and deploys to the server automatically (the server's SSH key goes into GitHub Secrets).
+- **D-073** Image registry (user, 2026-11-04): GitHub Container Registry (GHCR).
+- **D-074** Monitoring (user, 2026-11-04): a scheduled GitHub Actions check of the public site every 5-10 minutes that posts to Discord when it fails (the Discord webhook goes into GitHub Secrets).
+- **D-075** Reverse proxy (user, 2026-11-04): Nginx with certbot for HTTPS, replacing Caddy.
+- **D-076** Realtime protocol (user, 2026-11-04): STOMP over WebSocket (Spring `@MessageMapping` and topics), replacing the raw WebSocket protocol, for both the web client and the Flutter app. The game rules (room, scores, answer checks, server arrival order) stay.
+- **D-077** Audio storage (user, 2026-11-04; about USD 0.2/month estimated): S3 + CloudFront. Objects use random names and are served through short-lived signed URLs, so no URL or file name reveals the song. The audio already on the server is copied to S3 from the server.
+- **D-078** Logs (user, 2026-11-04): CloudWatch Logs through Docker's awslogs driver (an IAM role on the instance).
+- **D-079** Kept as they are (user, 2026-11-04): Java 17; no database. Lead's call where the user said it does not matter: plain CSS for now (Tailwind to be proposed with a UI redesign), React Router for pages with React's own `useReducer` for state.
+- **D-071** Docker (user, 2026-11-04: "원래 서버운영 배포는 docker를 써야지. 나는 지금이라도 쓰고싶은데"): run the server with Docker now, replacing the native systemd install of the game server (design 052 had left Docker out without asking). The audio and catalog stay on the host and are mounted read-only, so the 5 GB upload is reused. Design first (S-004).
+- **D-066** Hostname (user, 2026-11-04): DuckDNS, for example `songrush.duckdns.org`. The name stays fixed when the IP changes; the server reports its IP to DuckDNS at boot. The DuckDNS token is a secret: it is typed on the server during setup and never stored in the repo.
+- **D-067** Preview risk (user, 2026-11-04; revisits D-025/D-057): keep it accepted for friends-only play; no audio encryption.
+- **D-068** AWS sign-up (user, 2026-11-04; refines D-065): the Free plan (USD 100 credit, up to 6 months; the account closes by itself when the plan ends or the credit runs out, and data is deleted 90 days later unless upgraded). EC2 t3.micro, 16 GB gp3. The guide must warn clearly and remind the owner before month 5.
+- **D-069** Popularity difficulty (user, 2026-11-04): three tiers over the popularity rank of the cached draw set: easy = rank 1-300, normal = all (today), hard = rank 501-1,500.
+- **D-070** Draw range (user, 2026-11-04): keep the cached top 1,500 for now; grow the cache offline later if wanted. No lobby fetch.
+- **D-065** Hosting (user, 2026-11-04; settles D-010): deploy on AWS EC2 free tier (t3.micro-class, 1 GB RAM, up to 30 GB EBS, free for 12 months after sign-up). The M-4 design sizes the JVM for 1 GB, plans the 5.5 GB audio upload and the WebSocket-capable setup, and lists what the user must do in the AWS console (account, instance, security group, any domain or certificate).
+- **D-064** Mobile app scope (user, 2026-11-03): the Flutter app (M-6) starts after the web deployment (M-4), so it can connect to the public server; it targets both Android and iOS (iOS builds need a Mac or a cloud build and an Apple developer account).
+- **D-063** Mobile app (user, 2026-11-03): besides the web client, a mobile-only app will be built with Flutter ("Flutter 써서 모바일 전용으로도 할 계획"); it reuses the backend and its protocol. Recorded as Roadmap M-6; its scope and timing are confirmed with the user before it is planned.
+- **D-058** Song count (user, 2026-11-03): the host chooses 5-30 songs per game, default 10 (refines D-047's range proposal).
+- **D-059** Late joiners (user, 2026-11-03): a player who joins during a game joins at 0 points from the next song; until then they spectate.
+- **D-060** Remaining time (user, 2026-11-03): show a remaining-time bar while a song plays (the server sends `deadlineAt`).
+- **D-061** Skip count (user, 2026-11-03): the skip majority counts only players with an open connection; a player waiting to reconnect is not counted, and a leaving player's vote is removed.
+- **D-062** After a game (user, 2026-11-03): the room returns to the lobby and the host can start again; scores start from 0.
+- **D-057** Audio fingerprints (user, 2026-11-03; replaces D-055): do not try to hide the song from a modified client for now. Padding inside the file does not work (a client can strip it and recover the exact public size; cycle 031 spec review), and any client that receives the audio can match its packet-size pattern against the public files. Like D-025, this is accepted for friends-only play and revisited before M-4, where the options are: encrypt the audio and send the key at `startAt` (hides the song until it plays), and re-encoding with randomized settings (needs ffmpeg, against D-053).
+- **D-055** *(replaced by D-057)* Size fingerprint (user, 2026-11-03): prevent identifying a song by its file size (the public AnimeThemes sizes identify 94% of the draw set). After download, each cached file gets a random-length padding tag in its OpusTags packet; the audio is unchanged (design 029).
+- **D-056** Failed downloads (user, 2026-11-03): themes whose audio could not be prefetched are left out of the draw candidates, so the draw set may be slightly under 1,500.
+- **D-053** Browser support (user, 2026-11-03): serve the original Ogg Opus audio and support only browsers that play it (Chrome, Firefox, Edge, and Safari on iOS/macOS 18.4 or later); older devices get an "update your browser/iOS" notice. No transcoding, so no ffmpeg on the server (design 029).
+- **D-054** Prefetch start (user, 2026-11-03): start the top-1,500 audio prefetch (about 5.4 GB) on this PC as soon as the prefetch tool passes review, in the background.
+- **D-052** Several separators (user, 2026-11-03; refines D-049): when a title has several separators, the part before **each** of them is accepted, not only the part before the first (`Chainsaw Man – The Movie: Reze Arc` accepts `Chainsaw Man` and `Chainsaw Man – The Movie`), so adding separators never removes an answer. A wave dash used inside a word (`ぬ〜べ〜`, `トロピカル〜ジュ！`) is accepted as a side effect (about 12 odd strings); only a wave dash between digits (`13話～16話`) is not a separator.
+- **D-051** Front-part follow-ups (user, 2026-11-03):
+  - The dash separator stays ` -` (a space before the dash, as in `Re:ZERO -Starting Life in Another World-`, `DARKER THAN BLACK -黒の契約者-`, `CLANNAD -クラナド-`); the user confirmed the lead's correction of D-049 after seeing examples.
+  - A front part that equals another series' title is still accepted (the only real case: `Ayakashi` from *Ayakashi: Japanese Classic Horror* and the separate *Ayakashi*).
+  - Add the wave and long-dash separators common in Japanese and Korean subtitles: `~`, `～`, `〜`, `–`, `—`, `―`, `／`, `－` (the D-050 minimum still applies).
+- **D-050** Shortest front part (user, 2026-11-03; refines D-049): a front part counts only when its normalized form has at least 4 characters, or at least 2 when it contains Hangul, kana or CJK ideographs (the same minimum as the trailing-qualifier rule). So `Demon Slayer`, `Fate`, `Gintama`, `Re:Zero` are accepted, but `is` (IS: Infinite Stratos), `in` (In/Spectre), `re` (Re: Cutie Honey) and `gto` are not accepted as front parts; the full titles stay accepted.
+- **D-049** Front part of a title (user, 2026-11-03; replaces the "front part alone is not accepted" sentence of D-038): when an accepted title contains a separator, the part before the first separator is also accepted, because what follows only continues the original title ("Demon Slayer의 뒤로 뭐가 나와도 원제목의 이어지는거니까 앞부분도 정답"). Separators are `: ` (a colon followed by a space; also the full-width colon `：`), `/`, and ` -` (a dash after a space, with or without a space after it; corrected the same day by the lead so the approved example `Re:ZERO -Starting Life in Another World-` works). A colon with no following space, as in `Re:Zero`, is part of the title. A front part of one normalized character (`K` in `K: Return of Kings`) is not accepted. Examples: `Demon Slayer`, `Fate` (from `Fate/Zero`), `Gintama`, `Re:Zero`/`ReZero` (from the English `Re:ZERO -Starting Life in Another World-`) are accepted; the full titles stay accepted. D-038's other rule stands: trailing qualifiers such as the season need not be typed.
+- **D-043** AniDB (user, 2026-11-03): use the AniDB titles dump. AniDB forbids bulk extraction from the site, so take only the official titles dump, at most once per 24 h, and never crawl anidb.net pages ("대량 추출만 하지말고 조금씩"). Credit AniDB with a small line on the site, already part of D-023.
+- **D-044** Audio prefetch (user, 2026-11-03): once S-002 is designed, the top-1500 audio download may start automatically on this PC, in the background, into a gitignored folder. Download a few files first to measure the real size, and stop and ask if the projected total exceeds 10 GB.
+- **D-045** Compilations (user, 2026-11-03): AniList `COMPILATION` and `CONTAINS` relations (recap films that re-edit a TV series) always join the original series, even when the titles differ, so the original title is accepted for a recap film's theme. Every other relation keeps the title-sharing rule (D-041, D-042).
+- **D-046** Room size (user, 2026-11-03): at most 8 players per room.
+- **D-047** Game length (user, 2026-11-03): a game is a single round made of N songs; the host chooses N when creating the room ("한 라운드에 게임이 끝나게 해. 대신 그 라운드에 몇 곡을 할건지 선택"). This refines D-014. The allowed range is set in S-003 (lead's default proposal: 5-50, default 10).
+- **D-048** Duplicate nicknames (user, 2026-11-03): a nickname already used in the room gets a number appended automatically ("철수" becomes "철수(2)").
+- **D-001** GitHub remote: private repo `kimdoodoo12/SongRushApp`.
+- **D-003** Answer target: the anime title.
+- **D-006** Dataset: do not use `nonlooped/anime-op-ed-dataset`. Build our own catalog from AnimeThemes and AniList, with Korean titles from public sources.
+- **D-007/D-008** Answer matching: a full title counts in Korean, English or Japanese, including romaji (D-015). Season and sequel suffixes are not required, so any title of the same series counts. The reveal shows the exact entry's title, season included.
+- **D-009** Audio: the server fetches the audio from AnimeThemes and serves it to players through opaque URLs, like songspot.co. Players never get a URL that reveals the song.
+- **D-011** Scoring: only the first correct answer in a round scores.
+- **D-012** Skip: players can vote to skip a round.
+- **D-013** Hints: none for now; revisit at feature expansion.
+- **D-014** Rounds per game: the host sets it when creating the room.
+- **D-015** Answer input:
+  - Answers come by chat, like the StarCraft use-map quiz. Every chat message is compared on the server with the titles in Korean, English, Japanese and romaji.
+  - Spaces, punctuation, case and width are ignored; spelling must match.
+  - Attempts are unlimited. Wrong guesses are visible as chat. The correct message is hidden and announced. No autocomplete.
+- **D-016** "First" means server arrival order. No latency compensation.
+- **D-017** A skip vote passes with more than half of the connected players.
+- **D-018** Playback: the whole TV-size song from the start. The round ends at the first correct answer, a passed skip, or the end of the song.
+- **D-019** Caching: pre-fetch the popular top ~1500 themes.
+- **D-020** Series grouping: automatic, from the sources' series and sequel/prequel relations, with no manual splits. The revealed answer is the entry's own title, but the accepted range is the whole series.
+- **D-021** Long files: play at most the first 90 s; if nobody answers, reveal.
+- **D-022** Aliases: accept every alias from the sources. *Replaced by D-035.*
+- **D-023** Attribution: one line in the footer or an about page: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata". Update it if S-001 changes the sources.
+- **D-024** Chat flood limit: a token bucket with a burst of 5 messages and 2 per second.
+- **D-025** Prefetch fairness: a modified client listening ahead to the next prefetched song is accepted for now (friends-only play). Revisit before M-4.
+- **D-026** Uncached songs: a room's songs are drawn when the room is created, and redrawn when the host changes the number of rounds. Uncached ones are fetched while the lobby waits, and the game starts only when every drawn song is ready.
+- **D-027** Draw range: rooms draw from the top 1500 OP/ED themes by popularity, the pre-cached set. Widening the range is a later mode or difficulty setting.
+- **D-028** Working mode: when a decision is needed and the user is present, ask at once and never block. When the user is absent, record it under Needs decision.
+- **D-029** Stack: a Java Spring Boot backend, a React frontend in plain JavaScript with no TypeScript, and Python data processing. The same stack as BlueArchiveBriefingApp.
+- **D-030** Layout: the folders are `frontend/`, `backend/` and `data/`. The backend uses Java 17.
+- **D-031** Fresh start: discard the TypeScript attempt, its git history and every artifact it produced.
+- **D-042** Sequels with different titles (user, 2026-11-02): sequel entries whose real titles differ stay separate. Bakemonogatari and Nisemonogatari are different ("엄연히 다른거"), but Fate/Zero and Fate/stay night share the "Fate/" name, so they group ("Fate는 묶어도 되지"). Every relation type, sequel included, joins only when the titles share a base or head (design 014 decision 3).
+- **D-038** Full titles (user, 2026-11-02): an answer must be the full title ("기본은 전체 제목"). Trailing qualifiers after the original title, such as the season, year, `(TV)` or `(애니메이션)`, need not be typed ("원제목 뒤에 이상한 글자까지 붙는것은 굳이 안쳐도"). A front part such as "Demon Slayer" alone is not accepted.
+- **D-039** Korean titles (user, 2026-11-02): Korean has no single official title, so every Korean title collected from the sources counts.
+- **D-040** Korean gaps (user, 2026-11-02): add the AniDB titles dump (after a license check, not before 2026-11-03 18:34 KST). Popular anime that still lack a Korean title are filled in by the user in a small manual file, from a list the build produces.
+- **D-041** Series scope (user, 2026-11-02): group side stories, spin-offs and movies with the main series, but keep entries whose real title differs separate ("진짜 제목마저도 달라지는 케이스는 구분"). The rule is in design 014 decision 3.
+- **D-037** Multilingual titles (user, 2026-11-02): the game is multilingual by design. Titles are collected and accepted separately for **Korean, English, Japanese and romaji**, so each country's players can answer with the title they know (design 014 decision 3).
+- **D-034** Draw set (user, 2026-11-02): pure popularity order. The top 1500 OP/ED themes by their anime's popularity, with no per-series cap (design 014).
+- **D-035** Accepted answers (user, 2026-11-02): by default only the original, official titles count ("기본은 원 제목 그대로"). When the data has no official title and only an alias exists, that alias counts ("어쩔수없이 별칭만 나오는 경우 그건 정답 처리"). This replaces D-022's "accept every alias". The rule is in design 014 decision 3.
+- **D-036** AniList scope (user, 2026-11-02): request AniList only for the anime that AnimeThemes lists, and cache what the code needs. This keeps clear of AniList's terms against mass collection.
+- **D-033** Order (user, 2026-11-02): data first. The data bootstrap, the song data design and its tools, then the audio design and the top-1500 audio run come before game-protocol design, backend features and the frontend. The backend bootstrap (B-001) was already done.
+- **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
-- Alias filtering rules (short aliases, chat stop-words, digit-only, cross-series collisions) deferred by the user (D-022); evidence and proposed rules in `docs/research/title-db-audit-2026-11-02.md`.
-- Korean title gaps for popular anime (54 of the top 300 groups had none in the audit): curated file proposal pending; see the same audit.
-- Hints (e.g. initial-consonant hints) deferred by the user to feature expansion, because titles are multilingual (D-013).
-- Wikidata SPARQL has no ORDER BY, so the first string for an id without a ko label may differ between refreshes and change `revealTitle`. Add `ORDER BY ?id ?ko ?alt` or keep labels and alts apart.
-- `HEAD /health`: confirm it returns 200 if a host health checker needs it (Spring MVC normally answers HEAD for GET mappings; pin it with a test if a checker depends on it).
-- Revisit D-025 (prefetch fairness: a modified client can listen ahead to the prefetched next-round file) before M-4 planning.
+- (074) Pin `X-Amz-SignedHeaders=host` in a test so that an SDK upgrade adding signed headers cannot break browser fetches unseen. Make `s3upload.main`'s catch-all print only the type name and error code: today a listing transport error shows the endpoint URL, which holds the bucket and the `a/` prefix but no key. Propose an audio check for `deploy/smoke.py` to the owner (room, start, follow `audioUrl` with Origin, expect 200, the CORS header and `OggS`).
+- (072) Flaky `TierSocketTest.lobbyStartWithNormalSendsNoSettingsAndPrepareComesFirst` (failed once on GitHub Actions run 42042611967, passed in run 42042609757 on the same code). Likely cause: the `token` frame from create can arrive after the mark taken following `assertPingWorks`, so it is counted as the first frame after start. Fix the test to wait for `token` before the mark, in a test cycle.
+- (071) Entering a room briefly shows `play` before the room theme arrives. Desktop seat columns are tall because of the bubble spacing (`gap-y-14`). Owner check on a real phone. The arcade dot font only covers Latin; Korean falls back to Do Hyeon.
+- (070) Check the lobby and room-game layouts in a real browser at 360 px and md+. Old browsers have no subgrid fallback. On md, seat cards stretch with a tall stage. A disconnected seat's opacity can put its bubble under the stage. `npm audit` reports 4 moderate findings (eslint's minimatch).
+- DuckDNS (critic, cycle 062): `duckdns-setup.sh` writes the new token before checking it, so a wrong but well-formed token replaces a working one before the `KO` (check with the temp file first, then `mv`); the setup-time curl has no `--max-time`; the file-mode 600 check only runs on Linux.
+- Filter UI (critic, cycle 061): no test pins that `restore`, `watching`, `abandoned` and `connecting` clear the settings line, or that a rejoin shows it again (the code does both); the reversed-range hint has no `role="status"` for screen readers.
+- Deploy guide (critic, cycle 058): `upload.sh`'s missing-jar hint still says `.\gradlew.bat` (bash form is `./gradlew.bat`); `setup.sh`'s closing hint prints the upload command without the key; step 9 (updates) does not re-copy `deploy/`, so later unit or Caddyfile changes need the `scp` + `setup.sh` steps again.
+- Restore hint (critic, cycle 057): on a first deploy there is no `songrush.jar.good`, so the printed restore command stops at `cp` (harmless; the runbook says so); the restore should copy to `.new` and `mv` like the deploy; a failed `.good` copy after a healthy start reports failure; the poll can last up to about 420 s when the JVM accepts but never answers (`curl -m 5`). Check on the real server whether `DPkg::Lock::Timeout` also covers `apt-get update`'s lists lock.
+- Smoke test gaps (critic, cycle 056): the stub does not check that the client sends a close frame and waits for the server's close; the send branches for frames over 125 bytes are unused and could be removed.
+- Static serving (critic, cycle 054): add `spring.web.resources.cache.cachecontrol.no-cache=true` so a stale cached `index.html` cannot point at deleted hashed assets after a redeploy; resolve both guard paths with `toRealPath()` (symlinks); select guarded locations through `ResourceLoader` instead of a case-sensitive `file:` prefix and reject locations that are neither `file:` nor `classpath:`; tighten `StaticGuardTest` to the guard's own message.
+- Per-IP limits (plan 052, dropped from M-4): open WebSocket connections and `create` rate per client IP, once the server is public; mind carrier NAT false positives.
+- Drift correction (critic, cycle 051): no test pins the `max` in `clockSync.lowerBound()` (a lower bound arriving after a higher one must not move the start); a backward clock step during a provisional song can move it slightly later (never earlier).
+- Reconnect screen (critic, cycle 049): a short drop on the final-ranking screen restores the lobby and loses the ranking (keep the result screen with `대기실로` when the snapshot says lobby); a reconnect during REVEAL loses that song's reveal card; using the stored token after a page reload is not built yet (handle duplicated tabs copying `sessionStorage`, which would replace the original tab with 4001).
+- Socket join race (critic, cycle 046): a `join` immediately followed by `leave` can leave the rejoin token in `logins` (the leave removes it on the I/O thread before the lobby task puts it) and still send the token frame after the leave; check the binding before `logins.put` and the token frame, or remove the token inside the lobby task.
+- Skip (critic, cycle 045): a socket that replaces another without a vote of its own gets no `skipState`, so it shows 0 votes until the next change (send the current `skipState` to a reconnecting player, or add `skip{votes, needed}` to the snapshot with the locked tests updated); a clock stepping backwards refills up to the stepped time (bounded by 5 tokens).
+- Pause (critic, cycle 044): no test pins the abandon after a connected Room player's `leave` when the others are already expired (`Lobby.java` leave path); that path sends a `playing` roster right before the `lobby` roster.
+- AniDB (critic, cycle 043): an XML declaration with an unknown or non-text encoding raises `LookupError`, which escapes `load_korean` after the marker is written and fails the build (catch it with the parse errors, with a test); a corrupt marker blocks forever while the log says "next allowed" (say "delete <path> by hand" instead); two builds with different `--out` but one cache could both request (exclusive marker create); a multi-member gzip dump would be rejected daily; no log line before the request.
+- Reconnect (critic, cycle 042): a `create`/`join`/`rejoin` that lands while its lobby is closing is dropped by `shutdownNow()` and leaves a seat with no reply (clear seats again after shutdown, or re-check a closing flag after submit); a replacing socket can get other frames before its `joined`/`snapshot`, and two simultaneous rejoins both send their snapshot to the last socket; `leave` drops the token even when a racing rejoin won the binding; no handler-level concurrency test (parallel rejoins with one token).
+- Lobby screens (critic, cycle 041): a player who opens `/r/<code>` and presses Enter in the nickname field starts a solo game instead of joining (make 참가 the default action when a code is prefilled); new error texts and the copy button have no live-region feedback, and `navigator.clipboard` is missing on plain-http LAN addresses.
+- Solo screen (critic, cycle 039): the chat form shows while the socket is still connecting, and `send()` on a CONNECTING socket throws (hide the form until the first `prepare`, or check `readyState`); announcements ("정답!", errors, chat log) have no live region for screen readers.
+- Solo WebSocket (critic, cycle 037): no test pins that closing the socket or `leave` actually stops the room thread (dropping `discard`/`shutdownNow` would still pass; assert `room-*` threads return to their count, or expose an active-room count); a binary frame closes the socket with 1003 instead of `bad-message`; an unexpected handler exception sends the client nothing (send `bad-message`); a `create` racing a send-failure close can leave the room until `gameOver`.
+- Java normalize (critic, cycle 035): Java 17 (Unicode 13.0) and Python 3.12 (Unicode 15.0) differ on 420 single code points added in Unicode 14/15; re-run the cross-check if the JDK is upgraded.
+- Audio endpoint (critic, cycle 033): no test pins streaming (the fixtures are ~100 bytes, so a `readAllBytes` regression would pass); reword the record `toString` comments to "server-log-safe only"; `Files.size` is read by path after opening the stream (harmless while the prefetch never overwrites files).
+- Catalog loader (critic, cycle 032): `CatalogBeanTest` passes with zero candidates; compare with an independently computed count when the index exists. Also: a skipped-file warning logs the basename (log the theme id), duplicate draw-set ids are not rejected, `Anime.titles` loses its key order (`Map.copyOf`), and the unused `paddedSize` branch and the basename check have no test (an invalid Windows path character would fail startup with `InvalidPathException`).
+- Audio prefetch (critic, cycle 030): a 429 with `Retry-After` over 300 s ends the run after five `BackedOffError` failures without logging the wait, and the next process forgets it. Stop at once on `BackedOffError` with the wait time in the message, and persist the not-before time in the cache folder. Also: timestamps on log lines, the PID in the stale-lock message, and a test pinning `main`'s gap 3.0 s and timeout 120 s. Until fixed, the lead waits at least an hour before restarting a run that stopped on 429.
+- Manual Korean tests (critic, cycle 028): pin that a broken manual file with `refresh_all=True` leaves the `al-`/`wd-` caches intact (validation before the clear), and that a manual title beats an aod title for the reveal when both exist for one id (`merge_korean(manual, aod)` order). Mutating either order today still passes all tests.
+- Range exception (critic, cycle 027): D-052's own example `13話～16話` is still cut, because the digit rule needs digits on both sides of the wave dash and here `話` precedes it. One extra string of the same anime results (group 5671); widen the rule to a digit run plus a counter suffix if it matters.
+- Front part (critic, cycle 026): add a test that full-width digits around an ASCII `/` are not cut (implemented, not pinned).
+- Build CLI (critic, cycle 023): `main` should reconfigure stdout with `line_buffering=True` so a background build's log shows progress (until then run it with `python -u`); add a test that pins each source's gap and timeout (AnimeThemes 3 s/120 s, AniList 2 s/60 s, Wikidata and aod 3 s/60 s).
+- Reveal fallback (critic, cycle 021): step 5 can return a `ko` episode label (`… 1화`) that step 1 skips, when an anime has no AniList data. Skip episode labels there too.
+- AniList cache read (critic, cycle 020): `_read_cached` should treat a record whose `media.id` differs from the requested id (or that lacks `id`, the cycle 018 shape) as damaged. Test first.
+- AniList enrichment (critic, cycle 018):
+  - The cache stores the normalized record while the key hashes only the query fields. Queued as C-010.
+  - Record questions about other items in a separate commit, not in a cycle's spec commit.
+- AnimeThemes crawl tests (critic, cycle 017):
+  - Pin read-time validation and the deletion of a corrupt entry: pre-seed corrupt bytes or bytes with the wrong `currentPage`, then expect one transport call and a replaced entry.
+  - Pin the "first ANILIST resource" rule with two ANILIST nodes.
+  - Make the fixture comparison helper independent of the implementation's sort.
+  - Add the page number to `HttpError` messages from the crawl.
+  - Log a refreshed page as fetched, not `(cached)`.
+- HTTP client (critic, cycle 016):
+  - The stored 429 not-before lives in memory only, so a rerun forgets it. Persist it in the cache dir if a source ever sends a long `Retry-After`.
+  - The source fetchers (C-003..C-005) must not cache a 200 response that carries GraphQL `errors`.
+  - A 503's `Retry-After` is ignored today, and backoff applies instead.
+- Letter-like math symbols in titles are removed by normalize (`∀ Gundam` becomes `gundam`), which could accept a bare "Gundam" for *Turn A Gundam*. Fix it through the manual supplement or a specific mapping, once the real catalog shows the cases (critic, cycle 015).
+- Data test network guard (critic, cycle 013):
+  - Let loopback (`127.0.0.1`, `::1`, `localhost`) through, because on Windows `socket.socketpair()` and `asyncio.new_event_loop()` connect over loopback and currently fail.
+  - Install the guard at session start (`pytest_configure` or conftest module level), not per test function, so fixtures and import-time code are guarded too.
+  - Add tests that pin the coverage of `create_connection` and ssl.
+- Backend bootstrap (critic, cycle 012):
+  - `SongrushPropertiesTest` runs without Tomcat, so only HealthTest catches the `../data` binding failure. Run it on `RANDOM_PORT`, or bind a String and expose a `Path` accessor.
+  - The `StringToPathConverter` applies to every `@ConfigurationProperties` Path. Narrow it if a library or Boot property ever needs `classpath:` paths.
+  - `../data` resolves against the working directory: `backend/` under Gradle, the repo's parent under `java -jar` from the root. Log the absolute data dir at startup.
+  - `JsonErrorController` turns non-standard status codes into 500; use `HttpStatusCode.valueOf`. A direct `/error` call returns 500; return 404 when there is no status attribute.
+  - The Stop hook runs areas one after another, each up to 850 s, so two changed areas can exceed the 900 s cap. Share one deadline across runners.

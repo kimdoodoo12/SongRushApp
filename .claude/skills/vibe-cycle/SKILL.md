@@ -80,9 +80,9 @@ Blocker and High findings send the cycle back to step 4, and the attempt counter
 4. If `origin` exists, make sure a PR from dev to main is open (`gh pr list --base main --head dev`; if none, `gh pr create --base main --head dev --title "dev -> main" --body "<PROGRESS summary>"`). **Never merge it.**
 5. In BACKLOG.md, change the item to `[x]`.
 6. Update PROGRESS.md, **the owner's progress report** (user, 2026-11-02: it must read as the owner's report, not as notes for the AI).
-   - Prepend one entry under `## Log`: `### <date> · <plain Korean title> — 완료|막힘|결정 필요`, then 2-4 plain Korean sentences covering what now exists in game terms, why it matters, and at most one notable problem caught. End with one line `기록: docs/cycles/NNN-slug.md`.
+   - **Append** one entry at the **end** of `## Log`, so the log reads oldest first and newest last (user, 2026-11-03): `### <date> · <plain Korean title> — 완료|막힘|결정 필요`, then 2-4 plain Korean sentences covering what now exists in game terms, why it matters, and at most one notable problem caught. End with one line `기록: docs/cycles/NNN-slug.md`.
    - Refresh `## 현재 상태` when the picture changes.
-   - **Rewrite `## 다음 진행 예정` every time** (user, 2026-11-02). Delete the previous plan entirely and write the next 3-5 items in plain words, plus any long background job. Old plans are never kept.
+   - **Rewrite `## 다음 진행 예정` every time; it is the last section of the file, after the Log** (user, 2026-11-03) (user, 2026-11-02). Delete the previous plan entirely and write the next 3-5 items in plain words, plus any long background job. Old plans are never kept.
    - **No commit SHAs, severity labels, agent names, attempt counts, test counts or file paths** in PROGRESS.md. That evidence goes to the cycle doc and to `docs/vibe-coding-system.md`.
    - Keep the `## Needs decision` and `## Log` headings in English, verbatim: `notify_discord.py` matches `## Needs decision`. Write each Needs decision line as a question to the owner.
 
@@ -92,12 +92,12 @@ If the same kind of failure happened twice in this cycle, append one line to "Pi
 Then update section "기록" of `docs/vibe-coding-system.md`. It is the user's portfolio record, so write facts only and cite a commit SHA or a PROGRESS entry for each one.
 - Keep these counts current: total cycles, cycles that passed on the first attempt, BLOCKED cycles.
 - Add any case where a hook blocked something, and any bug the critic caught.
-- If hooks, agents, settings, or this skill changed, describe the change and why.
+- If hooks, agents, or this skill changed in a way that alters how the system works, describe the change and why. Routine permission allowlist edits are not recorded there (user, 2026-11-03).
 
 ## Design cycle (`S-` items)
 A design item answers open questions and turns the answers into implementation items. Its output is a design doc and new backlog items, not product code, so there is no test-first step and no lock.
 
-1. **Investigate.** Spawn `explorer` with the item's questions, the relevant `docs/research/` and `docs/design/` files, and the CLAUDE.md External source rules quoted verbatim. Live requests are allowed only within those rules. When a later test needs a real response, save it under `data/tests/fixtures/` (or the area's own test fixtures folder; metadata JSON only, never media files).
+1. **Investigate.** Spawn `explorer` with the item's questions, the relevant `docs/design/` files (and `docs/research/` once it exists), and the CLAUDE.md External source rules quoted verbatim. Live requests are allowed only within those rules. When a later test needs a real response, save it under `data/tests/fixtures/` (or the area's own test fixtures folder; metadata JSON only, never media files).
 2. **Write** `docs/design/NNN-<slug>.md` with: **Questions**, **Findings** (each with evidence: URL and status, command output, or `path:line`), **Options** (at least two per real choice, with trade-offs), **Decision** (mark "needs user decision" for policy, legal, cost, external accounts, or product direction), **Resulting items**.
 3. **Review.** Spawn `critic` with the design doc, the backlog item, and the CLAUDE.md rules. Ask it to check that the simplest workable option was chosen, that the rules hold, that failure modes are covered, and that every resulting item is testable. Revise for Blocker and High findings, at most 2 rounds.
 4. **Queue the work.** Append each resulting item to the **end of Ready** with the next free id in its area (`B-` backend, `F-` frontend, `C-` catalog and data tools in `data/`, `I-` infra, `S-` further design), a `(from S-NNN)` note, and acceptance criteria a test can check. Anything marked "needs user decision" goes under **Needs decision** in both BACKLOG.md (`[?]`, options, recommendation) and PROGRESS.md (one bullet line); dependent items stay out of Ready.

@@ -1,0 +1,568 @@
+"""Cycle 021 criteria 1-12, 14, 15: series groups, title slots, accepted answers, reveal.
+
+docs/cycles/021-groups-titles.md is the specification. build_titles is pure,
+so every test runs on fixtures and inline dicts. Imports of
+songrush_data.groups stay inside fixtures so that a missing module fails
+these tests, not the collection.
+"""
+
+import copy
+import json
+from pathlib import Path
+
+import pytest
+
+from songrush_data.anilist import _normalize
+from songrush_data.titles import normalize, strip_qualifier
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+RELATIONS_PATH = FIXTURES / "anilist_relations_franchises.json"
+ID_IN_PATH = FIXTURES / "anilist_id_in.json"
+
+SLOT_KEYS = {"ko", "en", "ja", "romaji"}
+
+
+@pytest.fixture
+def groups():
+    from songrush_data import groups as module
+
+    return module
+
+
+def _load_relations():
+    raw = json.loads(RELATIONS_PATH.read_text(encoding="utf-8"))
+    return {record["id"]: _normalize(record) for record in raw}
+
+
+def _fixture_inputs():
+    media = _load_relations()
+    return list(media), media, {}, {}
+
+
+@pytest.fixture
+def fixture_run(groups):
+    catalog, media, wikidata, korean = _fixture_inputs()
+    return groups.build_titles(catalog, media, wikidata, korean)
+
+
+def _anime(romaji=None, english=None, native=None, synonyms=(), relations=()):
+    return {
+        "popularity": 1000,
+        "titles": {"romaji": romaji, "english": english, "native": native},
+        "synonyms": list(synonyms),
+        "relations": list(relations),
+    }
+
+
+def _edge(relation_type, node_id, romaji=None, english=None, node_type="ANIME"):
+    return {
+        "type": relation_type,
+        "node": {
+            "id": node_id,
+            "type": node_type,
+            "format": "TV",
+            "titles": {"romaji": romaji, "english": english},
+        },
+    }
+
+
+def _check_shape(out, catalog):
+    assert set(out) == set(catalog)
+    for record in out.values():
+        assert set(record) == {"group", "slots", "accepted", "reveal"}
+        assert isinstance(record["group"], int)
+        assert set(record["slots"]) == SLOT_KEYS
+        assert record["accepted"] == sorted(set(record["accepted"]))
+
+
+# Criterion 1
+
+def test_fate_zero_and_stay_night_share_group(fixture_run):
+    _check_shape(fixture_run, fixture_run.keys())
+    assert fixture_run[10087]["group"] == fixture_run[356]["group"]
+
+
+# Criterion 2
+
+def test_bakemonogatari_nisemonogatari_koyomimonogatari_separate(fixture_run):
+    assert fixture_run[5081]["group"] != fixture_run[11597]["group"]
+    assert fixture_run[21520]["group"] != fixture_run[5081]["group"]
+
+
+# Criterion 3
+
+def test_attack_on_titan_movies_join_series(fixture_run):
+    assert fixture_run[20691]["group"] == fixture_run[16498]["group"]
+    assert fixture_run[20692]["group"] == fixture_run[16498]["group"]
+
+
+def test_re_zero_ovas_join_series(fixture_run):
+    assert fixture_run[100049]["group"] == fixture_run[21355]["group"]
+
+
+# Criterion 4
+
+def test_kimetsu_accepts_titles_not_partial_or_synonyms(groups):
+    catalog, media, wikidata, korean = _fixture_inputs()
+    body = json.loads(ID_IN_PATH.read_text(encoding="utf-8"))
+    raw = [m for m in body["data"]["Page"]["media"] if m["id"] == 101922][0]
+    assert "KnY" in raw["synonyms"]
+    assert "Demon Slayer: Kimetsu no Yaiba: Bonds of Siblings" in raw["synonyms"]
+    media[101922] = _normalize(raw)
+
+    out = groups.build_titles(catalog, media, wikidata, korean)
+    accepted = out[101922]["accepted"]
+    assert normalize("Kimetsu no Yaiba") in accepted
+    assert normalize("Demon Slayer: Kimetsu no Yaiba") in accepted
+    assert normalize("Demon Slayer") in accepted
+    assert normalize("KnY") not in accepted
+
+
+# Criterion 5
+
+def test_attack_on_titan_season_3_accepts_series_title(fixture_run):
+    assert normalize("Attack on Titan") in fixture_run[99147]["accepted"]
+
+
+# Criterion 6
+
+def test_synonyms_never_enter_slot_with_official_title(groups):
+    media = {21: _anime("ONE PIECE", "One Piece", "ONE PIECE", ["OP", "ワンピ"])}
+    out = groups.build_titles([21], media, {}, {})
+    record = out[21]
+    assert "op" not in record["accepted"]
+    assert normalize("One Piece") in record["accepted"]
+    assert "OP" not in record["slots"]["en"]
+    assert "OP" not in record["slots"]["romaji"]
+    assert "ワンピ" not in record["slots"]["ja"]
+
+
+def test_latin_alias_fills_empty_english_slot(groups):
+    synonyms = ["Latin Alias", "日本語別名", "한글별명"]
+    media = {30: _anime("Romaji Title", None, None, synonyms)}
+    out = groups.build_titles([30], media, {}, {})
+    record = out[30]
+    assert record["slots"]["en"] == ["Latin Alias"]
+    assert record["slots"]["romaji"] == ["Romaji Title"]
+    assert normalize("Latin Alias") in record["accepted"]
+
+
+# Criterion 7
+
+def test_accepted_strings_come_from_group_sources(groups, fixture_run):
+    catalog, media, _, _ = _fixture_inputs()
+    out = fixture_run
+    by_group = {}
+    for anime_id in catalog:
+        by_group.setdefault(out[anime_id]["group"], []).append(anime_id)
+
+    for gid, members in by_group.items():
+        sources = set()
+        for member in members:
+            for slot in out[member]["slots"].values():
+                sources.update(slot)
+            for edge in (media[member] or {}).get("relations", []):
+                node = edge["node"]
+                if node.get("type") != "ANIME":
+                    continue
+                for key in ("romaji", "english"):
+                    if node["titles"].get(key):
+                        sources.add(node["titles"][key])
+        allowed = set()
+        for s in sources:
+            allowed.add(normalize(s))
+            allowed.add(normalize(strip_qualifier(s)))
+            for f in groups.front_parts(s):
+                allowed.add(normalize(f))
+                allowed.add(normalize(strip_qualifier(f)))
+        allowed.discard("")
+        first = out[members[0]]["accepted"]
+        for member in members:
+            accepted = out[member]["accepted"]
+            assert accepted == first, (gid, member)
+            assert "" not in accepted
+            extra = set(accepted) - allowed
+            assert not extra, (gid, member, sorted(extra))
+
+
+# Criterion 8
+
+def test_compilation_edge_joins_different_titles(groups):
+    media = {
+        1: _anime("Alpha Story", relations=[_edge("COMPILATION", 2, "Totally Different")]),
+        2: _anime("Totally Different"),
+    }
+    out = groups.build_titles([1, 2], media, {}, {})
+    assert out[1]["group"] == out[2]["group"] == 1
+
+
+def test_sequel_edge_with_different_titles_stays_separate(groups):
+    media = {
+        1: _anime("Alpha Story", relations=[_edge("SEQUEL", 2, "Totally Different")]),
+        2: _anime("Totally Different"),
+    }
+    out = groups.build_titles([1, 2], media, {}, {})
+    assert out[1]["group"] == 1
+    assert out[2]["group"] == 2
+
+
+def test_character_edge_is_ignored(groups):
+    media = {
+        1: _anime("Fate/A", relations=[_edge("CHARACTER", 2, "Fate/B")]),
+        2: _anime("Fate/B"),
+    }
+    out = groups.build_titles([1, 2], media, {}, {})
+    assert out[1]["group"] == 1
+    assert out[2]["group"] == 2
+
+
+# Criterion 9
+
+def test_out_of_catalog_node_links_catalog_anime(groups):
+    media = {
+        10: _anime("Gamma Saga", relations=[_edge("SEQUEL", 12, "Gamma Saga 2")]),
+        11: _anime("Gamma Saga Final", relations=[_edge("PREQUEL", 12, "Gamma Saga 2")]),
+    }
+    out = groups.build_titles([10, 11], media, {}, {})
+    assert out[10]["group"] == out[11]["group"] == 10
+    assert normalize("Gamma Saga 2") in out[10]["accepted"]
+    assert out[10]["accepted"] == out[11]["accepted"]
+    assert 12 not in out
+
+
+# Criterion 10
+
+def test_korean_slot_keeps_hangul_wikidata_then_korean(groups):
+    media = {20: _anime("Naruto", "Naruto", "NARUTO -ナルト-")}
+    wikidata = {20: {"ko": ["나루토 (애니메이션)", "Naruto"], "en": [], "ja": []}}
+    korean = {20: ["나루토", "나루토 질풍전"]}
+    out = groups.build_titles([20], media, wikidata, korean)
+    record = out[20]
+    assert record["slots"]["ko"] == ["나루토 (애니메이션)", "나루토", "나루토 질풍전"]
+    assert normalize("나루토") in record["accepted"]
+    assert normalize("나루토 질풍전") in record["accepted"]
+
+
+# Criterion 11
+
+def test_reveal_skips_episode_label_and_strips_animation(groups):
+    media = {40: _anime("Shingeki no Kyojin", "Attack on Titan")}
+    wikidata = {40: {"ko": ["진격의 거인 1화", "진격의 거인 (애니메이션)"], "en": [], "ja": []}}
+    out = groups.build_titles([40], media, wikidata, {})
+    assert out[40]["reveal"] == "진격의 거인"
+
+
+def test_reveal_uses_korean_strings_without_ko_labels(groups):
+    media = {41: _anime("Kimetsu no Yaiba", "Demon Slayer: Kimetsu no Yaiba")}
+    out = groups.build_titles([41], media, {}, {41: ["귀멸의 칼날"]})
+    assert out[41]["reveal"] == "귀멸의 칼날"
+
+
+def test_reveal_falls_back_to_english_then_romaji(groups):
+    media = {
+        42: _anime("Romaji Name", "English Title"),
+        43: _anime("Romaji Title", None),
+    }
+    out = groups.build_titles([42, 43], media, {}, {})
+    assert out[42]["reveal"] == "English Title"
+    assert out[43]["reveal"] == "Romaji Title"
+
+
+def test_reveal_without_anilist_uses_any_slot(groups):
+    wikidata = {44: {"ko": [], "en": ["Only English"], "ja": []}}
+    out = groups.build_titles([44], {44: None}, wikidata, {})
+    assert out[44]["reveal"] == "Only English"
+    assert out[44]["slots"]["en"] == ["Only English"]
+
+
+def test_reveal_none_without_any_data(groups):
+    out = groups.build_titles([45], {}, {}, {})
+    record = out[45]
+    assert record["reveal"] is None
+    assert record["group"] == 45
+    assert record["accepted"] == []
+    assert record["slots"] == {"ko": [], "en": [], "ja": [], "romaji": []}
+
+
+# Criterion 12
+
+def test_output_is_deterministic(groups):
+    catalog, media, wikidata, korean = _fixture_inputs()
+    first = groups.build_titles(catalog, copy.deepcopy(media), wikidata, korean)
+    second = groups.build_titles(catalog, copy.deepcopy(media), wikidata, korean)
+    assert first == second
+
+    reversed_media = {}
+    for anime_id in reversed(list(media)):
+        record = copy.deepcopy(media[anime_id])
+        record["relations"] = list(reversed(record["relations"]))
+        reversed_media[anime_id] = record
+    third = groups.build_titles(list(reversed(catalog)), reversed_media, wikidata, korean)
+    assert third == first
+
+
+def test_group_id_is_smallest_catalog_id(fixture_run):
+    by_group = {}
+    for anime_id, record in fixture_run.items():
+        by_group.setdefault(record["group"], []).append(anime_id)
+    for gid, members in by_group.items():
+        assert gid == min(members), (gid, sorted(members))
+
+
+# Criterion 14
+
+@pytest.mark.parametrize(
+    "ids",
+    [
+        (21262, 21745),
+        (21399, 21400, 181970),
+        (11757, 21403, 100182),
+        (6213, 104462),
+        (104454, 194447),
+        (20464, 106625),
+    ],
+)
+def test_series_that_must_join(fixture_run, ids):
+    assert len({fixture_run[i]["group"] for i in ids}) == 1, [
+        (i, fixture_run[i]["group"]) for i in ids
+    ]
+
+
+def test_joined_series_accept_series_title(fixture_run):
+    assert normalize("Kizumonogatari I: Tekketsu-hen") in fixture_run[21400]["accepted"]
+    assert normalize("Kizumonogatari") in fixture_run[21400]["accepted"]
+    assert normalize("Sword Art Online") in fixture_run[100182]["accepted"]
+
+
+# Criterion 15
+
+@pytest.mark.parametrize(
+    "a, b",
+    [
+        (4654, 6213),
+        (104454, 21355),
+        (5081, 17074),
+        (5081, 11597),
+        (5081, 21520),
+    ],
+)
+def test_series_that_must_stay_separate(fixture_run, a, b):
+    assert fixture_run[a]["group"] != fixture_run[b]["group"]
+
+
+# Cycle 026 (C-013, D-049, D-050): the front part of a title is accepted.
+# docs/cycles/026-front-part.md is the specification.
+
+FW_COLON = chr(0xFF1A)
+KANJI_FRONT = chr(0x50B7) + chr(0x7269) + chr(0x8A9E)
+KANJI_TWO = chr(0x9B3C) + chr(0x6EC5)
+KANJI_REST = chr(0x5203) + chr(0x71B1) + chr(0x8840)
+
+
+# Cycle 026 criterion 1
+
+@pytest.mark.parametrize(
+    "s, expected",
+    [
+        ("Demon Slayer: Kimetsu no Yaiba", "Demon Slayer"),
+        ("Gintama: THE FINAL", "Gintama"),
+        ("Fate/Zero", "Fate"),
+        ("Re:ZERO -Starting Life in Another World-", "Re:ZERO"),
+        ("KIZUMONOGATARI -Koyomi Vamp-", "KIZUMONOGATARI"),
+        ("86 - Eighty Six", "86"),
+        (KANJI_FRONT + FW_COLON + KANJI_REST, KANJI_FRONT),
+        ("A Title: Part / B", "A Title"),
+        ("Ranma 1/2", None),
+        ("22/7", None),
+        ("Nanaka 6/17", None),
+        ("Mob Psycho 100", None),
+        ("/Title", None),
+        ("Re:Zero kara Hajimeru Isekai Seikatsu", None),
+    ],
+)
+def test_front_part_examples(groups, s, expected):
+    assert groups.front_part(s) == expected
+
+
+# Cycle 026 criterion 2
+
+def test_fixture_run_accepts_front_parts(groups, fixture_run):
+    assert normalize("Re:Zero") in fixture_run[21355]["accepted"]
+    assert normalize("Kizumonogatari") in fixture_run[21400]["accepted"]
+    assert normalize("Fate") in fixture_run[356]["accepted"]
+
+    catalog, media, wikidata, korean = _fixture_inputs()
+    body = json.loads(ID_IN_PATH.read_text(encoding="utf-8"))
+    raw = [m for m in body["data"]["Page"]["media"] if m["id"] == 101922][0]
+    media[101922] = _normalize(raw)
+    out = groups.build_titles(catalog, media, wikidata, korean)
+    assert normalize("Demon Slayer") in out[101922]["accepted"]
+
+
+def test_accepted_keeps_every_group_slot_string(fixture_run):
+    by_group = {}
+    for anime_id, record in fixture_run.items():
+        by_group.setdefault(record["group"], []).append(anime_id)
+
+    for anime_id, record in fixture_run.items():
+        required = set()
+        for member in by_group[record["group"]]:
+            for slot in fixture_run[member]["slots"].values():
+                for s in slot:
+                    required.add(normalize(s))
+                    required.add(normalize(strip_qualifier(s)))
+        required.discard("")
+        missing = required - set(record["accepted"])
+        assert not missing, (anime_id, sorted(missing))
+
+
+# Cycle 026 criterion 3 (D-050)
+
+@pytest.mark.parametrize(
+    "english, short",
+    [
+        ("K: Return of Kings", "k"),
+        ("Re: Cutie Honey", "re"),
+        ("IS: Infinite Stratos", "is"),
+        ("GTO: The Animation", "gto"),
+    ],
+)
+def test_short_latin_front_part_not_accepted(groups, english, short):
+    out = groups.build_titles([50], {50: _anime(english=english)}, {}, {})
+    accepted = out[50]["accepted"]
+    assert normalize(english) in accepted
+    assert short not in accepted
+
+
+def test_two_kanji_front_part_accepted(groups):
+    native = KANJI_TWO + FW_COLON + KANJI_REST
+    out = groups.build_titles([51], {51: _anime(native=native)}, {}, {})
+    accepted = out[51]["accepted"]
+    assert normalize(native) in accepted
+    assert normalize(KANJI_TWO) in accepted
+
+
+def test_fate_front_part_accepted(groups):
+    out = groups.build_titles([52], {52: _anime(english="Fate/Zero")}, {}, {})
+    assert "fate" in out[52]["accepted"]
+
+
+# Cycle 026 criterion 4
+
+def test_titles_without_separator_unchanged(groups):
+    romaji = "Re:Zero kara Hajimeru Isekai Seikatsu"
+    english = "Mob Psycho 100"
+    out = groups.build_titles([53], {53: _anime(romaji, english)}, {}, {})
+    expected = set()
+    for s in (romaji, english):
+        expected.add(normalize(s))
+        expected.add(normalize(strip_qualifier(s)))
+    expected.discard("")
+    assert out[53]["accepted"] == sorted(expected)
+
+
+# Cycle 027 (C-014, D-051, D-052): more subtitle separators; every separator counts.
+# docs/cycles/027-more-separators.md is the specification.
+
+EN_DASH = chr(0x2013)
+EM_DASH = chr(0x2014)
+HORIZONTAL_BAR = chr(0x2015)
+WAVE_DASH = chr(0x301C)
+FW_TILDE = chr(0xFF5E)
+FW_HYPHEN = chr(0xFF0D)
+FW_SLASH = chr(0xFF0F)
+FW_ONE = chr(0xFF11)
+FW_TWO = chr(0xFF12)
+HIRAGANA_A = chr(0x3072) + chr(0x3050) + chr(0x3089) + chr(0x3057)
+HIRAGANA_B = chr(0x306A) + chr(0x304F)
+KATAKANA_ZOIDS = chr(0x30BE) + chr(0x30A4) + chr(0x30C9)
+KATAKANA_ZERO = chr(0x30BC) + chr(0x30ED)
+KATAKANA_EIGHTY_SIX = (
+    chr(0x30A8) + chr(0x30A4) + chr(0x30C6) + chr(0x30A3)
+    + chr(0x30B7) + chr(0x30C3) + chr(0x30AF) + chr(0x30B9)
+)
+HANGUL_A = chr(0xC9C4) + chr(0xACA9)
+HANGUL_B = chr(0xAC70) + chr(0xC778)
+CHAINSAW_EN = "Chainsaw Man " + EN_DASH + " The Movie: Reze Arc"
+EIGHTY_SIX_NATIVE = "86" + FW_HYPHEN + KATAKANA_EIGHTY_SIX + FW_HYPHEN
+
+
+# Cycle 027 criterion 1
+
+@pytest.mark.parametrize(
+    "s, expected",
+    [
+        ("Attack on Titan ~Chronicle~", "Attack on Titan"),
+        (CHAINSAW_EN, "Chainsaw Man"),
+        (HIRAGANA_A + WAVE_DASH + HIRAGANA_B + WAVE_DASH, HIRAGANA_A),
+        (KATAKANA_ZOIDS + FW_SLASH + KATAKANA_ZERO, KATAKANA_ZOIDS),
+        (EIGHTY_SIX_NATIVE, "86"),
+        (HANGUL_A + " ~" + HANGUL_B + "~", HANGUL_A),
+        ("Title" + EM_DASH + "Sub", "Title"),
+        ("Title" + HORIZONTAL_BAR + "Sub", "Title"),
+    ],
+)
+def test_front_part_new_separators(groups, s, expected):
+    assert groups.front_part(s) == expected
+
+
+# Cycle 027 criterion 2 (D-052)
+
+@pytest.mark.parametrize(
+    "s, expected",
+    [
+        (CHAINSAW_EN, ["Chainsaw Man", "Chainsaw Man " + EN_DASH + " The Movie"]),
+        ("Name ~Sub~: More", ["Name", "Name ~Sub", "Name ~Sub~"]),
+        ("Mob Psycho 100", []),
+    ],
+)
+def test_front_parts_every_separator(groups, s, expected):
+    assert groups.front_parts(s) == expected
+
+
+def test_front_part_is_first_of_front_parts(groups):
+    assert groups.front_part(CHAINSAW_EN) == "Chainsaw Man"
+    assert groups.front_parts(CHAINSAW_EN)[0] == groups.front_part(CHAINSAW_EN)
+
+
+def test_every_front_part_accepted(groups):
+    out = groups.build_titles([60], {60: _anime(english=CHAINSAW_EN)}, {}, {})
+    accepted = out[60]["accepted"]
+    assert normalize("Chainsaw Man") in accepted
+    assert normalize("Chainsaw Man " + EN_DASH + " The Movie") in accepted
+    assert normalize(CHAINSAW_EN) in accepted
+
+
+# Cycle 027 criterion 3
+
+@pytest.mark.parametrize(
+    "s",
+    [
+        "x" + FW_ONE + FW_SLASH + FW_TWO,
+        "x1" + FW_SLASH + "2",
+        "Episode 13" + FW_TILDE + "16",
+        "~Title",
+        FW_TILDE + "Title",
+        WAVE_DASH + "Title",
+        "Kaguya-sama wa Kokurasetai",
+    ],
+)
+def test_front_part_new_separators_no_cut(groups, s):
+    assert groups.front_part(s) is None
+
+
+# Cycle 027 criterion 4
+
+def test_wave_dash_front_part_accepted(groups):
+    english = "Attack on Titan ~Chronicle~"
+    out = groups.build_titles([61], {61: _anime(english=english)}, {}, {})
+    accepted = out[61]["accepted"]
+    assert normalize(english) in accepted
+    assert normalize("Attack on Titan") in accepted
+
+
+def test_short_front_part_before_fw_hyphen_not_accepted(groups):
+    out = groups.build_titles([62], {62: _anime(native=EIGHTY_SIX_NATIVE)}, {}, {})
+    accepted = out[62]["accepted"]
+    assert normalize(EIGHTY_SIX_NATIVE) in accepted
+    assert "86" not in accepted

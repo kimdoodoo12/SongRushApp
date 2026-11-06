@@ -1,0 +1,7 @@
+SELECT ?id ?item ?ko ?en ?ja WHERE {
+  VALUES ?id { "5114" "21" "1535" "101922" "21366" "999999999" }
+  ?item wdt:P8729 ?id .
+  OPTIONAL { ?item rdfs:label ?ko . FILTER(LANG(?ko) = "ko") }
+  OPTIONAL { ?item rdfs:label ?en . FILTER(LANG(?en) = "en") }
+  OPTIONAL { ?item rdfs:label ?ja . FILTER(LANG(?ja) = "ja") }
+}

@@ -16,6 +16,7 @@ coverage/
 
 # backend (gradle)
 backend/build/
+backend/bin/
 backend/.gradle/
 .gradle/
 
@@ -39,3 +40,13 @@ data/cache/
 .DS_Store
 .idea/
 .vscode/
+
+# data: a killed build can leave its lock and temp files next to the catalog
+data/.build.lock
+data/~tmp-*
+
+# data: the audio cache (files, .part leftovers, index.json, lock); never in git
+data/audio-cache/
+
+# docker image exports (docker save) never go into git
+*.tar

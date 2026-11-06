@@ -20,15 +20,74 @@
       "Bash(git push origin dev:*)",
       "Bash(git push -u origin cycle/:*)",
       "Bash(git push origin cycle/:*)",
-      "Bash(gh pr:*)",
+      "Bash(git remote:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh auth status:*)",
       "Bash(gh repo view:*)",
       "Bash(python -I .claude/hooks/lock.py:*)",
+      "Bash(.venv/Scripts/python.exe -m pytest:*)",
+      "Bash(.venv/Scripts/python.exe -m pip install -r requirements.txt:*)",
+      "Bash(data/.venv/Scripts/python.exe -m pytest:*)",
+      "Bash(data/.venv/Scripts/python.exe -m pip install -r requirements.txt:*)",
+      "PowerShell(.venv\\Scripts\\python.exe -m pytest:*)",
+      "PowerShell(.venv\\Scripts\\python.exe -m pip install -r requirements.txt:*)",
+      "PowerShell(.\\.venv\\Scripts\\python.exe -m pytest:*)",
+      "PowerShell(.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt:*)",
+      "PowerShell(data\\.venv\\Scripts\\python.exe -m pytest:*)",
+      "PowerShell(data\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt:*)",
+      "Bash(./gradlew:*)",
       "Bash(npm:*)",
       "Bash(npx:*)",
       "Bash(node:*)",
+      "Bash(sleep:*)",
+      "Bash(echo:*)",
+      "Bash(sed:*)",
+      "Bash(find:*)",
+      "Bash(sort:*)",
       "Bash(curl -s http://localhost:*)",
+      "PowerShell(git status:*)",
+      "PowerShell(git diff:*)",
+      "PowerShell(git log:*)",
+      "PowerShell(git show:*)",
+      "PowerShell(git add:*)",
+      "PowerShell(git commit:*)",
+      "PowerShell(git switch:*)",
+      "PowerShell(git checkout:*)",
+      "PowerShell(git branch:*)",
+      "PowerShell(git merge:*)",
+      "PowerShell(git stash:*)",
+      "PowerShell(git rev-parse:*)",
+      "PowerShell(git fetch:*)",
+      "PowerShell(git pull:*)",
+      "PowerShell(git remote:*)",
+      "PowerShell(git push origin dev:*)",
+      "PowerShell(git push -u origin cycle/:*)",
+      "PowerShell(git push origin cycle/:*)",
+      "PowerShell(gh pr list:*)",
+      "PowerShell(gh pr view:*)",
+      "PowerShell(gh pr create:*)",
+      "PowerShell(gh pr checks:*)",
+      "PowerShell(gh auth status:*)",
+      "PowerShell(gh repo view:*)",
+      "PowerShell(python -I .claude/hooks/lock.py:*)",
+      "PowerShell(.\\gradlew.bat:*)",
+      "PowerShell(Set-Location:*)",
+      "PowerShell(Get-ChildItem:*)",
+      "PowerShell(Get-Content:*)",
+      "PowerShell(Test-Path:*)",
+      "PowerShell(Select-Object:*)",
+      "PowerShell(Format-Table:*)",
+      "PowerShell(Where-Object:*)",
+      "PowerShell(Measure-Object:*)",
       "PowerShell(npm:*)",
       "PowerShell(npx:*)",
+      "PowerShell(node:*)",
+      "WebFetch(domain:graphql.anilist.co)",
+      "WebFetch(domain:query.wikidata.org)",
+      "WebFetch(domain:www.wikidata.org)",
       "WebFetch(domain:api.animethemes.moe)",
       "WebFetch(domain:animethemes.moe)",
       "WebFetch(domain:github.com)",
@@ -46,6 +105,15 @@
       "Bash(git push origin main:*)",
       "Bash(git reset --hard:*)",
       "Bash(rm -rf:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh repo delete:*)",
+      "PowerShell(git push --force:*)",
+      "PowerShell(git push -f:*)",
+      "PowerShell(git push origin main:*)",
+      "PowerShell(git reset --hard:*)",
+      "PowerShell(gh pr merge:*)",
+      "PowerShell(gh repo delete:*)",
+      "PowerShell(Remove-Item -Recurse:*)",
       "Read(./.env)",
       "Read(./.env.*)",
       "Read(./**/.env)",
@@ -57,22 +125,38 @@
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell",
         "hooks": [
-          { "type": "command", "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"", "timeout": 20 }
+          {
+            "type": "command",
+            "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.py\"",
+            "timeout": 20
+          }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_on_stop.py\"", "timeout": 900 },
-          { "type": "command", "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/notify_discord.py\" stop", "timeout": 15 }
+          {
+            "type": "command",
+            "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_on_stop.py\"",
+            "timeout": 900
+          },
+          {
+            "type": "command",
+            "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/notify_discord.py\" stop",
+            "timeout": 15
+          }
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          { "type": "command", "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_on_stop.py\"", "timeout": 900 }
+          {
+            "type": "command",
+            "command": "python -I \"$CLAUDE_PROJECT_DIR/.claude/hooks/check_on_stop.py\"",
+            "timeout": 900
+          }
         ]
       }
     ]
