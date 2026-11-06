@@ -29,3 +29,6 @@ Finish cycle 076. It reached zero box differences across the six themes but was 
 
 ## Note after the test writer
 The stricter theme-layout test passes on `1daf393`, because no current theme rule uses the newly forbidden forms. So it guards against regressions and is not the red check of this cycle. The red evidence for H1 and M1 is the lead's browser clipping check (acceptance 3), run before and after the implementation.
+
+## Red evidence (lead, before the implementation, build of `1732c02`)
+The browser check on the real jar at 390×844 probed `.round-num` with the longest counters. All six themes clipped: `10 / 10` at 75–84 px against a 67 px box, and `30 / 30` at 81–84 px against 67 px, for 12 clippings in total. Box differences between themes were 0.

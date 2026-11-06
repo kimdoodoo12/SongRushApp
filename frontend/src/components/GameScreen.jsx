@@ -53,7 +53,7 @@ function RevealCard({ reveal }) {
         <p className="card-slug mx-auto mt-1 block h-6 w-24 max-w-full truncate rounded-full px-3 py-0.5 text-xs leading-5 tracking-wide">{reveal.themeSlug}</p>
         {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 min-w-0 truncate text-base leading-6 wrap-anywhere">{reveal.song}</p>}
         {reveal.artists.length > 0 && <p className="h-5 min-w-0 truncate text-sm leading-5 wrap-anywhere text-muted">{reveal.artists.join(', ')}</p>}
-        <p className="card-winner font-display mx-auto mt-3 block h-7 w-52 max-w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
+        <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
           {reveal.winner === null || reveal.winner === undefined ? '정답자 없음' : `정답: ${reveal.winner}`}
         </p>
       </section>
@@ -117,16 +117,26 @@ const WATCHING_TEXT = '이번 곡은 구경 중입니다. 다음 곡부터 참�
 const DISCONNECTED_TEXT = '서버와 연결이 끊어졌습니다.'
 const REPLACED_TEXT = '다른 창에서 접속해 이 연결이 끊겼습니다.'
 
-// One score or ranking row; the player's own row ends with (나).
-function ownMark(text, name, me) {
-  return name === me ? `${text} (나)` : text
+// The tail of a score or ranking row: " N점", and " (나)" on the player's
+// own row. These parts never shrink, so a long name is cut instead; the
+// leading spaces are kept (whitespace-pre) because the row is a flex box.
+function ScoreTail({ row, me }) {
+  return (
+    <>
+      <span className="shrink-0 whitespace-pre">{` ${row.score}점`}</span>
+      {row.name === me && <span className="shrink-0 whitespace-pre">{' (나)'}</span>}
+    </>
+  )
 }
 
 function Scoreboard({ rows, me }) {
   return (
     <ul className="scoreboard grid grid-cols-2 gap-1.5 text-xs md:grid-cols-4" aria-label="점수판">
       {rows.map((row) => (
-        <li key={row.name} className="chip h-6 truncate px-2.5 py-0.5 text-center leading-4">{ownMark(`${row.name} ${row.score}점`, row.name, me)}</li>
+        <li key={row.name} className="chip flex h-6 min-w-0 items-center justify-center px-2.5 py-0.5 leading-4">
+          <span className="min-w-0 truncate">{row.name}</span>
+          <ScoreTail row={row} me={me} />
+        </li>
       ))}
     </ul>
   )
@@ -138,8 +148,12 @@ function Ranking({ rows, me }) {
       {rows.map((row) => (
         <li
           key={row.name}
-          className="rank-row panel h-10 truncate px-4 py-2 text-sm leading-5"
-        >{ownMark(`${row.rank}위 ${row.name} ${row.score}점`, row.name, me)}</li>
+          className="rank-row panel flex h-10 min-w-0 items-center px-4 py-2 text-sm leading-5"
+        >
+          <span className="shrink-0 whitespace-pre">{`${row.rank}위 `}</span>
+          <span className="min-w-0 truncate">{row.name}</span>
+          <ScoreTail row={row} me={me} />
+        </li>
       ))}
     </ul>
   )
@@ -209,7 +223,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {round === null && waitingNext && <span className="text-muted">다음 곡을 기다리는 중...</span>}
         {round !== null && (
           <span className="round font-display flex h-10 w-40 items-center gap-1 overflow-hidden text-[15px] leading-5 whitespace-nowrap md:h-12 md:w-46">
-            <span className="round-num block h-8 w-[2.8em] shrink-0 overflow-hidden text-left text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9">{`${round.index + 1} / ${round.total}`}</span>{' '}
+            <span className="round-num block h-8 w-[3.9em] shrink-0 overflow-hidden text-left text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9">{`${round.index + 1} / ${round.total}`}</span>{' '}
             번째 곡
           </span>
         )}
@@ -229,7 +243,12 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       )}
       {playing && <Disc />}
       {correct !== null && (
-        <p className="correct font-display h-10 w-60 max-w-full self-center truncate rounded-full px-4 py-1.5 text-center text-lg leading-7">{`${correct} 정답!`}</p>
+        // Right-to-left on the box, left-to-right on the text: when the line is
+        // too long the ellipsis cuts the start of the name, so " 정답!" stays.
+        // The text stays one node, so the banner reads "<name> 정답!" as is.
+        <p className="correct font-display h-10 w-60 max-w-full self-center truncate rounded-full px-4 py-1.5 text-center text-lg leading-7 [direction:rtl]">
+          <span className="[direction:ltr] [unicode-bidi:isolate]">{`${correct} 정답!`}</span>
+        </p>
       )}
       {reveal !== null && <RevealCard reveal={reveal} />}
       {timer !== null && <TimeBar max={timer.max} remaining={timer.remaining} />}
