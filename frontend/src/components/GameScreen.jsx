@@ -208,19 +208,19 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {round === null && !watching && !waitingNext && <span className="text-muted">서버에 연결하는 중...</span>}
         {round === null && waitingNext && <span className="text-muted">다음 곡을 기다리는 중...</span>}
         {round !== null && (
-          <span className="round font-display h-10 w-40 truncate text-[15px] leading-10 md:h-12 md:w-46 md:leading-12">
-            <span className="round-num text-2xl leading-none tabular-nums md:text-3xl">{`${round.index + 1} / ${round.total}`}</span>{' '}
+          <span className="round font-display flex h-10 w-40 items-center gap-1 overflow-hidden text-[15px] leading-5 whitespace-nowrap md:h-12 md:w-46">
+            <span className="round-num block h-8 w-[2.8em] shrink-0 overflow-hidden text-left text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9">{`${round.index + 1} / ${round.total}`}</span>{' '}
             번째 곡
           </span>
         )}
-        {score !== null && <span className="chip h-8 whitespace-nowrap px-3 py-1 text-sm leading-5 tabular-nums">{`점수: ${score}`}</span>}
+        {score !== null && <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{`점수: ${score}`}</span>}
         {clock !== null && <span className="clock ml-auto h-10 w-24 text-4xl leading-10 tabular-nums md:h-12 md:w-29 md:text-[44px] md:leading-12">{clock}</span>}
       </div>
       {screen === 'game' && watching && (
-        <p className="watching chip rounded-xl px-3 py-2 text-center text-sm">{WATCHING_TEXT}</p>
+        <p className="watching chip line-clamp-2 h-15 rounded-xl px-3 py-2 text-center text-sm leading-5">{WATCHING_TEXT}</p>
       )}
       {screen === 'game' && soundBlocked && (
-        <button type="button" className="sound-prompt go self-center animate-pulse" onClick={onUnlockSound}>
+        <button type="button" className="sound-prompt go h-11 w-44 self-center truncate px-2 py-0 animate-pulse" onClick={onUnlockSound}>
           탭하여 소리 켜기
         </button>
       )}
@@ -244,14 +244,14 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       {ranking !== null && <Ranking rows={ranking} me={me} />}
       {screen === 'over' && (
         <section className="over flex flex-col items-center gap-3 text-center">
-          {finalScore !== null && <p className="font-display text-2xl">{`최종 점수: ${finalScore}점`}</p>}
+          {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{`최종 점수: ${finalScore}점`}</p>}
           {room === null && (
-            <button type="button" className="go" onClick={onReset}>
+            <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onReset}>
               다시 하기
             </button>
           )}
           {room !== null && lobbyOpen && (
-            <button type="button" className="go" onClick={onToLobby}>
+            <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onToLobby}>
               대기실로
             </button>
           )}
@@ -259,9 +259,9 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
       )}
       {screen === 'disconnected' && (
         <section className="over flex flex-col items-center gap-3 text-center">
-          {finalScore !== null && <p className="font-display text-2xl">{`최종 점수: ${finalScore}점`}</p>}
+          {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{`최종 점수: ${finalScore}점`}</p>}
           <p className="text-sm text-bad">{replaced ? REPLACED_TEXT : DISCONNECTED_TEXT}</p>
-          <button type="button" className="go" onClick={onReset}>
+          <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onReset}>
             처음으로
           </button>
         </section>

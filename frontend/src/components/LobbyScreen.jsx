@@ -44,7 +44,7 @@ function HostControls({ selection, onSelectionChange, onStartGame }) {
         </select>
       </label>
       <FilterControls selection={selection} onChange={onSelectionChange} />
-      <button type="button" className="go col-span-full py-3 text-base" disabled={reversed} onClick={() => onStartGame()}>
+      <button type="button" className="go col-span-full h-13 truncate py-0 text-base leading-6" disabled={reversed} onClick={() => onStartGame()}>
         게임 시작
       </button>
     </div>
@@ -105,7 +105,7 @@ function LobbyScreen({
         )}
         {error !== null && <p className="error mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </section>
-      <button type="button" className="self-center" onClick={onLeave}>
+      <button type="button" className="h-11 w-28 self-center truncate px-2 py-0" onClick={onLeave}>
         나가기
       </button>
     </div>

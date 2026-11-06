@@ -54,7 +54,7 @@ function StartScreen({
         <ThemePicker value={theme} onPick={onPickTheme} />
       </div>
       <form className="start grid grid-cols-2 gap-3 panel p-5 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted" onSubmit={handleSubmit}>
-        <h2 className="font-display col-span-full text-xl">혼자 하기</h2>
+        <h2 className="font-display col-span-full h-7 truncate text-xl leading-7">혼자 하기</h2>
         <label className="col-span-full">
           닉네임
           <input type="text" maxLength={16} value={nickname} onChange={(e) => setNickname(e.target.value)} />
@@ -73,15 +73,15 @@ function StartScreen({
           </select>
         </label>
         <FilterControls selection={selection} onChange={onSelectionChange} />
-        <button type="submit" className="go col-span-full py-3 text-base" disabled={!canStart}>
+        <button type="submit" className="go col-span-full h-13 truncate py-0 text-base leading-6" disabled={!canStart}>
           시작
         </button>
         {!canPlayOpus && <p className="notice col-span-full text-sm text-warn">{NO_OPUS}</p>}
         {error !== null && <p className="error col-span-full rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </form>
       <div className="start room-controls grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 panel p-5 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted">
-        <h2 className="font-display col-span-full text-xl">같이 하기</h2>
-        <button type="button" className="go col-span-full py-3 text-base" disabled={!canPlayOpus} onClick={() => onCreate(nickname)}>
+        <h2 className="font-display col-span-full h-7 truncate text-xl leading-7">같이 하기</h2>
+        <button type="button" className="go col-span-full h-13 truncate py-0 text-base leading-6" disabled={!canPlayOpus} onClick={() => onCreate(nickname)}>
           방 만들기
         </button>
         <label>
@@ -98,6 +98,7 @@ function StartScreen({
         </label>
         <button
           type="button"
+          className="h-9 w-20 truncate px-2 py-0"
           disabled={!canJoin}
           onClick={handleJoin}
         >
