@@ -72,24 +72,24 @@ function LobbyScreen({
   return (
     <div className="lobby room mx-auto flex w-full max-w-3xl flex-col gap-4">
       <section className="flex flex-col gap-3">
-        <p className="room-code font-display flex flex-wrap items-center gap-2 text-base text-muted">
-          <span>{'방 코드: '}</span>
-          <span className="code text-2xl md:text-3xl">{room.code}</span>
+        <p className="room-code font-display flex flex-wrap items-center gap-2 text-base leading-6 text-muted">
+          <span className="w-20 whitespace-nowrap">{'방 코드: '}</span>
+          <span className="code text-2xl leading-[1.5] md:text-3xl">{room.code}</span>
         </p>
-        <p className="share panel flex min-w-0 items-center gap-2 py-1.5 pr-1.5 pl-3 text-sm">
+        <p className="share panel flex h-12 min-w-0 items-center gap-2 py-1.5 pr-1.5 pl-3 text-sm leading-5">
           <span className="min-w-0 flex-1 truncate text-muted">{link}</span>{' '}
-          <button type="button" className="shrink-0 px-3 py-1 text-sm" onClick={() => copyLink(link)}>
+          <button type="button" className="h-8 w-16 shrink-0 truncate px-2 py-0 text-sm leading-5" onClick={() => copyLink(link)}>
             복사
           </button>
         </p>
         {notice !== null && notice !== undefined && <p className="notice text-sm text-warn">{notice}</p>}
       </section>
       <section className="panel flex flex-col gap-2 p-4">
-        <span className="font-display text-sm text-muted">{isHost ? '분위기' : '분위기 (방장이 고름)'}</span>
+        <span className="font-display h-5 truncate text-sm leading-5 text-muted">{isHost ? '분위기' : '분위기 (방장이 고름)'}</span>
         <ThemePicker value={theme} onPick={onPickTheme} disabled={!isHost} />
       </section>
       <section className="panel p-4">
-        <h2 className="font-display mb-3 text-base text-muted">{`참가자 ${players.length} / 8`}</h2>
+        <h2 className="font-display mb-3 h-6 truncate text-base leading-6 text-muted">{`참가자 ${players.length} / 8`}</h2>
         <ul className="roster" hidden>
           {players.map((p) => (
             <li key={p.name}>{rowText(p, room.me)}</li>
@@ -101,7 +101,7 @@ function LobbyScreen({
         {isHost ? (
           <HostControls selection={selection} onSelectionChange={onSelectionChange} onStartGame={onStartGame} />
         ) : (
-          <p className="text-center text-sm text-muted">{WAITING}</p>
+          <p className="line-clamp-2 h-10 text-center text-sm leading-5 text-muted md:h-5 md:line-clamp-1">{WAITING}</p>
         )}
         {error !== null && <p className="error mt-3 rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{error}</p>}
       </section>

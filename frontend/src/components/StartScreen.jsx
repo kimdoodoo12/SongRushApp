@@ -50,7 +50,7 @@ function StartScreen({
   return (
     <div className="start-screen mx-auto flex w-full max-w-md flex-col gap-4">
       <div className="panel flex flex-col gap-2 p-4">
-        <span className="font-display text-sm text-muted">분위기</span>
+        <span className="font-display h-5 truncate text-sm leading-5 text-muted">분위기</span>
         <ThemePicker value={theme} onPick={onPickTheme} />
       </div>
       <form className="start grid grid-cols-2 gap-3 panel p-5 [&_label]:flex [&_label]:flex-col [&_label]:gap-1 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted" onSubmit={handleSubmit}>
