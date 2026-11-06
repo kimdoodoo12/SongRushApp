@@ -15,7 +15,7 @@ export default function ThemePicker({ value, onPick, disabled = false }) {
           onClick={() => onPick(theme.id)}
         >
           <span aria-hidden="true" className="pick-swatch" style={{ background: theme.swatch }} />
-          {theme.name}
+          <span className="pick-name">{theme.name}</span>
         </button>
       ))}
     </div>
