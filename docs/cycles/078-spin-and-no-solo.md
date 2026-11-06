@@ -39,3 +39,17 @@
 
 ## Out of scope
 - Removing the server's solo code (a follow-up).
+
+## Red evidence (lead, live site before the change)
+Playwright took two clips of `.record` 400 ms apart in a room game and counted the share of pixels whose brightness changed by more than 24.
+
+| Theme | Changed pixels |
+|---|---|
+| play | 0.5% |
+| neon | 2.0% |
+| sakura | 0.0% |
+| chalk | 0.9% |
+| star | 0.0% |
+| arcade | 9.9% |
+
+Target: at least 5% in every theme.
