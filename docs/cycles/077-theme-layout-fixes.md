@@ -35,3 +35,19 @@ The browser check on the real jar at 390×844 probed `.round-num` with the longe
 
 ## Note: a mixed commit
 Commit `0cee4f5` ("docs(077): red evidence ...") also holds the implementation (`GameScreen.jsx`, `index.css`). The lead used `git commit -a` while the implementer's edits were still uncommitted. The content is the implementation that was then verified. Only the message understates it. Pushed history is not rewritten.
+
+## Result
+- **Verifier at HEAD.**
+  - `npm test`: 21 files, 295 tests passed.
+  - `npm run lint` and `npm run build`: exit 0.
+  - The locked-test diff from `1732c02` is empty.
+  - The branch touches only `frontend/`, `docs/` and `PROGRESS.md`.
+- **Lead's browser check, after the implementation.** Six themes, lobby, stage and reveal, at 1280×820 and 390×844: 0 box differences and 0 clippings. That includes `.round-num` probed with `10 / 10` and `30 / 30`; before, there were 12 clippings.
+- **How it was built, where it differs from the spec.**
+  - The banner keeps one text node. The locked tests use `getByText` on the whole `"<name> 정답!"` string, so it is right-aligned with `direction: rtl` around an `ltr` isolate. A long name loses its start and " 정답!" stays visible.
+  - The time-bar ring is drawn by a `::after` overlay. Insetting the fill would need `var(--ring)` in a layout property, which the stricter test forbids.
+  - The chalk frame is 4/6 px.
+  - The round counter is 3.9em.
+- **Code review.** No Blocker or High. M1–M3 and N1 from 076 are resolved. New Mediums go to Follow-ups:
+  - the theme test does not see Tailwind's own tokens (`--spacing`, `--text-*`, …);
+  - there is no in-repo regression guard for clipping, because the Playwright probe is not committed.
