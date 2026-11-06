@@ -42,17 +42,17 @@ function Disc() {
 // The answer card; the flip-in is a CSS animation of this one card.
 function RevealCard({ reveal }) {
   return (
-    <div className="flip grid w-full flex-1 place-items-center">
-      <section className="reveal card w-full max-w-[420px] p-5 text-center md:p-6">
+    <div className="flip grid w-full min-w-0 max-w-full flex-1 grid-cols-1 place-items-center">
+      <section className="reveal card w-full min-w-0 max-w-[min(420px,100%)] p-5 text-center md:p-6">
         <p className="card-label font-display h-5 truncate text-[13px] leading-5 tracking-[0.14em]">정답 공개</p>
         {/* Two lines are kept for the title in every look, so the card has
             the same box whichever font wraps it. */}
-        <div className="mt-1.5 mb-1 flex h-[65px] items-center justify-center md:h-[75px]">
-          <h2 className="font-display line-clamp-2 w-full text-[26px] leading-tight break-words md:text-[30px]">{reveal.title}</h2>
+        <div className="mt-1.5 mb-1 flex h-[65px] w-full min-w-0 max-w-full items-center justify-center md:h-[75px]">
+          <h2 className="font-display line-clamp-2 w-full min-w-0 text-[26px] leading-tight wrap-anywhere md:text-[30px]">{reveal.title}</h2>
         </div>
         <p className="card-slug mx-auto mt-1 block h-6 w-24 max-w-full truncate rounded-full px-3 py-0.5 text-xs leading-5 tracking-wide">{reveal.themeSlug}</p>
-        {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 truncate text-base leading-6">{reveal.song}</p>}
-        {reveal.artists.length > 0 && <p className="h-5 truncate text-sm leading-5 text-muted">{reveal.artists.join(', ')}</p>}
+        {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 min-w-0 truncate text-base leading-6 wrap-anywhere">{reveal.song}</p>}
+        {reveal.artists.length > 0 && <p className="h-5 min-w-0 truncate text-sm leading-5 wrap-anywhere text-muted">{reveal.artists.join(', ')}</p>}
         <p className="card-winner font-display mx-auto mt-3 block h-7 w-52 max-w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
           {reveal.winner === null || reveal.winner === undefined ? '정답자 없음' : `정답: ${reveal.winner}`}
         </p>
@@ -100,7 +100,7 @@ function ChatLog({ chat }) {
   return (
     <ul ref={ref} className="chat-log flex h-36 flex-col gap-1 overflow-y-auto px-3 py-2 text-[15px] md:h-44" aria-label="채팅">
       {chat.map((line) => (
-        <li key={line.id} className="break-words">
+        <li key={line.id} className="min-w-0 wrap-anywhere">
           <span
             aria-hidden="true"
             className="chat-mark mr-2 inline-block size-2.5 rounded-full align-middle"
