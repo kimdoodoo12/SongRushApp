@@ -309,6 +309,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-017** Feedback admin: store feedback in a server file; `/admin` page (behind nginx Basic Auth and a server-side key) lists items and sends a checked one to Issues or hides it (from D-097)
 
+- [x] **F-018** Feedback issues get the single label `문의` (from D-098)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -329,6 +331,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-098** Feedback issues carry only the `문의` label (user, 2026-11-08). The category stays in the title and body, and `song-request` is removed.
 - **D-097** Feedback goes to Issues only after the owner approves it (user, 2026-11-07: "관리자 화면에서 내가 문의를 따로 체크하면 그때 Issues로"). `/admin` is protected by nginx Basic Auth (an htpasswd file, no login code in the app). Feedback is stored in one server file. Admin actions are send to Issues (with an editable title) and hide or restore.
 - **D-096** In-site feedback becomes GitHub issues (user, 2026-11-07: "문의하기 ... github issue에 연동"). A footer form; the server creates the issue in the private code repo, labelled `문의`. There is no moderation, because only the owner sees it, and no contact field. The site shows only "received". The process shows in GitHub instead: cycles cite `#N`, and the dev→main PR says `Closes #N`.
 - **D-095** Multilingual UI (user, 2026-11-07: "글로벌인들을 대상으로 하는거라 표시 언어도 다 알맞게"): UI in Korean, English and Japanese with react-i18next (owner's pick); auto-detected from the browser (fallback English) with a switcher that is remembered, per player; the reveal card shows the title in all four answer languages (ko, en, ja, romaji). Replaces D-023's Korean-only UI.
