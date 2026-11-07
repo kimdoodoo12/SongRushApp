@@ -43,28 +43,45 @@ function removeRejoinEntry() {
   }
 }
 
-// The stored {token, code}, or null when there is none, it is malformed, or
-// the storage is blocked. Unparsable JSON is removed.
+// The stored entry: { entry, unparsable }. entry is {token, code}, or null
+// when there is none, it is malformed, or the storage is blocked; unparsable
+// marks JSON that the mount effect removes. Reads only, so it is safe in a
+// state initializer.
 function readRejoinEntry() {
   let raw
   try {
     raw = window.sessionStorage.getItem(REJOIN_KEY)
   } catch (err) {
     console.warn('sessionStorage read failed', err)
-    return null
+    return { entry: null, unparsable: false }
   }
-  if (raw === null) return null
+  if (raw === null) return { entry: null, unparsable: false }
   let entry
   try {
     entry = JSON.parse(raw)
   } catch (err) {
     console.warn('malformed rejoin entry', err)
-    removeRejoinEntry()
-    return null
+    return { entry: null, unparsable: true }
   }
-  if (entry === null || typeof entry !== 'object') return null
-  if (typeof entry.token !== 'string' || typeof entry.code !== 'string') return null
-  return { token: entry.token, code: entry.code }
+  if (entry === null || typeof entry !== 'object') return { entry: null, unparsable: false }
+  if (typeof entry.token !== 'string' || typeof entry.code !== 'string') return { entry: null, unparsable: false }
+  return { entry: { token: entry.token, code: entry.code }, unparsable: false }
+}
+
+// The mount-time reload decision (cycle 079): rejoin is the entry to rejoin
+// with on a real reload, else null; drop says the entry is to be removed.
+function reloadPlan(navigationType) {
+  const type = navigationType === undefined ? pageNavigationType() : navigationType
+  const { entry, unparsable } = readRejoinEntry()
+  if (entry === null) return { rejoin: null, drop: unparsable }
+  if (type !== 'reload') return { rejoin: null, drop: true }
+  return { rejoin: entry, drop: false }
+}
+
+// A reload rejoin starts in the connecting state, with the banner, so the
+// start screen never flashes.
+function initState(plan) {
+  return plan.rejoin === null ? initialState : reducer(initialState, { type: 'connecting', rejoin: true })
 }
 
 // The room code from a /r/<code> share link, upper-cased; '' otherwise.
@@ -81,7 +98,9 @@ function App({
   now = Date.now,
   navigationType,
 }) {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  // Decided once at mount; the effect below acts on it.
+  const [plan] = useState(() => reloadPlan(navigationType))
+  const [state, dispatch] = useReducer(reducer, plan, initState)
   // Detected once; a canPlayOpus prop overrides it.
   const [detectedOpus] = useState(() => (canPlayOpus === undefined ? canPlayOggOpus() : true))
   const opusOk = canPlayOpus === undefined ? detectedOpus : canPlayOpus
@@ -112,23 +131,18 @@ function App({
   // StrictMode's mount, unmount, mount opens exactly one.
   useEffect(() => {
     if (reloadCheckedRef.current) return undefined
-    const type = navigationType === undefined ? pageNavigationType() : navigationType
-    const entry = readRejoinEntry()
-    if (entry === null) {
+    if (plan.rejoin === null) {
       reloadCheckedRef.current = true
+      if (plan.drop) removeRejoinEntry()
       return undefined
     }
-    if (type !== 'reload') {
-      reloadCheckedRef.current = true
-      removeRejoinEntry()
-      return undefined
-    }
+    const entry = plan.rejoin
     const id = setTimeout(() => {
       reloadCheckedRef.current = true
       openSession({ mode: 'rejoin', token: entry.token, code: entry.code })
     }, 0)
     return () => clearTimeout(id)
-    // Mount only: the props are read once, like the share-link code.
+    // Mount only: the plan is read once, like the share-link code.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

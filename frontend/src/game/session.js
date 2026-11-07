@@ -19,9 +19,9 @@
 //
 // mode 'rejoin' (cycle 079) is the first socket after a page reload: it
 // sends rejoin{token} for the stored entry and is then a cycle 049 rejoin
-// socket. rejoin-failed, or a close before its first joined, ends the
-// session on the start screen with the rejoin-failed text; there is no
-// retry ladder for this first attempt.
+// socket. rejoin-failed, a close before its first joined, or no joined
+// within ATTEMPT_MS of its creation ends the session on the start screen
+// with the rejoin-failed text; there is no retry ladder for this attempt.
 import { planPlayback, loadTrack } from '../audio/playback.js'
 import { createClockSync } from '../net/clockSync.js'
 import { errorText } from './state.js'
@@ -591,6 +591,16 @@ export function startSession({
     }, ATTEMPT_MS)
   }
 
+  // The reload rejoin never got in: back to the start screen. The handlers
+  // are cleared first, so the socket's later events change nothing.
+  function failReloadRejoin() {
+    shutdown()
+    detach(socket)
+    socket.close()
+    clearRejoin()
+    dispatch({ type: 'startError', text: errorText('rejoin-failed') })
+  }
+
   // 30 s after the drop the server's grace is over.
   function giveUp() {
     limitTimer = null
@@ -612,10 +622,7 @@ export function startSession({
       return
     }
     if (reloadRejoin && !everJoined) {
-      // The reload rejoin never got in: back to the start screen.
-      shutdown()
-      clearRejoin()
-      dispatch({ type: 'startError', text: errorText('rejoin-failed') })
+      failReloadRejoin()
       return
     }
     if (reconnecting) {
@@ -662,6 +669,14 @@ export function startSession({
   }
 
   attach(socket)
+  if (reloadRejoin) {
+    // No joined within ATTEMPT_MS, connecting or open: the reload rejoin has
+    // failed. joined clears it through cancelReconnect.
+    attemptTimer = setTimeout(() => {
+      attemptTimer = null
+      failReloadRejoin()
+    }, ATTEMPT_MS)
+  }
 
   return {
     sendChat(text) {
