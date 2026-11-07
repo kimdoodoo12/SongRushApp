@@ -11,6 +11,7 @@ import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import FeedbackDialog from './components/FeedbackDialog.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
+import { gainOf, loadVolume, saveVolume, toggleMute, withLevel } from './game/volume.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
 
 const defaultSocketFactory = (url) => new WebSocket(url)
@@ -140,6 +141,13 @@ function GameApp({
   // host's pick from the server instead.
   const [ownTheme, setOwnTheme] = useState(loadOwnTheme)
   const ctxRef = useRef(null)
+  // The context's one gain node (D-099), made with the context and never
+  // recreated while it lives; every song source connects to it.
+  const gainRef = useRef(null)
+  // The own volume, stored on the device. The ref mirrors it for openSession,
+  // which may run from the mount effect's closure.
+  const [volume, setVolume] = useState(loadVolume)
+  const volumeRef = useRef(volume)
   const sessionRef = useRef(null)
   // The reload check has run (cycle 079); StrictMode runs effects twice.
   const reloadCheckedRef = useRef(false)
@@ -204,7 +212,12 @@ function GameApp({
     if (ctxRef.current === null) {
       // iOS 17+: play through the silent switch (spec 047 review H1).
       if (window.navigator.audioSession) window.navigator.audioSession.type = 'playback'
-      ctxRef.current = audioContextFactory()
+      const created = audioContextFactory()
+      const gain = created.createGain()
+      gain.gain.value = gainOf(volumeRef.current)
+      gain.connect(created.destination)
+      ctxRef.current = created
+      gainRef.current = gain
     }
     const ctx = ctxRef.current
     ctx.resume().catch((err) => {
@@ -217,6 +230,7 @@ function GameApp({
       socketFactory,
       url: socketUrl(),
       ctx,
+      output: gainRef.current,
       fetchFn,
       now,
       dispatch,
@@ -268,6 +282,23 @@ function GameApp({
       () => dispatch({ type: 'sound', blocked: ctx.state !== 'running' }),
       (err) => console.warn('AudioContext resume failed', err),
     )
+  }
+
+  // A volume change applies at once, also to the song already playing: the
+  // gain is set directly, with no automation (D-099).
+  function applyVolume(next) {
+    volumeRef.current = next
+    setVolume(next)
+    saveVolume(next)
+    if (gainRef.current !== null) gainRef.current.gain.value = gainOf(next)
+  }
+
+  function handleVolumeLevel(v) {
+    applyVolume(withLevel(volumeRef.current, v))
+  }
+
+  function handleToggleMute() {
+    applyVolume(toggleMute(volumeRef.current))
   }
 
   function handleOwnTheme(id) {
@@ -345,6 +376,9 @@ function GameApp({
             onReset={handleReset}
             onToLobby={handleToLobby}
             onUnlockSound={handleUnlockSound}
+            volume={volume}
+            onVolumeLevel={handleVolumeLevel}
+            onToggleMute={handleToggleMute}
           />
         )}
         <footer className="mt-auto flex flex-col items-center gap-2 pt-4">

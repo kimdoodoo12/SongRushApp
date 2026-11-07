@@ -146,5 +146,9 @@
     "failed": "Could not send your message. Please try again later.",
     "bad": "Please check the subject and message.",
     "network": "Could not reach the server."
+  },
+  "volume": {
+    "label": "Volume",
+    "mute": "Mute"
   }
 }

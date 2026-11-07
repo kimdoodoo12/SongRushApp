@@ -74,6 +74,9 @@ export function startSession({
   socketFactory,
   url,
   ctx,
+  // The node every song source connects to: the context's one gain node,
+  // which App owns (D-099); the session holds no volume state.
+  output,
   fetchFn,
   now,
   mode,
@@ -221,7 +224,7 @@ export function startSession({
     if (plan === null) return
     const source = ctx.createBufferSource()
     source.buffer = r.buffer
-    source.connect(ctx.destination)
+    source.connect(output)
     source.start(plan.when, plan.offset)
     source.stop(plan.stopAt)
     r.source = source
