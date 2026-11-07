@@ -48,3 +48,24 @@ The answer text therefore never reaches anyone before the round is over: `correc
 - Only the **first** chat from the winner after `correct` goes above the system line. Every later line appends.
 - System entries carry no `name` that `Seats` could pick up, or `Seats` skips `kind: 'system'`, so a bubble never shows the system text. `frontend/src/components/Seats.jsx` is added to the frontend implementer's files.
 - `RoomTest.nothingSentBeforeTheRevealIdentifiesTheSong` is kept unchanged. The verifier must confirm it still passes once the winner's text is echoed.
+
+## Result
+- **Commits.**
+  - Tests: `e79271b`, a declared backend rewrite plus a new frontend test.
+  - Implementation: `f53af94`.
+  - Contrast fix: attempt 2.
+- **Verifier at `f53af94`.**
+  - Backend: 441 tests, 0 failures, including `RoomCorrectChatTest` (7) and `RoomTest.nothingSentBeforeTheRevealIdentifiesTheSong`.
+  - Frontend: 310 tests passed; lint and build exit 0.
+  - The locked-test diff is empty.
+  - After attempt 2, the lead re-ran `npm test`, and it passed.
+- **Declared backend rewrites.** The frame order becomes `correct, chat, reveal, scores` in:
+  - `RoomTest.correctAnswerAfterStartAtEndsTheSongAtOnceAndScores`;
+  - the two winner scenes in `RoomLateJoinTest`;
+  - `RoomRoundsTest.aCorrectAnswerWithoutATokenDoesNotScoreAndTheSongKeepsPlaying`;
+  - `SoloSocketTest.soloGameOfFiveSongs`, where the leak window now ends before `correct`.
+- **Review.**
+  - **High H1, fixed in attempt 2.** The system line text failed WCAG AA on light themes. A new colour token, `--good-text`, now reaches at least 4.5:1 on every theme: play 5.39, sakura 4.95–5.01, neon 14.2, chalk 7.27, star 11.1–13.0, arcade 13.2.
+  - **Medium M2, fixed.** The CLAUDE.md product rule now states D-094. Only that line was committed; an unrelated uncommitted edit to CLAUDE.md by someone else was left as it was.
+  - **Mediums M1 and M3** go to Follow-ups.
+- **Process note.** During this cycle, Stop hooks started backend Gradle runs at the same time as the implementer's run and caused `EOFException`. The implementer re-ran alone after polling until no other Gradle process was left.
