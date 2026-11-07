@@ -37,14 +37,13 @@ final class FeedbackFormat {
 			.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
 			.build();
 
-	record Category(String korean, String label) {
-	}
-
-	static final Map<String, Category> CATEGORIES = Map.of(
-			"bug", new Category("버그", "bug"),
-			"idea", new Category("건의", "enhancement"),
-			"song", new Category("곡 요청", "song-request"),
-			"other", new Category("기타", "question"));
+	// Category key to its Korean name, shown in the issue title and body. Issues carry only the one
+	// label below, whatever the category (D-098).
+	static final Map<String, String> CATEGORIES = Map.of(
+			"bug", "버그",
+			"idea", "건의",
+			"song", "곡 요청",
+			"other", "기타");
 
 	static final Set<String> LANGS = Set.of("ko", "en", "ja");
 
@@ -118,11 +117,11 @@ final class FeedbackFormat {
 	// The 082 issue for a stored record. editedTitle (already validated) replaces the stored title in the
 	// issue title; the body then also keeps the original title in its own fence.
 	static Issue issue(FeedbackRecord record, String editedTitle) {
-		Category category = CATEGORIES.get(record.category());
+		String category = CATEGORIES.get(record.category());
 		String shown = editedTitle == null ? record.title() : editedTitle;
-		String title = "[" + LABEL + "/" + category.korean() + "] " + shown.replace("@", FULLWIDTH_AT);
+		String title = "[" + LABEL + "/" + category + "] " + shown.replace("@", FULLWIDTH_AT);
 		StringBuilder body = new StringBuilder()
-				.append("- 분류: ").append(category.korean()).append(" (").append(record.category()).append(")\n")
+				.append("- 분류: ").append(category).append(" (").append(record.category()).append(")\n")
 				.append("- 언어: ").append(record.lang()).append("\n")
 				.append("- 화면: ").append(record.page()).append("\n")
 				.append("- 시각 (UTC): ").append(record.createdAt()).append("\n")
@@ -133,7 +132,7 @@ final class FeedbackFormat {
 		body.append(fenced(record.body()))
 				.append("\n")
 				.append(FOOTER).append("\n");
-		return new Issue(title, body.toString(), List.of(LABEL, category.label()));
+		return new Issue(title, body.toString(), List.of(LABEL));
 	}
 
 	// The text in a 4-backtick fence; runs of 4 or more backticks inside are shortened to 3 so they
