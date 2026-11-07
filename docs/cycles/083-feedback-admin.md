@@ -194,3 +194,39 @@ All earlier tests pass, apart from declared rewrites. `.\gradlew.bat test`, `npm
   - case variants;
   - nginx normalisation of `//`, `..` and percent-encoding;
   - atomic rename on Linux with a folder mount.
+
+## Result
+- **Commits.**
+  - Tests: `0cd3547`.
+  - Declared test fix: `340180d`. `FakeIssueSender.reset()` did not reset its counter, so two tests asserting #100 could not both pass in the cached context. The implementer reported it, and the lead confirmed it by reading the test.
+  - Implementation: `a4a30d9`.
+  - Attempt 2: `8b686f3`.
+- **Verifier at `8b686f3`.**
+  - Backend: 590 tests, 0 failures, 1 skipped. `FeedbackStoreTest.readOnlyFolderDisablesStorage` needs POSIX permissions, so it skips on Windows and runs on Linux CI.
+  - Frontend: 369 tests; lint and build exit 0.
+  - The locked-test diff against `340180d` is empty.
+- **Declared rewrites.**
+  - `FeedbackControllerTest`: POST now stores, and "disabled" means a blank or unwritable store-dir. The issue-format assertions moved unchanged to `AdminFeedbackControllerTest`.
+  - `GitHubIssueSenderTest`: success now returns `CreatedIssue`.
+  - Each file has a table of what changed.
+- **Code review** (critic, on the combined 082+083 diff). No Blocker or High.
+  - **M1:** the UI always sends the title, so every issue got a duplicate "원래 제목" fence. Now an unchanged title is not an edit.
+  - **M2:** `persisted:false` was not shown. The item now shows a warning.
+  - **M3:** with the store disabled, the admin list looked empty. It now answers 503, and the screen says the store is off.
+  - All three were fixed in attempt 2.
+  - **Nits** go to Follow-ups: 405 and OPTIONS skip the interceptor (the routes are already visible in the public bundle, and no data is exposed); the sent tab shows the stored title rather than the edited one; anti-framing is handled in the owner's nginx block.
+- **Lead's real check.** Local jar, a temp store, test-only admin key and token, and a local fake GitHub on 127.0.0.1:9911. Playwright on Edge:
+  - Two inquiries submitted from the site gave **0** GitHub calls.
+  - `/admin/api/feedback` without the key: **404** `{"error":"not found"}`. With the key: 200.
+  - The admin page without the key shows "관리자 기능이 꺼져 있습니다".
+  - With the key, the tabs read `새 문의 (2)`, then `(0)/(1)/(1)` after sending one with an edited title and hiding the other.
+  - The sent link `#1` has `rel="noopener noreferrer"`. At 390 px there is no horizontal overflow.
+  - **The fake GitHub received exactly 1 request.**
+    - Path `/repos/kimdoodoo12/SongRushApp/issues`, Bearer token correct, API version `2022-11-28`.
+    - Title `[문의/곡 요청] 프리렌 1기 OP 추가 요청`, labels `["문의","song-request"]`.
+    - The body has the original title and the user text, each in a four-backtick fence; `<b>x</b>` stays literal.
+  - **After a restart,** the statuses persisted: `hidden`, and `sent #1`.
+  - **A send with an unchanged title** produced no "원래 제목" fence (2 fence markers, that is, one fence).
+- **Process notes.**
+  - `.claude/state/locked-paths.txt` disappeared between the lead's lock and unlock twice in this cycle. The lead's own unlock printed "no locked paths". The cause is not identified. The verifier's `git diff <test commit> HEAD` check remained the guard, and it was empty each time.
+  - Overlapping Gradle runs corrupted `build/test-results/test/binary` once. The verifier's `cleanTest test` regenerated it.

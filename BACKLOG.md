@@ -307,7 +307,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-016** In-site feedback form that becomes a GitHub issue through the backend, with rate limits and the token kept server-side only (from D-096)
 
-- [~] **F-017** Feedback admin: store feedback in a server file; `/admin` page (behind nginx Basic Auth and a server-side key) lists items and sends a checked one to Issues or hides it (from D-097)
+- [x] **F-017** Feedback admin: store feedback in a server file; `/admin` page (behind nginx Basic Auth and a server-side key) lists items and sends a checked one to Issues or hides it (from D-097)
 
 ## Roadmap
 
@@ -430,6 +430,8 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (083) Admin API: 405 and OPTIONS answers come from Spring before the key interceptor, with no `no-store`. Consider handling all methods behind the key. The sent tab shows the stored title, not the edited one sent to GitHub; store `sentTitle`. Find what deletes `.claude/state/locked-paths.txt` mid-cycle.
+- (082) Feedback items have no deletion tool; deletion is a manual edit of the server file. Add one if personal data shows up.
 - (081) Long reveal title lines and artist lists are truncated at 390 px. Consider wrapping them to two lines, which is data-dependent height, not theme-dependent. Seat names with "(host) (you)" truncate in English and Japanese; consider showing host and self as icons. Check whether the theme web fonts cover kana and kanji. Add `frontend/.vitest/` (a JSON reporter output a verifier created) to `.gitignore`.
 - (080) Rename and narrow `RoomTest.nothingSentBeforeTheRevealIdentifiesTheSong`: its window should end at each song's `correct` (or at `reveal` when nobody answered), and it should also pin an exact-title win. Widen `SoloSocketTest`'s leak window to `revealAt - 1`, so the `correct` frame is checked again. Make the Stop hook's backend Gradle run wait for, or skip while, another Gradle runs on `backend/`.
 - (079) Check by hand in Chrome, Firefox and Safari that a duplicated tab reports a navigation type other than `reload` (`performance.getEntriesByType('navigation')[0].type`), and check the suspended-audio prompt after a reload in a browser without the autoplay flag.
