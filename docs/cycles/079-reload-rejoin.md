@@ -48,3 +48,22 @@ On the live site, Playwright creates a room, reloads the page, and lands in the 
 - **Test writer:** `frontend/src/App.reload.test.jsx`.
 - **Implementer:** `frontend/src/App.jsx`, `frontend/src/game/session.js`, `frontend/src/game/state.js` (if needed).
 EOF
+## Result
+- **Commits.**
+  - Tests: `4fa8adc`.
+  - Implementation: `de69d34`.
+  - Review tests: `cb1d990`.
+  - Fixes: `eb0a0f8` (attempt 2).
+- **Verifier at `eb0a0f8`.**
+  - `npm test`: 23 files, 304 tests passed.
+  - `npm run lint` and `npm run build`: exit 0.
+  - The locked-test diff is empty.
+- **Lead's real-browser check (local jar and built client, Playwright).** It was run after both attempts.
+  - A lobby reload returns to the same room, and the other player is still in the seats.
+  - A guest who reloads mid-song returns to the game, showing "1 / 5" and the room code chip.
+  - A fresh tab shows the start screen.
+- **Review.** No Blocker or High.
+  - M1: the first rejoin had no attempt timeout, so the banner could stay forever. Now it times out after 5 s, with a locked test.
+  - M2: there was no test for audio suspended after a reload. Now there is one, and it passes.
+  - N1: the start screen flashed for one frame on reload. Now the first render is already the connecting state.
+- **Not verified.** Whether Firefox and Safari report a duplicated tab as anything other than `reload`, and the real suspended-audio path without the autoplay flag. Both go to Follow-ups.
