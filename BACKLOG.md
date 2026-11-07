@@ -309,7 +309,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-017** Feedback admin: store feedback in a server file; `/admin` page (behind nginx Basic Auth and a server-side key) lists items and sends a checked one to Issues or hides it (from D-097)
 
-- [~] **F-018** Feedback issues get the single label `문의` (from D-098)
+- [x] **F-018** Feedback issues get the single label `문의` (from D-098)
 
 ## Roadmap
 
