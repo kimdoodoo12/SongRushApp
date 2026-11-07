@@ -1,13 +1,14 @@
 package com.songrush.feedback;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,40 +29,70 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-// Cycle 082 backend items 2-3 (D-096): POST /api/feedback.
+// Cycle 082 backend items 2-3 (D-096), changed by cycle 083 backend items 1 and 3 (D-097):
+// POST /api/feedback now stores the post as a "new" record and never calls the IssueSender.
+//
+// declared rewrite (083): test name -> what changed and why
+//   validPostCreatesIssue -> validPostStoresNewRecord: asserts the stored record's fields (and that
+//       it is on disk) instead of the sent Issue; the post no longer creates an issue (D-097).
+//   categoryMapsToKoreanNameAndLabel -> categoryIsStored: asserts the stored category key. The Korean
+//       name and label assertions moved unchanged to AdminFeedbackControllerTest#categoryMapsToKoreanNameAndLabel,
+//       because the issue is now built at the admin send.
+//   atSignsInTitleAreReplaced -> atSignsInTitleAreStoredAsWritten: the record keeps the trimmed title;
+//       the '@' -> U+FF20 assertion moved unchanged to AdminFeedbackControllerTest#atSignsInTitleAreReplaced.
+//   userTextSitsInsideTheFence -> userTextIsStoredVerbatim: the record keeps the trimmed text; the fence
+//       assertions moved unchanged to AdminFeedbackControllerTest#userTextSitsInsideTheFence.
+//   backtickRunsAreShortened -> backtickRunsAreStoredAsWritten: the record keeps the text; the shortening
+//       assertions moved unchanged to AdminFeedbackControllerTest#backtickRunsAreShortened.
+//   titleAndBodyAreTrimmed: same inputs; asserts the stored title/body instead of the Issue.
+//   unknownLangAndPageAreStoredAsQuestionMark: same inputs; asserts record lang/page == "?" instead of
+//       the Issue body.
+//   missingLangAndPageAreAccepted, boundaryLengthsAreAccepted: count stored records instead of sends.
+//   invalidInputGives400WithoutSend -> invalidInputGives400WithoutStore; honeypotGives201WithoutSend ->
+//       honeypotGives201WithoutStore: nothing stored (and still no send).
+//   fourthPostFromOneAddressIsRateLimited, otherAddressIsStillAccepted, globalHourlyCapApplies,
+//       rateLimitedPostsDoNotConsumeQuota: "sender.calls()" counts became stored-record counts.
+//   sendFailureGives502AndConsumesQuota -> StoreFailure#storeFailureGives502AndConsumesQuota: the
+//       failure that gives 502 is now a store write failure (there is no send).
+//   Enabled context: now runs with a blank token and a store-dir, because the public form needs only
+//       the store (083 backend item 1).
+//   Disabled#blankTokenGives503WithoutSend -> BlankStoreDir#blankStoreDirGives503 and
+//       DefaultStoreDir#unsetStoreDirGives503: "disabled" now means a blank store-dir, even with a token.
+//   New: every Enabled test also asserts the sender is never called; UnwritableStoreDir (503
+//       feedback-disabled), Full (503 feedback-full).
+//   Unchanged: acceptedAgainAfterTenMinutes, retryAfterFollowsTheRule, retryAfterIsAtLeastOne,
+//       perAddressCheckRunsFirst, invalidAndHoneypotPostsDoNotConsumeQuota,
+//       honeypotPostsDoNotConsumeGlobalQuota, the invalidBodies list.
 //
 // Production API this test relies on (package com.songrush.feedback):
-//   public record Issue(String title, String body, List<String> labels)
-//   public interface IssueSender { void send(Issue issue) throws IssueSendException; }
-//   public class IssueSendException extends Exception { public IssueSendException(String message); ... }
-//   FeedbackProperties (see FeedbackPropertiesTest).
-//   A @RestController handling POST /api/feedback that gets its IssueSender and its java.time.Clock
-//   from the Spring context by type. The app already has a Clock bean (AudioConfiguration); the
-//   feedback code must read time only from an injected Clock, never Instant.now()/System time.
-//   This test adds @Primary beans of type IssueSender (a fake) and Clock (MutableClock), so
-//   production code must inject IssueSender and Clock by type (a @Primary bean must win).
-//   The controller (not the sender) validates, rate-limits and builds the Issue:
-//     title  = "[문의/<ko category>] " + trimmed title with every '@' replaced by U+FF20;
-//     labels = ["문의", <category label>];
-//     body   = Markdown containing: the category, the language (or "?"), the page (or "?"),
-//              clock.instant() formatted as ISO-8601 UTC (Instant.toString form, e.g.
-//              2026-11-07T02:00:00Z), the trimmed user text in a fence written exactly as
-//              "````text\n" + text + "\n````" (runs of 4+ backticks shortened to 3), and the footer
-//              "_사이트 문의하기로 접수됨_". The fence must be the only place with 4 backticks in a row.
-//   Every response body is exact JSON: {"ok":true}, {"error":"feedback-disabled"},
-//   {"error":"bad-feedback"}, {"error":"rate-limited"} (with header Retry-After: <int seconds>),
-//   {"error":"feedback-failed"}. Malformed JSON and an over-8 KB body must yield the 400 JSON from
-//   the controller itself (MockMvc does no error dispatch to JsonErrorController).
-//   The client address is request.getRemoteAddr().
+//   FeedbackStore, FeedbackRecord (see FeedbackStoreTest); the file format (see FeedbackFiles).
+//   Exactly one Spring bean of type FeedbackStore, built from property songrush.feedback.store-dir
+//   (env SONGRUSH_FEEDBACK_DIR, default empty) and the context's Clock by type (a @Primary Clock wins).
+//   A blank store-dir (after trimming) gives a disabled store. FeedbackPropertiesTest is unchanged, so
+//   new FeedbackProperties(token, repo, apiBase) must still compile.
+//   The controller takes its IssueSender by type but never calls it on POST /api/feedback.
+//   Order: store disabled (503 feedback-disabled) -> invalid (400) -> honeypot (201, nothing stored)
+//   -> rate limit (429) -> store.add: FullException gives 503 {"error":"feedback-full"}, an IOException
+//   (or any RuntimeException) gives 502 {"error":"feedback-failed"}, success gives 201 {"ok":true}.
+//   A post that reaches store.add is counted by the limiter, whatever the outcome (082 rule: counted
+//   before the store call).
+//   The stored record holds the validated values: category key, trimmed title and text exactly as the
+//   user wrote them (no '@' or backtick rewriting: that happens when the issue is built at the admin
+//   send), lang/page or "?" when unknown or missing, createdAt = clock.instant().
+//   Everything else as cycle 082: exact JSON bodies, the 8 KB / malformed JSON 400 from the controller
+//   itself, Retry-After in whole seconds, client address = request.getRemoteAddr().
 //
-// State: the rate limiter lives in a cached Spring context, so every test first moves the clock
-// 2 hours ahead, which empties both windows whatever earlier tests did.
+// State: the rate limiter and the store live in cached Spring contexts, so every test first moves the
+// clock 2 hours ahead, which empties both windows and makes this test's records the newest ones.
 class FeedbackControllerTest {
 
 	private static final ObjectMapper MAPPER = JsonMapper.builder().build();
@@ -71,37 +102,21 @@ class FeedbackControllerTest {
 	private static final String LIMITED = "{\"error\":\"rate-limited\"}";
 	private static final String FAILED = "{\"error\":\"feedback-failed\"}";
 	private static final String DISABLED = "{\"error\":\"feedback-disabled\"}";
-	private static final String FOOTER = "_사이트 문의하기로 접수됨_";
-	private static final String FULLWIDTH_AT = String.valueOf((char) 0xFF20);
+	private static final String FULL = "{\"error\":\"feedback-full\"}";
 
-	enum Mode { OK, FAIL, CRASH }
-
+	// Must never be called by POST /api/feedback.
 	static final class FakeIssueSender implements IssueSender {
 
-		private final List<Issue> sent = new ArrayList<>();
-		private volatile Mode mode = Mode.OK;
 		private int calls;
 
 		@Override
-		public synchronized void send(Issue issue) throws IssueSendException {
+		public synchronized CreatedIssue send(Issue issue) throws IssueSendException {
 			calls++;
-			if (mode == Mode.FAIL) {
-				throw new IssueSendException("fake GitHub failure");
-			}
-			if (mode == Mode.CRASH) {
-				throw new IllegalStateException("fake crash");
-			}
-			sent.add(issue);
+			return new CreatedIssue(1, "https://github.com/kimdoodoo12/SongRushApp/issues/1");
 		}
 
 		synchronized void reset() {
-			sent.clear();
 			calls = 0;
-			mode = Mode.OK;
-		}
-
-		synchronized List<Issue> sent() {
-			return List.copyOf(sent);
 		}
 
 		synchronized int calls() {
@@ -160,16 +175,6 @@ class FeedbackControllerTest {
 		return new String(Character.toChars(0x1F600));
 	}
 
-	static int count(String haystack, String needle) {
-		int n = 0;
-		int from = 0;
-		while ((from = haystack.indexOf(needle, from)) >= 0) {
-			n++;
-			from += needle.length();
-		}
-		return n;
-	}
-
 	// A body whose decoded text is 2000 code units (valid) but whose JSON is 12000+ bytes,
 	// because every character is written as a six-byte backslash-u JSON escape.
 	static String oversizeJson() {
@@ -206,11 +211,32 @@ class FeedbackControllerTest {
 				Arguments.of("over 8 KB", oversizeJson()));
 	}
 
+	static Stream<Arguments> categories() {
+		return Stream.of(Arguments.of("bug"), Arguments.of("idea"), Arguments.of("song"), Arguments.of("other"));
+	}
+
+	static ResultActions post(MockMvc mvc, String address, String body) throws Exception {
+		return mvc.perform(MockMvcRequestBuilders.post("/api/feedback")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body.getBytes(StandardCharsets.UTF_8))
+				.with(request -> {
+					request.setRemoteAddr(address);
+					return request;
+				}));
+	}
+
 	@Nested
-	@SpringBootTest(properties = "songrush.feedback.token=test-token")
+	@SpringBootTest(properties = "songrush.feedback.token=")
 	@AutoConfigureMockMvc
 	@Import(Fakes.class)
 	class Enabled {
+
+		static final Path DIR = FeedbackFiles.newStoreDir();
+
+		@DynamicPropertySource
+		static void storeDir(DynamicPropertyRegistry registry) {
+			registry.add("songrush.feedback.store-dir", () -> DIR.toString());
+		}
 
 		@Autowired
 		private MockMvc mvc;
@@ -221,20 +247,21 @@ class FeedbackControllerTest {
 		@Autowired
 		private FakeIssueSender sender;
 
+		@Autowired
+		private FeedbackStore store;
+
+		private int before;
+
 		@BeforeEach
 		void freshWindows() {
 			clock.advance(Duration.ofHours(2));
 			sender.reset();
+			assertThat(store.enabled()).isTrue();
+			before = store.list("all").size();
 		}
 
 		private ResultActions send(String address, String body) throws Exception {
-			return mvc.perform(post("/api/feedback")
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(body.getBytes(StandardCharsets.UTF_8))
-					.with(request -> {
-						request.setRemoteAddr(address);
-						return request;
-					}));
+			return post(mvc, address, body);
 		}
 
 		private void accepted(String address) throws Exception {
@@ -247,15 +274,23 @@ class FeedbackControllerTest {
 					.andExpect(header().string("Retry-After", retryAfter));
 		}
 
-		private Issue onlyIssue() {
-			assertThat(sender.sent()).hasSize(1);
-			return sender.sent().get(0);
+		// The records stored by this test, newest first.
+		private List<FeedbackRecord> added() {
+			List<FeedbackRecord> all = store.list("all");
+			return new ArrayList<>(all.subList(0, all.size() - before));
 		}
 
-		// Success: one send, 201 {"ok":true}, right title, labels and body content.
+		private FeedbackRecord onlyRecord() {
+			List<FeedbackRecord> added = added();
+			assertThat(added).hasSize(1);
+			assertThat(sender.calls()).as("POST never calls the IssueSender").isZero();
+			return added.get(0);
+		}
+
+		// Success: one stored "new" record, 201 {"ok":true}, no send.
 		@Test
-		void validPostCreatesIssue() throws Exception {
-			String now = clock.instant().toString();
+		void validPostStoresNewRecord() throws Exception {
+			Instant now = clock.instant();
 			Map<String, Object> map = valid();
 			map.put("title", "Audio stops");
 			map.put("body", "The song cut off at 30 s.");
@@ -263,55 +298,45 @@ class FeedbackControllerTest {
 			map.put("page", "lobby");
 			send("10.0.0.1", json(map)).andExpect(status().is(201)).andExpect(content().string(OK));
 
-			Issue issue = onlyIssue();
-			assertThat(issue.title()).isEqualTo("[문의/버그] Audio stops");
-			assertThat(issue.labels()).containsExactly("문의", "bug");
-			assertThat(issue.body())
-					.contains("ja")
-					.contains("lobby")
-					.contains(now)
-					.contains("````text\nThe song cut off at 30 s.\n````")
-					.contains(FOOTER);
-			assertThat(issue.body().contains("bug") || issue.body().contains("버그")).as("category in body").isTrue();
-			assertThat(sender.calls()).isEqualTo(1);
+			FeedbackRecord record = onlyRecord();
+			assertThat(record.id()).matches("[A-Za-z0-9_-]{12}");
+			assertThat(record.createdAt()).isEqualTo(now);
+			assertThat(record.category()).isEqualTo("bug");
+			assertThat(record.title()).isEqualTo("Audio stops");
+			assertThat(record.body()).isEqualTo("The song cut off at 30 s.");
+			assertThat(record.lang()).isEqualTo("ja");
+			assertThat(record.page()).isEqualTo("lobby");
+			assertThat(record.status()).isEqualTo("new");
+			assertThat(record.issueNumber()).isNull();
+			assertThat(record.issueUrl()).isNull();
+			assertThat(new FeedbackStore(DIR, clock).get(record.id())).as("persisted to disk").contains(record);
 		}
 
 		@ParameterizedTest(name = "{0}")
 		@MethodSource("com.songrush.feedback.FeedbackControllerTest#categories")
-		void categoryMapsToKoreanNameAndLabel(String category, String korean, String label) throws Exception {
+		void categoryIsStored(String category) throws Exception {
 			send("10.0.0.2", json(with("category", category))).andExpect(status().is(201));
-			Issue issue = onlyIssue();
-			assertThat(issue.title()).isEqualTo("[문의/" + korean + "] Hello");
-			assertThat(issue.labels()).containsExactly("문의", label);
+			assertThat(onlyRecord().category()).isEqualTo(category);
 		}
 
 		@Test
-		void atSignsInTitleAreReplaced() throws Exception {
+		void atSignsInTitleAreStoredAsWritten() throws Exception {
 			send("10.0.0.3", json(with("title", "ping @owner and @@team"))).andExpect(status().is(201));
-			Issue issue = onlyIssue();
-			assertThat(issue.title())
-					.isEqualTo("[문의/버그] ping " + FULLWIDTH_AT + "owner and " + FULLWIDTH_AT + FULLWIDTH_AT + "team")
-					.doesNotContain("@");
+			assertThat(onlyRecord().title()).isEqualTo("ping @owner and @@team");
 		}
 
 		@Test
-		void userTextSitsInsideTheFence() throws Exception {
+		void userTextIsStoredVerbatim() throws Exception {
 			String text = "line1\n\tline2 <b>bold</b> @owner #1";
 			send("10.0.0.4", json(with("body", text))).andExpect(status().is(201));
-			String body = onlyIssue().body();
-			assertThat(body).contains("````text\n" + text + "\n````");
-			assertThat(count(body, "<b>bold</b>")).as("user text appears once").isEqualTo(1);
-			assertThat(count(body, "````")).as("only the fence has 4 backticks").isEqualTo(2);
+			assertThat(onlyRecord().body()).isEqualTo(text);
 		}
 
 		@Test
-		void backtickRunsAreShortened() throws Exception {
+		void backtickRunsAreStoredAsWritten() throws Exception {
 			String text = "a ```` b ``````` c ``` d ` e";
 			send("10.0.0.5", json(with("body", text))).andExpect(status().is(201));
-			String body = onlyIssue().body();
-			assertThat(body).contains("````text\na ``` b ``` c ``` d ` e\n````");
-			assertThat(count(body, "````")).isEqualTo(2);
-			assertThat(body).doesNotContain("`````");
+			assertThat(onlyRecord().body()).isEqualTo(text);
 		}
 
 		@Test
@@ -320,9 +345,9 @@ class FeedbackControllerTest {
 			map.put("title", "  spaced title  ");
 			map.put("body", " \n spaced body \n ");
 			send("10.0.0.6", json(map)).andExpect(status().is(201));
-			Issue issue = onlyIssue();
-			assertThat(issue.title()).isEqualTo("[문의/버그] spaced title");
-			assertThat(issue.body()).contains("````text\nspaced body\n````");
+			FeedbackRecord record = onlyRecord();
+			assertThat(record.title()).isEqualTo("spaced title");
+			assertThat(record.body()).isEqualTo("spaced body");
 		}
 
 		@Test
@@ -331,8 +356,9 @@ class FeedbackControllerTest {
 			map.put("lang", "zzlang");
 			map.put("page", "zzpage");
 			send("10.0.0.7", json(map)).andExpect(status().is(201));
-			String body = onlyIssue().body();
-			assertThat(body).doesNotContain("zzlang").doesNotContain("zzpage").contains("?");
+			FeedbackRecord record = onlyRecord();
+			assertThat(record.lang()).isEqualTo("?");
+			assertThat(record.page()).isEqualTo("?");
 		}
 
 		@Test
@@ -342,7 +368,9 @@ class FeedbackControllerTest {
 			map.remove("page");
 			map.remove("website");
 			send("10.0.0.8", json(map)).andExpect(status().is(201)).andExpect(content().string(OK));
-			assertThat(sender.sent()).hasSize(1);
+			FeedbackRecord record = onlyRecord();
+			assertThat(record.lang()).isEqualTo("?");
+			assertThat(record.page()).isEqualTo("?");
 		}
 
 		@Test
@@ -357,20 +385,23 @@ class FeedbackControllerTest {
 			send("10.0.1.3", json(big)).andExpect(status().is(201));
 			// The body may contain newline and tab.
 			send("10.0.1.4", json(with("body", "a\tb\nc\n\td"))).andExpect(status().is(201));
-			assertThat(sender.sent()).hasSize(4);
+			assertThat(added()).hasSize(4);
+			assertThat(sender.calls()).isZero();
 		}
 
 		@ParameterizedTest(name = "{0}")
 		@MethodSource("com.songrush.feedback.FeedbackControllerTest#invalidBodies")
-		void invalidInputGives400WithoutSend(String name, String body) throws Exception {
+		void invalidInputGives400WithoutStore(String name, String body) throws Exception {
 			send("10.0.2.1", body).andExpect(status().is(400)).andExpect(content().string(BAD));
+			assertThat(added()).isEmpty();
 			assertThat(sender.calls()).isZero();
 		}
 
 		@Test
-		void honeypotGives201WithoutSend() throws Exception {
+		void honeypotGives201WithoutStore() throws Exception {
 			send("10.0.2.2", json(with("website", "http://spam.example"))).andExpect(status().is(201))
 					.andExpect(content().string(OK));
+			assertThat(added()).isEmpty();
 			assertThat(sender.calls()).isZero();
 		}
 
@@ -381,7 +412,7 @@ class FeedbackControllerTest {
 			accepted("10.0.3.1");
 			accepted("10.0.3.1");
 			limited("10.0.3.1", "600");
-			assertThat(sender.calls()).isEqualTo(3);
+			assertThat(added()).hasSize(3);
 		}
 
 		@Test
@@ -391,7 +422,7 @@ class FeedbackControllerTest {
 			accepted("10.0.3.2");
 			limited("10.0.3.2", "600");
 			accepted("10.0.3.3");
-			assertThat(sender.calls()).isEqualTo(4);
+			assertThat(added()).hasSize(4);
 		}
 
 		@Test
@@ -437,7 +468,7 @@ class FeedbackControllerTest {
 			}
 			clock.advance(Duration.ofSeconds(60));
 			limited("10.1.1.1", "3540");
-			assertThat(sender.calls()).isEqualTo(30);
+			assertThat(added()).hasSize(30);
 			clock.advance(Duration.ofSeconds(3540));
 			accepted("10.1.1.1");
 		}
@@ -453,18 +484,6 @@ class FeedbackControllerTest {
 			// Both limits are violated; the per-address window decides Retry-After.
 			limited("10.2.0.1", "600");
 			limited("10.2.2.1", "3600");
-		}
-
-		@Test
-		void sendFailureGives502AndConsumesQuota() throws Exception {
-			sender.mode = Mode.FAIL;
-			send("10.0.4.1", json(valid())).andExpect(status().is(502)).andExpect(content().string(FAILED));
-			sender.mode = Mode.CRASH;
-			send("10.0.4.1", json(valid())).andExpect(status().is(502)).andExpect(content().string(FAILED));
-			send("10.0.4.1", json(valid())).andExpect(status().is(502)).andExpect(content().string(FAILED));
-			sender.mode = Mode.OK;
-			limited("10.0.4.1", "600");
-			assertThat(sender.calls()).isEqualTo(3);
 		}
 
 		@Test
@@ -503,23 +522,121 @@ class FeedbackControllerTest {
 			accepted("10.0.6.1");
 			accepted("10.0.6.1");
 			accepted("10.0.6.1");
-			assertThat(sender.calls()).isEqualTo(6);
+			assertThat(added()).hasSize(6);
+			assertThat(sender.calls()).isZero();
 		}
 	}
 
-	static Stream<Arguments> categories() {
-		return Stream.of(
-				Arguments.of("bug", "버그", "bug"),
-				Arguments.of("idea", "건의", "enhancement"),
-				Arguments.of("song", "곡 요청", "song-request"),
-				Arguments.of("other", "기타", "question"));
-	}
-
+	// A store write failure gives 502 and still consumes quota (the 082 "send failure" rule, now for the store).
 	@Nested
 	@SpringBootTest(properties = "songrush.feedback.token=")
 	@AutoConfigureMockMvc
 	@Import(Fakes.class)
-	class Disabled {
+	class StoreFailure {
+
+		static final Path DIR = FeedbackFiles.newStoreDir();
+
+		@DynamicPropertySource
+		static void storeDir(DynamicPropertyRegistry registry) {
+			registry.add("songrush.feedback.store-dir", () -> DIR.toString());
+		}
+
+		@Autowired
+		private MockMvc mvc;
+
+		@Autowired
+		private MutableClock clock;
+
+		@Autowired
+		private FakeIssueSender sender;
+
+		@Autowired
+		private FeedbackStore store;
+
+		@Test
+		void storeFailureGives502AndConsumesQuota() throws Exception {
+			clock.advance(Duration.ofHours(2));
+			sender.reset();
+			assertThat(store.enabled()).isTrue();
+			FeedbackFiles.breakDir(DIR);
+			try {
+				for (int i = 0; i < 3; i++) {
+					post(mvc, "10.0.4.1", json(valid())).andExpect(status().is(502))
+							.andExpect(content().string(FAILED));
+				}
+			}
+			finally {
+				FeedbackFiles.restoreDir(DIR);
+			}
+			post(mvc, "10.0.4.1", json(valid())).andExpect(status().is(429))
+					.andExpect(content().string(LIMITED))
+					.andExpect(header().string("Retry-After", "600"));
+			// The store works again once the folder is back.
+			post(mvc, "10.0.4.2", json(with("title", "after repair"))).andExpect(status().is(201))
+					.andExpect(content().string(OK));
+			assertThat(new FeedbackStore(DIR, clock).list("all")).extracting(FeedbackRecord::title)
+					.contains("after repair");
+			assertThat(sender.calls()).isZero();
+		}
+	}
+
+	// 1000 "new" records already stored: a valid post gives 503 feedback-full and stores nothing.
+	@Nested
+	@SpringBootTest(properties = "songrush.feedback.token=")
+	@AutoConfigureMockMvc
+	@Import(Fakes.class)
+	class Full {
+
+		static final Path DIR = seeded();
+
+		private static Path seeded() {
+			Path dir = FeedbackFiles.newStoreDir();
+			FeedbackFiles.writeFile(dir,
+					FeedbackFiles.seed(1000, Instant.parse("2026-10-01T00:00:00Z"), i -> "new"));
+			return dir;
+		}
+
+		@DynamicPropertySource
+		static void storeDir(DynamicPropertyRegistry registry) {
+			registry.add("songrush.feedback.store-dir", () -> DIR.toString());
+		}
+
+		@Autowired
+		private MockMvc mvc;
+
+		@Autowired
+		private MutableClock clock;
+
+		@Autowired
+		private FakeIssueSender sender;
+
+		@Autowired
+		private FeedbackStore store;
+
+		@Test
+		void fullStoreGives503() throws Exception {
+			clock.advance(Duration.ofHours(2));
+			sender.reset();
+			assertThat(store.list("new")).hasSize(1000);
+			post(mvc, "10.0.7.1", json(valid())).andExpect(status().is(503)).andExpect(content().string(FULL));
+			assertThat(store.list("all")).hasSize(1000);
+			assertThat(new FeedbackStore(DIR, clock).list("all")).hasSize(1000);
+			assertThat(sender.calls()).isZero();
+		}
+	}
+
+	private static void expectDisabled(MockMvc mvc, FakeIssueSender sender) throws Exception {
+		sender.reset();
+		post(mvc, "10.9.0.1", json(valid())).andExpect(status().is(503)).andExpect(content().string(DISABLED));
+		assertThat(sender.calls()).isZero();
+	}
+
+	// A token alone does not enable the public form: a blank store-dir disables it.
+	@Nested
+	@SpringBootTest(properties = { "songrush.feedback.token=test-token", "songrush.feedback.store-dir=   " })
+	@AutoConfigureMockMvc
+	@Import(Fakes.class)
+	class BlankStoreDir {
 
 		@Autowired
 		private MockMvc mvc;
@@ -527,19 +644,65 @@ class FeedbackControllerTest {
 		@Autowired
 		private FakeIssueSender sender;
 
+		@Autowired
+		private FeedbackStore store;
+
 		@Test
-		void blankTokenGives503WithoutSend() throws Exception {
-			sender.reset();
-			mvc.perform(post("/api/feedback")
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(json(valid()).getBytes(StandardCharsets.UTF_8))
-					.with(request -> {
-						request.setRemoteAddr("10.9.0.1");
-						return request;
-					}))
-					.andExpect(status().is(503))
-					.andExpect(content().string(DISABLED));
-			assertThat(sender.calls()).isZero();
+		void blankStoreDirGives503() throws Exception {
+			assertThat(store.enabled()).isFalse();
+			expectDisabled(mvc, sender);
+		}
+	}
+
+	@Nested
+	@SpringBootTest(properties = "songrush.feedback.token=test-token")
+	@AutoConfigureMockMvc
+	@Import(Fakes.class)
+	class DefaultStoreDir {
+
+		@Autowired
+		private MockMvc mvc;
+
+		@Autowired
+		private FakeIssueSender sender;
+
+		@Autowired
+		private FeedbackStore store;
+
+		@Test
+		void unsetStoreDirGives503() throws Exception {
+			assertThat(store.enabled()).isFalse();
+			expectDisabled(mvc, sender);
+		}
+	}
+
+	// A store-dir that cannot be created (a regular file stands at its path) disables storage.
+	@Nested
+	@SpringBootTest(properties = "songrush.feedback.token=")
+	@AutoConfigureMockMvc
+	@Import(Fakes.class)
+	class UnwritableStoreDir {
+
+		static final Path FILE = FeedbackFiles.newRegularFile();
+
+		@DynamicPropertySource
+		static void storeDir(DynamicPropertyRegistry registry) {
+			registry.add("songrush.feedback.store-dir", () -> FILE.toString());
+		}
+
+		@Autowired
+		private MockMvc mvc;
+
+		@Autowired
+		private FakeIssueSender sender;
+
+		@Autowired
+		private FeedbackStore store;
+
+		@Test
+		void unwritableStoreDirGives503() throws Exception {
+			assertThat(store.enabled()).isFalse();
+			expectDisabled(mvc, sender);
 		}
 	}
 }
