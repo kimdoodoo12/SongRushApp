@@ -311,7 +311,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-018** Feedback issues get the single label `문의` (from D-098)
 
-- [~] **F-019** Volume slider and mute on the game stage: GainNode, remembered per device (from D-099)
+- [x] **F-019** Volume slider and mute on the game stage: GainNode, remembered per device (from D-099)
 
 ## Roadmap
 
@@ -436,6 +436,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (085) Volume: with the slider at 0 and not muted, pressing mute should restore 80 in one press. Fix the stale header comment in `App.volume.test.jsx`. The Japanese footer button 'お問い合わせ' clips by 2 px (`w-24`).
 - (083) Admin API: 405 and OPTIONS answers come from Spring before the key interceptor, with no `no-store`. Consider handling all methods behind the key. The sent tab shows the stored title, not the edited one sent to GitHub; store `sentTitle`. Find what deletes `.claude/state/locked-paths.txt` mid-cycle.
 - (082) Feedback items have no deletion tool; deletion is a manual edit of the server file. Add one if personal data shows up.
 - (081) Long reveal title lines and artist lists are truncated at 390 px. Consider wrapping them to two lines, which is data-dependent height, not theme-dependent. Seat names with "(host) (you)" truncate in English and Japanese; consider showing host and self as icons. Check whether the theme web fonts cover kana and kanji. Add `frontend/.vitest/` (a JSON reporter output a verifier created) to `.gitignore`.

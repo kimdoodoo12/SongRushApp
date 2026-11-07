@@ -82,3 +82,23 @@ The lead chose these defaults and told the owner; they can be changed.
 - **M2.** A default of 80 lowers today's loudness by about 4 dB. Kept as told to the owner and recorded here.
 - **M3.** The audible check could not produce evidence. Applied: the browser checks the value and storage; the unit tests are the evidence for the gain.
 - **N1–N3** applied: storage is cleared in tests, there is no automation, and unmuting at 0 sets 80.
+
+## Result
+- **Commits.**
+  - Tests: `ecb282d`, including the declared rewrite of `App.flow.test.jsx:254` and `createGain` in the fakes.
+  - Implementation: `502f63b`.
+- **Verifier at `502f63b`.**
+  - `npm test`: 29 files, 389 tests passed. The targeted run (volume, flow, themeLayout, i18n keys) passed 78 tests.
+  - lint and build: exit 0.
+  - The locked-test diff is empty.
+  - `session.js` only adds `output` and changes the connect target.
+- **Review.** No Blocker, High or Medium. Nits, sent to Follow-ups:
+  - With the slider at 0 and not muted, the icon looks muted but `aria-pressed` is false, and two presses are needed to hear sound.
+  - The header comment in the locked test still says the session creates the node.
+- **Lead's browser check.** Local jar and built client, Playwright on Edge.
+  - ko at 1280, en at 390 and ja at 390: the slider shows 80 by default.
+  - A click at 30 % of the track gives 28, stored as `{"v":28,"muted":false}`.
+  - Mute gives `aria-pressed=true`, stored as `{"v":28,"muted":true}`.
+  - No horizontal overflow.
+  - Theme box differences are **0** in all three languages at 1280 and 390.
+  - The one clip found is the Japanese footer button "お問い合わせ" (94 > 92 px), from cycle 082. It goes to Follow-ups.
