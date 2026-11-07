@@ -305,6 +305,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-015** frontend: Korean/English/Japanese UI with react-i18next; reveal shows all four title languages (from D-095)
 
+- [~] **F-016** In-site feedback form that becomes a GitHub issue through the backend, with rate limits and the token kept server-side only (from D-096)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -325,6 +327,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-096** In-site feedback becomes GitHub issues (user, 2026-11-07: "문의하기 ... github issue에 연동"). A footer form; the server creates the issue in the private code repo, labelled `문의`. There is no moderation, because only the owner sees it, and no contact field. The site shows only "received". The process shows in GitHub instead: cycles cite `#N`, and the dev→main PR says `Closes #N`.
 - **D-095** Multilingual UI (user, 2026-11-07: "글로벌인들을 대상으로 하는거라 표시 언어도 다 알맞게"): UI in Korean, English and Japanese with react-i18next (owner's pick); auto-detected from the browser (fallback English) with a switcher that is remembered, per player; the reveal card shows the title in all four answer languages (ko, en, ja, romaji). Replaces D-023's Korean-only UI.
 - **D-094** Show the winning guess (user, 2026-11-07: "한명이 맞추면 바로 음악이 끝나는데 정답을 숨길 이유가 없지. 그러니까 채팅도 보이게 해도 돼. 그리고 채팅에 알림줄도 추가해야지"): replaces D-015's hiding of the correct message. The server sends `correct`, then the winner's `chat`, then the reveal; the client adds a `✔ <name> 정답!` system line under the winner's message. Pre-start and watcher guesses stay sender-only.
 - **D-093** No solo mode in the client (user, 2026-11-07: "혼자하기 기능도 필요 없는 것 같아. 어차피 방만들고 그대로 시작하면 되니까"): the start screen keeps nickname, theme, 방 만들기 and 방 코드/참가 only; one player plays alone by creating a room and starting it. The server's solo path stays for now (removal is a later cleanup). Also: the record must visibly spin in every theme (user: "CD가 돌아가지 않는 것들(예: 놀이터)").
