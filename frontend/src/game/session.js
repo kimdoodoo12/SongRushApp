@@ -16,6 +16,12 @@
 // Until the new socket's snapshot only joined, snapshot, pong, token and
 // error are handled; the snapshot then rebuilds the screen as a player.
 // A 4001 close (replaced by another tab) never reconnects.
+//
+// mode 'rejoin' (cycle 079) is the first socket after a page reload: it
+// sends rejoin{token} for the stored entry and is then a cycle 049 rejoin
+// socket. rejoin-failed, a close before its first joined, or no joined
+// within ATTEMPT_MS of its creation ends the session on the start screen
+// with the rejoin-failed text; there is no retry ladder for this attempt.
 import { planPlayback, loadTrack } from '../audio/playback.js'
 import { createClockSync } from '../net/clockSync.js'
 import { errorText } from './state.js'
@@ -73,6 +79,7 @@ export function startSession({
   mode,
   nickname,
   code,
+  token: initialToken = null,
   dispatch,
 }) {
   let socket = socketFactory(url)
@@ -101,11 +108,15 @@ export function startSession({
   // Reconnect state: the last token and the room code; whether a rejoin is
   // in progress (from the drop until joined); whether the socket is a rejoin
   // socket, and whether its snapshot is still to come.
-  let token = null
-  let roomCode = null
+  // A reload rejoin (mode 'rejoin') starts as a rejoin socket with the
+  // stored token; everJoined tells a failed first attempt from a later drop.
+  const reloadRejoin = mode === 'rejoin'
+  let token = reloadRejoin ? initialToken : null
+  let roomCode = reloadRejoin ? code : null
   let reconnecting = false
-  let rejoined = false
-  let awaitingSnapshot = false
+  let rejoined = reloadRejoin
+  let awaitingSnapshot = reloadRejoin
+  let everJoined = false
   let attempts = 0
   let retryTimer = null
   let attemptTimer = null
@@ -463,6 +474,7 @@ export function startSession({
       }
       case 'joined':
         joined = true
+        everJoined = true
         myName = msg.name
         roomCode = msg.code
         if (rejoined) {
@@ -579,6 +591,16 @@ export function startSession({
     }, ATTEMPT_MS)
   }
 
+  // The reload rejoin never got in: back to the start screen. The handlers
+  // are cleared first, so the socket's later events change nothing.
+  function failReloadRejoin() {
+    shutdown()
+    detach(socket)
+    socket.close()
+    clearRejoin()
+    dispatch({ type: 'startError', text: errorText('rejoin-failed') })
+  }
+
   // 30 s after the drop the server's grace is over.
   function giveUp() {
     limitTimer = null
@@ -597,6 +619,10 @@ export function startSession({
       shutdown()
       clearRejoin()
       dispatch({ type: 'replaced' })
+      return
+    }
+    if (reloadRejoin && !everJoined) {
+      failReloadRejoin()
       return
     }
     if (reconnecting) {
@@ -643,6 +669,14 @@ export function startSession({
   }
 
   attach(socket)
+  if (reloadRejoin) {
+    // No joined within ATTEMPT_MS, connecting or open: the reload rejoin has
+    // failed. joined clears it through cancelReconnect.
+    attemptTimer = setTimeout(() => {
+      attemptTimer = null
+      failReloadRejoin()
+    }, ATTEMPT_MS)
+  }
 
   return {
     sendChat(text) {

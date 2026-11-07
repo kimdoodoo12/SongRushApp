@@ -68,7 +68,8 @@ export const initialState = {
 export function reducer(state, action) {
   switch (action.type) {
     case 'connecting':
-      return { ...initialState, screen: 'game' }
+      // A reload rejoin (cycle 079) shows the reconnecting banner meanwhile.
+      return { ...initialState, screen: 'game', reconnecting: action.rejoin === true }
     case 'startError':
       return { ...initialState, startError: action.text }
     case 'reset':
