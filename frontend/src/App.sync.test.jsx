@@ -1,8 +1,9 @@
 // Cycle 047 (F-004): clock sync and synchronized playback in App. Room
 // sessions ping the server (a burst of 8 on joined, 3 after each load, 3
 // every 30 s), use the synced offset at start, re-sync on drift and stop on
-// close; solo sends no ping. Also: outputLatency, navigator.audioSession,
-// the 탭하여 소리 켜기 prompt and resume() on 게임 시작 / 대기실로.
+// close. Also: outputLatency, navigator.audioSession, the 탭하여 소리 켜기
+// prompt and resume() on 게임 시작 / 대기실로. Cycle 078 (D-093): no solo
+// form; the 'alone' cases play in a room of one started with 게임 시작.
 // Timer rule (cycle 039): fake timers only where the pings' 150 ms spacing or
 // the 30 s interval matter, driven by flushUntil / advance; real timers and
 // waitFor everywhere else.
@@ -161,12 +162,20 @@ async function openSocket(env, count = 1) {
   return socket
 }
 
-async function startSolo(env) {
+// A room of one (D-093): 방 만들기, joined, the lobby roster with 하루
+// alone, 곡 수 5 and 게임 시작, then roster{playing}.
+async function startAlone(env) {
   setNickname('하루')
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
+  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
   const socket = await openSocket(env)
-  expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }])
+  expect(socket.sent[0]).toEqual({ type: 'create', nickname: '하루' })
+  const alone = [player('하루', { host: true })]
+  deliver(socket, joinedMsg)
+  deliver(socket, roster(alone))
+  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
+  fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+  await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 5 }]))
+  deliver(socket, roster(alone, 'playing'))
   return socket
 }
 
@@ -180,9 +189,10 @@ async function createRoom(env) {
   return socket
 }
 
-// A session that is about to receive prepare{0}: solo, or a room in play.
+// A session that is about to receive prepare{0}: a room of one started
+// with 게임 시작 ('alone'), or a room in play.
 async function begin(env, mode) {
-  if (mode === 'solo') return startSolo(env)
+  if (mode === 'alone') return startAlone(env)
   const socket = await createRoom(env)
   deliver(socket, roster(HOST_ROSTER, 'playing'))
   return socket
@@ -401,12 +411,13 @@ describe('re-sync', () => {
 
 describe('audio session', () => {
   it.each([
-    ['시작', 'solo'],
+    ['참가', 'join'],
     ['방 만들기', 'room'],
   ])('with navigator.audioSession, the first click (%s) sets its type to playback', async (button) => {
     const session = stubAudioSession()
     const env = setup()
     setNickname('하루')
+    fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
     fireEvent.click(screen.getByRole('button', { name: button }))
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(session.type).toBe('playback')
@@ -426,36 +437,8 @@ describe('audio session', () => {
   })
 })
 
-describe('solo', () => {
-  it('a solo session sends no ping, also across 30 s and a full song', async () => {
-    vi.useFakeTimers(FAKE_TIMERS)
-    const env = setup()
-    setNickname('하루')
-    fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-    fireEvent.click(screen.getByRole('button', { name: '시작' }))
-    await flushUntil(() => env.sockets.sockets.length === 1)
-    const socket = env.sockets.last
-    act(() => socket.open())
-    await flushUntil(() => socket.sent.length > 0)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }])
-    // The server sends solo games the lobby frames too.
-    deliver(socket, joinedMsg)
-    deliver(socket, roster([player('하루', { host: true })], 'playing'))
-    deliver(socket, prepare(0))
-    await flushUntil(() => socket.sentOfType('ready').length > 0)
-    expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }])
-    const ctx = env.audio.last
-    deliver(socket, receiptStart(env))
-    await flushUntil(() => ctx.startedSources().length === 1)
-    expect(ctx.startedSources()).toHaveLength(1)
-    await advance(env, 31_000)
-    await advance(env, 31_000)
-    expect(pingsOf(socket)).toEqual([])
-  })
-})
-
 describe('output latency', () => {
-  it.each(['solo', 'room'])('ctx.outputLatency shifts the scheduled when and stopAt (%s)', async (mode) => {
+  it.each(['alone', 'room'])('ctx.outputLatency shifts the scheduled when and stopAt (%s)', async (mode) => {
     const env = setup()
     const socket = await begin(env, mode)
     const ctx = env.audio.last
@@ -474,7 +457,7 @@ describe('output latency', () => {
 })
 
 describe('sound prompt', () => {
-  it.each(['solo', 'room'])(
+  it.each(['alone', 'room'])(
     'a suspended context at prepare shows the button; its click resumes synchronously; it goes once running (%s)',
     async (mode) => {
       const env = setup({ ctxOptions: { state: 'suspended', deferResume: true } })
@@ -494,7 +477,7 @@ describe('sound prompt', () => {
     },
   )
 
-  it.each(['solo', 'room'])('a context that becomes suspended before start shows the button at start (%s)', async (mode) => {
+  it.each(['alone', 'room'])('a context that becomes suspended before start shows the button at start (%s)', async (mode) => {
     const env = setup()
     const socket = await begin(env, mode)
     const ctx = env.audio.last
@@ -512,7 +495,7 @@ describe('sound prompt', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: PROMPT })).toBeNull())
   })
 
-  it.each(['solo', 'room'])('a running context shows no button at prepare, after the load or at start (%s)', async (mode) => {
+  it.each(['alone', 'room'])('a running context shows no button at prepare, after the load or at start (%s)', async (mode) => {
     const env = setup()
     const socket = await begin(env, mode)
     const ctx = env.audio.last

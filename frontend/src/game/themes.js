@@ -11,7 +11,7 @@ export const THEMES = [
 
 export const DEFAULT_THEME = 'play'
 
-// The own pick for the start screen and solo games.
+// The own pick for the start screen.
 const STORAGE_KEY = 'songrush.roomTheme'
 
 // A known theme id, or play.

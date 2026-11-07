@@ -1,7 +1,8 @@
 // Cycle 064 (F-009): the 난이도 select. Its options and default, its place
-// between 곡 종류 and 연도 시작, tier in create (solo) and start (lobby),
-// the room create message without it, 쉬움 / 어려움 on the applied-conditions
-// line, and the choice kept across games (대기실로 and 다시 하기).
+// between 곡 종류 and 연도 시작, tier in start (lobby), the room create
+// message without it, 쉬움 / 어려움 on the applied-conditions line, and the
+// choice kept across games (대기실로, and 나가기 with a new room). Cycle 078
+// (D-093): no solo form; one player plays alone in a room of their own.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
@@ -65,6 +66,8 @@ async function openSocket(env, count = 1) {
 const player = (name, { host = false, score = 0, connected = true } = {}) => ({ name, score, host, connected })
 const roster = (players, phase = 'lobby') => ({ type: 'roster', phase, players })
 const HOST_PLAYERS = [player('하루', { host: true }), player('Joon')]
+// A room of one: how a player plays alone (D-093).
+const ALONE = [player('하루', { host: true })]
 
 const prepare = (index = 0) => ({ type: 'prepare', index, total: 5, audioUrl: '/audio/abc' })
 
@@ -85,18 +88,12 @@ async function prepareAndReady(socket, index = 0, readyCount = 1) {
   )
 }
 
-async function clickSoloStart(env, count = 1) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
-  return openSocket(env, count)
-}
-
-async function hostLobby(env, count = 1) {
+async function hostLobby(env, count = 1, players = HOST_PLAYERS) {
   setNickname('하루')
   fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
-  deliver(socket, roster(HOST_PLAYERS))
+  deliver(socket, roster(players))
   expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
   return socket
 }
@@ -138,38 +135,10 @@ function expectTierSelect() {
 }
 
 describe('the 난이도 select', () => {
-  it('the start screen offers exactly 쉬움, 보통 and 어려움, with 보통 selected', () => {
-    setup()
-    expectTierSelect()
-  })
-
   it('the host controls offer the same options and default', async () => {
     const env = setup()
     await hostLobby(env)
     expectTierSelect()
-  })
-})
-
-describe('solo create', () => {
-  it('with the defaults 시작 sends exactly create{nickname, songCount:10}', async () => {
-    const env = setup()
-    const socket = await clickSoloStart(env)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 10 }])
-  })
-
-  it('보통 chosen explicitly still sends no tier', async () => {
-    const env = setup()
-    choose('난이도', 'hard')
-    choose('난이도', 'normal')
-    const socket = await clickSoloStart(env)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 10 }])
-  })
-
-  it('쉬움 adds tier:"easy"', async () => {
-    const env = setup()
-    choose('난이도', 'easy')
-    const socket = await clickSoloStart(env)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 10, tier: 'easy' }])
   })
 })
 
@@ -180,6 +149,21 @@ describe('host start', () => {
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10 })
   })
 
+  it('보통 chosen explicitly still sends no tier', async () => {
+    const env = setup()
+    const socket = await hostLobby(env)
+    choose('난이도', 'hard')
+    choose('난이도', 'normal')
+    expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10 })
+  })
+
+  it('쉬움 adds tier:"easy"', async () => {
+    const env = setup()
+    const socket = await hostLobby(env)
+    choose('난이도', 'easy')
+    expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10, tier: 'easy' })
+  })
+
   it('어려움 adds tier:"hard"', async () => {
     const env = setup()
     const socket = await hostLobby(env)
@@ -187,18 +171,24 @@ describe('host start', () => {
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10, tier: 'hard' })
   })
 
-  it('the room create message carries no tier', async () => {
+  it('the room create message carries no tier, also with 쉬움 chosen before it', async () => {
     const env = setup()
+    const first = await hostLobby(env)
+    expect(first.sent[0]).toEqual({ type: 'create', nickname: '하루' })
     choose('난이도', 'easy')
-    const socket = await hostLobby(env)
-    expect(socket.sent[0]).toEqual({ type: 'create', nickname: '하루' })
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const second = await hostLobby(env, 2)
+    expect(valueOf('난이도')).toBe('easy')
+    expect(second.sent[0]).toEqual({ type: 'create', nickname: '하루' })
   })
 })
 
 describe('the applied-conditions line', () => {
-  it('solo: settings{types:["OP"], tier:"easy"} shows 오프닝만 · 쉬움', async () => {
+  it('alone in a room: settings{types:["OP"], tier:"easy"} shows 오프닝만 · 쉬움', async () => {
     const env = setup()
-    const socket = await clickSoloStart(env)
+    const socket = await hostLobby(env, 1, ALONE)
+    await clickStartGame(socket)
+    deliver(socket, roster(ALONE, 'playing'))
     deliver(socket, { type: 'settings', types: ['OP'], tier: 'easy' })
     await prepareAndReady(socket, 0)
     expect(screen.getByText('1 / 5')).toBeTruthy()
@@ -234,17 +224,21 @@ describe('kept across games', () => {
     expect(await clickStartGame(socket, 2)).toEqual(expected)
   })
 
-  it('solo: 어려움 survives 다시 하기 and the next create carries tier:"hard"', async () => {
+  it('alone: 어려움 survives a game, 나가기 and a new room, whose 게임 시작 carries tier:"hard"', async () => {
     const env = setup()
+    const first = await hostLobby(env, 1, ALONE)
     choose('난이도', 'hard')
-    const first = await clickSoloStart(env)
-    const expected = { type: 'create', nickname: '하루', songCount: 10, tier: 'hard' }
-    expect(first.sent).toEqual([expected])
+    const expected = { type: 'start', songCount: 10, tier: 'hard' }
+    expect(await clickStartGame(first)).toEqual(expected)
+    deliver(first, roster(ALONE, 'playing'))
     await prepareAndReady(first, 0)
     deliver(first, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 1 }] })
-    fireEvent.click(screen.getByRole('button', { name: '다시 하기' }))
+    deliver(first, roster(ALONE, 'lobby'))
+    fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    const second = await hostLobby(env, 2, ALONE)
+    expect(second.sent[0]).toEqual({ type: 'create', nickname: '하루' })
     expect(valueOf('난이도')).toBe('hard')
-    const second = await clickSoloStart(env, 2)
-    expect(second.sent).toEqual([expected])
+    expect(await clickStartGame(second)).toEqual(expected)
   })
 })

@@ -3,8 +3,8 @@
 // 0.5, 1, 2, 4, 8, then 10 s; one 30 s limit from the drop), the 5 s attempt
 // timer, rejoin{token} on each new socket, the snapshot rebuild (lobby,
 // PLAYING, PREPARE, song:null, scores), frames before the snapshot,
-// rejoin-failed, the 4001 replaced close, no token, solo, sends while not
-// open, and leaving or unmounting while reconnecting.
+// rejoin-failed, the 4001 replaced close, no token, sends while not open,
+// and leaving or unmounting while reconnecting.
 // Timer rule: fake timers in every test (the backoff and the 5 s / 30 s
 // timers matter everywhere here), driven by flushUntil / advance, with the
 // injected now() moved together with the timers.
@@ -598,29 +598,6 @@ describe('without a token', () => {
     await advance(env, 31_000)
     expect(env.sockets.sockets).toHaveLength(1)
     expect(stored()).toBeNull()
-  })
-})
-
-describe('solo', () => {
-  it('a solo session never reconnects, also after a token', async () => {
-    const env = setup()
-    setNickname('하루')
-    fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-    fireEvent.click(screen.getByRole('button', { name: '시작' }))
-    await flushUntil(() => env.sockets.sockets.length === 1)
-    const socket = env.sockets.last
-    act(() => socket.open())
-    await flushUntil(() => socket.sent.length > 0)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }])
-    deliver(socket, joinedMsg)
-    deliver(socket, tokenMsg)
-    deliver(socket, prepare(0))
-    await flushUntil(() => socket.sentOfType('ready').length > 0)
-    drop(env, socket)
-    expect(screen.getByText(DISCONNECTED)).toBeTruthy()
-    expect(pageText()).not.toContain(RECONNECTING)
-    await advance(env, 31_000)
-    expect(env.sockets.sockets).toHaveLength(1)
   })
 })
 

@@ -162,7 +162,7 @@ describe('start screen picker', () => {
     })
     setup()
     expect(rootTheme()).toBe('play')
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
     fireEvent.click(themeButton('칠판'))
     expect(rootTheme()).toBe('chalk')
   })

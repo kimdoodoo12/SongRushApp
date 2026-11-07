@@ -1,6 +1,7 @@
 // Cycle 041 (F-003): the room screens. Create and join, the lobby, a game in
-// a room, a second game on the same socket, leaving, room errors, and the
-// solo path's handling of the lobby frames the server also sends it.
+// a room, a second game on the same socket, leaving and room errors. Cycle
+// 078 (D-093): the start screen has no solo controls; one player plays alone
+// by creating a room and starting it.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
@@ -149,16 +150,7 @@ async function playRoomGame(socket, readyCount = 1) {
   deliver(socket, roster(ROSTER_3.players, 'lobby'))
 }
 
-// Clicks the solo 시작; returns the opened socket.
-async function startSolo(env, nickname = '하루') {
-  setNickname(nickname)
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
-  return openSocket(env)
-}
-
 function expectStartScreen() {
-  expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
   expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
   expect(screen.getByRole('button', { name: '참가' })).toBeTruthy()
   expect(screen.getByLabelText('방 코드')).toBeTruthy()
@@ -172,11 +164,25 @@ function expectNoLobby() {
 }
 
 describe('start screen room controls', () => {
-  it('shows 방 만들기, the 방 코드 input and 참가 beside the solo controls', () => {
+  it('shows 방 만들기, the 방 코드 input and 참가', () => {
     setup()
     expectStartScreen()
     expect(screen.getByLabelText('방 코드').tagName).toBe('INPUT')
     expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(false)
+  })
+
+  it('has no solo controls: no 시작 button and no 곡 수 or filter select; 닉네임, 분위기, 방 만들기, 방 코드 and 참가 remain', () => {
+    setup()
+    expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
+    expect(screen.queryByLabelText('곡 수')).toBeNull()
+    for (const label of ['곡 종류', '난이도', '연도 시작', '연도 끝']) {
+      expect(screen.queryByLabelText(label), label).toBeNull()
+    }
+    expect(screen.queryByText('혼자 하기')).toBeNull()
+    expect(screen.queryAllByRole('combobox')).toEqual([])
+    expect(screen.getByLabelText('닉네임').tagName).toBe('INPUT')
+    expect(screen.getByRole('group', { name: '분위기' })).toBeTruthy()
+    expectStartScreen()
   })
 
   it('canPlayOpus={false} disables 방 만들기 and 참가', () => {
@@ -251,7 +257,7 @@ describe('join', () => {
     expect(screen.getByRole('button', { name: '참가' }).disabled).toBe(false)
   })
 
-  it('Enter in the code field sends join, never a solo create', async () => {
+  it('Enter in the code field sends join, never a create', async () => {
     const env = setup()
     setNickname('Hana')
     setCode('abcde')
@@ -486,59 +492,5 @@ describe('room errors', () => {
     expect(screen.getByText(DISCONNECTED)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '처음으로' }))
     expectStartScreen()
-  })
-})
-
-describe('solo sessions', () => {
-  it('a solo gameOver closes the socket; a later room-closed or close changes nothing', async () => {
-    const env = setup()
-    const socket = await startSolo(env)
-    await prepareAndReady(socket, 0)
-    deliver(socket, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 3 }] })
-    expect(screen.getByText('최종 점수: 3점')).toBeTruthy()
-    expect(socket.closed).toBe(true)
-    deliver(socket, { type: 'error', code: 'room-closed' })
-    act(() => socket.serverClose())
-    expect(screen.getByText('최종 점수: 3점')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '다시 하기' })).toBeTruthy()
-    expect(screen.queryByText('방이 닫혔습니다.')).toBeNull()
-    expect(screen.queryByText(DISCONNECTED)).toBeNull()
-    expect(screen.queryByRole('button', { name: '대기실로' })).toBeNull()
-  })
-
-  it('joined and roster are ignored; a following not-enough-songs shows on the start screen', async () => {
-    const env = setup()
-    const socket = await startSolo(env)
-    expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }])
-    deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
-    deliver(socket, roster([player('하루', { host: true })]))
-    expectNoLobby()
-    expect(listRows()).toEqual([])
-    deliver(socket, { type: 'error', code: 'not-enough-songs' })
-    expect(screen.getByText('출제할 곡이 부족합니다.')).toBeTruthy()
-    expectStartScreen()
-    expectNoLobby()
-    expect(socket.closed).toBe(true)
-    act(() => socket.serverClose())
-    expect(screen.queryByText(DISCONNECTED)).toBeNull()
-  })
-
-  it('joined and roster before prepare do not change the cycle 039 solo game', async () => {
-    const env = setup()
-    const socket = await startSolo(env)
-    deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
-    deliver(socket, roster([player('하루', { host: true })], 'playing'))
-    expectNoLobby()
-    await prepareAndReady(socket, 0)
-    expect(screen.getByText('1 / 5')).toBeTruthy()
-    deliver(socket, startMsg())
-    await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
-    deliver(socket, revealMsg({ winner: '하루' }))
-    deliver(socket, { type: 'scores', scores: [{ name: '하루', score: 1 }] })
-    expect(screen.getByText('점수: 1')).toBeTruthy()
-    deliver(socket, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 1 }] })
-    expect(screen.getByText('최종 점수: 1점')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '다시 하기' })).toBeTruthy()
-    expectNoLobby()
   })
 })

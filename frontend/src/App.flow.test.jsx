@@ -1,3 +1,6 @@
+// The game flow of one player. Cycle 078 (D-093): there is no solo form;
+// the player plays alone by creating a room (방 만들기), choosing 곡 수 in
+// the lobby and clicking 게임 시작.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
@@ -32,24 +35,53 @@ function setup({ canPlayOpus = true, ctxOptions, fetchOptions } = {}) {
   return { sockets, audio, fetch, clock }
 }
 
-function fillStartForm(nickname = '하루', songCount = '5') {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: songCount } })
+function deliver(socket, msg) {
+  act(() => socket.receive(msg))
 }
 
-// Fills the form, clicks 시작 and opens the socket. Real timers only.
-async function startGame(env) {
-  fillStartForm()
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
-  await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
+function setNickname(nickname) {
+  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
+}
+
+const player = (name, { host = false } = {}) => ({ name, score: 0, host, connected: true })
+// A room of one: how a player plays alone (D-093).
+const ALONE = [player('하루', { host: true })]
+const roster = (phase = 'lobby') => ({ type: 'roster', phase, players: ALONE })
+const joinedMsg = { type: 'joined', code: 'QWERT', name: '하루' }
+
+// 방 만들기 as 하루 and opens socket number `count`. Real timers only.
+async function clickCreate(env, count = 1) {
+  setNickname('하루')
+  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  await waitFor(() => expect(env.sockets.sockets.length).toBe(count))
   const socket = env.sockets.last
   act(() => socket.open())
   await waitFor(() => expect(socket.sentOfType('create')).toHaveLength(1))
   return socket
 }
 
-function deliver(socket, msg) {
-  act(() => socket.receive(msg))
+// clickCreate, then joined and the lobby roster with 하루 alone as host.
+async function aloneLobby(env, count = 1) {
+  const socket = await clickCreate(env, count)
+  deliver(socket, joinedMsg)
+  deliver(socket, roster('lobby'))
+  return socket
+}
+
+// Sets 곡 수 in the host controls and clicks 게임 시작.
+function clickStartGame(songCount = '5') {
+  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: songCount } })
+  fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+}
+
+// Alone in a room, 게임 시작 with 곡 수 5 sent and roster{playing}
+// received: the socket is ready for prepare. Real timers only.
+async function startGame(env) {
+  const socket = await aloneLobby(env)
+  clickStartGame()
+  await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 5 }]))
+  deliver(socket, roster('playing'))
+  return socket
 }
 
 const prepare = (index = 0) => ({ type: 'prepare', index, total: 5, audioUrl: '/audio/abc' })
@@ -94,13 +126,19 @@ async function flushUntil(cond, max = 20) {
 
 // startAndPrepare for fake timers (waitFor does not drive them).
 async function startAndPrepareFakeTimers(env) {
-  fillStartForm()
-  fireEvent.click(screen.getByRole('button', { name: '시작' }))
+  setNickname('하루')
+  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
   await flushUntil(() => env.sockets.sockets.length === 1)
   const socket = env.sockets.last
   act(() => socket.open())
   await flushUntil(() => socket.sentOfType('create').length === 1)
   expect(socket.sentOfType('create')).toHaveLength(1)
+  deliver(socket, joinedMsg)
+  deliver(socket, roster('lobby'))
+  clickStartGame()
+  await flushUntil(() => socket.sentOfType('start').length === 1)
+  expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 5 }])
+  deliver(socket, roster('playing'))
   deliver(socket, prepare(0))
   await flushUntil(() => socket.sentOfType('ready').length > 0)
   expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }])
@@ -117,33 +155,35 @@ async function tick(env) {
 }
 
 describe('start screen', () => {
-  it('shows the nickname input, the song count select defaulting to 10, and the credit line', () => {
-    setup()
+  it('shows the nickname input, 방 만들기 and the credit line; the host lobby has the song count select defaulting to 10', async () => {
+    const env = setup()
     expect(screen.getByRole('heading', { level: 1, name: 'SongRush' })).toBeTruthy()
     const nickname = screen.getByLabelText('닉네임')
     expect(nickname.tagName).toBe('INPUT')
     expect(nickname.maxLength).toBe(16)
+    expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(false)
+    expect(screen.getByText(CREDIT)).toBeTruthy()
+    await aloneLobby(env)
     const count = screen.getByLabelText('곡 수')
     expect(count.tagName).toBe('SELECT')
     expect(count.value).toBe('10')
     const values = Array.from(count.options).map((o) => o.value)
     expect(values).toEqual(Array.from({ length: 26 }, (_, i) => String(i + 5)))
-    expect(screen.getByRole('button', { name: '시작' }).disabled).toBe(false)
     expect(screen.getByText(CREDIT)).toBeTruthy()
   })
 
-  it('canPlayOpus={false} shows the notice and disables 시작', () => {
+  it('canPlayOpus={false} shows the notice and disables 방 만들기', () => {
     setup({ canPlayOpus: false })
     expect(screen.getByText(NO_OPUS)).toBeTruthy()
-    expect(screen.getByRole('button', { name: '시작' }).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(true)
   })
 })
 
 describe('starting a game', () => {
-  it('clicking 시작 calls resume() in the click and sends create with the nickname and a number', async () => {
+  it('방 만들기 calls resume() in the click; 게임 시작 then sends start with the song count as a number', async () => {
     const env = setup()
-    fillStartForm('하루', '5')
-    fireEvent.click(screen.getByRole('button', { name: '시작' }))
+    setNickname('하루')
+    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
     // Synchronously inside the click handler (audio unlock).
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
@@ -152,17 +192,23 @@ describe('starting a game', () => {
     const socket = env.sockets.last
     expect(socket.sent).toEqual([])
     act(() => socket.open())
-    await waitFor(() => expect(socket.sent).toEqual([{ type: 'create', nickname: '하루', songCount: 5 }]))
-    expect(typeof socket.sent[0].songCount).toBe('number')
+    await waitFor(() => expect(socket.sent).toEqual([{ type: 'create', nickname: '하루' }]))
+    deliver(socket, joinedMsg)
+    deliver(socket, roster('lobby'))
+    clickStartGame('5')
+    await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 5 }]))
+    expect(typeof socket.sentOfType('start')[0].songCount).toBe('number')
   })
 
   it('a second game reuses the AudioContext and only resumes it again', async () => {
     const env = setup()
     const socket = await startAndPrepare(env)
     deliver(socket, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 0 }] })
-    fireEvent.click(screen.getByRole('button', { name: '다시 하기' }))
-    fillStartForm()
-    fireEvent.click(screen.getByRole('button', { name: '시작' }))
+    deliver(socket, roster('lobby'))
+    fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
+    setNickname('하루')
+    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(2)
     await waitFor(() => expect(env.sockets.sockets.length).toBe(2))
@@ -417,42 +463,56 @@ describe('reveal', () => {
 })
 
 describe('game over and errors', () => {
-  it('gameOver shows the final score; 다시 하기 returns to the start screen and ignores the old socket', async () => {
+  it('gameOver shows the final score; 대기실로 and 나가기 return to the start screen and ignore the old socket', async () => {
     const env = setup()
     const socket = await startAndPrepare(env)
     deliver(socket, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 3 }] })
     expect(screen.getByText('최종 점수: 3점')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '다시 하기' }))
+    deliver(socket, roster('lobby'))
+    fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
+    fireEvent.click(screen.getByRole('button', { name: '나가기' }))
     expect(socket.closed).toBe(true)
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
     expect(screen.getByLabelText('닉네임')).toBeTruthy()
     act(() => socket.serverClose())
     expect(screen.queryByText(DISCONNECTED)).toBeNull()
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
   })
 
-  it('error{code:"not-enough-songs"} shows its message on the start screen', async () => {
+  it('error{code:"not-enough-songs"} after 게임 시작 shows its message in the lobby, which stays open', async () => {
     const env = setup()
-    const socket = await startGame(env)
+    const socket = await aloneLobby(env)
+    clickStartGame()
+    await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'not-enough-songs' })
     expect(screen.getByText('출제할 곡이 부족합니다.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
-    expect(socket.closed).toBe(true)
-    act(() => socket.serverClose())
-    expect(screen.queryByText(DISCONNECTED)).toBeNull()
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(socket.closed).toBe(false)
   })
 
   it.each([
     ['bad-nickname', '닉네임은 1~16자로 입력해 주세요.'],
-    ['bad-song-count', '곡 수는 5~30곡입니다.'],
     ['xyz', '오류가 발생했습니다 (xyz)'],
-  ])('a start-screen error{code:"%s"} shows its message on the start screen', async (code, text) => {
+  ])('an error{code:"%s"} answering create shows its message on the start screen', async (code, text) => {
     const env = setup()
-    const socket = await startGame(env)
+    const socket = await clickCreate(env)
     deliver(socket, { type: 'error', code })
     expect(screen.getByText(text)).toBeTruthy()
-    expect(screen.getByRole('button', { name: '시작' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
     expect(socket.closed).toBe(true)
+    act(() => socket.serverClose())
+    expect(screen.queryByText(DISCONNECTED)).toBeNull()
+  })
+
+  it('error{code:"bad-song-count"} after 게임 시작 shows its message in the lobby', async () => {
+    const env = setup()
+    const socket = await aloneLobby(env)
+    clickStartGame()
+    await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
+    deliver(socket, { type: 'error', code: 'bad-song-count' })
+    expect(screen.getByText('곡 수는 5~30곡입니다.')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(socket.closed).toBe(false)
   })
 
   it('error{code:"too-long"} during a game shows its message', async () => {

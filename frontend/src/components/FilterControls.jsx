@@ -2,8 +2,8 @@ import { TIER_OPTIONS, TYPE_OPTIONS, YEAR_FROM_OPTIONS, YEAR_TO_OPTIONS, isRever
 
 const REVERSED_HINT = '시작 연도가 끝 연도보다 늦습니다.'
 
-// 곡 종류, 난이도 (F-009), 연도 시작 and 연도 끝 (F-008), for the solo form
-// and the host. selection is the App-level { songCount, type, from, to,
+// 곡 종류, 난이도 (F-009), 연도 시작 and 연도 끝 (F-008), the host's lobby
+// controls. selection is the App-level { songCount, type, from, to,
 // tier }; onChange gets the whole new selection. The parent disables its
 // start button while the range is reversed; the hint is shown here.
 function FilterControls({ selection, onChange }) {

@@ -35,7 +35,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 ## Branches
 
 - `main` is release. **Only the user merges into it**, via the PR from `dev` to `main`.
-- `dev` is integration. Merge a cycle here only after it passes the verifier and critic.
+- `dev` is integration. Merge a cycle here only after it passes the verifier, the critic and GitHub CI on its PR to `dev` (D-093). Agents never merge a PR through `gh pr merge` or `gh api`: they merge locally and push `dev`, which marks the PR merged.
 - `cycle/NNN-slug` is one branch per cycle, cut from `dev`.
 - **Never commit on `main`, force-push, or rewrite pushed history.** A hook enforces this.
 
