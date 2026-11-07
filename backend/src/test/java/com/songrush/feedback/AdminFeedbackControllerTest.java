@@ -78,7 +78,7 @@ import tools.jackson.databind.json.JsonMapper;
 //          or a non-object body is also 400 bad-feedback;
 //        - blank songrush.feedback.token -> 503 {"error":"github-disabled"} (no send);
 //        - the Issue is built from the stored record with the 082 format: title "[문의/<ko category>] " +
-//          (edited or stored) title with '@' -> U+FF20; labels ["문의", <category label>]; body with the
+//          (edited or stored) title with '@' -> U+FF20; labels ["문의"]; body with the
 //          category, lang, page, the record's createdAt (Instant.toString, not the send time), the text in
 //          "````text\n" + text (4+ backtick runs shortened to 3) + "\n````", and the footer
 //          "_사이트 문의하기로 접수됨_". Without an edited title the body has exactly one fence. With an
@@ -101,6 +101,7 @@ import tools.jackson.databind.json.JsonMapper;
 // its own records are the newest ones.
 //
 // declared change (083): 083 fix: reset() also resets the issue counter
+// 084: single label 문의 (D-098)
 class AdminFeedbackControllerTest {
 
 	static final String KEY = "adm1n-key-for-tests-0123456789";
@@ -263,10 +264,10 @@ class AdminFeedbackControllerTest {
 
 	static Stream<Arguments> categories() {
 		return Stream.of(
-				Arguments.of("bug", "버그", "bug"),
-				Arguments.of("idea", "건의", "enhancement"),
-				Arguments.of("song", "곡 요청", "song-request"),
-				Arguments.of("other", "기타", "question"));
+				Arguments.of("bug", "버그"),
+				Arguments.of("idea", "건의"),
+				Arguments.of("song", "곡 요청"),
+				Arguments.of("other", "기타"));
 	}
 
 	static Stream<Arguments> invalidTitles() {
@@ -506,7 +507,7 @@ class AdminFeedbackControllerTest {
 
 			Issue issue = sender.onlyIssue();
 			assertThat(issue.title()).isEqualTo("[문의/버그] Audio stops");
-			assertThat(issue.labels()).containsExactly("문의", "bug");
+			assertThat(issue.labels()).containsExactly("문의");
 			assertThat(issue.body())
 					.contains("ja")
 					.contains("lobby")
@@ -522,12 +523,12 @@ class AdminFeedbackControllerTest {
 		// Moved from 082 FeedbackControllerTest#categoryMapsToKoreanNameAndLabel.
 		@ParameterizedTest(name = "{0}")
 		@MethodSource("com.songrush.feedback.AdminFeedbackControllerTest#categories")
-		void categoryMapsToKoreanNameAndLabel(String category, String korean, String label) throws Exception {
+		void categoryMapsToKoreanName(String category, String korean) throws Exception {
 			FeedbackRecord record = add(category, "Hello", "World");
 			assertThat(admin(action(record.id(), "send")).getResponse().getStatus()).isEqualTo(200);
 			Issue issue = sender.onlyIssue();
 			assertThat(issue.title()).isEqualTo("[문의/" + korean + "] Hello");
-			assertThat(issue.labels()).containsExactly("문의", label);
+			assertThat(issue.labels()).containsExactly("문의");
 		}
 
 		// Moved from 082 FeedbackControllerTest#atSignsInTitleAreReplaced.
@@ -570,7 +571,7 @@ class AdminFeedbackControllerTest {
 			assertThat(result.getResponse().getStatus()).isEqualTo(200);
 			Issue issue = sender.onlyIssue();
 			assertThat(issue.title()).isEqualTo("[문의/건의] Better title " + FULLWIDTH_AT + "dev");
-			assertThat(issue.labels()).containsExactly("문의", "enhancement");
+			assertThat(issue.labels()).containsExactly("문의");
 			assertThat(issue.body())
 					.contains("````text\noriginal title\n````")
 					.contains("````text\nthe text\n````")
