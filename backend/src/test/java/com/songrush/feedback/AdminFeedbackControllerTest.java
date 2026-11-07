@@ -99,6 +99,8 @@ import tools.jackson.databind.json.JsonMapper;
 //
 // State: the store lives in a cached Spring context; every test moves the clock an hour ahead first, so
 // its own records are the newest ones.
+//
+// declared change (083): 083 fix: reset() also resets the issue counter
 class AdminFeedbackControllerTest {
 
 	static final String KEY = "adm1n-key-for-tests-0123456789";
@@ -158,6 +160,7 @@ class AdminFeedbackControllerTest {
 		synchronized void reset() {
 			issues.clear();
 			calls.set(0);
+			next.set(100);
 			mode = Mode.OK;
 			entered = new CountDownLatch(1);
 			release = new CountDownLatch(1);
