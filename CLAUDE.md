@@ -15,7 +15,7 @@ A multiplayer anime OP/ED guessing website. Players join a room by code, hear th
 - **Each song plays from its start, at most 90 s** (D-018, D-021). A song ends at the first correct answer, a passed skip vote, or the end of the song. Everyone hears it from the same moment. The reveal shows the entry's own title.
 - **Only the first correct answer scores, by server arrival order** (D-011, D-016). A skip passes with a majority of connected players (D-012, D-017). A game is one round of N songs; the host picks N (5-30, default 10) when creating the room (D-014, D-047, D-058). Late joiners play from the next song (D-059); after a game the room returns to the lobby (D-062). Rooms hold at most 8 players, and a duplicate nickname gets a number appended (D-046, D-048). No hints for now (D-013).
 - **Songs:** AnimeThemes is the audio source (D-009). The top ~1500 OP/ED themes by popularity, with no per-series cap, are cached ahead of time, and rooms draw from them (D-019, D-027, D-034). Uncached draws are fetched while the lobby waits (D-026).
-- UI language: Korean. Credit line: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata" (D-023).
+- UI languages: Korean, English and Japanese (react-i18next), detected from the browser with a switcher; the reveal card shows the title in ko, en, ja and romaji (D-095). Korean credit line: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata" (D-023).
 
 ## How work happens here
 
