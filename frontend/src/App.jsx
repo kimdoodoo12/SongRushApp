@@ -8,6 +8,7 @@ import GameScreen from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
 import ThemeDecor from './components/ThemeDecor.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
+import FeedbackDialog from './components/FeedbackDialog.jsx'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
 
@@ -119,6 +120,9 @@ function App({
   const sessionRef = useRef(null)
   // The reload check has run (cycle 079); StrictMode runs effects twice.
   const reloadCheckedRef = useRef(false)
+  // The 문의하기 dialog (cycle 082); focus returns to its footer button.
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const feedbackButtonRef = useRef(null)
 
   useEffect(() => {
     const sessions = sessionRef
@@ -254,6 +258,11 @@ function App({
     if (sessionRef.current !== null) sessionRef.current.setRoomTheme(id)
   }
 
+  function handleCloseFeedback() {
+    setFeedbackOpen(false)
+    feedbackButtonRef.current?.focus()
+  }
+
   function handleReset() {
     closeSession()
     dispatch({ type: 'reset' })
@@ -262,6 +271,8 @@ function App({
   const inRoom = state.room !== null
   const roomTheme = themeId(state.roomTheme ?? DEFAULT_THEME)
   const theme = inRoom ? roomTheme : ownTheme
+  // The screen a feedback post reports; over and disconnected count as game.
+  const page = state.screen === 'start' || state.screen === 'lobby' ? state.screen : 'game'
 
   return (
     <div className="app-shell min-h-screen" data-room-theme={theme}>
@@ -314,9 +325,20 @@ function App({
           />
         )}
         <footer className="mt-auto flex flex-col items-center gap-2 pt-4">
-          <LanguageSwitcher />
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <LanguageSwitcher />
+            <button
+              ref={feedbackButtonRef}
+              type="button"
+              className="feedback-open h-7 w-24 truncate px-1 py-0 text-xs leading-4"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              {t('feedback.title')}
+            </button>
+          </div>
           <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
         </footer>
+        {feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />}
       </div>
     </div>
   )
