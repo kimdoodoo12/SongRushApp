@@ -60,7 +60,7 @@
     "timeLeft": "Time left",
     "connecting": "Connecting to the server...",
     "waitingNext": "Waiting for the next song...",
-    "round": "Song <num>{{index}} / {{total}}</num>",
+    "round": "<lead>Song</lead><num>{{index}} / {{total}}</num>",
     "score": "Score: {{score}}",
     "seconds": "{{seconds}}s",
     "watching": "You are watching this song. You play from the next one.",

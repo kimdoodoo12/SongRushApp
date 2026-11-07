@@ -281,11 +281,14 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {round === null && waitingNext && <span className="text-muted">{t('stage.waitingNext')}</span>}
         {round !== null && (
           <span className="round font-display flex h-10 w-40 items-center gap-1 overflow-hidden text-[15px] leading-5 whitespace-nowrap md:h-12 md:w-46">
-            {/* The label sits before or after the number, by language. */}
+            {/* The label sits before or after the number, by language. A
+                label before it (lead) is a fixed box, so the number box
+                stays put whichever look's font draws the label. */}
             <Trans
               i18nKey="stage.round"
               values={{ index: round.index + 1, total: round.total }}
               components={{
+                lead: <span className="round-lead block w-12 shrink-0 truncate" />,
                 num: (
                   <span className="round-num block h-8 w-[3.9em] shrink-0 overflow-hidden text-right text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9" />
                 ),
