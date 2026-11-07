@@ -17,6 +17,9 @@ const ERROR_TEXT = {
   'bad-room-theme': '알 수 없는 분위기입니다.',
 }
 
+// The mark before a system line in the chat log.
+const CHECK = String.fromCharCode(0x2714)
+
 // The lobby notice after a game ended without gameOver (F-005).
 export const ABANDONED_TEXT = '게임이 중단되어 대기실로 돌아왔습니다.'
 
@@ -44,7 +47,7 @@ export const initialState = {
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  chat: [], // { id, name, body, text }
+  chat: [], // { id, name, body, text }, or a system line { id, kind: 'system', winner, placed, text }
   chatSeq: 0,
   correct: null,
   reveal: null,
@@ -202,14 +205,31 @@ export function reducer(state, action) {
     case 'tick':
       if (state.timer === null) return state
       return { ...state, timer: { ...state.timer, remaining: action.remaining } }
-    case 'chat':
+    case 'chat': {
+      const line = { id: state.chatSeq, name: action.name, body: action.text, text: `${action.name}: ${action.text}` }
+      // The winner's first chat after correct (D-094) goes just above the
+      // system line, which is re-numbered so ids keep the log order.
+      const last = state.chat[state.chat.length - 1]
+      if (last !== undefined && last.kind === 'system' && !last.placed && last.winner === action.name) {
+        return {
+          ...state,
+          chat: [...state.chat.slice(0, -1), line, { ...last, id: state.chatSeq + 1, placed: true }],
+          chatSeq: state.chatSeq + 2,
+        }
+      }
+      return { ...state, chat: [...state.chat, line], chatSeq: state.chatSeq + 1 }
+    }
+    case 'correct':
+      // A system line in the log (D-094). It has no name, so no seat bubble.
       return {
         ...state,
-        chat: [...state.chat, { id: state.chatSeq, name: action.name, body: action.text, text: `${action.name}: ${action.text}` }],
+        correct: action.name,
+        chat: [
+          ...state.chat,
+          { id: state.chatSeq, kind: 'system', winner: action.name, placed: false, text: `${CHECK} ${action.name} 정답!` },
+        ],
         chatSeq: state.chatSeq + 1,
       }
-    case 'correct':
-      return { ...state, correct: action.name }
     case 'reveal':
       return { ...state, timer: null, reveal: action.reveal, started: false, skipCount: null }
     case 'scores':

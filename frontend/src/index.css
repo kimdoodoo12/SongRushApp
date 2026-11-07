@@ -589,6 +589,11 @@
     border: 1px solid rgb(0 0 0 / 0.2);
   }
 
+  /* The 정답 system line in the chat log (D-094). Colour only. */
+  .chat-system {
+    color: var(--good);
+  }
+
   /* Decorations behind the page: petals (벚꽃) and stars (별밤). */
   .deco {
     position: fixed;

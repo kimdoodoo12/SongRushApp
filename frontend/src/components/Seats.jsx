@@ -28,10 +28,11 @@ function scoreOf(player, scoreboard) {
 }
 
 // The newest chat entry per name among the entries after the watermark.
+// System lines (D-094) never become a bubble.
 function newestByName(chat, watermark) {
   const newest = new Map()
   for (const entry of chat) {
-    if (entry.id > watermark) newest.set(entry.name, entry)
+    if (entry.kind !== 'system' && entry.id > watermark) newest.set(entry.name, entry)
   }
   return newest
 }
