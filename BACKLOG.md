@@ -303,7 +303,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-014** server+client: show the winning guess in chat with a system line (from D-094)
 
-- [~] **F-015** frontend: Korean/English/Japanese UI with react-i18next; reveal shows all four title languages (from D-095)
+- [x] **F-015** frontend: Korean/English/Japanese UI with react-i18next; reveal shows all four title languages (from D-095)
 
 ## Roadmap
 
@@ -424,6 +424,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (081) Long reveal title lines and artist lists are truncated at 390 px. Consider wrapping them to two lines, which is data-dependent height, not theme-dependent. Seat names with "(host) (you)" truncate in English and Japanese; consider showing host and self as icons. Check whether the theme web fonts cover kana and kanji. Add `frontend/.vitest/` (a JSON reporter output a verifier created) to `.gitignore`.
 - (080) Rename and narrow `RoomTest.nothingSentBeforeTheRevealIdentifiesTheSong`: its window should end at each song's `correct` (or at `reveal` when nobody answered), and it should also pin an exact-title win. Widen `SoloSocketTest`'s leak window to `revealAt - 1`, so the `correct` frame is checked again. Make the Stop hook's backend Gradle run wait for, or skip while, another Gradle runs on `backend/`.
 - (079) Check by hand in Chrome, Firefox and Safari that a duplicated tab reports a navigation type other than `reload` (`performance.getEntriesByType('navigation')[0].type`), and check the suspended-audio prompt after a reload in a browser without the autoplay flag.
 - (078) The record's `::before` sheen paints over its inset ring; use `inset: var(--ring)`. That is a layout property, so it needs the `themeLayout` var rule in mind; the alternative is drawing the ring on `::after`. The round counter is right-aligned in its fixed box, which shows as a left indent for short counters; the owner's call. Remove the server's solo path (D-093).
