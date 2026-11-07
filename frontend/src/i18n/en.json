@@ -124,5 +124,27 @@
     "too-large": "The message is too large.",
     "already-in-room": "You are already in a room.",
     "no-room": "You are not in a room."
+  },
+  "feedback": {
+    "title": "Feedback",
+    "label": {
+      "category": "Category",
+      "title": "Subject",
+      "body": "Message"
+    },
+    "category": {
+      "bug": "Bug",
+      "idea": "Suggestion",
+      "song": "Song request",
+      "other": "Other"
+    },
+    "submit": "Submit",
+    "close": "Close",
+    "thanks": "Thanks! We received your message.",
+    "preparing": "Feedback is not available yet. Please try again later.",
+    "rateLimited": "Please wait a moment before sending again.",
+    "failed": "Could not send your message. Please try again later.",
+    "bad": "Please check the subject and message.",
+    "network": "Could not reach the server."
   }
 }
