@@ -251,7 +251,10 @@ describe('start', () => {
     await waitFor(() => expect(ctx.startedSources()).toHaveLength(1))
     const source = ctx.startedSources()[0]
     expect(source.buffer).toBe(ctx.decoded[0])
-    expect(source.connect).toHaveBeenCalledWith(ctx.destination)
+    // declared rewrite 085: source -> the context's gain node -> destination.
+    expect(ctx.gains).toHaveLength(1)
+    expect(source.connect).toHaveBeenCalledWith(ctx.gains[0])
+    expect(ctx.gains[0].connect).toHaveBeenCalledWith(ctx.destination)
     const [when, offset] = source.start.mock.calls[0]
     expect(when).toBeCloseTo(13, 6)
     expect(offset).toBe(0)

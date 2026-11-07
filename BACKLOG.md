@@ -311,6 +311,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-018** Feedback issues get the single label `문의` (from D-098)
 
+- [x] **F-019** Volume slider and mute on the game stage: GainNode, remembered per device (from D-099)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -331,6 +333,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-099** Per-player volume control (user, 2026-11-08: "자신이 원하는 불륨으로 들을 수 있게"). A slider and mute on the game stage. The default is 80% and the setting is remembered on the device. It is client-only and does not affect playback timing. The lead picked the defaults and told the owner.
 - **D-098** Feedback issues carry only the `문의` label (user, 2026-11-08). The category stays in the title and body, and `song-request` is removed.
 - **D-097** Feedback goes to Issues only after the owner approves it (user, 2026-11-07: "관리자 화면에서 내가 문의를 따로 체크하면 그때 Issues로"). `/admin` is protected by nginx Basic Auth (an htpasswd file, no login code in the app). Feedback is stored in one server file. Admin actions are send to Issues (with an editable title) and hide or restore.
 - **D-096** In-site feedback becomes GitHub issues (user, 2026-11-07: "문의하기 ... github issue에 연동"). A footer form; the server creates the issue in the private code repo, labelled `문의`. There is no moderation, because only the owner sees it, and no contact field. The site shows only "received". The process shows in GitHub instead: cycles cite `#N`, and the dev→main PR says `Closes #N`.
@@ -433,6 +436,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (085) Volume: with the slider at 0 and not muted, pressing mute should restore 80 in one press. Fix the stale header comment in `App.volume.test.jsx`. The Japanese footer button 'お問い合わせ' clips by 2 px (`w-24`).
 - (083) Admin API: 405 and OPTIONS answers come from Spring before the key interceptor, with no `no-store`. Consider handling all methods behind the key. The sent tab shows the stored title, not the edited one sent to GitHub; store `sentTitle`. Find what deletes `.claude/state/locked-paths.txt` mid-cycle.
 - (082) Feedback items have no deletion tool; deletion is a manual edit of the server file. Add one if personal data shows up.
 - (081) Long reveal title lines and artist lists are truncated at 390 px. Consider wrapping them to two lines, which is data-dependent height, not theme-dependent. Seat names with "(host) (you)" truncate in English and Japanese; consider showing host and self as icons. Check whether the theme web fonts cover kana and kanji. Add `frontend/.vitest/` (a JSON reporter output a verifier created) to `.gitignore`.

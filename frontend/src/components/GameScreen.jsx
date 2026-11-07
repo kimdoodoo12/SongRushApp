@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { settingsLine } from '../game/filters.js'
 import { nameColour } from '../game/themes.js'
 import Seats from './Seats.jsx'
+import VolumeControl from './VolumeControl.jsx'
 import { Trans, currentLanguage, messageText, useTranslation } from '../i18n/index.js'
 
 const EQ_BARS = [0, 1, 2, 3, 4, 5, 6]
@@ -238,7 +239,7 @@ const LOAD_KEY = {
 // The game and its result. In a room the result has no 다시 하기; once the
 // room is back in its lobby, 대기실로 shows the lobby screen. A room also
 // shows everyone's scores, the skip vote and the final ranking.
-function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }) {
+function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, volume, onVolumeLevel, onToggleMute }) {
   const { t } = useTranslation()
   const {
     screen,
@@ -299,6 +300,9 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {score !== null && <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{t('stage.score', { score })}</span>}
         {clock !== null && <span className="clock ml-auto h-10 w-24 text-4xl leading-10 tabular-nums md:h-12 md:w-29 md:text-[44px] md:leading-12">{clock}</span>}
       </div>
+      {/* The own volume (D-099): a row of its own, right after the head, in
+          every stage state. */}
+      <VolumeControl volume={volume} onLevel={onVolumeLevel} onToggleMute={onToggleMute} />
       {screen === 'game' && watching && (
         <p className="watching chip line-clamp-2 h-15 rounded-xl px-3 py-2 text-center text-sm leading-5">{t('stage.watching')}</p>
       )}
