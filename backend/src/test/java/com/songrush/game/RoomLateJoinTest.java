@@ -299,9 +299,12 @@ class RoomLateJoinTest {
 		assertThat(room.scores().values()).containsOnly(0);
 
 		// A Room player can still win the song.
+		// Cycle 080 declared rewrite (D-094): the winning guess is echoed as chat right after correct.
 		List<Sent> sent = chat(MINA, title);
-		assertThat(types(sent)).containsExactly("correct", "reveal", "scores");
-		assertThat(sent.get(1).message()).containsEntry("winner", "Mina");
+		assertThat(types(sent)).containsExactly("correct", "chat", "reveal", "scores");
+		assertThat(sent).allMatch(Sent::toAll);
+		assertThat(sent.get(1).message()).containsEntry("name", "Mina").containsEntry("text", title);
+		assertThat(sent.get(2).message()).containsEntry("winner", "Mina");
 	}
 
 	@Test
@@ -399,11 +402,15 @@ class RoomLateJoinTest {
 
 		// Dora scores from now on.
 		toStartAt();
-		List<Sent> sent = chat(DORA, exactTitle());
-		assertThat(types(sent)).containsExactly("correct", "reveal", "scores");
+		// Cycle 080 declared rewrite (D-094): the winning guess is echoed as chat right after correct.
+		String doraTitle = exactTitle();
+		List<Sent> sent = chat(DORA, doraTitle);
+		assertThat(types(sent)).containsExactly("correct", "chat", "reveal", "scores");
 		assertThat(sent.get(0).toAll()).isTrue();
 		assertThat(sent.get(0).message()).containsEntry("name", "Dora").containsEntry("index", 1);
-		assertThat(sent.get(1).message()).containsEntry("winner", "Dora");
+		assertThat(sent.get(1).toAll()).isTrue();
+		assertThat(sent.get(1).message()).containsEntry("name", "Dora").containsEntry("text", doraTitle);
+		assertThat(sent.get(2).message()).containsEntry("winner", "Dora");
 		assertThat(lastScoreRows()).containsExactly("Mina:1", "Joon:0", "Hana:0", "Dora:1");
 
 		// The rest of the game runs out on the deadlines; the ranking includes Dora.

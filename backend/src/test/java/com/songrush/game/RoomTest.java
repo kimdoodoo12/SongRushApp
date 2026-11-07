@@ -356,7 +356,8 @@ class RoomTest {
 		int mark = outbox.mark();
 		room.chat(JOON.id(), guess);
 		List<Sent> after = outbox.since(mark);
-		assertThat(types(after)).containsExactly("correct", "reveal", "scores");
+		// Cycle 080 declared rewrite (D-094): the winning guess is echoed as chat right after correct.
+		assertThat(types(after)).containsExactly("correct", "chat", "reveal", "scores");
 		assertThat(after).allMatch(Sent::toAll);
 		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 
@@ -365,13 +366,18 @@ class RoomTest {
 		assertThat(num(correct, "index")).isEqualTo(0);
 		assertThat(correct.get("name")).isEqualTo("Joon");
 
-		List<Sent> beforeReveal = outbox.since(windowStart);
-		beforeReveal = beforeReveal.subList(0, types(beforeReveal).indexOf("reveal"));
-		assertThat(beforeReveal).noneMatch(s -> carriesString(s.message(), guess));
+		Map<String, Object> chat = after.get(1).message();
+		assertKeys(chat);
+		assertThat(chat).containsEntry("name", "Joon").containsEntry("text", guess);
+
+		// Nothing before the correct frame carries the guess: the round is decided before it is shown.
+		List<Sent> beforeCorrect = outbox.since(windowStart);
+		beforeCorrect = beforeCorrect.subList(0, types(beforeCorrect).indexOf("correct"));
+		assertThat(beforeCorrect).noneMatch(s -> carriesString(s.message(), guess));
 
 		assertThat(room.scores()).containsEntry(JOON.id(), 1).containsEntry(MINA.id(), 0);
-		assertThat(after.get(1).message().get("winner")).isEqualTo("Joon");
-		assertThat(scoreRows(after.get(2).message())).containsExactly("Mina:0", "Joon:1");
+		assertThat(after.get(2).message().get("winner")).isEqualTo("Joon");
+		assertThat(scoreRows(after.get(3).message())).containsExactly("Mina:0", "Joon:1");
 	}
 
 	@Test
