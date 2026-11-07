@@ -155,3 +155,15 @@ The jar runs with a token pointing `api-base` at a local fake GitHub. Playwright
   - **M6.** The status endpoint is removed; a 503 shows the preparing message.
 - **Nits** applied: the title allows no control characters, and lengths are counted in UTF-16 code units.
 - **Checked, no issue.** The critic read the old `deploy/Caddyfile`; the live server runs nginx instead. Tomcat's RemoteIpValve reads `X-Forwarded-For` from the right and trusts only internal proxies (127/8, 172.16/12), so a spoofed left entry is ignored.
+
+## Result
+- **Commits.**
+  - Tests: `7789955`.
+  - Implementation: `401ec04`.
+- **Verifier at `401ec04`.**
+  - Backend: 507 tests, 0 failures. Feedback tests: controller 47, properties 5, sender 14.
+  - Frontend: 350 tests. `App.feedback` ran 15; lint and build exit 0.
+  - The locked-test diff is empty.
+  - The only logging in main code is class names and statuses: no token, no user text.
+- **Superseded in part by 083 (D-097, owner, same day).** A public post no longer creates an issue directly. It is stored, and the owner sends it from `/admin`.
+- The code review for 082 is done together with 083, on the combined diff.
