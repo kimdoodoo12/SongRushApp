@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import tools.jackson.databind.JsonNode;
 
-// The owner's feedback inbox under /admin/api (cycle 083, D-097). AdminApiInterceptor runs first on
+// The owner's feedback inbox under /admin/api (cycle 083, D-097). The list answers 503
+// feedback-disabled while the store is disabled. AdminApiInterceptor runs first on
 // every handler here: the admin key (404), the CSRF headers on POSTs (403) and Cache-Control: no-store.
 // send checks, in order: unknown id (404), sent (409 already-sent), in flight (409 in-flight), the
 // edited title (400), the token (503 github-disabled); then GitHub is called without the store lock.
@@ -47,6 +48,10 @@ public class AdminFeedbackController {
 
 	@GetMapping("/admin/api/feedback")
 	public ResponseEntity<Map<String, Object>> list(@RequestParam(defaultValue = "new") String status) {
+		// A disabled store (blank or unwritable store-dir) is reported, not shown as an empty inbox.
+		if (!store.enabled()) {
+			return answer(HttpStatus.SERVICE_UNAVAILABLE, Map.of("error", "feedback-disabled"));
+		}
 		if (!LIST_STATUSES.contains(status)) {
 			return answer(HttpStatus.BAD_REQUEST, Map.of("error", "bad-status"));
 		}
@@ -71,12 +76,15 @@ public class AdminFeedbackController {
 			if (!edited.valid()) {
 				return answer(HttpStatus.BAD_REQUEST, Map.of("error", "bad-feedback"));
 			}
+			// The admin screen always sends its title input; an unchanged title is not an edit, so the
+			// body gets no duplicate "original title" fence.
+			String title = edited.title() == null || edited.title().equals(record.title()) ? null : edited.title();
 			if (!properties.hasToken()) {
 				return answer(HttpStatus.SERVICE_UNAVAILABLE, Map.of("error", "github-disabled"));
 			}
 			CreatedIssue created;
 			try {
-				created = sender.send(FeedbackFormat.issue(record, edited.title()));
+				created = sender.send(FeedbackFormat.issue(record, title));
 			}
 			catch (IssueSendException | RuntimeException e) {
 				log.warn("feedback: {} not sent ({})", id, e.getClass().getSimpleName());

@@ -20,7 +20,8 @@ async function errorCode(response) {
 
 // Every record, newest first. Resolves to {ok: true, items} or
 // {ok: false, error}, where error is 'off' (a 404: no admin access),
-// 'network' or 'failed'; never rejects.
+// 'disabled' (a 503 feedback-disabled: the store is off), 'network' or
+// 'failed'; never rejects.
 export async function loadFeedback() {
   let response
   try {
@@ -33,6 +34,9 @@ export async function loadFeedback() {
   }
   if (response.status === 404) return { ok: false, error: 'off' }
   if (!response.ok) {
+    if (response.status === 503 && (await errorCode(response)) === 'feedback-disabled') {
+      return { ok: false, error: 'disabled' }
+    }
     console.warn('admin: list failed', response.status)
     return { ok: false, error: 'failed' }
   }

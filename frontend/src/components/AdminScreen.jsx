@@ -18,6 +18,7 @@ const TITLE_MAX = 80
 
 const LIST_ERROR_TEXT = {
   off: '관리자 기능이 꺼져 있습니다',
+  disabled: '문의 저장소가 꺼져 있습니다 (SONGRUSH_FEEDBACK_DIR 또는 폴더 권한 확인)',
   network: '서버에 연결하지 못했습니다',
   failed: '목록을 불러오지 못했습니다',
 }
@@ -186,6 +187,14 @@ function AdminItem({ record, title, busy, error, onTitle, onAction }) {
         <p className="admin-wrap font-semibold">{record.title}</p>
       )}
       <p className="admin-body text-sm">{record.body}</p>
+      {/* A send whose issue exists on GitHub but whose store write failed:
+          the record is sent only in the server's memory until the next
+          successful write, so a restart would lose it. */}
+      {record.status === 'sent' && record.persisted === false && (
+        <p className="admin-wrap text-sm font-semibold text-warn" role="alert">
+          GitHub #{record.issueNumber} 생성됨, 하지만 서버 저장에 실패했습니다. 서버를 재시작하기 전에 저장 폴더를 확인하세요
+        </p>
+      )}
       {error !== null && (
         <p className="admin-wrap text-sm font-semibold text-bad" role="alert">
           {error}
