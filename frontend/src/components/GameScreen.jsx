@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { settingsLine } from '../game/filters.js'
 import { nameColour } from '../game/themes.js'
 import Seats from './Seats.jsx'
-import { currentLanguage, messageText, useTranslation } from '../i18n/index.js'
+import { Trans, currentLanguage, messageText, useTranslation } from '../i18n/index.js'
 
 const EQ_BARS = [0, 1, 2, 3, 4, 5, 6]
 // The mark before a system line in the chat log.
 const CHECK = String.fromCharCode(0x2714)
 // The reveal card's title lines, in card order.
 const TITLE_LANGS = ['ko', 'en', 'ja', 'romaji']
+const HANGUL = /[ㄱ-ㆎ가-힣]/
 
 function TimeBar({ max, remaining }) {
   const { t } = useTranslation()
@@ -61,14 +62,23 @@ function TitleLabel({ lang }) {
   )
 }
 
+// The title of a language's line. The KO line is the frame's reveal text
+// when that is Korean: titles.ko can be the raw source text, such as
+// "나루토 (애니메이션)", while reveal is the cleaned title.
+function lineTitle(reveal, lang) {
+  if (lang === 'ko' && typeof reveal.title === 'string' && HANGUL.test(reveal.title)) return reveal.title
+  return firstTitle(reveal.titles, lang)
+}
+
 // The answer card; the flip-in is a CSS animation of this one card. The
 // big title is the line in the UI language when the frame has one, else
-// the frame's reveal text; the other languages are the smaller lines.
+// the line equal to the reveal text, else the bare reveal text; the other
+// languages are the smaller lines, so no title shows twice.
 function RevealCard({ reveal }) {
   const { t } = useTranslation()
   const lang = currentLanguage()
-  const lines = TITLE_LANGS.map((l) => ({ lang: l, title: firstTitle(reveal.titles, l) })).filter((line) => line.title !== null)
-  const main = lines.find((line) => line.lang === lang) ?? null
+  const lines = TITLE_LANGS.map((l) => ({ lang: l, title: lineTitle(reveal, l) })).filter((line) => line.title !== null)
+  const main = lines.find((line) => line.lang === lang) ?? lines.find((line) => line.title === reveal.title) ?? null
   const others = lines.filter((line) => line !== main)
   return (
     <div className="flip grid w-full min-w-0 max-w-full flex-1 grid-cols-1 place-items-center">
@@ -271,8 +281,16 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound }
         {round === null && waitingNext && <span className="text-muted">{t('stage.waitingNext')}</span>}
         {round !== null && (
           <span className="round font-display flex h-10 w-40 items-center gap-1 overflow-hidden text-[15px] leading-5 whitespace-nowrap md:h-12 md:w-46">
-            <span className="round-num block h-8 w-[3.9em] shrink-0 overflow-hidden text-right text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9">{`${round.index + 1} / ${round.total}`}</span>{' '}
-            {t('stage.round')}
+            {/* The label sits before or after the number, by language. */}
+            <Trans
+              i18nKey="stage.round"
+              values={{ index: round.index + 1, total: round.total }}
+              components={{
+                num: (
+                  <span className="round-num block h-8 w-[3.9em] shrink-0 overflow-hidden text-right text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9" />
+                ),
+              }}
+            />
           </span>
         )}
         {score !== null && <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{t('stage.score', { score })}</span>}

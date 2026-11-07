@@ -53,21 +53,21 @@
     "host": "(host)",
     "me": "(you)",
     "correct": "Got it!",
-    "score": "{{score}} pts"
+    "score": "{{score}} pt"
   },
   "stage": {
     "label": "Stage",
     "timeLeft": "Time left",
     "connecting": "Connecting to the server...",
     "waitingNext": "Waiting for the next song...",
-    "round": "song",
+    "round": "Song <num>{{index}} / {{total}}</num>",
     "score": "Score: {{score}}",
     "seconds": "{{seconds}}s",
     "watching": "You are watching this song. You play from the next one.",
     "unlockSound": "Tap for sound",
     "loading": "Loading the audio...",
     "loadFailed": "This song could not be played.",
-    "hint": "Guess the anime of the song you hear in the chat",
+    "hint": "Type the anime title in the chat to guess the song",
     "skip": "Skip",
     "skipCancel": "Unskip",
     "skipCount": "Skip {{votes}}/{{needed}}"
@@ -93,9 +93,9 @@
   "score": {
     "board": "Scoreboard",
     "ranking": "Final ranking",
-    "points": "{{score}} pts",
+    "points": "{{score}} pt",
     "rank": "#{{rank}}",
-    "final": "Final score: {{score}} pts"
+    "final": "Final score: {{score}}"
   },
   "game": {
     "toLobby": "To lobby",
@@ -117,7 +117,12 @@
     "rejoin-failed": "Could not reconnect. Please join the room again.",
     "bad-filter": "The conditions are not valid.",
     "bad-room-theme": "Unknown theme.",
-    "available": "Only {{available}} songs can be played.",
-    "unknown": "An error occurred ({{code}})"
+    "available": "Songs available: {{available}}",
+    "unknown": "An error occurred ({{code}})",
+    "rate-limited": "You're sending messages too fast.",
+    "bad-message": "The request was not valid.",
+    "too-large": "The message is too large.",
+    "already-in-room": "You are already in a room.",
+    "no-room": "You are not in a room."
   }
 }

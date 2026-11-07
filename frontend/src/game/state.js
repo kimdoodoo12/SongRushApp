@@ -16,6 +16,11 @@ const ERROR_CODES = new Set([
   'rejoin-failed',
   'bad-filter',
   'bad-room-theme',
+  'rate-limited',
+  'bad-message',
+  'too-large',
+  'already-in-room',
+  'no-room',
 ])
 
 // The lobby notice after a game ended without gameOver (F-005).

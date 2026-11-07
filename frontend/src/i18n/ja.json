@@ -50,9 +50,9 @@
   "seat": {
     "list": "席",
     "empty": "空席",
-    "host": "(ホスト)",
-    "me": "(自分)",
-    "correct": "正解!",
+    "host": "（ホスト）",
+    "me": "（自分）",
+    "correct": "正解！",
     "score": "{{score}}点"
   },
   "stage": {
@@ -60,7 +60,7 @@
     "timeLeft": "残り時間",
     "connecting": "サーバーに接続しています...",
     "waitingNext": "次の曲を待っています...",
-    "round": "曲目",
+    "round": "<num>{{index}} / {{total}}</num> 曲目",
     "score": "得点: {{score}}",
     "seconds": "{{seconds}}秒",
     "watching": "この曲は観戦中です。次の曲から参加します。",
@@ -88,7 +88,7 @@
     "input": "答えを入力",
     "placeholder": "アニメのタイトルを入力",
     "send": "送信",
-    "correctLine": "{{name}} 正解!"
+    "correctLine": "{{name}} 正解！"
   },
   "score": {
     "board": "スコアボード",
@@ -118,6 +118,11 @@
     "bad-filter": "条件が正しくありません。",
     "bad-room-theme": "不明なテーマです。",
     "available": "出題できる曲は{{available}}曲だけです。",
-    "unknown": "エラーが発生しました（{{code}}）"
+    "unknown": "エラーが発生しました（{{code}}）",
+    "rate-limited": "送信が速すぎます。",
+    "bad-message": "不正なリクエストです。",
+    "too-large": "メッセージが大きすぎます。",
+    "already-in-room": "すでにルームに参加しています。",
+    "no-room": "ルームに参加していません。"
   }
 }

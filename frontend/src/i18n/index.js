@@ -5,7 +5,7 @@
 // so the tests written against the Korean texts hold; a test may switch.
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
-import { initReactI18next, useTranslation } from 'react-i18next'
+import { Trans, initReactI18next, useTranslation } from 'react-i18next'
 import ko from './ko.json'
 import en from './en.json'
 import ja from './ja.json'
@@ -80,7 +80,7 @@ export function messageText(t, message) {
   return t(message.key, message.values)
 }
 
-// Components import the hook from here, so the instance is initialised
+// Components import the hook and Trans from here, so the instance is initialised
 // before any of them renders (also in tests that render one component).
-export { useTranslation }
+export { Trans, useTranslation }
 export default i18n

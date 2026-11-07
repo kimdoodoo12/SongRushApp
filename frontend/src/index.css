@@ -327,10 +327,10 @@
   .pick {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     width: 8rem;
     height: 36px;
-    padding: 0 8px 0 5px;
+    padding: 0 6px 0 5px;
     border-radius: 999px;
     background: var(--solid);
     color: var(--ink);
@@ -341,8 +341,10 @@
     white-space: nowrap;
   }
 
+  /* 13px in every look, so "Starry Night" fits the fixed button. */
   .pick-name {
     min-width: 0;
+    font-size: 13px;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -362,8 +364,8 @@
 
   .pick-swatch {
     display: inline-block;
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     border-radius: 50%;
     border: 1px solid rgb(0 0 0 / 0.2);

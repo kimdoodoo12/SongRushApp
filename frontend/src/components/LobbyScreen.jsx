@@ -80,7 +80,7 @@ function LobbyScreen({
         </p>
         <p className="share panel flex h-12 min-w-0 items-center gap-2 py-1.5 pr-1.5 pl-3 text-sm leading-5">
           <span className="min-w-0 flex-1 truncate text-muted">{link}</span>{' '}
-          <button type="button" className="h-8 w-16 shrink-0 truncate px-2 py-0 text-sm leading-5" onClick={() => copyLink(link)}>
+          <button type="button" className="h-8 w-20 shrink-0 truncate px-2 py-0 text-sm leading-5" onClick={() => copyLink(link)}>
             {t('lobby.copy')}
           </button>
         </p>
