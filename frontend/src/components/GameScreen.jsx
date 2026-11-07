@@ -90,7 +90,8 @@ function ChatForm({ onSend }) {
   )
 }
 
-// The chat log, scrolled to the newest line whenever a line arrives.
+// The chat log, scrolled to the newest line whenever a line arrives. A
+// system line (D-094) has no name marker and uses the good colour.
 function ChatLog({ chat }) {
   const ref = useRef(null)
   useEffect(() => {
@@ -99,16 +100,22 @@ function ChatLog({ chat }) {
   }, [chat])
   return (
     <ul ref={ref} className="chat-log flex h-36 flex-col gap-1 overflow-y-auto px-3 py-2 text-[15px] md:h-44" aria-label="채팅">
-      {chat.map((line) => (
-        <li key={line.id} className="min-w-0 wrap-anywhere">
-          <span
-            aria-hidden="true"
-            className="chat-mark mr-2 inline-block size-2.5 rounded-full align-middle"
-            style={{ background: typeof line.name === 'string' ? nameColour(line.name) : 'currentColor' }}
-          />
-          {line.text}
-        </li>
-      ))}
+      {chat.map((line) =>
+        line.kind === 'system' ? (
+          <li key={line.id} className="chat-system min-w-0 wrap-anywhere">
+            {line.text}
+          </li>
+        ) : (
+          <li key={line.id} className="min-w-0 wrap-anywhere">
+            <span
+              aria-hidden="true"
+              className="chat-mark mr-2 inline-block size-2.5 rounded-full align-middle"
+              style={{ background: typeof line.name === 'string' ? nameColour(line.name) : 'currentColor' }}
+            />
+            {line.text}
+          </li>
+        ),
+      )}
     </ul>
   )
 }

@@ -191,6 +191,7 @@ class SoloSocketTest {
 			assertThat(deadlineAt - startAt).isEqualTo(WsFixture.DURATION_MS);
 
 			JsonNode reveal;
+			String answer = null;
 			if (k == UNANSWERED) {
 				reveal = client.await("reveal");
 				assertThat(System.currentTimeMillis()).as("unanswered song ends at its deadline")
@@ -200,23 +201,41 @@ class SoloSocketTest {
 			else {
 				sleepUntil(startAt + AFTER_START_MS);
 				String key = ANSWER_KEYS.get(k % ANSWER_KEYS.size());
-				client.send("chat", "text", animeOf(themeId).titles().get(key).get(0));
+				answer = animeOf(themeId).titles().get(key).get(0);
+				client.send("chat", "text", answer);
 				JsonNode correct = client.await("correct");
 				assertThat(correct.path("index").intValue()).isEqualTo(k);
 				assertThat(correct.path("name").asString(null)).isEqualTo("Tester");
+				// Cycle 080 declared rewrite (D-094): the winning guess is echoed right after correct.
+				JsonNode echo = client.await("chat");
+				assertThat(echo.path("name").asString(null)).isEqualTo("Tester");
+				assertThat(echo.path("text").asString(null)).isEqualTo(answer);
 				reveal = client.await("reveal");
 				assertThat(reveal.path("winner").asString(null)).isEqualTo("Tester");
 			}
 			assertThat(reveal.path("index").intValue()).isEqualTo(k);
 
-			// Every frame up to (not including) this reveal must not name this song.
 			List<String> frames = client.received();
 			int revealAt = frames.size() - 1;
 			while (revealAt >= 0 && !isRevealOf(frames.get(revealAt), k)) {
 				revealAt--;
 			}
 			assertThat(revealAt).isGreaterThanOrEqualTo(0);
-			assertNoLeak(frames.subList(0, revealAt), secrets(themeId), k);
+			// Cycle 080 declared rewrite (D-094): every frame before this song's correct (or, when
+			// unanswered, before its reveal) must not name this song. An answered song arrives as
+			// correct, then the echoed chat, then the reveal, with nothing in between.
+			int windowEnd = revealAt;
+			if (answer != null) {
+				assertThat(revealAt).isGreaterThanOrEqualTo(2);
+				JsonNode correctFrame = TestClient.MAPPER.readTree(frames.get(revealAt - 2));
+				assertThat(correctFrame.path("type").asString(null)).isEqualTo("correct");
+				assertThat(correctFrame.path("index").intValue()).isEqualTo(k);
+				JsonNode chatFrame = TestClient.MAPPER.readTree(frames.get(revealAt - 1));
+				assertThat(chatFrame.path("type").asString(null)).isEqualTo("chat");
+				assertThat(chatFrame.path("text").asString(null)).isEqualTo(answer);
+				windowEnd = revealAt - 2;
+			}
+			assertNoLeak(frames.subList(0, windowEnd), secrets(themeId), k);
 
 			JsonNode scores = client.await("scores");
 			JsonNode row = scores.path("scores").path(0);

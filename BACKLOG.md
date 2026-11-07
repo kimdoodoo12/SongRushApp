@@ -301,6 +301,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-013** frontend: remove solo mode from the client; the record visibly spins in every theme (from D-093)
 
+- [x] **F-014** server+client: show the winning guess in chat with a system line (from D-094)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -321,6 +323,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-094** Show the winning guess (user, 2026-11-07: "한명이 맞추면 바로 음악이 끝나는데 정답을 숨길 이유가 없지. 그러니까 채팅도 보이게 해도 돼. 그리고 채팅에 알림줄도 추가해야지"): replaces D-015's hiding of the correct message. The server sends `correct`, then the winner's `chat`, then the reveal; the client adds a `✔ <name> 정답!` system line under the winner's message. Pre-start and watcher guesses stay sender-only.
 - **D-093** No solo mode in the client (user, 2026-11-07: "혼자하기 기능도 필요 없는 것 같아. 어차피 방만들고 그대로 시작하면 되니까"): the start screen keeps nickname, theme, 방 만들기 and 방 코드/참가 only; one player plays alone by creating a room and starting it. The server's solo path stays for now (removal is a later cleanup). Also: the record must visibly spin in every theme (user: "CD가 돌아가지 않는 것들(예: 놀이터)").
 - **D-093** PR per cycle (user, 2026-11-06: "그러면 그렇게 해야할듯"): every cycle opens a PR from its branch to `dev`, and merges only after GitHub CI passes on it. Reason: CI ran only after a cycle had reached `dev`, and no step required reading its result. The private repo has no branch protection, so the skill enforces the wait. Deployment is unchanged: only the user's merge of `dev` into `main` deploys.
 - **D-092** Audio storage, revised (user, 2026-11-06; refines D-077 and D-083): the 1,500 cached songs move to a private S3 general-purpose bucket in the account-regional namespace (ap-southeast-2), under random object names. The server hands out short-lived **S3 presigned URLs** signed with the EC2 instance role (no stored key, no CloudFront for now; CloudFront can be put in front later). The upload uses an upload-only IAM user key on the owner's PC and a resumable tool that skips objects already uploaded; the key is deleted after the upload. Reason: the simplified account blocks OIDC and may block CloudFront key groups, and presigned S3 needs no secret.
@@ -418,6 +421,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (080) Rename and narrow `RoomTest.nothingSentBeforeTheRevealIdentifiesTheSong`: its window should end at each song's `correct` (or at `reveal` when nobody answered), and it should also pin an exact-title win. Widen `SoloSocketTest`'s leak window to `revealAt - 1`, so the `correct` frame is checked again. Make the Stop hook's backend Gradle run wait for, or skip while, another Gradle runs on `backend/`.
 - (079) Check by hand in Chrome, Firefox and Safari that a duplicated tab reports a navigation type other than `reload` (`performance.getEntriesByType('navigation')[0].type`), and check the suspended-audio prompt after a reload in a browser without the autoplay flag.
 - (078) The record's `::before` sheen paints over its inset ring; use `inset: var(--ring)`. That is a layout property, so it needs the `themeLayout` var rule in mind; the alternative is drawing the ring on `::after`. The round counter is right-aligned in its fixed box, which shows as a left indent for short counters; the owner's call. Remove the server's solo path (D-093).
 - (077) `themeLayout.test.js` should also forbid Tailwind theme namespaces in theme rules: `--spacing`, `--text-*`, `--leading-*`, `--tracking-*`, `--font-weight-*`, `--container-*`, `--breakpoint-*`. It should also forbid `direction`, `unicode-bidi`, `text-indent`, `font-stretch`, `font-kerning`, `text-rendering`, `word-break`, `line-break`, `hyphens` and `tab-size`. The lead's Playwright box and clipping probe should be committed as a repeatable check. Where it lives (a new `frontend/e2e/` or similar) is the owner's choice.

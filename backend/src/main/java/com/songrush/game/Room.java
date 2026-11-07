@@ -375,6 +375,8 @@ public final class Room {
 		else {
 			scores.merge(playerId, 1, Integer::sum);
 			outbox.toAll(message("correct", "index", songIndex, "name", player.name()));
+			// The round is decided by the frame above, so the winning text is shown to all (D-094).
+			outbox.toAll(chat);
 			endSong(player);
 		}
 	}
