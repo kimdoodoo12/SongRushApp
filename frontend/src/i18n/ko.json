@@ -1,0 +1,128 @@
+{
+  "app": {
+    "title": "SongRush",
+    "credit": "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata",
+    "reconnecting": "연결이 끊겨 다시 연결하는 중..."
+  },
+  "start": {
+    "nickname": "닉네임",
+    "createRoom": "방 만들기",
+    "orCode": "또는 코드로 참가",
+    "roomCode": "방 코드",
+    "join": "참가",
+    "noOpus": "이 브라우저에서는 음원을 재생할 수 없습니다. 브라우저 또는 iOS를 최신 버전으로 업데이트해 주세요."
+  },
+  "theme": {
+    "label": "분위기",
+    "labelGuest": "분위기 (방장이 고름)",
+    "play": "놀이터",
+    "neon": "무대",
+    "sakura": "벚꽃",
+    "chalk": "칠판",
+    "star": "별밤",
+    "arcade": "오락실"
+  },
+  "lobby": {
+    "roomCode": "방 코드: ",
+    "copy": "복사",
+    "players": "참가자 {{n}} / 8",
+    "waiting": "방장이 게임을 시작하기를 기다리는 중...",
+    "songCount": "곡 수",
+    "startGame": "게임 시작",
+    "leave": "나가기",
+    "abandoned": "게임이 중단되어 대기실로 돌아왔습니다."
+  },
+  "filter": {
+    "type": "곡 종류",
+    "tier": "난이도",
+    "from": "연도 시작",
+    "to": "연도 끝",
+    "fromAny": "처음부터",
+    "toAny": "지금까지",
+    "reversed": "시작 연도가 끝 연도보다 늦습니다.",
+    "all": "전체",
+    "op": "오프닝만",
+    "ed": "엔딩만",
+    "easy": "쉬움",
+    "normal": "보통",
+    "hard": "어려움"
+  },
+  "seat": {
+    "list": "자리",
+    "empty": "빈 자리",
+    "host": "(방장)",
+    "me": "(나)",
+    "correct": "정답!",
+    "score": "{{score}}점"
+  },
+  "stage": {
+    "label": "무대",
+    "timeLeft": "남은 시간",
+    "connecting": "서버에 연결하는 중...",
+    "waitingNext": "다음 곡을 기다리는 중...",
+    "round": "<num>{{index}} / {{total}}</num> 번째 곡",
+    "score": "점수: {{score}}",
+    "seconds": "{{seconds}}초",
+    "watching": "이번 곡은 구경 중입니다. 다음 곡부터 참가합니다.",
+    "unlockSound": "탭하여 소리 켜기",
+    "loading": "음원을 불러오는 중...",
+    "loadFailed": "이번 곡을 재생하지 못했습니다.",
+    "hint": "들리는 곡의 애니 제목을 채팅으로 맞혀 보세요",
+    "skip": "스킵",
+    "skipCancel": "스킵 취소",
+    "skipCount": "스킵 {{votes}}/{{needed}}"
+  },
+  "reveal": {
+    "heading": "정답 공개",
+    "noWinner": "정답자 없음",
+    "winner": "정답: {{name}}",
+    "label": {
+      "ko": "KO",
+      "en": "EN",
+      "ja": "JA",
+      "romaji": "Romaji"
+    }
+  },
+  "chat": {
+    "label": "채팅",
+    "input": "정답 입력",
+    "placeholder": "애니 제목을 입력하세요",
+    "send": "보내기",
+    "correctLine": "{{name}} 정답!"
+  },
+  "score": {
+    "board": "점수판",
+    "ranking": "최종 순위",
+    "points": "{{score}}점",
+    "rank": "{{rank}}위",
+    "final": "최종 점수: {{score}}점"
+  },
+  "game": {
+    "toLobby": "대기실로",
+    "reset": "처음으로",
+    "disconnected": "서버와 연결이 끊어졌습니다.",
+    "replaced": "다른 창에서 접속해 이 연결이 끊겼습니다."
+  },
+  "error": {
+    "bad-nickname": "닉네임은 1~16자로 입력해 주세요.",
+    "bad-song-count": "곡 수는 5~30곡입니다.",
+    "not-enough-songs": "출제할 곡이 부족합니다.",
+    "too-long": "채팅은 200자까지 입력할 수 있습니다.",
+    "room-not-found": "방을 찾을 수 없습니다.",
+    "room-full": "방이 가득 찼습니다 (최대 8명).",
+    "in-game": "게임이 진행 중입니다. 끝난 뒤에 참가해 주세요.",
+    "not-host": "방장만 시작할 수 있습니다.",
+    "server-full": "서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.",
+    "room-closed": "방이 닫혔습니다.",
+    "rejoin-failed": "다시 연결하지 못했습니다. 방에 다시 참가해 주세요.",
+    "bad-filter": "조건이 올바르지 않습니다.",
+    "bad-room-theme": "알 수 없는 분위기입니다.",
+    "available": "출제할 수 있는 곡이 {{available}}곡뿐입니다.",
+    "unknown": "오류가 발생했습니다 ({{code}})",
+    "rate-limited": "너무 빨리 보내고 있어요.",
+    "bad-message": "잘못된 요청입니다.",
+    "too-large": "메시지가 너무 깁니다.",
+    "already-in-room": "이미 방에 참가해 있습니다.",
+    "no-room": "참가한 방이 없습니다."
+  }
+}

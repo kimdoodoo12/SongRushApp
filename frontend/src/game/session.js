@@ -429,6 +429,8 @@ export function startSession({
       type: 'reveal',
       reveal: {
         title: msg.reveal,
+        // The accepted titles per language, for the card's KO/EN/JA/Romaji lines.
+        titles: msg.titles !== null && typeof msg.titles === 'object' ? msg.titles : {},
         themeSlug: msg.themeSlug,
         song: msg.song,
         artists: msg.artists ?? [],
