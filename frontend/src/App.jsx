@@ -15,10 +15,73 @@ const RECONNECTING_TEXT = '연결이 끊겨 다시 연결하는 중...'
 const defaultSocketFactory = (url) => new WebSocket(url)
 const defaultAudioContextFactory = () => new (window.AudioContext || window.webkitAudioContext)()
 const defaultFetch = (url) => fetch(url)
+// The rejoin entry session.js stores on every token frame (cycle 049).
+const REJOIN_KEY = 'songrush.rejoin'
 
 function socketUrl() {
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${scheme}://${window.location.host}/ws`
+}
+
+// The page's navigation type ('reload', 'navigate', ...), 'navigate' when the
+// Performance API cannot tell.
+function pageNavigationType() {
+  try {
+    const entry = window.performance?.getEntriesByType?.('navigation')?.[0]
+    return typeof entry?.type === 'string' ? entry.type : 'navigate'
+  } catch (err) {
+    console.warn('navigation type unavailable', err)
+    return 'navigate'
+  }
+}
+
+function removeRejoinEntry() {
+  try {
+    window.sessionStorage.removeItem(REJOIN_KEY)
+  } catch (err) {
+    console.warn('sessionStorage clear failed', err)
+  }
+}
+
+// The stored entry: { entry, unparsable }. entry is {token, code}, or null
+// when there is none, it is malformed, or the storage is blocked; unparsable
+// marks JSON that the mount effect removes. Reads only, so it is safe in a
+// state initializer.
+function readRejoinEntry() {
+  let raw
+  try {
+    raw = window.sessionStorage.getItem(REJOIN_KEY)
+  } catch (err) {
+    console.warn('sessionStorage read failed', err)
+    return { entry: null, unparsable: false }
+  }
+  if (raw === null) return { entry: null, unparsable: false }
+  let entry
+  try {
+    entry = JSON.parse(raw)
+  } catch (err) {
+    console.warn('malformed rejoin entry', err)
+    return { entry: null, unparsable: true }
+  }
+  if (entry === null || typeof entry !== 'object') return { entry: null, unparsable: false }
+  if (typeof entry.token !== 'string' || typeof entry.code !== 'string') return { entry: null, unparsable: false }
+  return { entry: { token: entry.token, code: entry.code }, unparsable: false }
+}
+
+// The mount-time reload decision (cycle 079): rejoin is the entry to rejoin
+// with on a real reload, else null; drop says the entry is to be removed.
+function reloadPlan(navigationType) {
+  const type = navigationType === undefined ? pageNavigationType() : navigationType
+  const { entry, unparsable } = readRejoinEntry()
+  if (entry === null) return { rejoin: null, drop: unparsable }
+  if (type !== 'reload') return { rejoin: null, drop: true }
+  return { rejoin: entry, drop: false }
+}
+
+// A reload rejoin starts in the connecting state, with the banner, so the
+// start screen never flashes.
+function initState(plan) {
+  return plan.rejoin === null ? initialState : reducer(initialState, { type: 'connecting', rejoin: true })
 }
 
 // The room code from a /r/<code> share link, upper-cased; '' otherwise.
@@ -33,8 +96,11 @@ function App({
   fetchFn = defaultFetch,
   canPlayOpus,
   now = Date.now,
+  navigationType,
 }) {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  // Decided once at mount; the effect below acts on it.
+  const [plan] = useState(() => reloadPlan(navigationType))
+  const [state, dispatch] = useReducer(reducer, plan, initState)
   // Detected once; a canPlayOpus prop overrides it.
   const [detectedOpus] = useState(() => (canPlayOpus === undefined ? canPlayOggOpus() : true))
   const opusOk = canPlayOpus === undefined ? detectedOpus : canPlayOpus
@@ -48,12 +114,36 @@ function App({
   const [ownTheme, setOwnTheme] = useState(loadOwnTheme)
   const ctxRef = useRef(null)
   const sessionRef = useRef(null)
+  // The reload check has run (cycle 079); StrictMode runs effects twice.
+  const reloadCheckedRef = useRef(false)
 
   useEffect(() => {
     const sessions = sessionRef
     return () => {
       if (sessions.current !== null) sessions.current.close()
     }
+  }, [])
+
+  // A page reload rejoins the room of the stored entry (cycle 079). Only a
+  // real reload does: a duplicated tab copies sessionStorage but must not
+  // take the original tab's seat, so any other navigation drops the entry.
+  // The socket opens from a timeout that the effect cleanup cancels, so
+  // StrictMode's mount, unmount, mount opens exactly one.
+  useEffect(() => {
+    if (reloadCheckedRef.current) return undefined
+    if (plan.rejoin === null) {
+      reloadCheckedRef.current = true
+      if (plan.drop) removeRejoinEntry()
+      return undefined
+    }
+    const entry = plan.rejoin
+    const id = setTimeout(() => {
+      reloadCheckedRef.current = true
+      openSession({ mode: 'rejoin', token: entry.token, code: entry.code })
+    }, 0)
+    return () => clearTimeout(id)
+    // Mount only: the plan is read once, like the share-link code.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function closeSession() {
@@ -73,11 +163,14 @@ function App({
     })
   }
 
-  // Starts a room session: mode 'create' or 'join' (see session.js). There is
-  // no solo mode in the client (D-093): every game is a room game.
+  // Starts a room session: mode 'create', 'join', or 'rejoin' after a reload
+  // (see session.js). There is no solo mode in the client (D-093): every game
+  // is a room game.
   function openSession(options) {
     // The audio-unlock gesture: create and resume synchronously in the click,
     // before anything is awaited (design 029). One context for every game.
+    // A reload rejoin has no gesture; a suspended context shows the
+    // 탭하여 소리 켜기 prompt.
     if (ctxRef.current === null) {
       // iOS 17+: play through the silent switch (spec 047 review H1).
       if (window.navigator.audioSession) window.navigator.audioSession.type = 'playback'
@@ -89,7 +182,7 @@ function App({
       console.warn('AudioContext resume failed', err)
     })
     closeSession()
-    dispatch({ type: 'connecting' })
+    dispatch({ type: 'connecting', rejoin: options.mode === 'rejoin' })
     sessionRef.current = startSession({
       socketFactory,
       url: socketUrl(),
