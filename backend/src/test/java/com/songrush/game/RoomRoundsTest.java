@@ -593,7 +593,8 @@ class RoomRoundsTest {
 		scheduler.advance(Duration.ofMillis(500));
 		mark = outbox.mark();
 		room.chat(MINA.id(), title);
-		assertThat(types(outbox.since(mark))).containsExactly("correct", "reveal", "scores");
+		// Cycle 080 declared rewrite (D-094): the winning guess is echoed as chat right after correct.
+		assertThat(types(outbox.since(mark))).containsExactly("correct", "chat", "reveal", "scores");
 		assertThat(room.scores()).containsEntry(MINA.id(), 1);
 	}
 

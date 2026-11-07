@@ -43,3 +43,8 @@ The answer text therefore never reaches anyone before the round is over: `correc
 ## File ownership
 - **Test writers:** backend tests under `game/` and `ws/` (declared rewrite), and `frontend/src/App.chatcorrect.test.jsx` plus any declared frontend rewrite.
 - **Implementers:** `backend/.../game/Room.java`; `frontend/src/game/state.js`, `frontend/src/game/session.js`, `frontend/src/components/GameScreen.jsx`, `frontend/src/index.css`.
+
+## Clarifications after the test writers
+- Only the **first** chat from the winner after `correct` goes above the system line. Every later line appends.
+- System entries carry no `name` that `Seats` could pick up, or `Seats` skips `kind: 'system'`, so a bubble never shows the system text. `frontend/src/components/Seats.jsx` is added to the frontend implementer's files.
+- `RoomTest.nothingSentBeforeTheRevealIdentifiesTheSong` is kept unchanged. The verifier must confirm it still passes once the winner's text is echoed.
