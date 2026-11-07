@@ -322,14 +322,15 @@
   }
 
   /* The 분위기 picker: fixed-size buttons, so the row wraps the same way in
-     every look. */
+     every look. Wide enough for the English and Japanese names (D-095);
+     three still fit a row of the start card. */
   .pick {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    width: 6.5rem;
+    gap: 6px;
+    width: 8rem;
     height: 36px;
-    padding: 0 10px 0 5px;
+    padding: 0 8px 0 5px;
     border-radius: 999px;
     background: var(--solid);
     color: var(--ink);

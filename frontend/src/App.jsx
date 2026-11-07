@@ -7,10 +7,9 @@ import StartScreen from './components/StartScreen.jsx'
 import GameScreen from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
 import ThemeDecor from './components/ThemeDecor.jsx'
+import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
-
-const CREDIT = '데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata'
-const RECONNECTING_TEXT = '연결이 끊겨 다시 연결하는 중...'
+import { applyStoredLanguage, useTranslation } from './i18n/index.js'
 
 const defaultSocketFactory = (url) => new WebSocket(url)
 const defaultAudioContextFactory = () => new (window.AudioContext || window.webkitAudioContext)()
@@ -98,6 +97,10 @@ function App({
   now = Date.now,
   navigationType,
 }) {
+  // A stored language choice applies before the first render (D-095); in
+  // test mode the detector is off, so this is where a stored choice lands.
+  useState(applyStoredLanguage)
+  const { t } = useTranslation()
   // Decided once at mount; the effect below acts on it.
   const [plan] = useState(() => reloadPlan(navigationType))
   const [state, dispatch] = useReducer(reducer, plan, initState)
@@ -272,7 +275,7 @@ function App({
             className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
             role="status"
           >
-            {RECONNECTING_TEXT}
+            {t('app.reconnecting')}
           </p>
         )}
         {state.screen === 'start' && (
@@ -310,7 +313,10 @@ function App({
             onUnlockSound={handleUnlockSound}
           />
         )}
-        <footer className="credit mt-auto pt-4 text-center text-xs text-muted">{CREDIT}</footer>
+        <footer className="mt-auto flex flex-col items-center gap-2 pt-4">
+          <LanguageSwitcher />
+          <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
+        </footer>
       </div>
     </div>
   )

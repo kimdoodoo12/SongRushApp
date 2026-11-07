@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { nameColour } from '../game/themes.js'
+import { useTranslation } from '../i18n/index.js'
 
 const SEAT_COUNT = 8
 const BUBBLE_MS = 6000
@@ -8,10 +9,10 @@ const ELLIPSIS = String.fromCharCode(0x2026)
 const CROWN = String.fromCharCode(0x265b)
 
 // The same text as the lobby roster row: the name, (방장), then (나).
-function nameText(player, me) {
+function nameText(player, me, t) {
   let text = player.name
-  if (player.host) text += ' (방장)'
-  if (player.name === me) text += ' (나)'
+  if (player.host) text += ` ${t('seat.host')}`
+  if (player.name === me) text += ` ${t('seat.me')}`
   return text
 }
 
@@ -99,6 +100,7 @@ function Bubble({ text, placement }) {
 }
 
 function FilledSeat({ player, me, score, isCorrect, bubble, placement }) {
+  const { t } = useTranslation()
   const own = player.name === me
   const connected = player.connected !== false
   const mark = isCorrect ? 'seat-got' : own ? 'seat-me' : ''
@@ -108,7 +110,7 @@ function FilledSeat({ player, me, score, isCorrect, bubble, placement }) {
       data-connected={String(connected)}
       className={`seat panel relative flex min-w-0 transition ${mark} ${connected ? '' : 'opacity-50'} ${placement.seat}`}
     >
-      {isCorrect && <span className="seat-tag absolute -top-2.5 left-2.5 z-10 h-5 whitespace-nowrap px-2 text-xs leading-5">정답!</span>}
+      {isCorrect && <span className="seat-tag absolute -top-2.5 left-2.5 z-10 h-5 whitespace-nowrap px-2 text-xs leading-5">{t('seat.correct')}</span>}
       <div
         aria-hidden="true"
         className="avatar relative grid size-9 shrink-0 place-items-center text-base md:size-11 md:text-xl"
@@ -118,9 +120,9 @@ function FilledSeat({ player, me, score, isCorrect, bubble, placement }) {
         {player.host && <span className="crown absolute -top-2.5 -right-1.5 text-sm md:text-base">{CROWN}</span>}
       </div>
       <div className={`flex w-full min-w-0 flex-col gap-0.5 ${placement.text}`}>
-        <span className="seat-name font-display h-5 w-full truncate text-sm leading-5 md:h-5.5 md:text-[15px] md:leading-5.5">{nameText(player, me)}</span>
+        <span className="seat-name font-display h-5 w-full truncate text-sm leading-5 md:h-5.5 md:text-[15px] md:leading-5.5">{nameText(player, me, t)}</span>
         <span className={`flex flex-wrap items-center gap-1 ${placement.pills}`}>
-          <span className="seat-score h-4 whitespace-nowrap text-xs leading-4 text-muted tabular-nums md:h-5 md:text-[13px] md:leading-5">{`${score}점`}</span>
+          <span className="seat-score h-4 whitespace-nowrap text-xs leading-4 text-muted tabular-nums md:h-5 md:text-[13px] md:leading-5">{t('seat.score', { score })}</span>
         </span>
       </div>
       {bubble !== null && <Bubble key={bubble.id} text={bubbleText(bubble.body)} placement={placement} />}
@@ -129,13 +131,14 @@ function FilledSeat({ player, me, score, isCorrect, bubble, placement }) {
 }
 
 function EmptySeat({ layout, placement }) {
+  const { t } = useTranslation()
   const size = layout === 'sides' ? 'w-34 shrink-0 min-h-12 md:w-auto md:min-h-17' : 'min-h-16 md:min-h-17'
   return (
     <div
       role="listitem"
       className={`seat-empty grid place-items-center whitespace-nowrap p-2 text-xs leading-4 ${size} ${placement.seat}`}
     >
-      빈 자리
+      {t('seat.empty')}
     </div>
   )
 }
@@ -158,6 +161,7 @@ const LIST_CLASS = {
 // prepared); each bubble hides 6 s after its line, and a newer line from the
 // same player restarts that player's timer.
 export default function Seats({ players, me, chat, scoreboard, correct, roundIndex, layout = 'grid' }) {
+  const { t } = useTranslation()
   const [round, setRound] = useState(roundIndex)
   const [watermark, setWatermark] = useState(-1)
   // name -> the id of the line whose bubble timed out.
@@ -217,7 +221,7 @@ export default function Seats({ players, me, chat, scoreboard, correct, roundInd
   }
 
   return (
-    <div role="list" aria-label="자리" className={LIST_CLASS[layout] ?? LIST_CLASS.grid}>
+    <div role="list" aria-label={t('seat.list')} className={LIST_CLASS[layout] ?? LIST_CLASS.grid}>
       {seats}
     </div>
   )

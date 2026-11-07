@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "SongRush",
+    "credit": "Data sources: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata",
+    "reconnecting": "Connection lost. Reconnecting..."
+  },
+  "start": {
+    "nickname": "Nickname",
+    "createRoom": "Create room",
+    "orCode": "or join with a code",
+    "roomCode": "Room code",
+    "join": "Join",
+    "noOpus": "This browser cannot play the audio. Please update your browser or iOS to the latest version."
+  },
+  "theme": {
+    "label": "Theme",
+    "labelGuest": "Theme (picked by the host)",
+    "play": "Playground",
+    "neon": "Stage",
+    "sakura": "Sakura",
+    "chalk": "Chalkboard",
+    "star": "Starry Night",
+    "arcade": "Arcade"
+  },
+  "lobby": {
+    "roomCode": "Code: ",
+    "copy": "Copy",
+    "players": "Players {{n}} / 8",
+    "waiting": "Waiting for the host to start the game...",
+    "songCount": "Songs",
+    "startGame": "Start game",
+    "leave": "Leave",
+    "abandoned": "The game was stopped, so you are back in the lobby."
+  },
+  "filter": {
+    "type": "Song type",
+    "tier": "Difficulty",
+    "from": "From year",
+    "to": "To year",
+    "fromAny": "Earliest",
+    "toAny": "Latest",
+    "reversed": "The start year is later than the end year.",
+    "all": "All",
+    "op": "OP only",
+    "ed": "ED only",
+    "easy": "Easy",
+    "normal": "Normal",
+    "hard": "Hard"
+  },
+  "seat": {
+    "list": "Seats",
+    "empty": "Empty seat",
+    "host": "(host)",
+    "me": "(you)",
+    "correct": "Got it!",
+    "score": "{{score}} pts"
+  },
+  "stage": {
+    "label": "Stage",
+    "timeLeft": "Time left",
+    "connecting": "Connecting to the server...",
+    "waitingNext": "Waiting for the next song...",
+    "round": "song",
+    "score": "Score: {{score}}",
+    "seconds": "{{seconds}}s",
+    "watching": "You are watching this song. You play from the next one.",
+    "unlockSound": "Tap for sound",
+    "loading": "Loading the audio...",
+    "loadFailed": "This song could not be played.",
+    "hint": "Guess the anime of the song you hear in the chat",
+    "skip": "Skip",
+    "skipCancel": "Unskip",
+    "skipCount": "Skip {{votes}}/{{needed}}"
+  },
+  "reveal": {
+    "heading": "Answer",
+    "noWinner": "Nobody got it",
+    "winner": "Winner: {{name}}",
+    "label": {
+      "ko": "KO",
+      "en": "EN",
+      "ja": "JA",
+      "romaji": "Romaji"
+    }
+  },
+  "chat": {
+    "label": "Chat",
+    "input": "Your answer",
+    "placeholder": "Type the anime title",
+    "send": "Send",
+    "correctLine": "{{name}} got it!"
+  },
+  "score": {
+    "board": "Scoreboard",
+    "ranking": "Final ranking",
+    "points": "{{score}} pts",
+    "rank": "#{{rank}}",
+    "final": "Final score: {{score}} pts"
+  },
+  "game": {
+    "toLobby": "To lobby",
+    "reset": "Home",
+    "disconnected": "Disconnected from the server.",
+    "replaced": "You connected from another window, so this one was closed."
+  },
+  "error": {
+    "bad-nickname": "Enter a nickname of 1 to 16 characters.",
+    "bad-song-count": "A game has 5 to 30 songs.",
+    "not-enough-songs": "There are not enough songs to play.",
+    "too-long": "Chat messages can be up to 200 characters.",
+    "room-not-found": "Room not found.",
+    "room-full": "The room is full (8 players max).",
+    "in-game": "A game is in progress. Please join after it ends.",
+    "not-host": "Only the host can start the game.",
+    "server-full": "The server is full. Please try again shortly.",
+    "room-closed": "The room was closed.",
+    "rejoin-failed": "Could not reconnect. Please join the room again.",
+    "bad-filter": "The conditions are not valid.",
+    "bad-room-theme": "Unknown theme.",
+    "available": "Only {{available}} songs can be played.",
+    "unknown": "An error occurred ({{code}})"
+  }
+}

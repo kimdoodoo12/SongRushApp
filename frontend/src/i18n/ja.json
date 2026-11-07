@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "SongRush",
+    "credit": "データ提供: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata",
+    "reconnecting": "接続が切れました。再接続しています..."
+  },
+  "start": {
+    "nickname": "ニックネーム",
+    "createRoom": "ルームを作る",
+    "orCode": "またはコードで参加",
+    "roomCode": "ルームコード",
+    "join": "参加",
+    "noOpus": "このブラウザでは音声を再生できません。ブラウザまたはiOSを最新版に更新してください。"
+  },
+  "theme": {
+    "label": "テーマ",
+    "labelGuest": "テーマ（ホストが選択）",
+    "play": "あそびば",
+    "neon": "ステージ",
+    "sakura": "さくら",
+    "chalk": "こくばん",
+    "star": "ほしぞら",
+    "arcade": "ゲーセン"
+  },
+  "lobby": {
+    "roomCode": "コード: ",
+    "copy": "コピー",
+    "players": "参加者 {{n}} / 8",
+    "waiting": "ホストがゲームを始めるのを待っています...",
+    "songCount": "曲数",
+    "startGame": "ゲーム開始",
+    "leave": "退出",
+    "abandoned": "ゲームが中断されたため、ロビーに戻りました。"
+  },
+  "filter": {
+    "type": "曲の種類",
+    "tier": "難易度",
+    "from": "開始年",
+    "to": "終了年",
+    "fromAny": "最初から",
+    "toAny": "現在まで",
+    "reversed": "開始年が終了年より後になっています。",
+    "all": "すべて",
+    "op": "OPのみ",
+    "ed": "EDのみ",
+    "easy": "かんたん",
+    "normal": "ふつう",
+    "hard": "むずかしい"
+  },
+  "seat": {
+    "list": "席",
+    "empty": "空席",
+    "host": "(ホスト)",
+    "me": "(自分)",
+    "correct": "正解!",
+    "score": "{{score}}点"
+  },
+  "stage": {
+    "label": "ステージ",
+    "timeLeft": "残り時間",
+    "connecting": "サーバーに接続しています...",
+    "waitingNext": "次の曲を待っています...",
+    "round": "曲目",
+    "score": "得点: {{score}}",
+    "seconds": "{{seconds}}秒",
+    "watching": "この曲は観戦中です。次の曲から参加します。",
+    "unlockSound": "タップして音を出す",
+    "loading": "音声を読み込んでいます...",
+    "loadFailed": "この曲を再生できませんでした。",
+    "hint": "流れている曲のアニメのタイトルをチャットで当てよう",
+    "skip": "スキップ",
+    "skipCancel": "取り消し",
+    "skipCount": "スキップ{{votes}}/{{needed}}"
+  },
+  "reveal": {
+    "heading": "正解発表",
+    "noWinner": "正解者なし",
+    "winner": "正解: {{name}}",
+    "label": {
+      "ko": "KO",
+      "en": "EN",
+      "ja": "JA",
+      "romaji": "Romaji"
+    }
+  },
+  "chat": {
+    "label": "チャット",
+    "input": "答えを入力",
+    "placeholder": "アニメのタイトルを入力",
+    "send": "送信",
+    "correctLine": "{{name}} 正解!"
+  },
+  "score": {
+    "board": "スコアボード",
+    "ranking": "最終順位",
+    "points": "{{score}}点",
+    "rank": "{{rank}}位",
+    "final": "最終得点: {{score}}点"
+  },
+  "game": {
+    "toLobby": "ロビーへ",
+    "reset": "トップへ",
+    "disconnected": "サーバーとの接続が切れました。",
+    "replaced": "別のウィンドウから接続したため、この接続は切れました。"
+  },
+  "error": {
+    "bad-nickname": "ニックネームは1〜16文字で入力してください。",
+    "bad-song-count": "曲数は5〜30曲です。",
+    "not-enough-songs": "出題できる曲が足りません。",
+    "too-long": "チャットは200文字まで入力できます。",
+    "room-not-found": "ルームが見つかりません。",
+    "room-full": "ルームが満員です（最大8人）。",
+    "in-game": "ゲーム中です。終わってから参加してください。",
+    "not-host": "ホストだけがゲームを開始できます。",
+    "server-full": "サーバーが混み合っています。しばらくしてからもう一度お試しください。",
+    "room-closed": "ルームが閉じられました。",
+    "rejoin-failed": "再接続できませんでした。もう一度ルームに参加してください。",
+    "bad-filter": "条件が正しくありません。",
+    "bad-room-theme": "不明なテーマです。",
+    "available": "出題できる曲は{{available}}曲だけです。",
+    "unknown": "エラーが発生しました（{{code}}）"
+  }
+}

@@ -1,12 +1,13 @@
 // The room looks (F-012, D-090, D-091), in picker order. Each id has a token
 // set under [data-room-theme="<id>"] in index.css; swatch is the picker dot.
+// The names are in the dictionaries under theme.<id>.
 export const THEMES = [
-  { id: 'play', name: '놀이터', swatch: '#ffe7a8' },
-  { id: 'neon', name: '무대', swatch: '#ff3df2' },
-  { id: 'sakura', name: '벚꽃', swatch: '#ffd1e0' },
-  { id: 'chalk', name: '칠판', swatch: '#24453a' },
-  { id: 'star', name: '별밤', swatch: '#0d1033' },
-  { id: 'arcade', name: '오락실', swatch: '#ffe14d' },
+  { id: 'play', swatch: '#ffe7a8' },
+  { id: 'neon', swatch: '#ff3df2' },
+  { id: 'sakura', swatch: '#ffd1e0' },
+  { id: 'chalk', swatch: '#24453a' },
+  { id: 'star', swatch: '#0d1033' },
+  { id: 'arcade', swatch: '#ffe14d' },
 ]
 
 export const DEFAULT_THEME = 'play'

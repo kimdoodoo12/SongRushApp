@@ -1,38 +1,38 @@
 // What the screen shows. All session side effects (socket, audio, timer)
 // live in session.js; this reducer only turns its events into display state.
 
-const ERROR_TEXT = {
-  'bad-nickname': '닉네임은 1~16자로 입력해 주세요.',
-  'bad-song-count': '곡 수는 5~30곡입니다.',
-  'not-enough-songs': '출제할 곡이 부족합니다.',
-  'too-long': '채팅은 200자까지 입력할 수 있습니다.',
-  'room-not-found': '방을 찾을 수 없습니다.',
-  'room-full': '방이 가득 찼습니다 (최대 8명).',
-  'in-game': '게임이 진행 중입니다. 끝난 뒤에 참가해 주세요.',
-  'not-host': '방장만 시작할 수 있습니다.',
-  'server-full': '서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.',
-  'room-closed': '방이 닫혔습니다.',
-  'rejoin-failed': '다시 연결하지 못했습니다. 방에 다시 참가해 주세요.',
-  'bad-filter': '조건이 올바르지 않습니다.',
-  'bad-room-theme': '알 수 없는 분위기입니다.',
-}
-
-// The mark before a system line in the chat log.
-const CHECK = String.fromCharCode(0x2714)
+// The server's error codes with a text in the dictionary (error.<code>).
+const ERROR_CODES = new Set([
+  'bad-nickname',
+  'bad-song-count',
+  'not-enough-songs',
+  'too-long',
+  'room-not-found',
+  'room-full',
+  'in-game',
+  'not-host',
+  'server-full',
+  'room-closed',
+  'rejoin-failed',
+  'bad-filter',
+  'bad-room-theme',
+])
 
 // The lobby notice after a game ended without gameOver (F-005).
-export const ABANDONED_TEXT = '게임이 중단되어 대기실로 돌아왔습니다.'
+export const ABANDONED_NOTICE = { key: 'lobby.abandoned' }
 
 // The song counts a game can have (D-047).
 export const SONG_COUNTS = Array.from({ length: 26 }, (_, i) => i + 5)
 
-// message is the whole error message, when there is one: not-enough-songs
-// names the server's count of drawable songs (F-008).
+// The text of an error code as { key, values }, translated when shown (see
+// messageText in i18n). message is the whole error message, when there is
+// one: not-enough-songs names the server's count of drawable songs (F-008).
 export function errorText(code, message) {
   if (code === 'not-enough-songs' && message !== undefined && typeof message.available === 'number') {
-    return `출제할 수 있는 곡이 ${message.available}곡뿐입니다.`
+    return { key: 'error.available', values: { available: message.available } }
   }
-  return ERROR_TEXT[code] ?? `오류가 발생했습니다 (${code})`
+  if (ERROR_CODES.has(code)) return { key: `error.${code}` }
+  return { key: 'error.unknown', values: { code: String(code) } }
 }
 
 // screen: 'start' | 'lobby' | 'game' | 'over' | 'disconnected'
@@ -42,12 +42,12 @@ export const initialState = {
   room: null, // { code, me } once joined; null before
   players: [], // the last roster: { name, score, host, connected }
   lobbyOpen: false, // the room is back in its lobby after a game
-  notice: null, // a lobby notice, such as ABANDONED_TEXT
+  notice: null, // a lobby notice, such as ABANDONED_NOTICE
 
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  chat: [], // { id, name, body, text }, or a system line { id, kind: 'system', winner, placed, text }
+  chat: [], // { id, name, body, text }, or a system line { id, kind: 'system', winner, placed }
   chatSeq: 0,
   correct: null,
   reveal: null,
@@ -60,7 +60,7 @@ export const initialState = {
   started: false, // the song is between its start and its reveal
   skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
   skipCount: null, // { votes, needed } from skipState for this song
-  soundBlocked: false, // the AudioContext is not running: show 탭하여 소리 켜기
+  soundBlocked: false, // the AudioContext is not running: show the sound prompt
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
@@ -183,7 +183,7 @@ export function reducer(state, action) {
         timer: null,
         error: null,
         lobbyOpen: false,
-        notice: ABANDONED_TEXT,
+        notice: ABANDONED_NOTICE,
         settings: null,
         watching: false,
         started: false,
@@ -220,13 +220,14 @@ export function reducer(state, action) {
       return { ...state, chat: [...state.chat, line], chatSeq: state.chatSeq + 1 }
     }
     case 'correct':
-      // A system line in the log (D-094). It has no name, so no seat bubble.
+      // A system line in the log (D-094). It has no name, so no seat bubble;
+      // its text is made when shown, in the current language.
       return {
         ...state,
         correct: action.name,
         chat: [
           ...state.chat,
-          { id: state.chatSeq, kind: 'system', winner: action.name, placed: false, text: `${CHECK} ${action.name} 정답!` },
+          { id: state.chatSeq, kind: 'system', winner: action.name, placed: false },
         ],
         chatSeq: state.chatSeq + 1,
       }
