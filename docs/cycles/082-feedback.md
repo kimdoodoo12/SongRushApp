@@ -132,3 +132,17 @@ The jar runs with a token pointing `api-base` at a local fake GitHub. Playwright
 - Attachments and screenshots.
 - A contact email field.
 - Captcha. Add one only if abuse appears.
+
+## Spec review (critic, round 1)
+- **High.**
+  - **H1.** A compose `.env` does not reach the container. The owner tasks now use `env_file`.
+  - **H2.** The rate-limit semantics were ambiguous: what counts, and which window. They are now pinned: sliding windows, what counts, and how `Retry-After` is computed.
+  - **H3.** Labels may be silently dropped. They are now created first, and the live check confirms them. No 422 fallback.
+- **Medium.**
+  - **M1/M2.** The User-Agent is dropped, so no fingerprint-like data is collected (D-096).
+  - **M3.** A test now covers the token in `toString`.
+  - **M4.** Any exception now gives 502, and the token is trimmed.
+  - **M5.** A 401/403 is logged at ERROR with a renewal hint.
+  - **M6.** The status endpoint is removed; a 503 shows the preparing message.
+- **Nits** applied: the title allows no control characters, and lengths are counted in UTF-16 code units.
+- **Checked, no issue.** The critic read the old `deploy/Caddyfile`; the live server runs nginx instead. Tomcat's RemoteIpValve reads `X-Forwarded-For` from the right and trusts only internal proxies (127/8, 172.16/12), so a spoofed left entry is ignored.
