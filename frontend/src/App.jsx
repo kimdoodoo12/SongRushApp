@@ -9,6 +9,7 @@ import LobbyScreen from './components/LobbyScreen.jsx'
 import ThemeDecor from './components/ThemeDecor.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import FeedbackDialog from './components/FeedbackDialog.jsx'
+import AdminScreen from './components/AdminScreen.jsx'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
 
@@ -90,7 +91,29 @@ function codeFromPath() {
   return match === null ? '' : match[1].toUpperCase().slice(0, 5)
 }
 
-function App({
+// The owner's admin page (cycle 083): /admin or /admin/..., not /administrator.
+function isAdminPath() {
+  const path = window.location.pathname
+  return path === '/admin' || path.startsWith('/admin/')
+}
+
+// /admin renders only the admin screen: no game socket, no reload rejoin, no
+// footer feedback button. The path is read once at mount.
+function App(props) {
+  const [admin] = useState(isAdminPath)
+  if (admin) {
+    return (
+      <div className="app-shell min-h-screen">
+        <div className="relative z-[1] px-3 py-3 sm:px-5 md:py-6">
+          <AdminScreen />
+        </div>
+      </div>
+    )
+  }
+  return <GameApp {...props} />
+}
+
+function GameApp({
   socketFactory = defaultSocketFactory,
   audioContextFactory = defaultAudioContextFactory,
   fetchFn = defaultFetch,

@@ -632,6 +632,28 @@
     white-space: nowrap;
   }
 
+  /* The admin screen (cycle 083). A feedback body keeps its line breaks and
+     is plain text; long words and URLs wrap instead of widening the page. */
+  .admin-body {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-wrap {
+    overflow-wrap: anywhere;
+  }
+
+  .admin-tab[aria-selected="true"] {
+    background: var(--a1);
+    color: var(--a1-ink);
+    border-color: var(--go-line);
+  }
+
+  .admin-link {
+    color: var(--a2);
+    text-decoration: underline;
+  }
+
   /* Decorations behind the page: petals (벚꽃) and stars (별밤). */
   .deco {
     position: fixed;

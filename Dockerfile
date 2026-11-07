@@ -9,7 +9,7 @@ WORKDIR /src
 COPY backend/ ./
 RUN sed -i 's/\r$//' gradlew && chmod +x gradlew && ./gradlew bootJar --no-daemon
 FROM eclipse-temurin:17-jre
-RUN useradd --system songrush && mkdir -p /app/run
+RUN useradd --system --uid 10001 songrush && mkdir -p /app/run
 WORKDIR /app/run
 COPY --from=jar /src/build/libs/backend-0.0.1-SNAPSHOT.jar /app/songrush.jar
 COPY --from=web /src/dist /app/web

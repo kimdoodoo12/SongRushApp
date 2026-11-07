@@ -12,10 +12,13 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 // POST {api-base}/repos/{repo}/issues with the JDK HttpClient (cycle 082). One call, no retry.
+// A 2xx answer must carry the issue's "number" and "html_url" (cycle 083), else the send fails.
 // Logs carry only the GitHub status or the failure type: never the token or the issue text,
 // and exception messages follow the same rule (no cause is attached, as a cause's message is not ours).
 public class GitHubIssueSender implements IssueSender {
@@ -43,11 +46,13 @@ public class GitHubIssueSender implements IssueSender {
 	}
 
 	@Override
-	public void send(Issue issue) throws IssueSendException {
+	public CreatedIssue send(Issue issue) throws IssueSendException {
 		int status;
+		byte[] answer;
 		try {
-			HttpResponse<Void> response = client.send(request(issue), HttpResponse.BodyHandlers.discarding());
+			HttpResponse<byte[]> response = client.send(request(issue), HttpResponse.BodyHandlers.ofByteArray());
 			status = response.statusCode();
+			answer = response.body();
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -59,8 +64,13 @@ public class GitHubIssueSender implements IssueSender {
 			throw new IssueSendException("GitHub call failed (" + e.getClass().getSimpleName() + ")");
 		}
 		if (status >= 200 && status < 300) {
-			log.info("feedback: GitHub created the issue (status {})", status);
-			return;
+			CreatedIssue created = created(answer);
+			if (created == null) {
+				log.warn("feedback: GitHub answered status {} without an issue number and URL", status);
+				throw new IssueSendException("GitHub answered status " + status + " without an issue number and URL");
+			}
+			log.info("feedback: GitHub created issue #{} (status {})", created.number(), status);
+			return created;
 		}
 		if (status == 401 || status == 403) {
 			log.error("feedback: GitHub rejected the token (status {}) - renew SONGRUSH_FEEDBACK_TOKEN", status);
@@ -69,6 +79,27 @@ public class GitHubIssueSender implements IssueSender {
 			log.warn("feedback: GitHub refused the issue (status {})", status);
 		}
 		throw new IssueSendException("GitHub answered status " + status);
+	}
+
+	// The number and html_url of a 2xx answer, or null when the body is not an object carrying both.
+	private static CreatedIssue created(byte[] answer) {
+		JsonNode json;
+		try {
+			json = answer == null || answer.length == 0 ? null : MAPPER.readTree(answer);
+		}
+		catch (JacksonException e) {
+			return null;
+		}
+		if (json == null || !json.isObject()) {
+			return null;
+		}
+		JsonNode number = json.get("number");
+		JsonNode url = json.get("html_url");
+		if (number == null || !number.isIntegralNumber() || !number.canConvertToInt() || url == null
+				|| !url.isString()) {
+			return null;
+		}
+		return new CreatedIssue(number.intValue(), url.asString());
 	}
 
 	private HttpRequest request(Issue issue) {
