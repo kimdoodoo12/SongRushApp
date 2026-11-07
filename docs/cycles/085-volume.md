@@ -12,13 +12,13 @@ The lead chose these defaults and told the owner; they can be changed.
 
 ## Behaviour
 1. **Audio graph.**
-   - The session creates one `GainNode` per AudioContext, the first time it schedules a song.
-   - Every song source connects to that gain node, and the gain node connects to `ctx.destination`.
+   - App creates one `GainNode` right after it creates the AudioContext in `openSession` (the same synchronous block). It keeps the node in a ref next to `ctxRef`, sets its gain from the stored setting, and connects it to `ctx.destination`. The node is never recreated while the context lives.
+   - `startSession` takes a new `output` option. Every song source connects to `output` instead of `ctx.destination`. The session holds no volume state and has no volume API.
    - Nothing about playback timing changes (`planPlayback`, start, stop, offset).
 2. **Gain.**
    - Volume `v` is an integer from 0 to 100. Gain = `(v/100)^2`, a perceptual curve.
    - Muted means gain 0, whatever `v` is.
-   - A change sets `gain.gain.value` at once, so it applies to the song already playing.
+   - A change sets `gain.gain.value` at once, so it applies to the song already playing. There is no AudioParam automation (`setTargetAtTime`, ramps). A small click on mute is accepted.
 3. **Persistence.**
    - The setting is stored in `localStorage['songrush.volume']` as JSON `{"v": <0-100>, "muted": <bool>}`. Every read and write is wrapped in try/catch.
    - A missing value, an invalid value or blocked storage means `{v: 80, muted: false}`.
@@ -30,6 +30,11 @@ The lead chose these defaults and told the owner; they can be changed.
      - Moving the slider above 0 while muted unmutes.
      - Muting keeps the slider value, so unmuting restores it.
      - A slider at 0 shows the muted icon state.
+     - Unmuting with the slider at 0 sets it to the default, 80.
+   - **Slot.** The control gets a row of its own, rendered as the stage's second child, right after `.stage-head`, in every stage state.
+     - The mute button is `h-8 w-8 shrink-0`, and the slider is a fixed-width box.
+     - It never goes into `.stage-head` (which already wraps at 390 px), `.stage-foot` (shown only while playing) or `.room-top`.
+     - The extra row, about 44 px, moves the chat input down on mobile. This is accepted.
    - **Layout.**
      - The control has fixed boxes, the same in every theme (no layout properties in theme rules; themeLayout stays green), and fits at 390 px without horizontal scroll.
      - It sits on the stage and must not move the existing stage boxes (round, clock, time bar, skip) between themes.
@@ -43,6 +48,10 @@ The lead chose these defaults and told the owner; they can be changed.
 - **Mute** sets the gain to 0 with `aria-pressed=true`. Unmuting restores 0.25.
 - **Stored setting.** `{"v":30,"muted":true}` stored before mount gives gain 0 and a slider at 30; unmuting gives `0.09`.
 - **Bad or blocked storage** gives the default.
+- **Second game.** After leaving and creating a room on the same context, `ctx.gains` still has length 1, and the new game's source connects to `ctx.gains[0]`.
+- **Before the first song.** Moving the slider to 50 while the stage shows connecting or loading gives `ctx.gains[0].gain.value` of 0.25, and the first source connects to that node.
+- **Unmuting at 0.** With the slider at 0, unmuting sets it to 80 (gain 0.64).
+- `App.volume.test.jsx` clears `localStorage` in `beforeEach` and `afterEach`.
 - **Slider above 0 while muted** unmutes.
 - **English labels** after switching language come from `en.json`.
 
@@ -53,16 +62,23 @@ The lead chose these defaults and told the owner; they can be changed.
 **Lead's browser check.**
 - The control is visible and usable in the six themes and three languages at 1280 and 390 px.
 - Theme box differences stay at 0, and nothing is clipped.
-- The volume change is heard. An AnalyserNode is not needed: the check reads the gain through a test hook only if one already exists; otherwise the unit tests stand.
+- After the slider is dragged, its value and `localStorage['songrush.volume']` match. The audible level is not checked in the browser, because no test hook exists; the unit tests are the evidence.
 
 ## File ownership
 - **Test writer:**
   - `frontend/src/App.volume.test.jsx` (new);
   - `frontend/src/testing/fakes.js` (add `createGain()` returning a fake with `gain.value` and `connect`);
   - `frontend/src/App.flow.test.jsx` (the declared line only).
-- **Implementer:** `frontend/src/game/session.js`, `frontend/src/App.jsx`, `frontend/src/components/GameScreen.jsx`, a new `frontend/src/components/VolumeControl.jsx`, `frontend/src/game/volume.js` (new, storage helpers), `frontend/src/i18n/{ko,en,ja}.json` and `frontend/src/index.css`.
+- **Implementer:** `frontend/src/game/session.js` (the connect target only), `frontend/src/App.jsx`, `frontend/src/components/GameScreen.jsx`, a new `frontend/src/components/VolumeControl.jsx`, `frontend/src/game/volume.js` (new, storage helpers), `frontend/src/i18n/{ko,en,ja}.json` and `frontend/src/index.css`.
 
 ## Out of scope
 - Server changes.
 - Per-song normalisation.
 - Keyboard shortcuts.
+
+## Spec review (critic, round 1)
+- **H1.** The spec said "per context" but put the node in the session, so a second game would have made a second node. Applied: App owns the node, and the session gets `output`.
+- **M1.** No free slot existed on the stage. Applied: a row of its own after `.stage-head`.
+- **M2.** A default of 80 lowers today's loudness by about 4 dB. Kept as told to the owner and recorded here.
+- **M3.** The audible check could not produce evidence. Applied: the browser checks the value and storage; the unit tests are the evidence for the gain.
+- **N1–N3** applied: storage is cleared in tests, there is no automation, and unmuting at 0 sets 80.
