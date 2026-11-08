@@ -293,9 +293,15 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-020** backend: anime cover on the reveal (from S-007)
   - `/cover/{id}`: disk mode reads `cover-cache/index.json` (`{version, covers: {animeId: {id, file, size}}}`) and serves `<id>.jpg`; S3 mode reads `cover-cache/s3-covers.json` (`{animeId: {id, key, size}}`, written by `songrush_data.s3covers`) and 302s to a presigned URL of its `key` (`c/<id>`). The reveal message carries `coverUrl` = `/cover/<id>` or null.
   - Acceptance (JUnit): reveal has `coverUrl`; no message before the reveal and no reconnect snapshot contains a cover id; unknown id 404; the current audio token sent to `/cover/` is 404 and a cover id sent to `/audio/` is 404; a missing or broken cover map logs WARN, startup succeeds and every `coverUrl` is null.
-- [~] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
+- [x] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
   - Anime rank = order of the anime's first theme in `drawSet`. `easy` = anime ranks 1-100, `normal` (also when `tier` is absent) = 1-300, `hard` = all. Easy shuffles themes and keeps the first theme of each unseen series group; normal and hard draw as today.
   - Acceptance (JUnit): each tier draws only its anime ranks; easy never repeats a group; an easy pool with fewer groups than N answers `not-enough-songs` with `available` = distinct groups and `unit: "series"`; other tiers keep `available` as songs.
+- [ ] **C-022** data + backend: accept PNG covers (from I-012 first run)
+  - AnimeThemes serves many LARGE_COVER links ending in `.jpg` whose body is PNG (`89 50 4E 47`); the first run downloaded 15 and failed 19 of 34 on "not a JPEG". Accept JPEG and PNG by signature; store `<id>.jpg` or `<id>.png` by the real format; `index.json` `file` may be either; `s3covers` sets `image/jpeg` or `image/png` by extension; backend `CoverMap` accepts both suffixes and `/cover/{id}` sends the matching content type.
+  - Acceptance (pytest, JUnit): PNG bodies are saved as `.png` and JPEG as `.jpg`; other bodies still fail; s3covers uploads each with its content type; the backend serves each with its content type; an index whose `file` suffix does not match the id is still rejected.
+- [ ] **B-022** backend: easy draws series uniformly (from D-108)
+  - Easy: group the matching candidates by series group, shuffle the groups with the room's random, take N groups, and pick one theme uniformly within each. Normal and hard unchanged.
+  - Acceptance (JUnit): over many seeded easy games on a fixture where one group has many more themes than the others, every group appears with about the same frequency (bounded test); no game repeats a group; not-enough-songs unchanged.
 - [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
   - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
 - [ ] **F-022** frontend: reveal cover and series wording (from S-007)
@@ -366,6 +372,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-108** Easy draw by series (user, 2026-11-08): in easy, every series group of the pool is equally likely; pick a group uniformly, then one of its themes. Replaces design 088's option D2 for easy (with D2 a series of 85 themes appeared in 83% of easy games).
 - **D-102** Song set size (user, 2026-11-08): grow the cached draw set from the top 1,500 to the top 3,000 OP/ED themes by popularity, using the current AnimeThemes audio. This replaces the 1,500 in D-019, D-027, D-034 and D-070, and raises D-044's 10 GB stop to the expected total of about 10 GB. It comes before the STOMP work (B-014 onward).
 - **D-103** Anime cover images (user, 2026-11-08): the reveal card shows the anime's cover image, and only after the reveal.
 - **D-104** Cover storage (user, 2026-11-08): covers are downloaded from AnimeThemes and served by our own server (gitignored folder and S3), not hotlinked.
