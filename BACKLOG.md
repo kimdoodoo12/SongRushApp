@@ -284,7 +284,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-019** data: cover tool (from S-007)
   - Lean paged GraphQL query for `images { nodes { facet link } }` with its own cache prefix; download LARGE_COVER for draw-set anime into `data/cover-cache/` with `index.json` (`animeId -> {id, file, size}`, `id` = `token_urlsafe(16)` kept across runs). Add `data/cover-cache/` to `.gitignore`. Gentle rules: UA, 3 s gap, 60 s timeout, 429 Retry-After, resume, stop after 5 consecutive failures.
   - Acceptance (pytest, fixtures only): the query parses a saved page; only draw-set anime are fetched; an existing valid file is skipped and its id kept; 429 waits for Retry-After; 5 failures stop the run; `git check-ignore data/cover-cache/x.jpg` succeeds.
-- [~] **C-021** data: bound the cover page loop (from cycle 090 review M1)
+- [x] **C-021** data: bound the cover page loop (from cycle 090 review M1)
   - The run reads page 1's `lastPage` (parse_page keeps its 3-tuple) and fails with `ValueError` when the page number exceeds page 1's `lastPage` + 5, or when a page has `hasMorePages` true but no data. Must land before I-012 runs the tool live.
   - Acceptance (pytest): a fake transport that always says `hasMorePages: true` ends with `ValueError` after at most `lastPage` + 5 requests; an empty page with `hasMorePages: true` raises.
 - [ ] **C-020** data: S3 upload of covers (from S-007)
@@ -477,6 +477,9 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **091 M1** `covers.py:126,172`: page 1's `lastPage` itself has no cap; add an absolute `MAX_PAGES` (e.g. 200) so one bad value cannot lift the bound.
+- **091 N1** `covers.py:177-179`: the bound error should say whether page 1 was cached and suggest `--refresh-pages`.
 
 - **090 N2** `covers.py:297-299`: suggest `--refresh-pages` also when downloads fail with 404 (stale cached cover links).
 - **090 N3** `covers.py:43,191-196`: on load, require ids to match `^[A-Za-z0-9_-]{22}$` and reject case-insensitive duplicates (hand-edited index only).
