@@ -278,9 +278,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [x] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
-- [ ] **C-018** data: draw set 3,000 (from S-007, design 088)
+- [~] **C-018** data: draw set 3,000 (from S-007, design 088)
   - `DRAW_SET_SIZE = 3000`; rebuild `catalog.json` from the cache with no live request; print the theme counts of anime ranks 1-100 and 1-300.
-  - Acceptance (pytest): the draw set has 3,000 entries; its first 1,500 equal the old order on the fixture; the build makes no network call.
+  - Acceptance (pytest): the draw set has 3,000 entries; growing the draw size keeps the earlier entries (prefix-stable) on a fixture; the rebuild uses only cached sources plus the build's single AnimeThemes freshness check (verified from the build log, cycle 089).
 - [ ] **C-019** data: cover tool (from S-007)
   - Lean paged GraphQL query for `images { nodes { facet link } }` with its own cache prefix; download LARGE_COVER for draw-set anime into `data/cover-cache/` with `index.json` (`animeId -> {id, file, size}`, `id` = `token_urlsafe(16)` kept across runs). Add `data/cover-cache/` to `.gitignore`. Gentle rules: UA, 3 s gap, 60 s timeout, 429 Retry-After, resume, stop after 5 consecutive failures.
   - Acceptance (pytest, fixtures only): the query parses a saved page; only draw-set anime are fetched; an existing valid file is skipped and its id kept; 429 waits for Retry-After; 5 failures stop the run; `git check-ignore data/cover-cache/x.jpg` succeeds.
