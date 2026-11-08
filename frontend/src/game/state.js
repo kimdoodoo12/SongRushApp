@@ -63,6 +63,9 @@ export const initialState = {
   ranking: null, // the gameOver rows { rank, name, score }
   watching: false, // joined mid-song: watching it, playing from the next
   started: false, // the song is between its start and its reveal
+  // The local clock has reached the started song's startAt; set by every
+  // start and tick, read only together with started (087).
+  reached: false,
   skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
   skipCount: null, // { votes, needed } from skipState for this song
   soundBlocked: false, // the AudioContext is not running: show the sound prompt
@@ -206,10 +209,15 @@ export function reducer(state, action) {
     case 'loadFailed':
       return { ...state, load: 'failed' }
     case 'start':
-      return { ...state, started: true, timer: { max: action.max, remaining: action.remaining } }
+      return {
+        ...state,
+        started: true,
+        reached: action.reached === true,
+        timer: { max: action.max, remaining: action.remaining },
+      }
     case 'tick':
       if (state.timer === null) return state
-      return { ...state, timer: { ...state.timer, remaining: action.remaining } }
+      return { ...state, reached: action.reached === true, timer: { ...state.timer, remaining: action.remaining } }
     case 'chat': {
       const line = { id: state.chatSeq, name: action.name, body: action.text, text: `${action.name}: ${action.text}` }
       // The winner's first chat after correct (D-094) goes just above the
