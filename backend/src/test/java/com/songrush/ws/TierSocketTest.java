@@ -34,15 +34,24 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 // Cycle 063 (B-012) criterion 3: the tier field of create (solo) and start over the raw WebSocket at
-// /ws on a real server (docs/cycles/063-tier-filter.md). The data folder is written into a static
-// @TempDir before the context loads: entry i is anime 1000 + i with one cached theme 5000 + i of
-// 3000 ms and a 1-byte audio file, even i OP and odd i ED, of year 2000. Its rank is i + 1; there
-// are ENTRIES >= 510 of them, so a hard start (ranks 501+) has at least 5 songs (spec review). The
-// current song is found by resolving the token in prepare.audioUrl with the AudioTokens bean.
+// /ws on a real server (docs/cycles/063-tier-filter.md), updated for cycle 094 (B-021): tiers by anime
+// rank, easy 1-100, normal 1-300, hard all, and the easy shortage counted in series
+// (docs/cycles/094-nested-tiers.md). The data folder is written into a static @TempDir before the
+// context loads: anime a (0-based, id 1000 + a, its own group, anime rank a + 1) has four cached
+// themes 5000 + 10 * a + j (j = 0..3, OP for even j) when a < 100, else one theme 5000 + 10 * a (OP
+// for even a); every theme lasts 3000 ms and has a 1-byte audio file. Anime ranks 96-100 are of 1998
+// and sit at draw-set positions 381-400 (outside a theme-rank 1-300 cut); anime ranks 301-305 are of
+// 1997; the rest are of 2000. Year-narrowed starts make each tier check deterministic. The current
+// song is found by resolving the token in prepare.audioUrl with the AudioTokens bean.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class TierSocketTest {
 
-	private static final int ENTRIES = 520;
+	private static final int ANIME_COUNT = 310;
+
+	// Anime with four themes each: indexes 0..MULTI - 1.
+	private static final int MULTI = 100;
+
+	private static final int THEME_COUNT = 4 * MULTI + (ANIME_COUNT - MULTI);
 
 	private static final int ANIME_BASE = 1000;
 
@@ -85,12 +94,41 @@ class TierSocketTest {
 
 	// ---- fixture ----
 
-	private static String type(int i) {
-		return i % 2 == 0 ? "OP" : "ED";
+	private static int themesOf(int a) {
+		return a < MULTI ? 4 : 1;
 	}
 
-	private static String basename(int i) {
-		return "TierSock" + i + "-" + type(i) + "1.ogg";
+	private static int themeId(int a, int j) {
+		return THEME_BASE + 10 * a + j;
+	}
+
+	// The type of theme j of anime a.
+	private static String type(int a, int j) {
+		int n = a < MULTI ? j : a;
+		return n % 2 == 0 ? "OP" : "ED";
+	}
+
+	private static int year(int a) {
+		if (95 <= a && a <= 99) {
+			return 1998;
+		}
+		if (300 <= a && a <= 304) {
+			return 1997;
+		}
+		return 2000;
+	}
+
+	private static String basename(int a, int j) {
+		return "TierSock" + a + "-" + type(a, j) + (j + 1) + ".ogg";
+	}
+
+	// The fixture's anime rank of a theme id, from the model.
+	private static int animeRankOf(int themeId) {
+		return (themeId - THEME_BASE) / 10 + 1;
+	}
+
+	private static String typeOf(int themeId) {
+		return type((themeId - THEME_BASE) / 10, (themeId - THEME_BASE) % 10);
 	}
 
 	private static void writeCatalog(Path dir) {
@@ -101,40 +139,42 @@ class TierSocketTest {
 		Map<String, Object> index = new LinkedHashMap<>();
 		try {
 			Path cache = Files.createDirectories(dir.resolve("audio-cache"));
-			for (int i = 0; i < ENTRIES; i++) {
+			for (int a = 0; a < ANIME_COUNT; a++) {
 				Map<String, List<String>> titles = new LinkedHashMap<>();
-				titles.put("ko", List.of("Tier Ko " + i));
-				titles.put("en", List.of("Tier Anime " + i));
-				titles.put("ja", List.of("Tier Ja " + i));
-				titles.put("romaji", List.of("Tier Romaji " + i));
+				titles.put("ko", List.of("Tier Ko " + a));
+				titles.put("en", List.of("Tier Anime " + a));
+				titles.put("ja", List.of("Tier Ja " + a));
+				titles.put("romaji", List.of("Tier Romaji " + a));
 
-				Map<String, Object> a = new LinkedHashMap<>();
-				a.put("id", ANIME_BASE + i);
-				a.put("anilistId", 500000 + i);
-				a.put("group", GROUP_BASE + i);
-				a.put("titles", titles);
-				a.put("reveal", "Tier Reveal " + i);
-				a.put("year", 2000);
-				anime.add(a);
+				Map<String, Object> an = new LinkedHashMap<>();
+				an.put("id", ANIME_BASE + a);
+				an.put("anilistId", 500000 + a);
+				an.put("group", GROUP_BASE + a);
+				an.put("titles", titles);
+				an.put("reveal", "Tier Reveal " + a);
+				an.put("year", year(a));
+				anime.add(an);
 
 				LinkedHashSet<String> accepted = new LinkedHashSet<>();
 				titles.values().forEach(list -> list.forEach(t -> accepted.add(Normalize.normalize(t))));
-				groups.add(Map.of("id", GROUP_BASE + i, "accepted", List.copyOf(accepted)));
+				groups.add(Map.of("id", GROUP_BASE + a, "accepted", List.copyOf(accepted)));
 
-				Map<String, Object> t = new LinkedHashMap<>();
-				t.put("id", THEME_BASE + i);
-				t.put("animeId", ANIME_BASE + i);
-				t.put("type", type(i));
-				t.put("slug", type(i) + "1");
-				t.put("song", "Tier Song " + i);
-				t.put("artists", List.of("Tier Singer " + i));
-				t.put("audio", Map.of("basename", basename(i), "size", 1));
-				themes.add(t);
-				drawSet.add(THEME_BASE + i);
+				for (int j = 0; j < themesOf(a); j++) {
+					Map<String, Object> t = new LinkedHashMap<>();
+					t.put("id", themeId(a, j));
+					t.put("animeId", ANIME_BASE + a);
+					t.put("type", type(a, j));
+					t.put("slug", type(a, j) + (j + 1));
+					t.put("song", "Tier Song " + a + "-" + j);
+					t.put("artists", List.of("Tier Singer " + a));
+					t.put("audio", Map.of("basename", basename(a, j), "size", 1));
+					themes.add(t);
+					drawSet.add(themeId(a, j));
 
-				index.put(Integer.toString(THEME_BASE + i),
-						Map.of("basename", basename(i), "durationMs", DURATION_MS, "size", 1));
-				Files.write(cache.resolve(basename(i)), new byte[1]);
+					index.put(Integer.toString(themeId(a, j)),
+							Map.of("basename", basename(a, j), "durationMs", DURATION_MS, "size", 1));
+					Files.write(cache.resolve(basename(a, j)), new byte[1]);
+				}
 			}
 			Map<String, Object> root = new LinkedHashMap<>();
 			root.put("version", 1);
@@ -228,21 +268,39 @@ class TierSocketTest {
 		return code;
 	}
 
-	// The rank (1-based draw-set position) of the song a prepare names.
-	private int rankOf(JsonNode prepare) {
+	// The theme id of the song a prepare names.
+	private int themeOf(JsonNode prepare) {
 		String url = prepare.path("audioUrl").asString(null);
 		assertThat(url).startsWith("/audio/");
 		Integer themeId = tokens.resolve(url.substring("/audio/".length())).orElse(null);
 		assertThat(themeId).as("token in audioUrl resolves").isNotNull();
 		Theme theme = catalog.theme(themeId).orElseThrow();
-		return catalog.drawSet().indexOf(theme.id()) + 1;
+		return theme.id();
+	}
+
+	// not-enough-songs with the count; unit is left out when null.
+	private static JsonNode notEnough(int available, String unit) {
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("type", "error");
+		m.put("code", "not-enough-songs");
+		m.put("available", available);
+		if (unit != null) {
+			m.put("unit", unit);
+		}
+		return MAPPER.valueToTree(m);
 	}
 
 	@Test
-	void fixtureHasEnoughThemesForAHardGame() {
-		assertThat(catalog.drawSet()).hasSize(ENTRIES);
-		assertThat(catalog.candidates()).hasSize(ENTRIES);
-		assertThat(ENTRIES - 500).isGreaterThanOrEqualTo(10);
+	void fixtureRanksAnimeBehindTheirDrawSetPositions() {
+		assertThat(catalog.drawSet()).hasSize(THEME_COUNT);
+		assertThat(catalog.candidates()).hasSize(THEME_COUNT);
+		// Anime rank 100's themes are at positions 397-400, past a theme-rank 300 cut.
+		assertThat(catalog.rank(themeId(99, 0))).isEqualTo(397);
+		assertThat(catalog.animeRank(themeId(99, 0))).isEqualTo(100);
+		assertThat(catalog.animeRank(themeId(99, 3))).isEqualTo(100);
+		assertThat(catalog.animeRank(themeId(95, 1))).isEqualTo(96);
+		assertThat(catalog.animeRank(themeId(300, 0))).isEqualTo(301);
+		assertThat(catalog.animeRank(themeId(304, 0))).isEqualTo(305);
 	}
 
 	// ---- bad-filter ----
@@ -379,12 +437,13 @@ class TierSocketTest {
 		awaitRoster(host, 2);
 		awaitRoster(guest, 2);
 
-		host.send("start", "songCount", 5, "tier", "hard");
+		// Hard of 1997: exactly anime ranks 301-305, outside normal.
+		host.send("start", "songCount", 5, "yearFrom", 1997, "yearTo", 1997, "tier", "hard");
 		for (TestClient client : List.of(host, guest)) {
-			assertThat(client.await("settings")).isEqualTo(settings("tier", "hard"));
+			assertThat(client.await("settings")).isEqualTo(settings("yearFrom", 1997, "yearTo", 1997, "tier", "hard"));
 			JsonNode prepare = client.await("prepare");
 			assertThat(prepare.path("index").intValue()).isEqualTo(0);
-			assertThat(rankOf(prepare)).as("hard draws rank 501+").isBetween(501, ENTRIES);
+			assertThat(animeRankOf(themeOf(prepare))).as("hard of 1997 draws anime rank 301-305").isBetween(301, 305);
 			List<String> types = frameTypes(client);
 			assertThat(firstIndexOf(types, "settings")).isLessThan(firstIndexOf(types, "prepare"));
 			assertThat(types.stream().filter("settings"::equals).count()).isEqualTo(1);
@@ -394,20 +453,56 @@ class TierSocketTest {
 	@Test
 	void soloEasyWithTypesGetsSettingsWithTheTierLastThenPrepare() throws Exception {
 		TestClient client = connect();
-		client.send("create", "nickname", "Tester", "songCount", 5, "types", List.of("ED"), "tier", "easy");
+		// Easy ED of 1998: anime ranks 96-100, two EDs each, five groups; their draw-set positions are
+		// 381-400, so a theme-rank cut would leave nothing.
+		client.send("create", "nickname", "Tester", "songCount", 5, "types", List.of("ED"), "yearFrom", 1998,
+				"yearTo", 1998, "tier", "easy");
 		JsonNode settings = client.await("settings");
-		assertThat(settings).isEqualTo(settings("types", List.of("ED"), "tier", "easy"));
+		assertThat(settings)
+				.isEqualTo(settings("types", List.of("ED"), "yearFrom", 1998, "yearTo", 1998, "tier", "easy"));
 		List<String> keys = new ArrayList<>();
 		settings.properties().forEach(e -> keys.add(e.getKey()));
-		assertThat(keys).containsExactly("type", "types", "tier");
+		assertThat(keys).containsExactly("type", "types", "yearFrom", "yearTo", "tier");
 		JsonNode prepare = client.await("prepare");
 		assertThat(prepare.path("index").intValue()).isEqualTo(0);
-		int rank = rankOf(prepare);
-		assertThat(rank).isBetween(1, 300);
-		assertThat(type(rank - 1)).isEqualTo("ED");
+		int themeId = themeOf(prepare);
+		assertThat(animeRankOf(themeId)).isBetween(96, 100);
+		assertThat(typeOf(themeId)).isEqualTo("ED");
 		List<String> types = frameTypes(client);
 		assertThat(types.get(firstIndexOf(types, "settings") + 1)).as("frame after settings in " + types)
 				.isEqualTo("prepare");
+	}
+
+	// ---- not-enough-songs by tier ----
+
+	@Test
+	void soloEasyWithFewerGroupsThanSongsCountsSeries() throws Exception {
+		TestClient client = connect();
+		// Easy of 1998: anime ranks 96-100, 20 themes in 5 groups.
+		client.send("create", "nickname", "Tester", "songCount", 6, "yearFrom", 1998, "yearTo", 1998, "tier", "easy");
+		assertThat(client.await("error")).isEqualTo(notEnough(5, "series"));
+		client.assertPingWorks();
+		assertThat(frameTypes(client)).doesNotContain("settings", "prepare");
+	}
+
+	@Test
+	void lobbyNormalAndHardCountSongsWithoutAUnit() throws Exception {
+		TestClient host = connect();
+		createLobby(host);
+		awaitRoster(host, 1);
+		// Normal of 1997: anime ranks 301-305 are outside normal, so nothing matches.
+		host.send("start", "songCount", 5, "yearFrom", 1997, "yearTo", 1997);
+		assertThat(host.await("error")).isEqualTo(notEnough(0, null));
+		host.send("start", "songCount", 5, "yearFrom", 1997, "yearTo", 1997, "tier", "normal");
+		assertThat(host.await("error")).isEqualTo(notEnough(0, null));
+		// Hard of 1997: 5 songs, one short of 6.
+		host.send("start", "songCount", 6, "yearFrom", 1997, "yearTo", 1997, "tier", "hard");
+		assertThat(host.await("error")).isEqualTo(notEnough(5, null));
+		// Normal OP of 1998: anime ranks 96-100 with two OPs each, 10 songs in 5 anime.
+		host.send("start", "songCount", 11, "types", List.of("OP"), "yearFrom", 1998, "yearTo", 1998);
+		assertThat(host.await("error")).isEqualTo(notEnough(10, null));
+		host.assertPingWorks();
+		assertThat(frameTypes(host)).doesNotContain("settings", "prepare");
 	}
 
 }
