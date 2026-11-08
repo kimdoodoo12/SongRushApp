@@ -287,7 +287,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-021** data: bound the cover page loop (from cycle 090 review M1)
   - The run reads page 1's `lastPage` (parse_page keeps its 3-tuple) and fails with `ValueError` when the page number exceeds page 1's `lastPage` + 5, or when a page has `hasMorePages` true but no data. Must land before I-012 runs the tool live.
   - Acceptance (pytest): a fake transport that always says `hasMorePages: true` ends with `ValueError` after at most `lastPage` + 5 requests; an empty page with `hasMorePages: true` raises.
-- [ ] **C-020** data: S3 upload of covers (from S-007)
+- [~] **C-020** data: S3 upload of covers (from S-007)
   - A new module beside `s3upload.py`, reusing its client and fake: uploads the files named in `cover-cache/index.json` only (never a directory glob, cycle 090 review N1) under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-keys.json` last.
   - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
 - [ ] **B-020** backend: anime cover on the reveal (from S-007)
