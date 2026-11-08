@@ -2,6 +2,10 @@
 // failed, the record and the equalizer stay on screen but stand still. The
 // disc area carries data-paused="true" while load is 'loading' or 'failed';
 // otherwise the attribute is absent. CSS pauses the animations through it.
+// 087: disc drawn from prepare (D-101 clarified). The disc is drawn whenever
+// a round is current and not revealed, so also after prepare and before the
+// start, with data-paused="true" until the song actually plays. The reveal
+// still replaces it.
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
@@ -190,5 +194,75 @@ describe('failed load', () => {
     expect(env.audio.last.startedSources()).toEqual([])
     expectDiscDrawn()
     expect(discArea().getAttribute('data-paused')).toBe('true')
+  })
+})
+
+// 087: disc drawn from prepare.
+const revealMsg = {
+  type: 'reveal',
+  index: 0,
+  reveal: '진격의 거인',
+  titles: { ko: ['진격의 거인'], en: ['Attack on Titan'], ja: ['進撃の巨人'], romaji: ['Shingeki no Kyojin'] },
+  song: '紅蓮の弓矢',
+  artists: ['Revo', 'Linked Horizon'],
+  themeType: 'OP',
+  themeSlug: 'OP1',
+  winner: null,
+}
+
+describe('prepare, before start', () => {
+  it('audio loaded before start: the disc is drawn with data-paused="true"', async () => {
+    const env = setup()
+    const socket = await gamePrepared(env)
+    await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
+    await settle()
+    expect(env.audio.last.startedSources()).toEqual([])
+    expectDiscDrawn()
+    expect(discArea().getAttribute('data-paused')).toBe('true')
+  })
+
+  it('audio still loading before start (pending fetch): the disc is drawn with data-paused="true"', async () => {
+    const fetch = createDeferredFetch()
+    const env = setup({ fetch })
+    await gamePrepared(env)
+    await waitFor(() => expect(fetch.pending).toHaveLength(1))
+    expect(screen.getByText(ko.stage.loading)).toBeTruthy()
+    expectDiscDrawn()
+    expect(discArea().getAttribute('data-paused')).toBe('true')
+  })
+
+  it('audio still loading before start (pending decode): the disc is drawn with data-paused="true"', async () => {
+    const env = setup({ ctxOptions: { deferDecode: true } })
+    await gamePrepared(env)
+    const ctx = env.audio.last
+    await waitFor(() => expect(ctx.pendingDecodes).toHaveLength(1))
+    expectDiscDrawn()
+    expect(discArea().getAttribute('data-paused')).toBe('true')
+  })
+
+  it('audio loaded before start, then start: the attribute is absent', async () => {
+    const env = setup()
+    const socket = await gamePrepared(env)
+    await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
+    expectDiscDrawn()
+    expect(discArea().getAttribute('data-paused')).toBe('true')
+    deliverStart(socket)
+    await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
+    expectDiscDrawn()
+    expect(discArea().hasAttribute('data-paused')).toBe(false)
+  })
+})
+
+describe('reveal', () => {
+  it('after the reveal the disc area is gone', async () => {
+    const env = setup()
+    const socket = await gamePrepared(env)
+    await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
+    deliverStart(socket)
+    await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
+    expectDiscDrawn()
+    deliver(socket, revealMsg)
+    await waitFor(() => expect(document.querySelector('.reveal')).not.toBeNull())
+    expect(document.querySelector('.disc-area')).toBeNull()
   })
 })
