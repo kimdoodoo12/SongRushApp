@@ -196,7 +196,8 @@ public final class Room {
 	}
 
 	// Draws songCount songs from the grouped candidates that match the filter, including its tier by
-	// anime rank. Easy keeps at most one song per series group; normal and hard are a uniform draw.
+	// anime rank. Easy draws series groups uniformly and one song per group; normal and hard are a
+	// uniform draw over songs.
 	// Too few: everyone gets not-enough-songs with the narrowed count (easy counts series groups and
 	// adds unit "series"). With a non-empty filter, everyone gets settings (only its set fields)
 	// before the first prepare (docs/cycles/060-draw-filters.md, 063-tier-filter.md,
@@ -219,23 +220,27 @@ public final class Room {
 					.ifPresent(drawable::add);
 		}
 		if (DrawFilter.EASY.equals(filter.tier())) {
-			// Shuffle (Fisher-Yates), then keep the first song of each series group not yet kept, until
-			// songCount.
-			for (int i = 0; i < drawable.size(); i++) {
-				Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
-			}
-			List<Song> picked = new ArrayList<>();
-			Set<Integer> groups = new HashSet<>();
+			// Group by series group in order of first appearance (deterministic for a seeded random),
+			// shuffle the groups (Fisher-Yates), then one uniform song from each of the first songCount
+			// groups: every group is equally likely, whatever its song count
+			// (docs/cycles/096-easy-uniform-series.md).
+			Map<Integer, List<Song>> byGroup = new LinkedHashMap<>();
 			for (Song s : drawable) {
-				if (groups.add(s.anime().group())) {
-					picked.add(s);
-				}
+				byGroup.computeIfAbsent(s.anime().group(), g -> new ArrayList<>()).add(s);
 			}
-			if (picked.size() < songCount) {
-				outbox.toAll(message("error", "code", "not-enough-songs", "available", picked.size(), "unit", "series"));
+			List<List<Song>> groups = new ArrayList<>(byGroup.values());
+			if (groups.size() < songCount) {
+				outbox.toAll(message("error", "code", "not-enough-songs", "available", groups.size(), "unit", "series"));
 				return;
 			}
-			songs = List.copyOf(picked.subList(0, songCount));
+			for (int i = 0; i < groups.size(); i++) {
+				Collections.swap(groups, i, random.nextInt(i, groups.size()));
+			}
+			List<Song> picked = new ArrayList<>();
+			for (List<Song> group : groups.subList(0, songCount)) {
+				picked.add(group.get(random.nextInt(group.size())));
+			}
+			songs = List.copyOf(picked);
 		}
 		else {
 			if (drawable.size() < songCount) {
