@@ -278,6 +278,26 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [x] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
+- [ ] **C-018** data: draw set 3,000 (from S-007, design 087)
+  - `DRAW_SET_SIZE = 3000`; rebuild `catalog.json` from the cache with no live request; print the theme counts of anime ranks 1-100 and 1-300.
+  - Acceptance (pytest): the draw set has 3,000 entries; its first 1,500 equal the old order on the fixture; the build makes no network call.
+- [ ] **C-019** data: cover tool (from S-007)
+  - Lean paged GraphQL query for `images { nodes { facet link } }` with its own cache prefix; download LARGE_COVER for draw-set anime into `data/cover-cache/` with `index.json` (`animeId -> {id, file, size}`, `id` = `token_urlsafe(16)` kept across runs). Add `data/cover-cache/` to `.gitignore`. Gentle rules: UA, 3 s gap, 60 s timeout, 429 Retry-After, resume, stop after 5 consecutive failures.
+  - Acceptance (pytest, fixtures only): the query parses a saved page; only draw-set anime are fetched; an existing valid file is skipped and its id kept; 429 waits for Retry-After; 5 failures stop the run; `git check-ignore data/cover-cache/x.jpg` succeeds.
+- [ ] **C-020** data: S3 upload of covers (from S-007)
+  - A new module beside `s3upload.py`, reusing its client and fake: uploads `cover-cache` files under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-keys.json` last.
+  - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
+- [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-018 and C-019)
+  - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
+- [ ] **B-020** backend: anime cover on the reveal (from S-007)
+  - `/cover/{id}`: disk mode serves `cover-cache` files, S3 mode 302s to a presigned URL of `c/<id>`. The reveal message carries `coverUrl` = `/cover/<id>` or null.
+  - Acceptance (JUnit): reveal has `coverUrl`; no message before the reveal and no reconnect snapshot contains a cover id; unknown id 404; the current audio token sent to `/cover/` is 404 and a cover id sent to `/audio/` is 404; a missing or broken cover map logs WARN, startup succeeds and every `coverUrl` is null.
+- [ ] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
+  - Anime rank = order of the anime's first theme in `drawSet`. `easy` = anime ranks 1-100, `normal` (also when `tier` is absent) = 1-300, `hard` = all. Easy shuffles themes and keeps the first theme of each unseen series group; normal and hard draw as today.
+  - Acceptance (JUnit): each tier draws only its anime ranks; easy never repeats a group; an easy pool with fewer groups than N answers `not-enough-songs` with `available` = distinct groups and `unit: "series"`; other tiers keep `available` as songs.
+- [ ] **F-022** frontend: reveal cover and series wording (from S-007)
+  - The reveal card shows the image from `coverUrl`, nothing when null; `not-enough-songs` with `unit: "series"` says 작품 (en/ja equivalents).
+  - Acceptance (Vitest): image present with a URL and absent with null; the series wording in ko, en, ja; layout stable in three languages and six moods (browser check in the cycle doc).
 - [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
   - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
 - [ ] **B-015** backend: STOMP endpoint for game messages (from S-005)
@@ -315,6 +335,13 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **B-019** Punctuation-only chat is shown (from D-100)
 - [x] **F-020** Record and equalizer pause while audio loads (from D-101)
+- [x] **S-007** design: grow the song set to 3,000 and add anime cover images (D-102 to D-105); goes before B-014
+  - Grow the draw set from the top 1,500 to the top 3,000 OP/ED themes in the same popularity order (D-034), prefetch the new audio (about 5 GB more, about 10 GB in all) with the existing gentle prefetch, and upload it to S3 the way cycle 074 did. Check the EC2 disk and S3 cost against the new size.
+  - Fetch each draw-set anime's AnimeThemes cover (`images` facets `LARGE_COVER` jpg, `SMALL_COVER` avif) into a gitignored folder and S3, and show it on the reveal card only. A cover identifies the anime, so it must never reach a client before the reveal (Multiplayer rules).
+  - Redesign the difficulty tiers for 3,000 songs (D-105): easy is famous songs with no anime repeated within a game, and every tier must hold enough distinct anime for the largest game (30 songs). Propose the tier ranges with numbers; the owner has not fixed them.
+  - Output: a design doc and the build items appended here, ahead of B-014.
+
+- [x] **F-021** Disc drawn from prepare, paused until the song plays (D-101 as clarified by the owner)
 
 ## Roadmap
 
@@ -336,8 +363,14 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-102** Song set size (user, 2026-11-08): grow the cached draw set from the top 1,500 to the top 3,000 OP/ED themes by popularity, using the current AnimeThemes audio. This replaces the 1,500 in D-019, D-027, D-034 and D-070, and raises D-044's 10 GB stop to the expected total of about 10 GB. It comes before the STOMP work (B-014 onward).
+- **D-103** Anime cover images (user, 2026-11-08): the reveal card shows the anime's cover image, and only after the reveal.
+- **D-104** Cover storage (user, 2026-11-08): covers are downloaded from AnimeThemes and served by our own server (gitignored folder and S3), not hotlinked.
+- **D-105** Difficulty for the larger set (user, 2026-11-08): easy plays famous songs and never repeats an anime within a game, and the tiers must account for the game length (up to 30 songs). The exact ranges are left to the S-007 design. This replaces D-069's ranges.
+- **D-106** No-repeat scope (user, 2026-11-08): only easy avoids repeating a series group within a game; normal and hard draw as before.
+- **D-107** Tier shape (user, 2026-11-08): tiers are nested and all start at the most popular anime: easy is the narrowest top range, normal wider, hard the widest; no tier is "only below some rank". Design 087 proposes easy = anime ranks 1-100, normal = 1-300, hard = all.
 - **D-100** A punctuation- or symbol-only chat is shown as normal chat and never scores; blank chat is still ignored (user, 2026-11-08). This replaces the earlier "normalizes to empty is ignored".
-- **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08).
+- **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08). Clarified by the owner the same day: the disc is drawn from prepare and moves only while the song is actually heard (cycle 087).
 - **D-099** Per-player volume control (user, 2026-11-08: "자신이 원하는 불륨으로 들을 수 있게"). A slider and mute on the game stage. The default is 80% and the setting is remembered on the device. It is client-only and does not affect playback timing. The lead picked the defaults and told the owner.
 - **D-098** Feedback issues carry only the `문의` label (user, 2026-11-08). The category stays in the title and body, and `song-request` is removed.
 - **D-097** Feedback goes to Issues only after the owner approves it (user, 2026-11-07: "관리자 화면에서 내가 문의를 따로 체크하면 그때 Issues로"). `/admin` is protected by nginx Basic Auth (an htpasswd file, no login code in the app). Feedback is stored in one server file. Admin actions are send to Issues (with an editable title) and hide or restore.
@@ -441,6 +474,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (087) Pause the disc while reconnecting (started/reached stay set until the snapshot restores).
 - (085) Volume: with the slider at 0 and not muted, pressing mute should restore 80 in one press. Fix the stale header comment in `App.volume.test.jsx`. The Japanese footer button 'お問い合わせ' clips by 2 px (`w-24`).
 - (083) Admin API: 405 and OPTIONS answers come from Spring before the key interceptor, with no `no-store`. Consider handling all methods behind the key. The sent tab shows the stored title, not the edited one sent to GitHub; store `sentTitle`. Find what deletes `.claude/state/locked-paths.txt` mid-cycle.
 - (082) Feedback items have no deletion tool; deletion is a manual edit of the server file. Add one if personal data shows up.
