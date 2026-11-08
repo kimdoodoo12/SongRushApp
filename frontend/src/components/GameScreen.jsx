@@ -33,9 +33,13 @@ function TimeBar({ max, remaining }) {
 }
 
 // The spinning record and the equalizer while a song plays; decoration only.
-function Disc() {
+// While the audio is loading or failed to load they stand still (D-101).
+function Disc({ paused }) {
   return (
-    <div className="disc-area flex flex-1 flex-wrap items-center justify-center gap-6">
+    <div
+      className="disc-area flex flex-1 flex-wrap items-center justify-center gap-6"
+      data-paused={paused ? 'true' : undefined}
+    >
       <div className="record" aria-hidden="true" />
       <div className="eq" aria-hidden="true">
         {EQ_BARS.map((n) => (
@@ -314,7 +318,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
       {load !== null && LOAD_KEY[load] !== undefined && (
         <p className={`h-5 truncate text-center text-sm leading-5 ${load === 'failed' ? 'text-bad' : 'text-muted'}`}>{t(LOAD_KEY[load])}</p>
       )}
-      {playing && <Disc />}
+      {playing && <Disc paused={load === 'loading' || load === 'failed'} />}
       {correct !== null && (
         // Right-to-left on the box, left-to-right on the text: when the line is
         // too long the ellipsis cuts the start of the name, so " 정답!" stays.

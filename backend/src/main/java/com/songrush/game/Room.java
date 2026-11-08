@@ -345,10 +345,11 @@ public final class Room {
 			outbox.toPlayer(playerId, message("error", "code", "too-long"));
 			return;
 		}
-		String normalized = Normalize.normalize(text);
-		if (normalized.isEmpty()) {
+		if (isInvisible(text)) {
 			return;
 		}
+		// A text of only punctuation or symbols normalizes to empty: an ordinary chat line that never matches (D-100).
+		String normalized = Normalize.normalize(text);
 		long now = clock.millis();
 		if (phase == Phase.PLAYING && now >= deadlineAt) {
 			endSong(null);
@@ -364,7 +365,7 @@ public final class Room {
 			return;
 		}
 		Song song = songs.get(songIndex);
-		boolean match = catalog.accepted(song.anime().group()).contains(normalized);
+		boolean match = !normalized.isEmpty() && catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
 			// Too early: match or miss, only the sender sees it, so nothing tells whether it matched.
 			outbox.toPlayer(playerId, chat);
@@ -379,6 +380,15 @@ public final class Room {
 			outbox.toAll(chat);
 			endSong(player);
 		}
+	}
+
+	// True when the text shows nothing: empty, or only spaces, format/control characters,
+	// Hangul fillers or variation selectors (such a chat would be broadcast as an empty line).
+	private static boolean isInvisible(String text) {
+		return text.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c)
+				|| Character.getType(c) == Character.FORMAT || Character.getType(c) == Character.CONTROL
+				|| c == 0x115F || c == 0x1160 || c == 0x3164 || c == 0xFFA0
+				|| (c >= 0xFE00 && c <= 0xFE0F) || (c >= 0xE0100 && c <= 0xE01EF));
 	}
 
 	private boolean isConnected(String playerId) {
