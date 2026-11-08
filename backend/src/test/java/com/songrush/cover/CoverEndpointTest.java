@@ -35,7 +35,8 @@ import com.songrush.audio.AudioTokens;
 // Cover A (anime 1) is only served; cover C (anime 3) has its file deleted by one test, so test order
 // does not matter. Cover B's index size differs from its file, so it is never served. The S3 served
 // map names cover S, which disk mode must not serve. Theme 10 has an audio file, so a current audio
-// token exists.
+// token exists. Cycle 095 (C-022): cover P (anime 5) is a PNG, served as image/png; cover W (anime 6)
+// names a file with another suffix (.gif, present on disk) and is skipped.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ExtendWith(OutputCaptureExtension.class)
 class CoverEndpointTest {
@@ -50,9 +51,15 @@ class CoverEndpointTest {
 
 	static final String S = "Sv4kz_Ru8-wPq2Lm6Nb0Xe";
 
+	static final String P = "Pw8Ly3Nc6Rt1Vb5Zk0Hs4D";
+
+	static final String W = "Wd5Gh2Jk7Lq0Zx3Cv6Bn9M";
+
 	private static final int SIZE_A = 345;
 
 	private static final int SIZE_C = 210;
+
+	private static final int SIZE_P = 278;
 
 	private static final Set<String> ALLOWED_HEADERS = Set.of("content-type", "content-length", "cache-control",
 			"date", "keep-alive", "connection");
@@ -85,9 +92,12 @@ class CoverEndpointTest {
 			Files.write(covers.resolve(B + ".jpg"), CoverMapTest.jpeg(2, 99));
 			Files.write(covers.resolve(C + ".jpg"), CoverMapTest.jpeg(3, SIZE_C));
 			Files.write(covers.resolve(S + ".jpg"), CoverMapTest.jpeg(4, 50));
+			Files.write(covers.resolve(P + ".png"), CoverMapTest.png(5, SIZE_P));
+			Files.write(covers.resolve(W + ".gif"), CoverMapTest.png(6, 60));
 			Files.writeString(covers.resolve("index.json"), "{\"version\": 1, \"covers\": {"
 					+ String.join(", ", CoverMapTest.disk(1, A, SIZE_A), CoverMapTest.disk(2, B, 98),
-							CoverMapTest.disk(3, C, SIZE_C))
+							CoverMapTest.disk(3, C, SIZE_C), CoverMapTest.diskPng(5, P, SIZE_P),
+							CoverMapTest.diskFile(6, W, W + ".gif", 60))
 					+ "}}", StandardCharsets.UTF_8);
 			Files.writeString(covers.resolve("s3-covers.json"), "{" + CoverMapTest.s3(4, S, 50) + "}",
 					StandardCharsets.UTF_8);
@@ -145,6 +155,36 @@ class CoverEndpointTest {
 		assertThat(response.headers().firstValue("Content-Type")).hasValue("image/jpeg");
 		assertThat(response.headers().firstValue("Content-Length")).hasValue(Integer.toString(SIZE_A));
 		assertThat(response.headers().firstValue("Cache-Control")).hasValue("no-store");
+	}
+
+	// Cycle 095 criterion 5: the disk index's PNG entry loads; the other-suffix entry is skipped.
+	@Test
+	void theBeanHasThePngEntryAndSkipsOtherSuffixes() {
+		assertThat(covers.idFor(5)).hasValue(P);
+		assertThat(covers.fileFor(P)).isPresent();
+		assertThat(covers.idFor(6)).as("file suffix is neither .jpg nor .png").isEmpty();
+		assertThat(covers.fileFor(W)).isEmpty();
+	}
+
+	// Cycle 095 criterion 5: a PNG cover is served as image/png with its exact bytes.
+	@Test
+	void pngCoverIsServedAsImagePng() throws Exception {
+		HttpResponse<byte[]> response = get("/cover/" + P);
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.body()).isEqualTo(CoverMapTest.png(5, SIZE_P));
+		assertThat(response.headers().firstValue("Content-Type")).hasValue("image/png");
+		assertThat(response.headers().firstValue("Content-Length")).hasValue(Integer.toString(SIZE_P));
+		assertThat(response.headers().firstValue("Cache-Control")).hasValue("no-store");
+		assertThat(response.headers().firstValue("Last-Modified")).isEmpty();
+		assertThat(response.headers().firstValue("ETag")).isEmpty();
+		assertThat(headerNames(response)).isSubsetOf(ALLOWED_HEADERS);
+	}
+
+	// Cycle 095 criterion 5: an entry whose file has another suffix is never served.
+	@Test
+	void otherSuffixEntryIs404() throws Exception {
+		assertNotFound(get("/cover/" + W));
+		assertNotFound(get("/cover/" + P + ".png"));
 	}
 
 	// Criterion 3: nothing that lets a cache or a client name or date the file

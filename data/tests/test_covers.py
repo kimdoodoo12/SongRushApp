@@ -41,6 +41,12 @@ Public interface pinned for songrush_data.covers (the implementer must provide i
   catalog_path, covers_dir, refresh_pages, log). Returns 0 on success, 2 on a usage
   error (including a bare positional argument, without calling run), 3 on
   CoversLocked and 1 on CoversStopped or any other error.
+
+Cycle 095 (docs/cycles/095-png-covers.md, C-022) accepts PNG covers: a body
+starting with the PNG signature 89 50 4E 47 0D 0A 1A 0A is saved as <id>.png
+with index ``file: "<id>.png"``, a JPEG body as <id>.jpg; any other body still
+fails. An index entry whose ``file`` is not exactly ``<id>.jpg`` or ``<id>.png``
+stops the run (CoversStopped) before any request, leaving the index untouched.
 """
 
 import hashlib
@@ -88,6 +94,15 @@ def large(anime_id):
 def jpeg(tag, size=64):
     """JPEG-like bytes: the FF D8 FF signature, then filler that makes bodies differ."""
     head = b"\xff\xd8\xff\xe0" + tag.encode("ascii")
+    return (head + b"\x00" * size)[:size]
+
+
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def png(tag, size=64):
+    """PNG-like bytes: the 89 50 4E 47 0D 0A 1A 0A signature, then filler that makes bodies differ."""
+    head = PNG_SIGNATURE + tag.encode("ascii")
     return (head + b"\x00" * size)[:size]
 
 
@@ -602,12 +617,16 @@ def covers_error(http):
 
 # Criterion 6: bodies and failures.
 
-@pytest.mark.parametrize("case", ["empty", "too-large", "not-jpeg", "html"])
+@pytest.mark.parametrize("case", ["empty", "too-large", "png-too-large", "gif", "png-short-signature",
+                                  "html"])
 def test_bad_body_is_a_failure_and_leaves_no_file(covers, http, tmp_path, case):
     bodies = {
         "empty": b"",
         "too-large": b"\xff\xd8\xff" + b"\x00" * (2_000_000 - 2),
-        "not-jpeg": b"\x89PNG\r\n\x1a\n" + b"\x00" * 40,
+        "png-too-large": PNG_SIGNATURE + b"\x00" * (2_000_000 - 7),
+        "gif": b"GIF89a" + b"\x00" * 40,
+        # The first four PNG bytes alone are not the signature.
+        "png-short-signature": b"\x89PNG" + b"\x00" * 40,
         "html": b"<html>error</html>",
     }
     rig = Rig(covers, http, tmp_path, draw=[101])
@@ -629,6 +648,178 @@ def test_body_of_exactly_max_bytes_is_accepted(covers, http, tmp_path):
     result = rig.run()
     assert result["downloaded"] == 1
     assert rig.entries()["101"]["size"] == 2_000_000
+
+
+# Cycle 095 criteria 1-2: PNG covers.
+
+def test_png_body_is_saved_as_png(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[101])
+    body = png("p101", 80)
+    rig.transport.covers[large(101)] = body
+    cover_id = "P" * 22
+    result = rig.run(new_id=ids_from([cover_id]))
+    assert result["downloaded"] == 1
+    assert result["failed"] == 0
+    assert rig.entries()["101"] == {"id": cover_id, "file": cover_id + ".png", "size": len(body)}
+    assert (rig.covers_dir / (cover_id + ".png")).read_bytes() == body
+    assert rig.names() == sorted(["index.json", cover_id + ".png"])
+
+
+def test_png_body_of_exactly_max_bytes_is_accepted(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[101])
+    body = PNG_SIGNATURE + b"\x00" * (2_000_000 - len(PNG_SIGNATURE))
+    assert len(body) == 2_000_000
+    rig.transport.covers[large(101)] = body
+    result = rig.run()
+    assert result["downloaded"] == 1
+    entry = rig.entries()["101"]
+    assert entry["size"] == 2_000_000
+    assert entry["file"] == entry["id"] + ".png"
+
+
+def test_mixed_formats_get_their_own_suffix(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path)
+    # 106 and 107 are JPEG; 101 is PNG behind a link that ends in .jpg, as on AnimeThemes.
+    rig.transport.covers[large(101)] = png("p101", 90)
+    ids = {106: "J106" + "a" * 18, 101: "P101" + "b" * 18, 107: "J107" + "c" * 18}
+    result = rig.run(new_id=ids_from([ids[106], ids[101], ids[107]]))
+    assert result["downloaded"] == 3
+    entries = rig.entries()
+    assert entries["106"]["file"] == ids[106] + ".jpg"
+    assert entries["101"]["file"] == ids[101] + ".png"
+    assert entries["107"]["file"] == ids[107] + ".jpg"
+    for anime_id in GOOD:
+        entry = entries[str(anime_id)]
+        assert (rig.covers_dir / entry["file"]).read_bytes() == rig.transport.covers[large(anime_id)]
+        assert entry["size"] == len(rig.transport.covers[large(anime_id)])
+    assert rig.names() == sorted(["index.json", ids[106] + ".jpg", ids[101] + ".png", ids[107] + ".jpg"])
+    assert not any(name.endswith(".part") for name in rig.names())
+
+
+def test_rerun_skips_a_png_entry_with_the_recorded_size(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[101, 106])
+    rig.transport.covers[large(101)] = png("p101", 90)
+    rig.run()
+    before = rig.index()
+    assert before["covers"]["101"]["file"].endswith(".png")
+    rig.transport.reset()
+    result = rig.run(new_id=no_new_id)
+    assert rig.transport.calls == []
+    assert result["cached"] == 2
+    assert result["downloaded"] == 0
+    assert rig.index() == before
+
+
+def test_wrong_size_png_is_refetched_under_same_id(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[101])
+    body = png("p101", 90)
+    rig.transport.covers[large(101)] = body
+    rig.run()
+    entry = rig.entries()["101"]
+    path = rig.covers_dir / entry["file"]
+    path.write_bytes(body[:10])
+    rig.transport.reset()
+    result = rig.run(new_id=no_new_id)
+    assert rig.transport.gets() == [large(101)]
+    assert result["downloaded"] == 1
+    assert rig.entries()["101"] == entry
+    assert path.read_bytes() == body
+
+
+def test_jpeg_refetched_as_png_updates_the_file_and_keeps_the_id(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[101])
+    cover_id = "K" * 22
+    rig.run(new_id=ids_from([cover_id]))
+    assert rig.entries()["101"]["file"] == cover_id + ".jpg"
+    (rig.covers_dir / (cover_id + ".jpg")).unlink()
+    body = png("p101", 77)
+    rig.transport.covers[large(101)] = body
+    rig.transport.reset()
+    result = rig.run(new_id=no_new_id)
+    assert rig.transport.gets() == [large(101)]
+    assert result["downloaded"] == 1
+    assert rig.entries()["101"] == {"id": cover_id, "file": cover_id + ".png", "size": len(body)}
+    assert (rig.covers_dir / (cover_id + ".png")).read_bytes() == body
+    assert not any(name.endswith(".part") for name in rig.names())
+
+
+def test_png_refetched_as_jpeg_updates_the_file_and_keeps_the_id(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[101])
+    cover_id = "Q" * 22
+    old = png("p101", 77)
+    rig.transport.covers[large(101)] = old
+    rig.run(new_id=ids_from([cover_id]))
+    assert rig.entries()["101"]["file"] == cover_id + ".png"
+    # A broken file: its size no longer matches the index.
+    (rig.covers_dir / (cover_id + ".png")).write_bytes(old[:5])
+    body = jpeg("j101", 66)
+    rig.transport.covers[large(101)] = body
+    rig.transport.reset()
+    rig.run(new_id=no_new_id)
+    assert rig.transport.gets() == [large(101)]
+    assert rig.entries()["101"] == {"id": cover_id, "file": cover_id + ".jpg", "size": len(body)}
+    assert (rig.covers_dir / (cover_id + ".jpg")).read_bytes() == body
+    # The old file is not deleted (spec: nothing reads files the index does not name).
+    assert (rig.covers_dir / (cover_id + ".png")).exists()
+
+
+# Cycle 095 criterion 3: the index entry rule is file in {<id>.jpg, <id>.png}.
+
+ENTRY_ID = "E" * 22
+OTHER_ID = "F" * 22
+
+
+def entry_rule_index(bad_file):
+    """An index with one valid .jpg entry and one entry whose file is bad_file."""
+    return json.dumps({"version": 1, "covers": {
+        "106": {"id": "G" * 22, "file": "G" * 22 + ".jpg", "size": 10},
+        "101": {"id": ENTRY_ID, "file": bad_file, "size": 10},
+    }}, indent=1).encode("ascii")
+
+
+BAD_ENTRY_FILES = {
+    "other-id-png": OTHER_ID + ".png",
+    "other-id-jpg": OTHER_ID + ".jpg",
+    "dot-dot-png": "../x.png",
+    "upper-png": ENTRY_ID + ".PNG",
+    "upper-jpg": ENTRY_ID + ".JPG",
+    "jpeg": ENTRY_ID + ".jpeg",
+    "gif": ENTRY_ID + ".gif",
+    "webp": ENTRY_ID + ".webp",
+    "part": ENTRY_ID + ".png.part",
+    "no-suffix": ENTRY_ID,
+}
+
+
+@pytest.mark.parametrize("case", sorted(BAD_ENTRY_FILES))
+def test_bad_entry_file_stops_before_any_request(covers, http, tmp_path, case):
+    rig = Rig(covers, http, tmp_path)
+    rig.covers_dir.mkdir()
+    content = entry_rule_index(BAD_ENTRY_FILES[case])
+    rig.index_path().write_bytes(content)
+    with pytest.raises(covers.CoversStopped):
+        rig.run()
+    assert rig.transport.calls == []
+    assert rig.index_path().read_bytes() == content
+    assert [n for n in rig.names() if n != ".covers.lock"] == ["index.json"]
+
+
+def test_index_mixing_jpg_and_png_entries_loads(covers, http, tmp_path):
+    rig = Rig(covers, http, tmp_path, draw=[106, 101])
+    rig.covers_dir.mkdir()
+    jpg_body, png_body = jpeg("j106", 40), png("p101", 50)
+    (rig.covers_dir / ("J" * 22 + ".jpg")).write_bytes(jpg_body)
+    (rig.covers_dir / ("P" * 22 + ".png")).write_bytes(png_body)
+    content = json.dumps({"version": 1, "covers": {
+        "106": {"id": "J" * 22, "file": "J" * 22 + ".jpg", "size": len(jpg_body)},
+        "101": {"id": "P" * 22, "file": "P" * 22 + ".png", "size": len(png_body)},
+    }}, indent=1).encode("ascii")
+    rig.index_path().write_bytes(content)
+    result = rig.run(new_id=no_new_id)
+    assert rig.transport.gets() == []
+    assert result["cached"] == 2
+    assert result["downloaded"] == 0
+    assert rig.index() == json.loads(content)
 
 
 @pytest.mark.parametrize("failure", ["404", "500", "transport"])

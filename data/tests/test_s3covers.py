@@ -1,24 +1,26 @@
-"""Cycle 092 criteria 1-7: the resumable S3 upload of covers (C-020).
+"""Cycle 092 criteria 1-7: the resumable S3 upload of covers (C-020); PNG covers from cycle 095 (C-022).
 
-docs/cycles/092-cover-s3.md is the specification. These tests pin the interface:
+docs/cycles/092-cover-s3.md and docs/cycles/095-png-covers.md are the
+specification. These tests pin the interface:
 
     songrush_data.s3covers
         KEY_PREFIX = "c/"
         CONTENT_TYPE = "image/jpeg"
+        PNG_CONTENT_TYPE = "image/png"
         SERVED_MAP_NAME = "s3-covers.json"
         run(s3, covers_dir, bucket, *, log=print) -> dict
             counts: uploaded, skipped, missing, mismatched, failed, served.
             Reads covers_dir/index.json ({"version": 1, "covers": {"<animeId>":
-            {"id", "file": "<id>.jpg", "size"}}}); raises before any S3 call when
-            it is missing or malformed, or when an entry breaks the rules (id
-            matches ^[A-Za-z0-9_-]{1,64}$, file == <id>.jpg, size a positive int
-            and not a bool, no two ids equal case-insensitively). The local file
-            is <covers>/<id>.jpg. Lists the prefix with list_objects_v2
-            (Bucket, Prefix, ContinuationToken across pages); an object listed
-            with the index size is skipped even when the local file is missing.
-            Uploads with put_object(Bucket, Key="c/<id>", Body,
-            ContentType="image/jpeg"), lists again, then writes
-            covers_dir/s3-covers.json:
+            {"id", "file": "<id>.jpg" or "<id>.png", "size"}}}); raises before
+            any S3 call when it is missing or malformed, or when an entry breaks
+            the rules (id matches ^[A-Za-z0-9_-]{1,64}$, file is exactly <id>.jpg
+            or <id>.png, size a positive int and not a bool, no two ids equal
+            case-insensitively). The local file is <covers>/<file>. Lists the
+            prefix with list_objects_v2 (Bucket, Prefix, ContinuationToken across
+            pages); an object listed with the index size is skipped even when the
+            local file is missing. Uploads with put_object(Bucket, Key="c/<id>",
+            Body, ContentType="image/jpeg" for .jpg or "image/png" for .png),
+            lists again, then writes covers_dir/s3-covers.json:
             {"<animeId>": {"id": "<id>", "key": "c/<id>", "size": <bytes>}}.
         main(argv=None) -> int
             --bucket NAME (required), --profile NAME, --covers DIR. The client is
@@ -46,6 +48,7 @@ ACCESS_KEY = "AKIDFAKECOVERS"
 SECRET_KEY = "fakecoversecret"
 PREFIX = "c/"
 CONTENT_TYPE = "image/jpeg"
+PNG_CONTENT_TYPE = "image/png"
 SERVED_MAP = "s3-covers.json"
 INDEX = "index.json"
 LEAK = "LEAKMARKER-https://test-cover-bucket.s3.example/c/"
@@ -77,8 +80,9 @@ def no_aws_environment(monkeypatch, tmp_path):
 
 # Builders.
 
-def body_of(cover_id, size):
-    seed = b"\xff\xd8" + cover_id.encode("ascii")
+def body_of(cover_id, size, suffix=".jpg"):
+    head = b"\x89PNG\r\n\x1a\n" if suffix == ".png" else b"\xff\xd8"
+    seed = head + cover_id.encode("ascii")
     return (seed * (size // len(seed) + 1))[:size]
 
 
@@ -88,27 +92,27 @@ class Covers:
     def __init__(self, root):
         self.dir = root / "cover-cache"
         self.dir.mkdir()
-        self.entries = {}  # animeId (str) -> (cover id, size)
+        self.entries = {}  # animeId (str) -> (cover id, size, suffix)
         self.write_index()
 
-    def add(self, anime_id, cover_id, size, *, local_size=None, present=True):
+    def add(self, anime_id, cover_id, size, *, local_size=None, present=True, suffix=".jpg"):
         """Index the cover with size; write local_size bytes (default size) unless present is False."""
-        self.entries[str(anime_id)] = (cover_id, size)
+        self.entries[str(anime_id)] = (cover_id, size, suffix)
         if present:
-            self.write_file(cover_id, size if local_size is None else local_size)
+            self.write_file(cover_id, size if local_size is None else local_size, suffix)
         self.write_index()
         return str(anime_id)
 
-    def write_file(self, cover_id, size):
-        (self.dir / (cover_id + ".jpg")).write_bytes(body_of(cover_id, size))
+    def write_file(self, cover_id, size, suffix=".jpg"):
+        (self.dir / (cover_id + suffix)).write_bytes(body_of(cover_id, size, suffix))
 
     def write_index(self):
-        covers = {anime_id: {"id": cover_id, "file": cover_id + ".jpg", "size": size}
-                  for anime_id, (cover_id, size) in self.entries.items()}
+        covers = {anime_id: {"id": cover_id, "file": cover_id + suffix, "size": size}
+                  for anime_id, (cover_id, size, suffix) in self.entries.items()}
         (self.dir / INDEX).write_text(json.dumps({"version": 1, "covers": covers}), encoding="utf-8")
 
-    def body(self, cover_id):
-        return (self.dir / (cover_id + ".jpg")).read_bytes()
+    def body(self, cover_id, suffix=".jpg"):
+        return (self.dir / (cover_id + suffix)).read_bytes()
 
     def served_path(self):
         return self.dir / SERVED_MAP
@@ -301,6 +305,7 @@ def main_args(covers, *extra):
 def test_module_constants(s3covers):
     assert s3covers.KEY_PREFIX == PREFIX
     assert s3covers.CONTENT_TYPE == CONTENT_TYPE
+    assert s3covers.PNG_CONTENT_TYPE == PNG_CONTENT_TYPE
     assert s3covers.SERVED_MAP_NAME == SERVED_MAP
 
 
@@ -604,7 +609,15 @@ BAD_ENTRIES = {
     "id-not-a-string": {"id": 5, "file": "5.jpg", "size": 13},
     "id-absent": {"file": COVER_IDS[1] + ".jpg", "size": 13},
     "file-mismatch": entry(COVER_IDS[1], file=COVER_IDS[2] + ".jpg"),
-    "file-not-jpg": entry(COVER_IDS[1], file=COVER_IDS[1] + ".png"),
+    "file-other-id-png": entry(COVER_IDS[1], file=COVER_IDS[2] + ".png"),
+    "file-dot-dot-png": entry(COVER_IDS[1], file="../x.png"),
+    "file-upper-png": entry(COVER_IDS[1], file=COVER_IDS[1] + ".PNG"),
+    "file-upper-jpg": entry(COVER_IDS[1], file=COVER_IDS[1] + ".JPG"),
+    "file-jpeg": entry(COVER_IDS[1], file=COVER_IDS[1] + ".jpeg"),
+    "file-gif": entry(COVER_IDS[1], file=COVER_IDS[1] + ".gif"),
+    "file-webp": entry(COVER_IDS[1], file=COVER_IDS[1] + ".webp"),
+    "file-png-part": entry(COVER_IDS[1], file=COVER_IDS[1] + ".png.part"),
+    "file-no-suffix": entry(COVER_IDS[1], file=COVER_IDS[1]),
     "file-absent": {"id": COVER_IDS[1], "size": 13},
     "size-zero": entry(COVER_IDS[1], size=0),
     "size-negative": entry(COVER_IDS[1], size=-1),
@@ -663,12 +676,80 @@ def test_full_id_alphabet_and_64_characters_are_accepted(s3covers, s3, covers):
     assert covers.served_map() == {a: served_entry("a-Z_09", 11), b: served_entry("B" * 64, 13)}
 
 
+# Cycle 095 criteria 3-4: PNG covers.
+
+def test_index_mixing_jpg_and_png_entries_loads(s3covers, covers):
+    covers.add(ANIME_IDS[0], COVER_IDS[0], 11)
+    covers.add(ANIME_IDS[1], COVER_IDS[1], 13, suffix=".png")
+
+    entries = s3covers.load_index(covers.dir)
+
+    assert set(entries) == {ANIME_IDS[0], ANIME_IDS[1]}
+
+
+def test_png_uploads_with_image_png_and_jpg_with_image_jpeg(s3covers, s3, covers):
+    j = covers.add(ANIME_IDS[0], COVER_IDS[0], 11)
+    p = covers.add(ANIME_IDS[1], COVER_IDS[1], 13, suffix=".png")
+
+    result, _ = run(s3covers, s3, covers)
+
+    assert result == summary(uploaded=2, served=2)
+    types = {params["Key"]: params["ContentType"] for params in s3.puts()}
+    assert types == {key_of(COVER_IDS[0]): CONTENT_TYPE, key_of(COVER_IDS[1]): PNG_CONTENT_TYPE}
+    assert s3.objects[key_of(COVER_IDS[0])] == covers.body(COVER_IDS[0])
+    assert s3.objects[key_of(COVER_IDS[1])] == covers.body(COVER_IDS[1], ".png")
+    # Key and served map are unchanged by the format.
+    assert covers.served_map() == {j: served_entry(COVER_IDS[0], 11), p: served_entry(COVER_IDS[1], 13)}
+
+
+def test_png_entry_reads_the_png_file_not_a_jpg_of_the_same_id(s3covers, s3, covers):
+    # The local path is <covers>/<file>: a stray <id>.jpg must not stand in for a missing <id>.png.
+    covers.add(ANIME_IDS[0], COVER_IDS[0], 13, suffix=".png", present=False)
+    covers.write_file(COVER_IDS[0], 13)  # <id>.jpg with the indexed size
+
+    result, _ = run(s3covers, s3, covers)
+
+    assert result == summary(missing=1)
+    assert s3.puts() == []
+
+
+def test_png_entry_with_a_wrong_size_file_is_mismatched(s3covers, s3, covers):
+    covers.add(ANIME_IDS[0], COVER_IDS[0], 13, suffix=".png", local_size=12)
+
+    result, _ = run(s3covers, s3, covers)
+
+    assert result == summary(mismatched=1)
+    assert s3.puts() == []
+
+
+def test_listed_png_is_skipped_on_a_rerun(s3covers, s3, covers):
+    covers.add(ANIME_IDS[0], COVER_IDS[0], 13, suffix=".png")
+    run(s3covers, s3, covers)
+    puts_before = len(s3.puts())
+
+    result, _ = run(s3covers, s3, covers)
+
+    assert result == summary(skipped=1, served=1)
+    assert len(s3.puts()) == puts_before
+
+
+def test_main_uploads_a_mixed_index(s3covers, s3, covers, sessions, streams):
+    covers.add(ANIME_IDS[0], COVER_IDS[0], 11)
+    covers.add(ANIME_IDS[1], COVER_IDS[1], 13, suffix=".png")
+    sessions(s3)
+    streams()
+
+    assert exit_code(lambda: s3covers.main(main_args(covers))) == 0
+    assert sorted(params["ContentType"] for params in s3.puts()) == [CONTENT_TYPE, PNG_CONTENT_TYPE]
+
+
 # Criterion 6: quiet logs and the final counts line.
 
 def secrets_of_the_run():
     values = list(ANIME_IDS) + list(COVER_IDS)
     values += [key_of(cover_id) for cover_id in COVER_IDS]
     values += [cover_id + ".jpg" for cover_id in COVER_IDS]
+    values += [cover_id + ".png" for cover_id in COVER_IDS]
     values += [ACCESS_KEY, SECRET_KEY, LEAK]
     return values
 

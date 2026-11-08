@@ -43,6 +43,8 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 //     public static CoverMap empty();
 //     // Disk mode: reads coverCacheDir/index.json ({"version": 1, "covers": {"<animeId>": {"id", "file",
 //     // "size"}}}); an entry counts only when coverCacheDir/<id>.jpg exists with that size.
+//     // Cycle 095 (C-022): "file" may be <id>.jpg or <id>.png (exactly; any other value is skipped),
+//     // and the recorded file is the one checked and returned by fileFor.
 //     public static CoverMap loadDisk(Path coverCacheDir);
 //     // S3 mode: reads the served map file (data-dir/cover-cache/s3-covers.json,
 //     // {"<animeId>": {"id", "key", "size"}}) and keeps id -> key; no file is checked.
@@ -105,6 +107,26 @@ class CoverMapTest {
 		return bytes;
 	}
 
+	// PNG-looking bytes (signature 89 50 4E 47 0D 0A 1A 0A), distinct per seed (cycle 095).
+	static byte[] png(int seed, int size) {
+		byte[] bytes = new byte[size];
+		for (int i = 0; i < size; i++) {
+			bytes[i] = (byte) (i * 17 + seed * 31);
+		}
+		byte[] signature = { (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+		System.arraycopy(signature, 0, bytes, 0, Math.min(size, signature.length));
+		return bytes;
+	}
+
+	private void writePng(String name, int size) {
+		try {
+			Files.write(dir.resolve(name), png(name.hashCode(), size));
+		}
+		catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
+	}
+
 	private void writeFile(String name, int size) {
 		try {
 			Files.write(dir.resolve(name), jpeg(name.hashCode(), size));
@@ -126,6 +148,16 @@ class CoverMapTest {
 	// One disk index entry: "<animeId>": {"id": "<id>", "file": "<id>.jpg", "size": <size>}.
 	static String disk(int animeId, String id, int size) {
 		return "\"%d\": {\"id\": \"%s\", \"file\": \"%s.jpg\", \"size\": %d}".formatted(animeId, id, id, size);
+	}
+
+	// One disk index entry for a PNG cover (cycle 095): "file": "<id>.png".
+	static String diskPng(int animeId, String id, int size) {
+		return diskFile(animeId, id, id + ".png", size);
+	}
+
+	// One disk index entry with any file value.
+	static String diskFile(int animeId, String id, String file, int size) {
+		return "\"%d\": {\"id\": \"%s\", \"file\": \"%s\", \"size\": %d}".formatted(animeId, id, file, size);
 	}
 
 	// One served-map entry: "<animeId>": {"id": "<id>", "key": "c/<id>", "size": <size>}.
@@ -316,6 +348,115 @@ class CoverMapTest {
 		assertThat(map.size()).isEqualTo(2);
 		assertThat(output.getAll()).contains("WARN");
 		assertNamesNoId(output, List.of(A, C));
+	}
+
+	// ---- disk mode, PNG covers (cycle 095 criterion 5) ----
+
+	@Test
+	void diskPngEntryLoadsAndFileForReturnsThePng() {
+		writePng(A + ".png", 64);
+		writeIndex(diskPng(1, A, 64));
+
+		CoverMap map = loadDisk();
+
+		assertThat(map.size()).isEqualTo(1);
+		assertThat(map.idFor(1)).hasValue(A);
+		assertThat(map.fileFor(A)).isPresent();
+		assertThat(map.fileFor(A).get().getFileName().toString()).isEqualTo(A + ".png");
+		assertThat(read(map.fileFor(A).get())).isEqualTo(read(dir.resolve(A + ".png")));
+	}
+
+	@Test
+	void diskIndexMixingJpgAndPngEntriesLoads() {
+		writeFile(A + ".jpg", 40);
+		writePng(B + ".png", 55);
+		writeFile(D + ".jpg", 7);
+		writeIndex(disk(1, A, 40), diskPng(2, B, 55), disk(4, D, 7));
+
+		CoverMap map = loadDisk();
+
+		assertThat(map.size()).isEqualTo(3);
+		assertThat(map.idFor(1)).hasValue(A);
+		assertThat(map.idFor(2)).hasValue(B);
+		assertThat(map.idFor(4)).hasValue(D);
+		assertThat(map.fileFor(A).get().getFileName().toString()).isEqualTo(A + ".jpg");
+		assertThat(map.fileFor(B).get().getFileName().toString()).isEqualTo(B + ".png");
+		assertThat(read(map.fileFor(B).get())).isEqualTo(read(dir.resolve(B + ".png")));
+	}
+
+	// The recorded file is the one checked: a file of the same id with the other suffix does not count.
+	@Test
+	void diskEntryChecksTheRecordedFileNotTheOtherSuffix(CapturedOutput output) {
+		// PNG entry, only <id>.jpg on disk (of the recorded size).
+		writeFile(A + ".jpg", 40);
+		// JPEG entry, only <id>.png on disk (of the recorded size).
+		writePng(B + ".png", 55);
+		// PNG entry whose .png has another size, with a right-size .jpg beside it.
+		writePng(C + ".png", 30);
+		writeFile(C + ".jpg", 31);
+		writePng(G + ".png", 20);
+		writeIndex(diskPng(1, A, 40), disk(2, B, 55), diskPng(3, C, 31), diskPng(30, G, 20));
+
+		CoverMap map = assertDoesNotThrow(this::loadDisk);
+
+		assertThat(map.size()).isEqualTo(1);
+		assertThat(map.idFor(1)).isEmpty();
+		assertThat(map.idFor(2)).isEmpty();
+		assertThat(map.idFor(3)).isEmpty();
+		assertThat(map.fileFor(A)).isEmpty();
+		assertThat(map.fileFor(B)).isEmpty();
+		assertThat(map.fileFor(C)).isEmpty();
+		assertThat(map.idFor(30)).hasValue(G);
+		assertNamesNoId(output, List.of(A, B, C, G));
+	}
+
+	// Only <id>.jpg and <id>.png (lower-case suffix, same id) are accepted; any other file value is
+	// skipped, even when a file of that name and size exists.
+	@Test
+	void diskEntryWithAnyOtherFileValueIsSkipped(CapturedOutput output) {
+		// Valid ids for the two good entries, distinct from every bad entry's id.
+		String goodPng = "Pv2Ra7Te3Yu8Io1Pa6Sd5F";
+		String goodJpg = "Jk4Lz9Xc2Vb7Nm0Qw3Er8T";
+		List<String> files = List.of(F.get(0) + ".PNG", F.get(1) + ".JPG", F.get(2) + ".jpeg", F.get(3) + ".gif",
+				F.get(4) + ".webp", F.get(5) + ".png.part", F.get(6), F.get(8) + ".png", "x.png");
+		for (String file : files) {
+			writePng(file, 40);
+		}
+		writePng(goodPng + ".png", 40);
+		writeFile(goodJpg + ".jpg", 40);
+		writeIndex(
+				diskFile(10, F.get(0), F.get(0) + ".PNG", 40),
+				diskFile(11, F.get(1), F.get(1) + ".JPG", 40),
+				diskFile(12, F.get(2), F.get(2) + ".jpeg", 40),
+				diskFile(13, F.get(3), F.get(3) + ".gif", 40),
+				diskFile(14, F.get(4), F.get(4) + ".webp", 40),
+				diskFile(15, F.get(5), F.get(5) + ".png.part", 40),
+				diskFile(16, F.get(6), F.get(6), 40),
+				// another id's .png
+				diskFile(17, F.get(7), F.get(8) + ".png", 40),
+				diskFile(18, G, "../" + G + ".png", 40),
+				diskFile(19, C, "x.png", 40),
+				diskPng(30, goodPng, 40),
+				disk(31, goodJpg, 40));
+
+		CoverMap map = assertDoesNotThrow(this::loadDisk);
+
+		for (int animeId = 10; animeId <= 19; animeId++) {
+			assertThat(map.idFor(animeId)).as("anime " + animeId).isEmpty();
+		}
+		for (String id : F) {
+			assertThat(map.fileFor(id)).as("id " + id).isEmpty();
+		}
+		assertThat(map.fileFor(G)).isEmpty();
+		assertThat(map.fileFor(C)).isEmpty();
+		assertThat(map.idFor(30)).hasValue(goodPng);
+		assertThat(map.fileFor(goodPng).get().getFileName().toString()).isEqualTo(goodPng + ".png");
+		assertThat(map.idFor(31)).hasValue(goodJpg);
+		assertThat(map.size()).isEqualTo(2);
+		assertThat(output.getAll()).contains("WARN");
+		List<String> ids = new ArrayList<>(allIds());
+		ids.addAll(List.of(goodPng, goodJpg));
+		assertNamesNoId(output, ids);
 	}
 
 	@ParameterizedTest
