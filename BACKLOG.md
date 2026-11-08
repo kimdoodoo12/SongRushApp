@@ -305,7 +305,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-023** frontend: cover slot always present (from D-109)
   - The `.reveal-cover` slot (`h-32 w-24`) is rendered on every reveal card; with a cover it holds the image, with `coverUrl` null or after an image error it holds an empty placeholder. Also: `key={coverUrl}` with a boolean failure state instead of `failedUrl`, drop the redundant `undefined` check and `loading="eager"` (cycle 097 review M1, N1, N2).
   - Acceptance (Vitest): `.reveal-cover` with `h-32 w-24` exists for a cover, for null and after an error; `img` only for a valid loaded cover; game-over keeps the slot.
-- [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
+- [x] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
   - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
 - [x] **F-022** frontend: reveal cover and series wording (from S-007)
   - Add `'/cover': { target: 'http://localhost:8080' }` to the Vite dev proxy (`frontend/vite.config.js`, beside `/audio`; cycle 093 review). The reveal card shows the image from `coverUrl`, nothing when null; `not-enough-songs` with `unit: "series"` says 작품 (en/ja equivalents).
