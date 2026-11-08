@@ -590,6 +590,14 @@
     box-shadow: inset 0 0 0 var(--ring) var(--card-line), var(--shadow);
   }
 
+  /* The cover slot with no cover (cycle 098): a faint frame of the same
+     size, so the card keeps its height. */
+  .reveal-cover-empty {
+    border: var(--bw) dashed color-mix(in srgb, var(--soft) 45%, transparent);
+    border-radius: calc(var(--r) / 2);
+    background: color-mix(in srgb, var(--soft) 8%, transparent);
+  }
+
   .card-label {
     color: var(--a1);
   }
