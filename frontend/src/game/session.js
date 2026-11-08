@@ -27,6 +27,9 @@ import { createClockSync } from '../net/clockSync.js'
 import { errorText } from './state.js'
 
 const TICK_MS = 250
+// A reveal's cover path (cycle 097): the server's CoverMap.ID rule under
+// /cover/. Anything else is dropped, so the client never loads another URL.
+const COVER_URL = /^\/cover\/[A-Za-z0-9_-]{1,64}$/
 // Room clock sync (F-004): a burst of 8 pings on joined, 3 after each load,
 // 3 every 30 s, and 3 when a start's receipt offset drifts beyond rtt + 50.
 const JOIN_PINGS = 8
@@ -444,6 +447,7 @@ export function startSession({
         song: msg.song,
         artists: msg.artists ?? [],
         winner: msg.winner,
+        coverUrl: typeof msg.coverUrl === 'string' && COVER_URL.test(msg.coverUrl) ? msg.coverUrl : null,
       },
     })
   }
