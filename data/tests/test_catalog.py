@@ -269,9 +269,72 @@ def test_draw_set_size_limit(catalog):
 
 
 def test_default_draw_size_constant(catalog):
-    assert catalog.DRAW_SET_SIZE == 1500
+    assert catalog.DRAW_SET_SIZE == 3000  # D-107 (cycle 089)
     assert catalog.CATALOG_VERSION == 1
     assert catalog.SIZE_CAP_BYTES == 12_000_000
+
+
+# Cycle 089 (docs/cycles/089-draw-set-3000.md) criteria 2 and 3.
+
+RANKED_ANIME = 320
+
+
+def _theme_count(rank):
+    return rank % 3 + 1
+
+
+def _ranked_input():
+    """RANKED_ANIME playable anime, one per series; rank r has popularity 10000 - r
+    and _theme_count(r) themes, so draw-set order is rank order."""
+    anime, media = [], {}
+    for rank in range(RANKED_ANIME):
+        anime_id = rank + 1
+        anilist_id = 5000 + rank
+        themes = [_theme(anime_id * 10 + k) for k in range(_theme_count(rank))]
+        anime.append(_anime(anime_id, anilist_id, themes))
+        media[anilist_id] = _media(10000 - rank, "Series %03d" % rank)
+    return anime, media, {}, {}
+
+
+def _ranked_themes(cut):
+    return sum(_theme_count(rank) for rank in range(cut))
+
+
+def test_draw_set_prefix_stable(catalog):
+    full, _ = catalog.build_catalog(*_draw_input(), draw_size=5)
+    for k in range(1, 5):
+        built, _ = catalog.build_catalog(*_draw_input(), draw_size=k)
+        assert full["drawSet"][:k] == built["drawSet"], k
+
+    large, _ = catalog.build_catalog(*_ranked_input(), draw_size=500)
+    for k in (1, 100, 199, 300):
+        built, _ = catalog.build_catalog(*_ranked_input(), draw_size=k)
+        assert len(built["drawSet"]) == k
+        assert large["drawSet"][:k] == built["drawSet"], k
+
+
+def test_anime_rank_themes(catalog):
+    built, report = catalog.build_catalog(*_ranked_input(), draw_size=10_000)
+    assert report["counts"]["drawSetAnime"] == RANKED_ANIME
+    assert report["animeRankThemes"] == {"100": _ranked_themes(100), "300": _ranked_themes(300)}
+    assert report["animeRankThemes"] == {"100": 199, "300": 600}
+
+
+def test_anime_rank_themes_counts_only_draw_set_themes(catalog):
+    # 150 themes cover fewer than the first 100 anime: both cuts count all 150.
+    _, report = catalog.build_catalog(*_ranked_input(), draw_size=150)
+    assert report["animeRankThemes"] == {"100": 150, "300": 150}
+    # 400 themes reach past the first 100 anime but not the first 300.
+    _, report = catalog.build_catalog(*_ranked_input(), draw_size=400)
+    assert report["animeRankThemes"] == {"100": 199, "300": 400}
+
+
+def test_anime_rank_themes_fewer_anime_than_cut(catalog):
+    _, report = catalog.build_catalog(*_draw_input())
+    assert report["counts"]["drawSetAnime"] == 3
+    assert report["animeRankThemes"] == {"100": 5, "300": 5}
+    _, report = catalog.build_catalog(*_draw_input(), draw_size=2)
+    assert report["animeRankThemes"] == {"100": 2, "300": 2}
 
 
 # Criterion 4
