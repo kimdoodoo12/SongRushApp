@@ -25,8 +25,9 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
-// GET /cover/{id} (cycle 093): the reveal's cover. Disk mode streams <id>.jpg from the cover cache;
-// S3 mode answers 302 to a 60-second presigned URL of c/<id> in the audio bucket. Like
+// GET /cover/{id} (cycle 093): the reveal's cover. Disk mode streams <id>.jpg (image/jpeg) or
+// <id>.png (image/png, cycle 095) from the cover cache, by the file the CoverMap holds; S3 mode
+// answers 302 to a 60-second presigned URL of c/<id> in the audio bucket. Like
 // AudioController: no Last-Modified, ETag, Content-Disposition or Range support, Cache-Control:
 // no-store, and every failure is a 404 raised before any body byte (JSON via JsonErrorController).
 // The file and key come from the CoverMap's stored id, never from the request string. Logs carry
@@ -107,7 +108,7 @@ public class CoverController implements AutoCloseable {
 				throw notFound();
 			}
 			response.setStatus(HttpServletResponse.SC_OK);
-			response.setContentType("image/jpeg");
+			response.setContentType(contentType(file));
 			response.setContentLengthLong(size);
 			response.setHeader("Cache-Control", "no-store");
 			in.transferTo(response.getOutputStream());
@@ -141,6 +142,11 @@ public class CoverController implements AutoCloseable {
 		response.setHeader("Location", url);
 		response.setHeader("Cache-Control", "no-store");
 		response.setContentLength(0);
+	}
+
+	// CoverMap holds only <id>.jpg and <id>.png files.
+	private static String contentType(Path file) {
+		return file.getFileName().toString().endsWith(".png") ? "image/png" : "image/jpeg";
 	}
 
 	private static ResponseStatusException notFound() {
