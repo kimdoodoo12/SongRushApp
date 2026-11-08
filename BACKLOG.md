@@ -304,7 +304,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Acceptance (JUnit): over many seeded easy games on a fixture where one group has many more themes than the others, every group appears with about the same frequency (bounded test); no game repeats a group; not-enough-songs unchanged.
 - [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
   - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
-- [ ] **F-022** frontend: reveal cover and series wording (from S-007)
+- [~] **F-022** frontend: reveal cover and series wording (from S-007)
   - Add `'/cover': { target: 'http://localhost:8080' }` to the Vite dev proxy (`frontend/vite.config.js`, beside `/audio`; cycle 093 review). The reveal card shows the image from `coverUrl`, nothing when null; `not-enough-songs` with `unit: "series"` says 작품 (en/ja equivalents).
   - Acceptance (Vitest): image present with a URL and absent with null; the series wording in ko, en, ja; layout stable in three languages and six moods (browser check in the cycle doc).
 - [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
