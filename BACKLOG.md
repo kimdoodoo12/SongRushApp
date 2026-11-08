@@ -302,7 +302,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-022** backend: easy draws series uniformly (from D-108)
   - Easy: group the matching candidates by series group, shuffle the groups with the room's random, take N groups, and pick one theme uniformly within each. Normal and hard unchanged.
   - Acceptance (JUnit): over many seeded easy games on a fixture where one group has many more themes than the others, every group appears with about the same frequency (bounded test); no game repeats a group; not-enough-songs unchanged.
-- [~] **F-023** frontend: cover slot always present (from D-109)
+- [x] **F-023** frontend: cover slot always present (from D-109)
   - The `.reveal-cover` slot (`h-32 w-24`) is rendered on every reveal card; with a cover it holds the image, with `coverUrl` null or after an image error it holds an empty placeholder. Also: `key={coverUrl}` with a boolean failure state instead of `failedUrl`, drop the redundant `undefined` check and `loading="eager"` (cycle 097 review M1, N1, N2).
   - Acceptance (Vitest): `.reveal-cover` with `h-32 w-24` exists for a cover, for null and after an error; `img` only for a valid loaded cover; game-over keeps the slot.
 - [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
@@ -375,7 +375,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
-- **D-109** Reveal card without a cover (user, 2026-11-09): the reveal card always keeps the cover slot at the same size; without a cover (null or failed to load) the slot shows an empty placeholder, so the card height never changes between rounds.
+- **D-109** Reveal card without a cover (user, 2026-11-09): the reveal card always keeps the cover slot at the same size; without a cover (null or failed to load) the slot shows an empty placeholder, so the card height never changes between rounds because of the cover. (Scope: the cover slot only; the other card rows are a follow-up, cycle 098 review M1.)
 - **D-108** Easy draw by series (user, 2026-11-08): in easy, every series group of the pool is equally likely; pick a group uniformly, then one of its themes. Replaces design 088's option D2 for easy (with D2 a series of 85 themes appeared in 83% of easy games).
 - **D-102** Song set size (user, 2026-11-08): grow the cached draw set from the top 1,500 to the top 3,000 OP/ED themes by popularity, using the current AnimeThemes audio. This replaces the 1,500 in D-019, D-027, D-034 and D-070, and raises D-044's 10 GB stop to the expected total of about 10 GB. It comes before the STOMP work (B-014 onward).
 - **D-103** Anime cover images (user, 2026-11-08): the reveal card shows the anime's cover image, and only after the reveal.
@@ -488,6 +488,10 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **098 M1** `GameScreen.jsx:122-126`: the reveal card still changes height when alternate titles, song or artists are missing; render those rows always (empty when absent) at their fixed heights if the owner wants the card fully fixed.
+- **098 M2** `App.revealcover.test.jsx:242-256`: the keyed-state test passes without the key because prepare unmounts the card each round; rename it or test a same-round reveal swap.
+- **098 N1** `frontend/.vitest/` is untracked and not ignored; add it to `.gitignore`.
 
 
 - **096 M1** `RoomEasyUniformTest.java:279-287`: within-group uniformity is only checked as "every theme appears once"; give the big group's anime different theme counts and bound each theme's share near 1/40.
