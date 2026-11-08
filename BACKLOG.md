@@ -299,7 +299,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-022** data + backend: accept PNG covers (from I-012 first run)
   - AnimeThemes serves many LARGE_COVER links ending in `.jpg` whose body is PNG (`89 50 4E 47`); the first run downloaded 15 and failed 19 of 34 on "not a JPEG". Accept JPEG and PNG by signature; store `<id>.jpg` or `<id>.png` by the real format; `index.json` `file` may be either; `s3covers` sets `image/jpeg` or `image/png` by extension; backend `CoverMap` accepts both suffixes and `/cover/{id}` sends the matching content type.
   - Acceptance (pytest, JUnit): PNG bodies are saved as `.png` and JPEG as `.jpg`; other bodies still fail; s3covers uploads each with its content type; the backend serves each with its content type; an index whose `file` suffix does not match the id is still rejected.
-- [ ] **B-022** backend: easy draws series uniformly (from D-108)
+- [~] **B-022** backend: easy draws series uniformly (from D-108)
   - Easy: group the matching candidates by series group, shuffle the groups with the room's random, take N groups, and pick one theme uniformly within each. Normal and hard unchanged.
   - Acceptance (JUnit): over many seeded easy games on a fixture where one group has many more themes than the others, every group appears with about the same frequency (bounded test); no game repeats a group; not-enough-songs unchanged.
 - [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
