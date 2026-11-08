@@ -118,6 +118,7 @@
     "bad-filter": "The conditions are not valid.",
     "bad-room-theme": "Unknown theme.",
     "available": "Songs available: {{available}}",
+    "availableSeries": "Series available: {{available}}",
     "unknown": "An error occurred ({{code}})",
     "rate-limited": "You're sending messages too fast.",
     "bad-message": "The request was not valid.",

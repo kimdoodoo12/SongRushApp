@@ -34,7 +34,9 @@ export const SONG_COUNTS = Array.from({ length: 26 }, (_, i) => i + 5)
 // one: not-enough-songs names the server's count of drawable songs (F-008).
 export function errorText(code, message) {
   if (code === 'not-enough-songs' && message !== undefined && typeof message.available === 'number') {
-    return { key: 'error.available', values: { available: message.available } }
+    // Easy counts series, not songs (cycle 094 unit: "series").
+    const key = message.unit === 'series' ? 'error.availableSeries' : 'error.available'
+    return { key, values: { available: message.available } }
   }
   if (ERROR_CODES.has(code)) return { key: `error.${code}` }
   return { key: 'error.unknown', values: { code: String(code) } }

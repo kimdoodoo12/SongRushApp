@@ -17,6 +17,7 @@ export default defineConfig({
     proxy: {
       '/ws': { target: 'http://localhost:8080', ws: true },
       '/audio': { target: 'http://localhost:8080' },
+      '/cover': { target: 'http://localhost:8080' },
     },
   },
   test: {
