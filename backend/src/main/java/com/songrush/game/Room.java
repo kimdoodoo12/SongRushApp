@@ -345,7 +345,7 @@ public final class Room {
 			outbox.toPlayer(playerId, message("error", "code", "too-long"));
 			return;
 		}
-		if (text.strip().isEmpty()) {
+		if (isInvisible(text)) {
 			return;
 		}
 		// A text of only punctuation or symbols normalizes to empty: an ordinary chat line that never matches (D-100).
@@ -380,6 +380,15 @@ public final class Room {
 			outbox.toAll(chat);
 			endSong(player);
 		}
+	}
+
+	// True when the text shows nothing: empty, or only spaces, format/control characters,
+	// Hangul fillers or variation selectors (such a chat would be broadcast as an empty line).
+	private static boolean isInvisible(String text) {
+		return text.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c)
+				|| Character.getType(c) == Character.FORMAT || Character.getType(c) == Character.CONTROL
+				|| c == 0x115F || c == 0x1160 || c == 0x3164 || c == 0xFFA0
+				|| (c >= 0xFE00 && c <= 0xFE0F) || (c >= 0xE0100 && c <= 0xE01EF));
 	}
 
 	private boolean isConnected(String playerId) {
