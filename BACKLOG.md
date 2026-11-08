@@ -315,6 +315,13 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **B-019** Punctuation-only chat is shown (from D-100)
 - [x] **F-020** Record and equalizer pause while audio loads (from D-101)
+- [~] **S-007** design: grow the song set to 3,000 and add anime cover images (D-102 to D-105); goes before B-014
+  - Grow the draw set from the top 1,500 to the top 3,000 OP/ED themes in the same popularity order (D-034), prefetch the new audio (about 5 GB more, about 10 GB in all) with the existing gentle prefetch, and upload it to S3 the way cycle 074 did. Check the EC2 disk and S3 cost against the new size.
+  - Fetch each draw-set anime's AnimeThemes cover (`images` facets `LARGE_COVER` jpg, `SMALL_COVER` avif) into a gitignored folder and S3, and show it on the reveal card only. A cover identifies the anime, so it must never reach a client before the reveal (Multiplayer rules).
+  - Redesign the difficulty tiers for 3,000 songs (D-105): easy is famous songs with no anime repeated within a game, and every tier must hold enough distinct anime for the largest game (30 songs). Propose the tier ranges with numbers; the owner has not fixed them.
+  - Output: a design doc and the build items appended here, ahead of B-014.
+
+- [~] **F-021** Disc drawn from prepare, paused until the song plays (D-101 as clarified by the owner)
 
 ## Roadmap
 
@@ -336,6 +343,10 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-102** Song set size (user, 2026-11-08): grow the cached draw set from the top 1,500 to the top 3,000 OP/ED themes by popularity, using the current AnimeThemes audio. This replaces the 1,500 in D-019, D-027, D-034 and D-070, and raises D-044's 10 GB stop to the expected total of about 10 GB. It comes before the STOMP work (B-014 onward).
+- **D-103** Anime cover images (user, 2026-11-08): the reveal card shows the anime's cover image, and only after the reveal.
+- **D-104** Cover storage (user, 2026-11-08): covers are downloaded from AnimeThemes and served by our own server (gitignored folder and S3), not hotlinked.
+- **D-105** Difficulty for the larger set (user, 2026-11-08): easy plays famous songs and never repeats an anime within a game, and the tiers must account for the game length (up to 30 songs). The exact ranges are left to the S-007 design. This replaces D-069's ranges.
 - **D-100** A punctuation- or symbol-only chat is shown as normal chat and never scores; blank chat is still ignored (user, 2026-11-08). This replaces the earlier "normalizes to empty is ignored".
 - **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08).
 - **D-099** Per-player volume control (user, 2026-11-08: "자신이 원하는 불륨으로 들을 수 있게"). A slider and mute on the game stage. The default is 80% and the setting is remembered on the device. It is client-only and does not affect playback timing. The lead picked the defaults and told the owner.
