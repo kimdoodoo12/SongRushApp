@@ -287,11 +287,11 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-021** data: bound the cover page loop (from cycle 090 review M1)
   - The run reads page 1's `lastPage` (parse_page keeps its 3-tuple) and fails with `ValueError` when the page number exceeds page 1's `lastPage` + 5, or when a page has `hasMorePages` true but no data. Must land before I-012 runs the tool live.
   - Acceptance (pytest): a fake transport that always says `hasMorePages: true` ends with `ValueError` after at most `lastPage` + 5 requests; an empty page with `hasMorePages: true` raises.
-- [~] **C-020** data: S3 upload of covers (from S-007)
-  - A new module beside `s3upload.py`, reusing its client and fake: uploads the files named in `cover-cache/index.json` only (never a directory glob, cycle 090 review N1) under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-keys.json` last.
+- [x] **C-020** data: S3 upload of covers (from S-007)
+  - A new module beside `s3upload.py`, reusing its client and fake: uploads the files named in `cover-cache/index.json` only (never a directory glob, cycle 090 review N1) under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-covers.json` last (`{animeId: {id, key, size}}`; renamed from s3-keys.json in cycle 092 so it cannot be confused with audio's map).
   - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
 - [ ] **B-020** backend: anime cover on the reveal (from S-007)
-  - `/cover/{id}`: disk mode serves `cover-cache` files, S3 mode 302s to a presigned URL of `c/<id>`. The reveal message carries `coverUrl` = `/cover/<id>` or null.
+  - `/cover/{id}`: disk mode reads `cover-cache/index.json` (`{version, covers: {animeId: {id, file, size}}}`) and serves `<id>.jpg`; S3 mode reads `cover-cache/s3-covers.json` (`{animeId: {id, key, size}}`, written by `songrush_data.s3covers`) and 302s to a presigned URL of its `key` (`c/<id>`). The reveal message carries `coverUrl` = `/cover/<id>` or null.
   - Acceptance (JUnit): reveal has `coverUrl`; no message before the reveal and no reconnect snapshot contains a cover id; unknown id 404; the current audio token sent to `/cover/` is 404 and a cover id sent to `/audio/` is 404; a missing or broken cover map logs WARN, startup succeeds and every `coverUrl` is null.
 - [ ] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
   - Anime rank = order of the anime's first theme in `drawSet`. `easy` = anime ranks 1-100, `normal` (also when `tier` is absent) = 1-300, `hard` = all. Easy shuffles themes and keeps the first theme of each unseen series group; normal and hard draw as today.
@@ -477,6 +477,8 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **092 N1** `s3covers.py:141-143`: the final log line ends with ` (s3-covers.json)`, which the spec's format does not list; drop it or document it.
 
 - **091 M1** `covers.py:126,172`: page 1's `lastPage` itself has no cap; add an absolute `MAX_PAGES` (e.g. 200) so one bad value cannot lift the bound.
 - **091 N1** `covers.py:177-179`: the bound error should say whether page 1 was cached and suggest `--refresh-pages`.
