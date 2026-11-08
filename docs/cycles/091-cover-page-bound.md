@@ -9,7 +9,7 @@ A cover run never requests more than page 1's `lastPage` + 5 pages, and a page t
 ## Acceptance criteria
 
 1. `covers.MAX_PAGE_SLACK == 5`.
-2. The run reads `paginatorInfo.lastPage` (a positive integer; otherwise the page is invalid and raises `ValueError`) from page 1. If the loop would request page `lastPage(page 1) + MAX_PAGE_SLACK + 1`, it raises `ValueError` instead, without sending that request. With a fake transport whose every page says `hasMorePages: true` and `lastPage: 2`, exactly 7 page requests are sent and the run raises `ValueError` (from `run`; `main` returns 1).
+2. The run reads `paginatorInfo.lastPage` (a positive integer, not a bool; otherwise the page is invalid, raises `ValueError` and is not cached) from page 1; later pages' `lastPage` never changes the bound. If the loop would request page `lastPage(page 1) + MAX_PAGE_SLACK + 1`, it raises `ValueError` instead, without sending that request. With a fake transport whose every page has at least one anime, the right `currentPage` and `hasMorePages: true`, and whose page 1 says `lastPage: 2`, exactly 7 page requests are sent and the run raises `ValueError` (from `run`; `main` returns 1).
 3. A page with `hasMorePages: true` and an empty `data` list raises `ValueError` (fetched pages are not cached, as for other bad pages).
 4. `parse_page` keeps its 3-tuple return; existing tests in `data/tests/test_covers.py` keep passing unchanged.
 5. `.venv\Scripts\python.exe -I -m pytest -q` from `data/` exits 0.
