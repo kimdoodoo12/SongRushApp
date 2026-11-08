@@ -48,7 +48,7 @@ class RoomLateJoinTest {
 			"scores", Set.of("type", "scores"),
 			"skipState", Set.of("type", "index", "votes", "needed"),
 			"reveal", Set.of("type", "index", "reveal", "titles", "song", "artists", "themeType", "themeSlug",
-					"winner"),
+					"winner", "coverUrl"),
 			"gameOver", Set.of("type", "ranking"));
 
 	@TempDir
