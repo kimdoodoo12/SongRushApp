@@ -569,8 +569,10 @@ class RoomTest {
 		assertThat(sent.get(0).message()).containsEntry("type", "chat").containsEntry("text", "b".repeat(200));
 	}
 
+	// Declared rewrite 086 (D-100): chatThatNormalizesToEmptyIsIgnored is split in two. Only an empty
+	// or spaces-only chat is ignored; a punctuation-only chat is shown and never scores.
 	@Test
-	void chatThatNormalizesToEmptyIsIgnored() {
+	void blankChatIsIgnored() {
 		build(FIVE, 0, MINA, JOON);
 		room.start(5);
 		readyAll(0);
@@ -578,8 +580,26 @@ class RoomTest {
 		int mark = outbox.mark();
 		room.chat(MINA.id(), "");
 		room.chat(MINA.id(), "   ");
-		room.chat(MINA.id(), "!? - ...");
 		assertThat(outbox.since(mark)).isEmpty();
+		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
+	}
+
+	@Test
+	void punctuationOnlyChatIsShownAndNeverScores() {
+		build(FIVE, 0, MINA, JOON);
+		room.start(5);
+		readyAll(0);
+		scheduler.advance(Room.LEAD);
+		int mark = outbox.mark();
+		room.chat(MINA.id(), "!? - ...");
+		List<Sent> sent = outbox.since(mark);
+		assertThat(sent).hasSize(1);
+		assertThat(sent.get(0).toAll()).isTrue();
+		assertKeys(sent.get(0).message());
+		assertThat(sent.get(0).message()).containsEntry("type", "chat").containsEntry("name", "Mina")
+				.containsEntry("text", "!? - ...");
+		assertThat(outbox.ofType("correct")).isEmpty();
+		assertThat(room.scores()).containsEntry(MINA.id(), 0);
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 

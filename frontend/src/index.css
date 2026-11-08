@@ -762,6 +762,17 @@
   border-radius: 0;
 }
 
+/* While the song's audio is loading or failed to load, the record and the
+   equalizer stand still (D-101). Paint only: the play state, never a box.
+   Placed after the theme rules with higher specificity, so neither the base
+   animation shorthand nor a theme's record rule resets it. */
+.disc-area[data-paused="true"] .record,
+.disc-area[data-paused="true"] .record::before,
+.disc-area[data-paused="true"] .record::after,
+.disc-area[data-paused="true"] .eq span {
+  animation-play-state: paused;
+}
+
 @keyframes sr-spin {
   to { transform: rotate(360deg); }
 }

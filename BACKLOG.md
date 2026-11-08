@@ -313,6 +313,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-019** Volume slider and mute on the game stage: GainNode, remembered per device (from D-099)
 
+- [x] **B-019** Punctuation-only chat is shown (from D-100)
+- [x] **F-020** Record and equalizer pause while audio loads (from D-101)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -333,6 +336,8 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-100** A punctuation- or symbol-only chat is shown as normal chat and never scores; blank chat is still ignored (user, 2026-11-08). This replaces the earlier "normalizes to empty is ignored".
+- **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08).
 - **D-099** Per-player volume control (user, 2026-11-08: "자신이 원하는 불륨으로 들을 수 있게"). A slider and mute on the game stage. The default is 80% and the setting is remembered on the device. It is client-only and does not affect playback timing. The lead picked the defaults and told the owner.
 - **D-098** Feedback issues carry only the `문의` label (user, 2026-11-08). The category stays in the title and body, and `song-request` is removed.
 - **D-097** Feedback goes to Issues only after the owner approves it (user, 2026-11-07: "관리자 화면에서 내가 문의를 따로 체크하면 그때 Issues로"). `/admin` is protected by nginx Basic Auth (an htpasswd file, no login code in the app). Feedback is stored in one server file. Admin actions are send to Issues (with an editable title) and hide or restore.
