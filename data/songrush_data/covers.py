@@ -3,8 +3,10 @@
 run reads the cover links from a lean paged AnimeThemes GraphQL query (pages
 cached in the shared FileCache under ci- keys), downloads the LARGE_COVER of
 every draw-set anime, politely and resumably, checks each body (non-empty, at
-most MAX_BYTES, JPEG signature) and records it in covers_dir/index.json under
-a random id that the server later uses as the cover's public name. parse_page
+most MAX_BYTES, JPEG or PNG signature) and records it in covers_dir/index.json
+under a random id that the server later uses as the cover's public name, as
+<id>.jpg or <id>.png by the body's format (cycle 095,
+docs/cycles/095-png-covers.md). parse_page
 is the pure page parser. main is the command line:
 python -m songrush_data.covers [--cache DIR] [--covers DIR] [--catalog PATH] [--refresh-pages].
 docs/cycles/090-cover-tool.md is the specification. The page loop is bounded
@@ -43,6 +45,8 @@ MAX_BYTES = 2_000_000
 MAX_CONSECUTIVE_FAILURES = 5
 MAX_PAGE_SLACK = 5  # pages read past page 1's lastPage, for a source that grows during the run
 JPEG_SIGNATURE = b"\xff\xd8\xff"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+SUFFIXES = (".jpg", ".png")  # the only index file names are <id>.jpg and <id>.png
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _REPLACE_RETRY_SLEEPS = (0.1, 0.3, 1.0)  # same schedule as FileCache
@@ -221,9 +225,12 @@ def _load_index(path: Path) -> dict:
     for key, entry in covers.items():
         size = entry.get("size") if isinstance(entry, dict) else None
         cover_id = entry.get("id") if isinstance(entry, dict) else None
-        if not isinstance(cover_id, str) or not _ID.fullmatch(cover_id) or entry.get("file") != cover_id + ".jpg" \
+        if not isinstance(cover_id, str) or not _ID.fullmatch(cover_id) \
+                or not isinstance(entry.get("file"), str) \
+                or entry["file"] not in {cover_id + suffix for suffix in SUFFIXES} \
                 or not isinstance(size, int) or isinstance(size, bool) or size <= 0:
-            raise CoversStopped("%s is malformed: entry %r is not {id, file: <id>.jpg, size}" % (path, key))
+            raise CoversStopped("%s is malformed: entry %r is not {id, file: <id>.jpg or <id>.png, size}"
+                                % (path, key))
     return covers
 
 
@@ -245,13 +252,17 @@ def _fresh_id(covers: dict, new_id: Callable[[], str]) -> str:
 
 # Files.
 
-def _check_body(body: bytes) -> None:
+def _check_body(body: bytes) -> str:
+    """The file suffix of a usable body (".jpg" or ".png"); ValueError otherwise."""
     if not body:
         raise ValueError("empty body")
     if len(body) > MAX_BYTES:
         raise ValueError("body of %d bytes is over %d" % (len(body), MAX_BYTES))
-    if not body.startswith(JPEG_SIGNATURE):
-        raise ValueError("body is not a JPEG (starts with %s)" % body[:4].hex())
+    if body.startswith(JPEG_SIGNATURE):
+        return ".jpg"
+    if body.startswith(PNG_SIGNATURE):
+        return ".png"
+    raise ValueError("body is not a JPEG or PNG (starts with %s)" % body[:8].hex())
 
 
 def _write_part(path: Path, data: bytes) -> None:
@@ -351,7 +362,7 @@ def _run(client, cache: FileCache, catalog_path: Path, covers_dir: Path, refresh
             continue
         try:
             reply = client.request("GET", url)
-            _check_body(reply.body)
+            suffix = _check_body(reply.body)
         except (HttpError, TransportError, ValueError) as error:
             result["failed"] += 1
             result["failedIds"].append(anime_id)
@@ -361,8 +372,10 @@ def _run(client, cache: FileCache, catalog_path: Path, covers_dir: Path, refresh
                 stop("covers stopped after %d consecutive failures" % MAX_CONSECUTIVE_FAILURES)
             continue
         cover_id = entry["id"] if entry is not None else _fresh_id(covers, new_id)
-        final = covers_dir / (cover_id + ".jpg")
-        part = covers_dir / (cover_id + ".jpg.part")
+        # A refetch in the other format renames the entry's file and keeps its id; the old file is
+        # left alone, since nothing reads a file the index does not name.
+        final = covers_dir / (cover_id + suffix)
+        part = covers_dir / (cover_id + suffix + ".part")
         try:
             _write_part(part, reply.body)
             _replace(part, final)

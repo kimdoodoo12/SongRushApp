@@ -8,7 +8,9 @@ stable in the index, so no work map is needed. main is the command line:
 python -m songrush_data.s3covers --bucket NAME [--profile NAME] [--covers DIR].
 docs/cycles/092-cover-s3.md is the specification. The log never carries an
 anime id, a cover id, an object key or a credential, and never an error's
-text: errors are reported by type name and S3 error code only.
+text: errors are reported by type name and S3 error code only. Covers are
+<id>.jpg (image/jpeg) or <id>.png (image/png) since cycle 095
+(docs/cycles/095-png-covers.md).
 """
 
 import argparse
@@ -17,11 +19,13 @@ import sys
 from pathlib import Path
 from typing import Callable
 
-from songrush_data.covers import _ID, DEFAULT_COVERS_DIR, INDEX_NAME, INDEX_VERSION
+from songrush_data.covers import _ID, DEFAULT_COVERS_DIR, INDEX_NAME, INDEX_VERSION, SUFFIXES
 from songrush_data.s3upload import REGION, _error_code, _utf8_console, _write_json_atomic
 
 KEY_PREFIX = "c/"
 CONTENT_TYPE = "image/jpeg"
+PNG_CONTENT_TYPE = "image/png"
+_CONTENT_TYPES = {".jpg": CONTENT_TYPE, ".png": PNG_CONTENT_TYPE}
 SERVED_MAP_NAME = "s3-covers.json"
 PROGRESS_EVERY = 100
 
@@ -29,7 +33,7 @@ PROGRESS_EVERY = 100
 # Files.
 
 def load_index(covers_dir) -> dict:
-    """{animeId: (cover id, size)} from covers_dir/index.json.
+    """{animeId: (cover id, file, size)} from covers_dir/index.json; file is <id>.jpg or <id>.png.
 
     FileNotFoundError when absent, ValueError when malformed. The messages name
     an entry's position only: an anime id or a cover id identifies the song.
@@ -59,15 +63,15 @@ def load_index(covers_dir) -> dict:
         cover_id, file, size = entry.get("id"), entry.get("file"), entry.get("size")
         if not isinstance(cover_id, str) or not _ID.fullmatch(cover_id):
             raise ValueError("%s entry %d has a missing or unsafe id" % (path, position))
-        if file != cover_id + ".jpg":
-            raise ValueError("%s entry %d has a file that is not <id>.jpg" % (path, position))
+        if not isinstance(file, str) or file not in {cover_id + suffix for suffix in SUFFIXES}:
+            raise ValueError("%s entry %d has a file that is not <id>.jpg or <id>.png" % (path, position))
         if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
             raise ValueError("%s entry %d has an invalid size" % (path, position))
         folded = cover_id.lower()  # the id alphabet is ASCII, so lower() is a full case fold
         if folded in seen:
             raise ValueError("%s entry %d repeats an earlier id" % (path, position))
         seen.add(folded)
-        entries[anime_id] = (cover_id, size)
+        entries[anime_id] = (cover_id, file, size)
     return entries
 
 
@@ -104,9 +108,10 @@ def run(s3, covers_dir, bucket: str, *, log: Callable[[str], None] = print) -> d
     result = {"uploaded": 0, "skipped": 0, "missing": 0, "mismatched": 0, "failed": 0, "served": 0}
     listed = _listing(s3, bucket)
     total = len(entries)
-    for position, (cover_id, size) in enumerate(entries.values(), start=1):
+    for position, (cover_id, file, size) in enumerate(entries.values(), start=1):
         key = KEY_PREFIX + cover_id
-        path = covers_dir / (cover_id + ".jpg")
+        path = covers_dir / file  # load_index allowed only <id>.jpg or <id>.png
+        content_type = _CONTENT_TYPES[Path(file).suffix]
         if listed.get(key) == size:
             result["skipped"] += 1
         elif not path.is_file():
@@ -122,7 +127,7 @@ def run(s3, covers_dir, bucket: str, *, log: Callable[[str], None] = print) -> d
                 result["mismatched"] += 1
             elif body is not None:
                 try:
-                    s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType=CONTENT_TYPE)
+                    s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType=content_type)
                 except Exception as error:  # any client or transport error: count it and go on
                     result["failed"] += 1
                     log("s3 covers: cover %d/%d failed (%s)" % (position, total, _describe(error)))
@@ -134,7 +139,7 @@ def run(s3, covers_dir, bucket: str, *, log: Callable[[str], None] = print) -> d
 
     verified = _listing(s3, bucket)
     served = {anime_id: {"id": cover_id, "key": KEY_PREFIX + cover_id, "size": size}
-              for anime_id, (cover_id, size) in entries.items()
+              for anime_id, (cover_id, _file, size) in entries.items()
               if verified.get(KEY_PREFIX + cover_id) == size}
     _write_json_atomic(covers_dir / SERVED_MAP_NAME, served)
     result["served"] = len(served)

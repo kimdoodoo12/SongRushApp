@@ -36,7 +36,8 @@ public final class CoverMap {
 
 	private static final String KEY_PREFIX = "c/";
 
-	private static final String FILE_SUFFIX = ".jpg";
+	// The only cover file names are <id>.jpg and <id>.png (cycle 095, C-022); lower-case suffix only.
+	private static final Set<String> FILE_SUFFIXES = Set.of(".jpg", ".png");
 
 	private static final CoverMap EMPTY = new CoverMap("empty", Map.of(), Map.of(), Map.of());
 
@@ -63,7 +64,8 @@ public final class CoverMap {
 	}
 
 	// Disk mode: coverCacheDir/index.json, {"version": 1, "covers": {"<animeId>": {"id", "file",
-	// "size"}}}; an entry counts only when coverCacheDir/<id>.jpg exists with that size.
+	// "size"}}}; "file" is <id>.jpg or <id>.png, and an entry counts only when that file exists in
+	// coverCacheDir with that size.
 	public static CoverMap loadDisk(Path coverCacheDir) {
 		JsonNode root = read(coverCacheDir.resolve("index.json"), "disk cover index");
 		if (root == null) {
@@ -81,12 +83,12 @@ public final class CoverMap {
 		Map<String, Path> fileById = new HashMap<>();
 		int missing = 0;
 		for (Map.Entry<String, JsonNode> field : covers.properties()) {
-			Entry entry = loader.entry(field, "file", null, FILE_SUFFIX);
+			Entry entry = loader.entry(field, "file", null, FILE_SUFFIXES);
 			if (entry == null) {
 				continue;
 			}
-			// Built from the validated id, never from a request.
-			Path file = coverCacheDir.resolve(entry.id() + FILE_SUFFIX);
+			// Built from the validated id and one of the fixed suffixes, never from a request.
+			Path file = coverCacheDir.resolve(entry.id() + entry.suffix());
 			if (!hasSize(file, entry.size())) {
 				missing++;
 				continue;
@@ -114,7 +116,7 @@ public final class CoverMap {
 		Map<Integer, String> idByAnime = new HashMap<>();
 		Map<String, String> keyById = new HashMap<>();
 		for (Map.Entry<String, JsonNode> field : root.properties()) {
-			Entry entry = loader.entry(field, "key", KEY_PREFIX, null);
+			Entry entry = loader.entry(field, "key", KEY_PREFIX, Set.of(""));
 			if (entry == null) {
 				continue;
 			}
@@ -186,7 +188,8 @@ public final class CoverMap {
 		}
 	}
 
-	private record Entry(int animeId, String id, long size) {
+	// suffix is the matched one of the allowed suffixes ("" for an S3 key).
+	private record Entry(int animeId, String id, String suffix, long size) {
 
 		@Override
 		public String toString() {
@@ -205,8 +208,8 @@ public final class CoverMap {
 		private int duplicates;
 
 		// The entry, or null when it is bad or a duplicate. The location field ("file" or "key") must
-		// equal prefix + id + suffix.
-		Entry entry(Map.Entry<String, JsonNode> field, String location, String prefix, String suffix) {
+		// equal prefix + id + one of suffixes, exactly.
+		Entry entry(Map.Entry<String, JsonNode> field, String location, String prefix, Set<String> suffixes) {
 			String animeKey = field.getKey();
 			JsonNode node = field.getValue();
 			if (animeKey == null || !ANIME_ID.matcher(animeKey).matches() || node == null || !node.isObject()) {
@@ -227,9 +230,12 @@ public final class CoverMap {
 				return null;
 			}
 			String idText = id.stringValue();
-			String expected = (prefix == null ? "" : prefix) + idText + (suffix == null ? "" : suffix);
+			String stem = (prefix == null ? "" : prefix) + idText;
 			JsonNode where = node.get(location);
-			if (where == null || !where.isString() || !where.stringValue().equals(expected)) {
+			String whereText = where == null || !where.isString() ? null : where.stringValue();
+			String suffix = whereText == null || !whereText.startsWith(stem) ? null
+					: whereText.substring(stem.length());
+			if (suffix == null || !suffixes.contains(suffix)) {
 				bad++;
 				return null;
 			}
@@ -242,7 +248,7 @@ public final class CoverMap {
 				duplicates++;
 				return null;
 			}
-			return new Entry(animeId, idText, size.longValue());
+			return new Entry(animeId, idText, suffix, size.longValue());
 		}
 
 		void report(String what) {
