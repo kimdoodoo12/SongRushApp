@@ -5,9 +5,11 @@
 // Contract (spec docs/cycles/097-reveal-cover-ui.md):
 // - the session keeps a reveal's coverUrl only when it is a string matching
 //   ^/cover/[A-Za-z0-9_-]{1,64}$; otherwise null;
-// - with a cover the card holds a div.reveal-cover (classes h-32 and w-24)
-//   with <img src={coverUrl} alt="">; after the img fires error the img is
-//   removed and the div stays; with null there is neither;
+// - every reveal card holds one div.reveal-cover (classes h-32 and w-24);
+//   with a cover it holds <img src={coverUrl} alt=""> with no loading
+//   attribute; with null, or after the img fires error, it holds no img and
+//   has the class reveal-cover-empty (cycle 098, D-109, spec
+//   docs/cycles/098-cover-slot-always.md);
 // - nothing else stores or requests a cover: coverUrl fields on prepare,
 //   start or snapshot frames are ignored;
 // - not-enough-songs with unit "series" uses error.availableSeries.
@@ -138,6 +140,24 @@ function coverSlots() {
   return Array.from(document.querySelectorAll('.reveal-cover'))
 }
 
+// The card's single cover slot, checked for the fixed size.
+function cardSlot(card) {
+  const slots = Array.from(card.querySelectorAll('.reveal-cover'))
+  expect(slots, 'one .reveal-cover in the reveal card').toHaveLength(1)
+  expect(coverSlots()).toHaveLength(1)
+  expect(slots[0].classList.contains('h-32'), 'slot has h-32').toBe(true)
+  expect(slots[0].classList.contains('w-24'), 'slot has w-24').toBe(true)
+  return slots[0]
+}
+
+// An empty slot: reveal-cover-empty and no img anywhere.
+function expectEmptySlot(card) {
+  const slot = cardSlot(card)
+  expect(slot.classList.contains('reveal-cover-empty'), 'empty slot has reveal-cover-empty').toBe(true)
+  expect(slot.querySelector('img')).toBeNull()
+  expect(allImages()).toEqual([])
+}
+
 // Every URL requested through the injected fetch or a global fetch.
 function requestedUrls(env, globalFetch) {
   const urls = env.fetch.urls.map(String)
@@ -178,6 +198,18 @@ describe('cover in the reveal card', () => {
     expect(slots[0].classList.contains('h-32')).toBe(true)
     expect(slots[0].classList.contains('w-24')).toBe(true)
     expect(slots[0].querySelector('img')).not.toBeNull()
+    expect(slots[0].classList.contains('reveal-cover-empty'), 'a showing cover is not the empty slot').toBe(false)
+  })
+
+  it('the cover img has no loading attribute', async () => {
+    const env = setup()
+    const socket = await songStarted(env)
+    deliver(socket, revealMsg(0, { coverUrl: COVER }))
+    const imgs = allImages()
+    expect(imgs).toHaveLength(1)
+    for (const img of imgs) {
+      expect(img.hasAttribute('loading'), `img loading="${img.getAttribute('loading')}"`).toBe(false)
+    }
   })
 
   it.each([
@@ -186,18 +218,16 @@ describe('cover in the reveal card', () => {
     ['an absolute URL', { coverUrl: 'https://evil.example/x.png' }],
     ['a path escaping /cover/', { coverUrl: '/cover/../x' }],
     ['an audio path', { coverUrl: '/audio/abc' }],
-  ])('a reveal with %s renders no img and no .reveal-cover', async (_name, cover) => {
+  ])('a reveal with %s renders an empty .reveal-cover slot (h-32 w-24, reveal-cover-empty, no img)', async (_name, cover) => {
     const env = setup()
     const socket = await songStarted(env)
     deliver(socket, revealMsg(0, cover))
     const card = revealCard()
     expect(within(card).getByRole('heading', { name: '진격의 거인' })).toBeTruthy()
-    expect(card.querySelectorAll('img')).toHaveLength(0)
-    expect(allImages()).toEqual([])
-    expect(coverSlots()).toEqual([])
+    expectEmptySlot(card)
   })
 
-  it('after an error event on the image the card has no img and .reveal-cover remains', async () => {
+  it('after an error event on the image the slot stays, empty, with reveal-cover-empty and no img', async () => {
     const env = setup()
     const socket = await songStarted(env)
     deliver(socket, revealMsg(0, { coverUrl: COVER }))
@@ -206,14 +236,10 @@ describe('cover in the reveal card', () => {
     expect(img, 'the cover img before the error').not.toBeNull()
     fireEvent.error(img)
     await waitFor(() => expect(revealCard().querySelectorAll('img')).toHaveLength(0))
-    expect(allImages()).toEqual([])
-    const slots = Array.from(revealCard().querySelectorAll('.reveal-cover'))
-    expect(slots).toHaveLength(1)
-    expect(slots[0].classList.contains('h-32')).toBe(true)
-    expect(slots[0].classList.contains('w-24')).toBe(true)
+    expectEmptySlot(revealCard())
   })
 
-  it('a failed cover does not hide the next round cover: the error state is keyed by coverUrl', async () => {
+  it('a cover that fails in one round does not hide the next round cover', async () => {
     const env = setup()
     const socket = await songStarted(env)
     deliver(socket, revealMsg(0, { coverUrl: COVER }))
@@ -226,12 +252,11 @@ describe('cover in the reveal card', () => {
     const imgs = Array.from(revealCard().querySelectorAll('img'))
     expect(imgs).toHaveLength(1)
     expect(imgs[0].getAttribute('src')).toBe(OTHER_COVER)
+    const slot = cardSlot(revealCard())
+    expect(slot.classList.contains('reveal-cover-empty')).toBe(false)
   })
 
-  it('the game-over screen keeps the last reveal card with its cover', async () => {
-    const env = setup()
-    const socket = await songStarted(env)
-    deliver(socket, revealMsg(0, { coverUrl: COVER }))
+  function endGame(socket) {
     deliver(socket, { type: 'scores', scores: [{ name: 'Kai', score: 0 }, { name: 'Mina', score: 0 }] })
     deliver(socket, {
       type: 'gameOver',
@@ -242,16 +267,32 @@ describe('cover in the reveal card', () => {
     })
     deliver(socket, roster('lobby'))
     expect(screen.getByRole('button', { name: ko.game.toLobby })).toBeTruthy()
+  }
+
+  it('the game-over screen keeps the last reveal card with its cover slot and cover', async () => {
+    const env = setup()
+    const socket = await songStarted(env)
+    deliver(socket, revealMsg(0, { coverUrl: COVER }))
+    endGame(socket)
     const card = revealCard()
     const imgs = Array.from(card.querySelectorAll('img'))
     expect(imgs).toHaveLength(1)
     expect(imgs[0].getAttribute('src')).toBe(COVER)
-    expect(card.querySelectorAll('.reveal-cover')).toHaveLength(1)
+    const slot = cardSlot(card)
+    expect(slot.querySelector('img')).toBe(imgs[0])
+  })
+
+  it('the game-over screen keeps the empty cover slot when the last reveal had no cover', async () => {
+    const env = setup()
+    const socket = await songStarted(env)
+    deliver(socket, revealMsg(0, { coverUrl: null }))
+    endGame(socket)
+    expectEmptySlot(revealCard())
   })
 })
 
 describe('no cover before the reveal', () => {
-  it('prepare and start frames with coverUrl show no img and fetch no /cover/ URL; a reveal without coverUrl shows none either', async () => {
+  it('prepare and start frames with coverUrl show no img, no slot and fetch no /cover/ URL; a reveal without coverUrl shows only the empty slot', async () => {
     const globalFetch = spyGlobalFetch()
     const env = setup()
     const socket = await songStarted(env, { coverUrl: COVER })
@@ -261,9 +302,7 @@ describe('no cover before the reveal', () => {
     expect(requestedUrls(env, globalFetch).filter((u) => u.includes('/cover/'))).toEqual([])
     // The reveal itself has no cover: nothing from the earlier frames is used.
     deliver(socket, revealMsg(0, {}))
-    revealCard()
-    expect(allImages()).toEqual([])
-    expect(coverSlots()).toEqual([])
+    expectEmptySlot(revealCard())
     expect(requestedUrls(env, globalFetch).filter((u) => u.includes('/cover/'))).toEqual([])
   })
 
