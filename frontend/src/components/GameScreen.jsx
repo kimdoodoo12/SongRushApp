@@ -32,8 +32,8 @@ function TimeBar({ max, remaining }) {
   )
 }
 
-// The spinning record and the equalizer while a song plays; decoration only.
-// While the audio is loading or failed to load they stand still (D-101).
+// The spinning record and the equalizer while a round runs; decoration only.
+// Until the song actually plays they stand still (D-101).
 function Disc({ paused }) {
   return (
     <div
@@ -263,6 +263,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
     ranking,
     watching,
     started,
+    reached,
     skipVoted,
     skipCount,
     waitingNext,
@@ -273,8 +274,14 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
   const line = settings === null ? '' : settingsLine(settings, t)
   const me = room === null ? null : room.me
   const canSkip = room !== null && screen === 'game' && started && !watching
-  // The record, the equalizer and the hint: between the start and the reveal.
+  // The hint: between the start and the reveal.
   const playing = screen === 'game' && started && reveal === null
+  // The record and the equalizer (D-101, 087): drawn whenever a round is
+  // current and not revealed, so from prepare on. They move only while the
+  // song is audible: started, the local clock past its startAt, loaded, and
+  // the sound not blocked.
+  const discShown = screen === 'game' && round !== null && reveal === null
+  const discPaused = !started || !reached || load === 'loading' || load === 'failed' || soundBlocked
   const clock = timer === null ? null : t('stage.seconds', { seconds: Math.ceil(timer.remaining / 1000) })
   const stage = (
     <section
@@ -315,10 +322,14 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
           {t('stage.unlockSound')}
         </button>
       )}
-      {load !== null && LOAD_KEY[load] !== undefined && (
-        <p className={`h-5 truncate text-center text-sm leading-5 ${load === 'failed' ? 'text-bad' : 'text-muted'}`}>{t(LOAD_KEY[load])}</p>
+      {/* The load text. While the disc is shown the line keeps its box, empty
+          once loaded, so the disc does not move when loading ends. */}
+      {(discShown || (load !== null && LOAD_KEY[load] !== undefined)) && (
+        <p className={`load-line h-5 truncate text-center text-sm leading-5 ${load === 'failed' ? 'text-bad' : 'text-muted'}`}>
+          {load !== null && LOAD_KEY[load] !== undefined ? t(LOAD_KEY[load]) : ''}
+        </p>
       )}
-      {playing && <Disc paused={load === 'loading' || load === 'failed'} />}
+      {discShown && <Disc paused={discPaused} />}
       {correct !== null && (
         // Right-to-left on the box, left-to-right on the text: when the line is
         // too long the ellipsis cuts the start of the name, so " 정답!" stays.

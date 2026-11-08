@@ -207,6 +207,12 @@ export function startSession({
     return Math.min(max, Math.max(0, left))
   }
 
+  // The local clock has reached the song's start (the server sends start
+  // ahead of startAt). Display only; playback timing is planPlayback's.
+  function reached(start) {
+    return now() >= start.startAt - start.offsetMs
+  }
+
   // Plays the round's buffer once both the buffer and the start time are
   // known, whichever comes last (a late decode plays from the current point).
   async function schedule(r) {
@@ -303,10 +309,10 @@ export function startSession({
   // Starts the round's clock and timer; it plays once the buffer is there.
   function beginStart(r, start) {
     r.start = start
-    dispatch({ type: 'start', max: start.deadlineAt - start.startAt, remaining: remaining(start) })
+    dispatch({ type: 'start', max: start.deadlineAt - start.startAt, remaining: remaining(start), reached: reached(start) })
     soundCheck()
     stopTimer()
-    timer = setInterval(() => dispatch({ type: 'tick', remaining: remaining(start) }), TICK_MS)
+    timer = setInterval(() => dispatch({ type: 'tick', remaining: remaining(start), reached: reached(start) }), TICK_MS)
     schedule(r)
   }
 
