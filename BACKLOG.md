@@ -281,11 +281,14 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-018** data: draw set 3,000 (from S-007, design 088)
   - `DRAW_SET_SIZE = 3000`; rebuild `catalog.json` from the cache with no live request; print the theme counts of anime ranks 1-100 and 1-300.
   - Acceptance (pytest): the draw set has 3,000 entries; growing the draw size keeps the earlier entries (prefix-stable) on a fixture; the rebuild uses only cached sources plus the build's single AnimeThemes freshness check (verified from the build log, cycle 089).
-- [~] **C-019** data: cover tool (from S-007)
+- [x] **C-019** data: cover tool (from S-007)
   - Lean paged GraphQL query for `images { nodes { facet link } }` with its own cache prefix; download LARGE_COVER for draw-set anime into `data/cover-cache/` with `index.json` (`animeId -> {id, file, size}`, `id` = `token_urlsafe(16)` kept across runs). Add `data/cover-cache/` to `.gitignore`. Gentle rules: UA, 3 s gap, 60 s timeout, 429 Retry-After, resume, stop after 5 consecutive failures.
   - Acceptance (pytest, fixtures only): the query parses a saved page; only draw-set anime are fetched; an existing valid file is skipped and its id kept; 429 waits for Retry-After; 5 failures stop the run; `git check-ignore data/cover-cache/x.jpg` succeeds.
+- [ ] **C-021** data: bound the cover page loop (from cycle 090 review M1)
+  - `covers.parse_page` also returns `lastPage`; the run fails with `ValueError` when the page number exceeds page 1's `lastPage` + 5, or when a page has `hasMorePages` true but no data. Must land before I-012 runs the tool live.
+  - Acceptance (pytest): a fake transport that always says `hasMorePages: true` ends with `ValueError` after at most `lastPage` + 5 requests; an empty page with `hasMorePages: true` raises.
 - [ ] **C-020** data: S3 upload of covers (from S-007)
-  - A new module beside `s3upload.py`, reusing its client and fake: uploads `cover-cache` files under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-keys.json` last.
+  - A new module beside `s3upload.py`, reusing its client and fake: uploads the files named in `cover-cache/index.json` only (never a directory glob, cycle 090 review N1) under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-keys.json` last.
   - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
 - [ ] **B-020** backend: anime cover on the reveal (from S-007)
   - `/cover/{id}`: disk mode serves `cover-cache` files, S3 mode 302s to a presigned URL of `c/<id>`. The reveal message carries `coverUrl` = `/cover/<id>` or null.
@@ -474,6 +477,9 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **090 N2** `covers.py:297-299`: suggest `--refresh-pages` also when downloads fail with 404 (stale cached cover links).
+- **090 N3** `covers.py:43,191-196`: on load, require ids to match `^[A-Za-z0-9_-]{22}$` and reject case-insensitive duplicates (hand-edited index only).
 
 - **089 N1** `data/tests/test_build.py:467-474`: the build log test cannot tell 100= from 300=, because its fixture has fewer than 100 anime; add a fixture with distinct values next time the build tests change.
 - (087) Pause the disc while reconnecting (started/reached stay set until the snapshot restores).
