@@ -299,7 +299,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-022** data + backend: accept PNG covers (from I-012 first run)
   - AnimeThemes serves many LARGE_COVER links ending in `.jpg` whose body is PNG (`89 50 4E 47`); the first run downloaded 15 and failed 19 of 34 on "not a JPEG". Accept JPEG and PNG by signature; store `<id>.jpg` or `<id>.png` by the real format; `index.json` `file` may be either; `s3covers` sets `image/jpeg` or `image/png` by extension; backend `CoverMap` accepts both suffixes and `/cover/{id}` sends the matching content type.
   - Acceptance (pytest, JUnit): PNG bodies are saved as `.png` and JPEG as `.jpg`; other bodies still fail; s3covers uploads each with its content type; the backend serves each with its content type; an index whose `file` suffix does not match the id is still rejected.
-- [~] **B-022** backend: easy draws series uniformly (from D-108)
+- [x] **B-022** backend: easy draws series uniformly (from D-108)
   - Easy: group the matching candidates by series group, shuffle the groups with the room's random, take N groups, and pick one theme uniformly within each. Normal and hard unchanged.
   - Acceptance (JUnit): over many seeded easy games on a fixture where one group has many more themes than the others, every group appears with about the same frequency (bounded test); no game repeats a group; not-enough-songs unchanged.
 - [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
@@ -484,6 +484,9 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **096 M1** `RoomEasyUniformTest.java:279-287`: within-group uniformity is only checked as "every theme appears once"; give the big group's anime different theme counts and bound each theme's share near 1/40.
+- **096 N1** `Room.java:238-240`: shuffle only the first N groups (partial Fisher-Yates) like the normal branch.
 
 - **095 N1** `data/tests/test_covers_gitignore.py:17-21`: also pin `data/cover-cache/x.png` and `x.png.part`.
 - **095 N2** `CoverController.java:147-150`: map `.jpg` and `.png` explicitly and 404 any other suffix instead of defaulting to image/jpeg.
