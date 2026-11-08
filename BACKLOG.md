@@ -278,7 +278,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [x] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
-- [~] **C-018** data: draw set 3,000 (from S-007, design 088)
+- [x] **C-018** data: draw set 3,000 (from S-007, design 088)
   - `DRAW_SET_SIZE = 3000`; rebuild `catalog.json` from the cache with no live request; print the theme counts of anime ranks 1-100 and 1-300.
   - Acceptance (pytest): the draw set has 3,000 entries; growing the draw size keeps the earlier entries (prefix-stable) on a fixture; the rebuild uses only cached sources plus the build's single AnimeThemes freshness check (verified from the build log, cycle 089).
 - [ ] **C-019** data: cover tool (from S-007)
@@ -287,14 +287,14 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **C-020** data: S3 upload of covers (from S-007)
   - A new module beside `s3upload.py`, reusing its client and fake: uploads `cover-cache` files under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-keys.json` last.
   - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
-- [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-018 and C-019)
-  - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
 - [ ] **B-020** backend: anime cover on the reveal (from S-007)
   - `/cover/{id}`: disk mode serves `cover-cache` files, S3 mode 302s to a presigned URL of `c/<id>`. The reveal message carries `coverUrl` = `/cover/<id>` or null.
   - Acceptance (JUnit): reveal has `coverUrl`; no message before the reveal and no reconnect snapshot contains a cover id; unknown id 404; the current audio token sent to `/cover/` is 404 and a cover id sent to `/audio/` is 404; a missing or broken cover map logs WARN, startup succeeds and every `coverUrl` is null.
 - [ ] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
   - Anime rank = order of the anime's first theme in `drawSet`. `easy` = anime ranks 1-100, `normal` (also when `tier` is absent) = 1-300, `hard` = all. Easy shuffles themes and keeps the first theme of each unseen series group; normal and hard draw as today.
   - Acceptance (JUnit): each tier draws only its anime ranks; easy never repeats a group; an easy pool with fewer groups than N answers `not-enough-songs` with `available` = distinct groups and `unit: "series"`; other tiers keep `available` as songs.
+- [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
+  - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
 - [ ] **F-022** frontend: reveal cover and series wording (from S-007)
   - The reveal card shows the image from `coverUrl`, nothing when null; `not-enough-songs` with `unit: "series"` says 작품 (en/ja equivalents).
   - Acceptance (Vitest): image present with a URL and absent with null; the series wording in ko, en, ja; layout stable in three languages and six moods (browser check in the cycle doc).
@@ -474,6 +474,8 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **089 N1** `data/tests/test_build.py:467-474`: the build log test cannot tell 100= from 300=, because its fixture has fewer than 100 anime; add a fixture with distinct values next time the build tests change.
 - (087) Pause the disc while reconnecting (started/reached stay set until the snapshot restores).
 - (085) Volume: with the slider at 0 and not muted, pressing mute should restore 80 in one press. Fix the stale header comment in `App.volume.test.jsx`. The Japanese footer button 'お問い合わせ' clips by 2 px (`w-24`).
 - (083) Admin API: 405 and OPTIONS answers come from Spring before the key interceptor, with no `no-store`. Consider handling all methods behind the key. The sent tab shows the stored title, not the edited one sent to GitHub; store `sentTitle`. Find what deletes `.claude/state/locked-paths.txt` mid-cycle.
