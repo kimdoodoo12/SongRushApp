@@ -42,3 +42,30 @@
 - **Backend implementer:** `backend/src/main/java/com/songrush/game/Room.java`.
 - **Frontend test writer:** `frontend/src/App.loadingdisc.test.jsx`.
 - **Frontend implementer:** `frontend/src/components/GameScreen.jsx` and `frontend/src/index.css`.
+
+## Result
+- **Commits.**
+  - Tests: `67ca6e5`. Review addition: `45d192f`.
+  - Implementation: `604fee1`.
+  - Attempt 2: `66bcee5`.
+- **Verifier at `66bcee5`.**
+  - Backend: 600 tests, 0 failures, 1 skipped (the POSIX-only store test). `RoomPunctChatTest`: 9.
+  - Frontend: 395 tests; lint and build exit 0 at `604fee1`. Attempt 2 changed only the backend.
+  - The locked-test diff is empty.
+- **Declared rewrite.** `RoomTest.chatThatNormalizesToEmptyIsIgnored` was split into `blankChatIsIgnored` and `punctuationOnlyChatIsShownAndNeverScores`.
+- **Review.** No Blocker or High.
+  - **M1:** `strip()` let invisible-only chats through (U+3164 Hangul filler, ZWSP, NBSP, BOM), and they were broadcast as empty lines. Attempt 2 fixed this with `isInvisible` (whitespace, space chars, format and control characters, Hangul fillers, variation selectors), backed by a locked test.
+  - The critic confirmed that `!normalized.isEmpty()` guards the match even if a catalog accepted string were empty, and that the CSS pause rule wins over every theme rule because it sits outside the components layer at specificity 0,3,0.
+- **Lead's browser check.** Local jar and built client, Playwright on Edge.
+  - Two players. After `startAt`, the guest sent `?`, `...`, `,./?` and U+3164. The host's chat log shows `철수: ?`, `철수: ...` and `철수: ,./?`, and nothing for U+3164.
+  - Audio requests were held with a Playwright route while `.disc-area[data-paused=true]`:
+
+    | Theme | Record pixel change over 700 ms while held | After release |
+    |---|---|---|
+    | 놀이터 | 0.0 % | 12.7 % |
+    | 무대 | 0.0 % | 18.1 % |
+    | 벚꽃 | 0.0 % | 15.2 % |
+    | 칠판 | 0.0 % | 13.4 % |
+    | 별밤 | 0.0 % | 19.1 % |
+    | 오락실 | 0.0 % | 87.9 % |
+- **Process note.** The backend implementer's full run hit the overlapping-Gradle `EOFException` / `NoSuchFileException` twice, with no `GradleWrapperMain` visible beforehand. The third run passed. This is the known Follow-up about the Stop hook running Gradle.

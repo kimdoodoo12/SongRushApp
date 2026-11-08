@@ -313,8 +313,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-019** Volume slider and mute on the game stage: GainNode, remembered per device (from D-099)
 
-- [~] **B-019** Punctuation-only chat is shown (from D-100)
-- [~] **F-020** Record and equalizer pause while audio loads (from D-101)
+- [x] **B-019** Punctuation-only chat is shown (from D-100)
+- [x] **F-020** Record and equalizer pause while audio loads (from D-101)
 
 ## Roadmap
 
