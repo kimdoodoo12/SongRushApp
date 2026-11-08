@@ -7,7 +7,10 @@ most MAX_BYTES, JPEG signature) and records it in covers_dir/index.json under
 a random id that the server later uses as the cover's public name. parse_page
 is the pure page parser. main is the command line:
 python -m songrush_data.covers [--cache DIR] [--covers DIR] [--catalog PATH] [--refresh-pages].
-docs/cycles/090-cover-tool.md is the specification.
+docs/cycles/090-cover-tool.md is the specification. The page loop is bounded
+(cycle 091, docs/cycles/091-cover-page-bound.md): page 1 must carry a positive
+integer lastPage, a run never requests more than that + MAX_PAGE_SLACK pages,
+and a page that claims more pages but lists no anime stops the run.
 """
 
 import argparse
@@ -38,6 +41,7 @@ INDEX_NAME = "index.json"
 INDEX_VERSION = 1
 MAX_BYTES = 2_000_000
 MAX_CONSECUTIVE_FAILURES = 5
+MAX_PAGE_SLACK = 5  # pages read past page 1's lastPage, for a source that grows during the run
 JPEG_SIGNATURE = b"\xff\xd8\xff"
 
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -116,8 +120,19 @@ def parse_page(body: bytes) -> tuple[dict[int, str | None], bool, int]:
     return links, has_more, current
 
 
+def _last_page(body: bytes) -> int:
+    """paginatorInfo.lastPage of a body parse_page accepted; ValueError unless a positive integer."""
+    last = json.loads(body)["data"]["animePagination"]["paginatorInfo"].get("lastPage")
+    if not isinstance(last, int) or isinstance(last, bool) or last <= 0:
+        raise ValueError("lastPage %r is not a positive integer" % (last,))
+    return last
+
+
 def _read_page(client, cache: FileCache, page: int):
-    """Parse page from the cache, or fetch, check and cache it; ValueError on a bad page."""
+    """(links, has_more, last_page) of page, from the cache or fetched, checked and cached.
+
+    last_page is read only for page 1 (None otherwise). ValueError on a bad page,
+    which is then not cached."""
     key = page_key(page)
     body = cache.get(key)
     source = "cached"
@@ -134,19 +149,34 @@ def _read_page(client, cache: FileCache, page: int):
         raise ValueError("%s page %d (%s): %s" % (source, page, key, error)) from error
     if current != page:
         raise ValueError("%s page %d (%s): response has currentPage %d" % (source, page, key, current))
+    if has_more and not links:
+        raise ValueError("%s page %d (%s): hasMorePages is true but the page lists no anime" % (source, page, key))
+    last_page = None
+    if page == 1:
+        try:
+            last_page = _last_page(body)
+        except ValueError as error:
+            raise ValueError("%s page %d (%s): %s" % (source, page, key, error)) from error
     if source == "fetched":
         cache.put(key, body)
-    return links, has_more
+    return links, has_more, last_page
 
 
 def _all_links(client, cache: FileCache, log) -> dict[int, str | None]:
     links: dict[int, str | None] = {}
     page = 1
+    bound = None
     while True:
-        page_links, has_more = _read_page(client, cache, page)
+        page_links, has_more, last_page = _read_page(client, cache, page)
+        if page == 1:
+            bound = last_page + MAX_PAGE_SLACK
         links.update(page_links)
         if not has_more:
             break
+        if page >= bound:
+            raise ValueError("page %d still has more pages, but page 1 said lastPage %d (bound %d with slack %d); "
+                             "not requesting page %d" % (page, bound - MAX_PAGE_SLACK, bound, MAX_PAGE_SLACK,
+                                                         page + 1))
         page += 1
     log("covers pages=%d listedAnime=%d" % (page, len(links)))
     return links
