@@ -290,7 +290,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-020** data: S3 upload of covers (from S-007)
   - A new module beside `s3upload.py`, reusing its client and fake: uploads the files named in `cover-cache/index.json` only (never a directory glob, cycle 090 review N1) under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-covers.json` last (`{animeId: {id, key, size}}`; renamed from s3-keys.json in cycle 092 so it cannot be confused with audio's map).
   - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
-- [~] **B-020** backend: anime cover on the reveal (from S-007)
+- [x] **B-020** backend: anime cover on the reveal (from S-007)
   - `/cover/{id}`: disk mode reads `cover-cache/index.json` (`{version, covers: {animeId: {id, file, size}}}`) and serves `<id>.jpg`; S3 mode reads `cover-cache/s3-covers.json` (`{animeId: {id, key, size}}`, written by `songrush_data.s3covers`) and 302s to a presigned URL of its `key` (`c/<id>`). The reveal message carries `coverUrl` = `/cover/<id>` or null.
   - Acceptance (JUnit): reveal has `coverUrl`; no message before the reveal and no reconnect snapshot contains a cover id; unknown id 404; the current audio token sent to `/cover/` is 404 and a cover id sent to `/audio/` is 404; a missing or broken cover map logs WARN, startup succeeds and every `coverUrl` is null.
 - [ ] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
@@ -299,7 +299,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **I-012** run: prefetch audio ranks 1,501-3,000 and fetch covers on this PC (from S-007; after C-019 and B-021, so the new songs never land in a tier before the tiers are redrawn: cycle 089 review)
   - Long background job with the existing tools; record counts, sizes and failures in the cycle doc. The S3 uploads and copying files to the server are the owner's.
 - [ ] **F-022** frontend: reveal cover and series wording (from S-007)
-  - The reveal card shows the image from `coverUrl`, nothing when null; `not-enough-songs` with `unit: "series"` says 작품 (en/ja equivalents).
+  - Add `'/cover': { target: 'http://localhost:8080' }` to the Vite dev proxy (`frontend/vite.config.js`, beside `/audio`; cycle 093 review). The reveal card shows the image from `coverUrl`, nothing when null; `not-enough-songs` with `unit: "series"` says 작품 (en/ja equivalents).
   - Acceptance (Vitest): image present with a URL and absent with null; the series wording in ko, en, ja; layout stable in three languages and six moods (browser check in the cycle doc).
 - [ ] **B-014** backend: transport-independent game core (from S-005, design 068)
   - Extract the seat, token, binding and lobby registry and the per-message actions from `GameSocketHandler` into a `GameService` that the raw handler calls. Pure refactor: every existing test passes unchanged.
