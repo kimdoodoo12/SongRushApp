@@ -239,4 +239,40 @@ class RoomPunctChatTest {
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 
+	// 086 review M1: a chat of only invisible characters is ignored like a blank one. Built from
+	// code points so this file stays ASCII: U+3164 Hangul filler, U+200B ZWSP, U+00A0 NBSP, U+FEFF,
+	// and U+3164 + space + U+200B. Five lines per player, one player per phase, so the burst of 5
+	// is never exceeded.
+	@Test
+	void invisibleOnlyChatsSendNothingInAnyPhase() {
+		build(MINA, JOON, HANA);
+		List<String> invisibles = List.of(cp(0x3164), cp(0x200B), cp(0x00A0), cp(0xFEFF),
+				cp(0x3164) + " " + cp(0x200B));
+
+		for (String text : invisibles) {
+			assertThat(chat(MINA, text)).as("lobby, " + codePoints(text)).isEmpty();
+		}
+		playSongZero(MINA, JOON, HANA);
+		assertThat(clock.millis()).isLessThan(num(lastStart(), "startAt"));
+		for (String text : invisibles) {
+			assertThat(chat(JOON, text)).as("before startAt, " + codePoints(text)).isEmpty();
+		}
+		toStartAt();
+		for (String text : invisibles) {
+			assertThat(chat(HANA, text)).as("after startAt, " + codePoints(text)).isEmpty();
+		}
+		assertThat(outbox.ofType("correct")).isEmpty();
+		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
+	}
+
+	private static String cp(int codePoint) {
+		return new String(Character.toChars(codePoint));
+	}
+
+	private static String codePoints(String text) {
+		StringBuilder out = new StringBuilder("[");
+		text.codePoints().forEach(c -> out.append(String.format(" U+%04X", c)));
+		return out.append(" ]").toString();
+	}
+
 }
