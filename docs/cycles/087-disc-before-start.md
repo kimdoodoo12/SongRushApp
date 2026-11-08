@@ -28,3 +28,25 @@ Cycle 086 misread D-101. The owner's "loading" is the prepare phase before a son
 ## File ownership
 - **Test writer:** `frontend/src/App.loadingdisc.test.jsx`.
 - **Implementer:** `frontend/src/components/GameScreen.jsx`.
+
+## Result
+- **Commits.**
+  - Tests: `d0b3987`, then a declared revision at `6395829`.
+  - Implementation: `2eeda79`.
+  - Attempt 2: `299c32b`.
+- **Out of scope, riding along.** Commit `a5af7b3` (`docs/design/087-songs-3000-covers.md` and BACKLOG lines D-102 to D-107, S-007, C-018 to F-022) was made by another owner session in the shared checkout. It is owner-approved design work, not part of this cycle. The spec commit `293314b` also carried that session's uncommitted D-102 to D-105 BACKLOG lines.
+- **Review (attempt 1).** No Blocker.
+  - **H-1:** the disc spun during the roughly 3 s silent lead after `start`.
+  - **M-1:** the disc jumped when the loading line disappeared.
+  - **M-2:** it spun while the sound was blocked.
+  - **M-3:** there were no tests for late join, rejoin or waiting for the next song.
+  - All four were fixed in attempt 2. The disc is paused unless `started && reached && load ok && !soundBlocked`, where `reached` is recomputed on every 250 ms tick. The `load-line` keeps its box while the disc is shown.
+- **Verifier at `299c32b`.**
+  - `npm test`: 30 files, 407 tests passed; lint exit 0. The targeted run (loadingdisc, themeLayout, flow, reconnect) passed 82 tests.
+  - The locked-test diff is empty.
+  - The `session.js` diff only adds the display-only `reached` helper and dispatch fields; playback timing is untouched.
+- **Lead's browser check.** Local jar and built client, Playwright on Edge.
+  - **Audio held before the start, all six themes.** The disc is drawn before the start (no hint yet) and changes by 0.0 % while held. After release it spins: 12.5 % to 42.8 %.
+  - **Normal load.** Right after the start, in the silent lead, it changes 0.0 %. 3.5 s later, while audible, it changes 15.7 %.
+  - **Theme box differences** are 0 at 1280 in ko, en and ja, and 0 at 390 once measured in page coordinates. The earlier "2 differences" at 390 came from viewport scroll in the measurement script, not from layout.
+- **Not handled, Follow-up.** While reconnecting, `started` and `reached` stay set, so the disc may keep spinning until the snapshot restores.

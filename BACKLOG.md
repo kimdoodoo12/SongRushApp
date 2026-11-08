@@ -341,7 +341,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Redesign the difficulty tiers for 3,000 songs (D-105): easy is famous songs with no anime repeated within a game, and every tier must hold enough distinct anime for the largest game (30 songs). Propose the tier ranges with numbers; the owner has not fixed them.
   - Output: a design doc and the build items appended here, ahead of B-014.
 
-- [~] **F-021** Disc drawn from prepare, paused until the song plays (D-101 as clarified by the owner)
+- [x] **F-021** Disc drawn from prepare, paused until the song plays (D-101 as clarified by the owner)
 
 ## Roadmap
 
@@ -370,7 +370,7 @@ Decided:
 - **D-106** No-repeat scope (user, 2026-11-08): only easy avoids repeating a series group within a game; normal and hard draw as before.
 - **D-107** Tier shape (user, 2026-11-08): tiers are nested and all start at the most popular anime: easy is the narrowest top range, normal wider, hard the widest; no tier is "only below some rank". Design 087 proposes easy = anime ranks 1-100, normal = 1-300, hard = all.
 - **D-100** A punctuation- or symbol-only chat is shown as normal chat and never scores; blank chat is still ignored (user, 2026-11-08). This replaces the earlier "normalizes to empty is ignored".
-- **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08).
+- **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08). Clarified by the owner the same day: the disc is drawn from prepare and moves only while the song is actually heard (cycle 087).
 - **D-099** Per-player volume control (user, 2026-11-08: "자신이 원하는 불륨으로 들을 수 있게"). A slider and mute on the game stage. The default is 80% and the setting is remembered on the device. It is client-only and does not affect playback timing. The lead picked the defaults and told the owner.
 - **D-098** Feedback issues carry only the `문의` label (user, 2026-11-08). The category stays in the title and body, and `song-request` is removed.
 - **D-097** Feedback goes to Issues only after the owner approves it (user, 2026-11-07: "관리자 화면에서 내가 문의를 따로 체크하면 그때 Issues로"). `/admin` is protected by nginx Basic Auth (an htpasswd file, no login code in the app). Feedback is stored in one server file. Admin actions are send to Issues (with an editable title) and hide or restore.
@@ -474,6 +474,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (087) Pause the disc while reconnecting (started/reached stay set until the snapshot restores).
 - (085) Volume: with the slider at 0 and not muted, pressing mute should restore 80 in one press. Fix the stale header comment in `App.volume.test.jsx`. The Japanese footer button 'お問い合わせ' clips by 2 px (`w-24`).
 - (083) Admin API: 405 and OPTIONS answers come from Spring before the key interceptor, with no `no-store`. Consider handling all methods behind the key. The sent tab shows the stored title, not the edited one sent to GitHub; store `sentTitle`. Find what deletes `.claude/state/locked-paths.txt` mid-cycle.
 - (082) Feedback items have no deletion tool; deletion is a manual edit of the server file. Add one if personal data shows up.
