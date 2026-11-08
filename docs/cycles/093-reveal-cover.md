@@ -10,15 +10,15 @@ The reveal message carries `coverUrl` (`/cover/<id>` or null), and `GET /cover/{
 
 - **Cover map** (new, package `com.songrush.cover`): loaded once at startup into an immutable `animeId -> coverId` map and its reverse.
   - Disk mode reads `<data-dir>/cover-cache/index.json` (`{"version": 1, "covers": {"<animeId>": {"id", "file", "size"}}}`); a cover counts only when `<id>.jpg` exists with that size.
-  - S3 mode (the existing `S3ModeCondition`) reads `<data-dir>/cover-cache/s3-covers.json` (`{"<animeId>": {"id", "key", "size"}}`) and keeps `id -> key`.
-  - Every entry is checked: `id` matches `^[A-Za-z0-9_-]{1,64}$`, `file` equals `<id>.jpg` (disk) or `key` equals `c/<id>` (S3), size is a positive integer, anime ids are integers. A bad entry is skipped with a WARN that names no id.
+  - One cover-map bean chooses the format with `AudioProperties.s3Mode()` (no new conditional beans; `S3ModeCondition` is package-private). S3 mode reads `<data-dir>/cover-cache/s3-covers.json` (`{"<animeId>": {"id", "key", "size"}}`) and keeps `id -> key`.
+  - Every entry is checked: `id` matches `^[A-Za-z0-9_-]{1,64}$`, `file` equals `<id>.jpg` (disk) or `key` equals `c/<id>` (S3), size is a positive integer, anime ids are integers. A bad entry is skipped with a WARN that names no id. A second entry with an id equal (case-insensitively) to an earlier one is skipped with a WARN; building the maps never throws.
   - A missing or unreadable file, or one that is not the expected JSON shape, logs one WARN and gives an empty map. **Startup never fails because of covers** (unlike the audio map).
   - The map's `toString` and logs show counts only.
-- **Reveal**: `Room.endSong` adds `"coverUrl"` to the existing reveal message: `"/cover/" + id` when the song's anime has a cover, else `null`. No other message (prepare, start, song, settings, state snapshots, reconnect snapshot, gameOver) carries a cover id or `coverUrl`. Existing constructors of `Room` and `Lobby` keep working (a no-cover default), so tests that build them directly need no change.
+- **Reveal**: `Room.endSong` adds `"coverUrl"` to the existing reveal message: `"/cover/" + id` when the song's anime has a cover, else `null`. No other message (prepare, start, song, settings, state snapshots, reconnect snapshot, gameOver) carries a cover id or `coverUrl`. Existing constructors of `Room` and `Lobby` keep compiling (overloads with a no-cover default), but the reveal message's key set changes (protocol change): the reveal allow-lists in `RoomTest.java:53-54`, `RoomRoundsTest.java:46-47,699-700` and `RoomLateJoinTest.java:50-51` gain `coverUrl`.
 - **`GET /cover/{id}`** (new controller):
   - Unknown id, or an id not matching the id pattern: 404 through the existing JSON error handling (`{"error":"not found"}`), before any body byte.
-  - Disk mode: 200 `image/jpeg` with the file bytes, `Cache-Control: no-store`, no `Last-Modified`, `ETag` or `Content-Disposition`; a file that cannot be opened is 404.
-  - S3 mode: 302 to a 60-second presigned GET URL of the cover's key in the audio bucket (same presigner settings as `S3AudioLinks`), `Cache-Control: no-store`, no body; a signing failure is 503.
+  - Disk mode: 200 `image/jpeg` with the file bytes and `Content-Length`, `Cache-Control: no-store`, no `Last-Modified`, `ETag` or `Content-Disposition`; a file that cannot be opened is 404.
+  - S3 mode: 302 to a 60-second presigned GET URL of the cover's key in the audio bucket built by the cover controller itself from the S3-mode `AwsCredentialsProvider` bean (via `ObjectProvider`) and `AudioProperties.bucket()`, region ap-southeast-2, path-style off (the same settings as `S3AudioLinks`; its package-private constants may be duplicated, or made public); `Cache-Control: no-store`, no body; a signing failure is 503 (not tested in this cycle).
   - An audio token sent to `/cover/` is 404, and a cover id sent to `/audio/` is 404 (separate maps; no shared store with `AudioTokens`).
   - Logs carry at most the first 6 characters of the id.
 
@@ -29,19 +29,21 @@ The reveal message carries `coverUrl` (`/cover/<id>` or null), and `GET /cover/{
 3. Disk mode: `GET /cover/<id>` returns 200, `image/jpeg`, the exact file bytes, `Cache-Control: no-store`, and none of `Last-Modified`, `ETag`, `Content-Disposition`. Unknown id: 404 JSON.
 4. S3 mode: `GET /cover/<id>` returns 302 with a `Location` presigned for bucket and key `c/<id>`, `Cache-Control: no-store`, empty body. Unknown id: 404.
 5. A current audio token at `/cover/<token>` is 404; a cover id at `/audio/<id>` is 404.
-6. A missing, malformed or wrong-shape cover map logs WARN, startup succeeds, and every `coverUrl` is null. A bad entry is skipped and the others still work; a disk entry whose file is missing or the wrong size is not served.
+6. A missing, malformed or wrong-shape cover map logs WARN, startup succeeds, and every `coverUrl` is null. A bad entry or a case-insensitive duplicate id is skipped and the others still work; a disk entry whose file is missing or the wrong size is not served.
 7. `.\gradlew.bat test` from `backend/` exits 0.
 
 ## Test list
 
 - `backend/src/test/java/com/songrush/cover/CoverMapTest.java`: loading rules (criterion 6) for both formats.
 - `backend/src/test/java/com/songrush/cover/CoverEndpointTest.java`: disk-mode HTTP (criteria 3, 5) on a real random port with `songrush.data-dir` pointing at a temp folder, in the style of `AudioEndpointTest`.
-- `backend/src/test/java/com/songrush/cover/S3CoverEndpointTest.java`: S3-mode HTTP (criterion 4) in the style of `S3AudioEndpointTest` and `S3Fixture`.
+- `backend/src/test/java/com/songrush/cover/S3CoverEndpointTest.java`: S3-mode HTTP (criterion 4) in the style of `S3AudioEndpointTest`; `S3Fixture` is package-private, so copy what is needed.
+- `backend/src/test/java/com/songrush/game/LobbyCoverTest.java`: criterion 2 at Lobby level: a Lobby built with a cover map plays two songs whose anime have covers; players join, reconnect and late-join during PREPARE and PLAYING; no outbound text before each reveal contains that song's cover id, and the next song's prepare does not carry the previous cover id.
+- Existing `RoomTest.java`, `RoomRoundsTest.java`, `RoomLateJoinTest.java`: add `coverUrl` to the reveal key allow-lists only.
 - `backend/src/test/java/com/songrush/game/RoomCoverTest.java`: criteria 1 and 2 in the style of the existing Room tests (`GameFixture`).
 
 ## File ownership
 
-- Test writer: the four test files above (and new fixtures under `backend/src/test/resources/` if needed).
+- Test writer: the new test files above, the reveal allow-list lines of the three existing tests, and new fixtures under `backend/src/test/resources/` if needed.
 - Implementer: new files under `backend/src/main/java/com/songrush/cover/`; changes to `game/Room.java`, `game/Lobby.java` and wherever `Lobby` is created (to pass the cover map); no change to `audio/` classes except reading shared constants if needed.
 
 ## Out of scope
