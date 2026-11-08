@@ -18,6 +18,7 @@ import com.songrush.catalog.Anime;
 import com.songrush.catalog.Candidate;
 import com.songrush.catalog.Catalog;
 import com.songrush.catalog.Theme;
+import com.songrush.cover.CoverMap;
 
 // One room's game as a server-side state machine: LOBBY -> (PREPARE -> PLAYING -> REVEAL) per song
 // -> LOBBY (docs/cycles/036-room-state-machine.md). Not thread-safe: every method and every
@@ -67,6 +68,9 @@ public final class Room {
 	private final RandomGenerator random;
 
 	private final Outbox outbox;
+
+	// Cover ids leave the room only in a reveal's coverUrl (cycle 093).
+	private final CoverMap covers;
 
 	// Room players in player order; late joiners are appended when promoted.
 	private final List<PlayerRef> players;
@@ -119,12 +123,18 @@ public final class Room {
 
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players) {
+		this(catalog, tokens, scheduler, clock, random, outbox, players, CoverMap.empty());
+	}
+
+	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
+			Outbox outbox, List<PlayerRef> players, CoverMap covers) {
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.tokens = Objects.requireNonNull(tokens, "tokens");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.random = Objects.requireNonNull(random, "random");
 		this.outbox = Objects.requireNonNull(outbox, "outbox");
+		this.covers = Objects.requireNonNull(covers, "covers");
 		this.players = new ArrayList<>(players);
 		if (this.players.isEmpty()) {
 			throw new IllegalArgumentException("a room needs at least one player");
@@ -474,7 +484,8 @@ public final class Room {
 		}
 		outbox.toAll(message("reveal", "index", songIndex, "reveal", song.anime().reveal(), "titles", titles,
 				"song", song.theme().song(), "artists", song.theme().artists(), "themeType", song.theme().type(),
-				"themeSlug", song.theme().slug(), "winner", winner == null ? null : winner.name()));
+				"themeSlug", song.theme().slug(), "winner", winner == null ? null : winner.name(), "coverUrl",
+				covers.idFor(song.anime().id()).map(id -> "/cover/" + id).orElse(null)));
 		List<Object> rows = new ArrayList<>();
 		for (PlayerRef p : players) {
 			rows.add(row("name", p.name(), "score", scores.get(p.id())));

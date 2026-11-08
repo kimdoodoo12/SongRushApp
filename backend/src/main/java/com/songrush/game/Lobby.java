@@ -12,6 +12,7 @@ import java.util.random.RandomGenerator;
 
 import com.songrush.audio.AudioTokens;
 import com.songrush.catalog.Catalog;
+import com.songrush.cover.CoverMap;
 
 // A room code's players between games: join, leave, host, start, the return after gameOver, and
 // the cleanup timers (docs/cycles/040-rooms-lobby.md), and the 30 s grace period after a dropped
@@ -55,6 +56,9 @@ public final class Lobby {
 
 	private final Runnable onClosed;
 
+	// Passed to every Room; only a reveal names a cover.
+	private final CoverMap covers;
+
 	// Join order. In LOBBY a disconnected member is one in grace; during a game a member who left
 	// (or whose grace ran out) stays, disconnected, until the return.
 	private final List<Member> members = new ArrayList<>();
@@ -80,6 +84,11 @@ public final class Lobby {
 
 	public Lobby(String code, Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock,
 			RandomGenerator random, Outbox outbox, Runnable onClosed) {
+		this(code, catalog, tokens, scheduler, clock, random, outbox, onClosed, CoverMap.empty());
+	}
+
+	public Lobby(String code, Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock,
+			RandomGenerator random, Outbox outbox, Runnable onClosed, CoverMap covers) {
 		this.code = Objects.requireNonNull(code, "code");
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.tokens = Objects.requireNonNull(tokens, "tokens");
@@ -88,6 +97,7 @@ public final class Lobby {
 		this.random = Objects.requireNonNull(random, "random");
 		this.outbox = Objects.requireNonNull(outbox, "outbox");
 		this.onClosed = Objects.requireNonNull(onClosed, "onClosed");
+		this.covers = Objects.requireNonNull(covers, "covers");
 		armIdle();
 	}
 
@@ -322,7 +332,7 @@ public final class Lobby {
 			}
 		}
 		RoomOutbox wrapper = new RoomOutbox();
-		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players);
+		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players, covers);
 		room = next;
 		roomOutbox = wrapper;
 		next.start(songCount, filter);

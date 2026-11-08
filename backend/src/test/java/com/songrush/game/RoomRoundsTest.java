@@ -44,7 +44,7 @@ class RoomRoundsTest {
 			"scores", Set.of("type", "scores"),
 			"skipState", Set.of("type", "index", "votes", "needed"),
 			"reveal", Set.of("type", "index", "reveal", "titles", "song", "artists", "themeType", "themeSlug",
-					"winner"),
+					"winner", "coverUrl"),
 			"gameOver", Set.of("type", "ranking"));
 
 	@TempDir
@@ -697,7 +697,7 @@ class RoomRoundsTest {
 		assertThat(outbox.last("skipState").message().keySet()).containsExactlyInAnyOrder("type", "index",
 				"votes", "needed");
 		assertThat(outbox.last("reveal").message().keySet()).containsExactlyInAnyOrder("type", "index", "reveal",
-				"titles", "song", "artists", "themeType", "themeSlug", "winner");
+				"titles", "song", "artists", "themeType", "themeSlug", "winner", "coverUrl");
 	}
 
 }

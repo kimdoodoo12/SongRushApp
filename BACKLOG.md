@@ -290,7 +290,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-020** data: S3 upload of covers (from S-007)
   - A new module beside `s3upload.py`, reusing its client and fake: uploads the files named in `cover-cache/index.json` only (never a directory glob, cycle 090 review N1) under `c/<id>` with `image/jpeg`, resumable, writes `cover-cache/s3-covers.json` last (`{animeId: {id, key, size}}`; renamed from s3-keys.json in cycle 092 so it cannot be confused with audio's map).
   - Acceptance (pytest with the fake): keys use the index ids; a rerun uploads nothing new; content type is `image/jpeg`; the map is written only after all uploads.
-- [ ] **B-020** backend: anime cover on the reveal (from S-007)
+- [~] **B-020** backend: anime cover on the reveal (from S-007)
   - `/cover/{id}`: disk mode reads `cover-cache/index.json` (`{version, covers: {animeId: {id, file, size}}}`) and serves `<id>.jpg`; S3 mode reads `cover-cache/s3-covers.json` (`{animeId: {id, key, size}}`, written by `songrush_data.s3covers`) and 302s to a presigned URL of its `key` (`c/<id>`). The reveal message carries `coverUrl` = `/cover/<id>` or null.
   - Acceptance (JUnit): reveal has `coverUrl`; no message before the reveal and no reconnect snapshot contains a cover id; unknown id 404; the current audio token sent to `/cover/` is 404 and a cover id sent to `/audio/` is 404; a missing or broken cover map logs WARN, startup succeeds and every `coverUrl` is null.
 - [ ] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
