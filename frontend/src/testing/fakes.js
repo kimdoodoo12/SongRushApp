@@ -72,6 +72,14 @@ export class FakeSource {
   }
 }
 
+// A GainNode-like object: gain.value is a plain settable field.
+export class FakeGain {
+  constructor() {
+    this.gain = { value: 1 }
+    this.connect = vi.fn()
+  }
+}
+
 export class FakeAudioBuffer {
   constructor(id) {
     this.id = id
@@ -94,6 +102,7 @@ export class FakeAudioContext {
     this.deferResume = deferResume
     this.destination = { kind: 'destination' }
     this.sources = []
+    this.gains = []
     this.decodeCalls = []
     this.decoded = []
     this.pendingDecodes = []
@@ -147,6 +156,12 @@ export class FakeAudioContext {
     const source = new FakeSource()
     this.sources.push(source)
     return source
+  }
+
+  createGain() {
+    const gain = new FakeGain()
+    this.gains.push(gain)
+    return gain
   }
 
   // Sources on which start() was called.

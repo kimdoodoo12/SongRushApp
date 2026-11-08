@@ -560,6 +560,18 @@
     color: var(--a1-ink);
   }
 
+  /* The own volume (D-099): the native range in the look's accent; its box
+     is fixed by utilities and the same in every look. */
+  .volume-slider {
+    accent-color: var(--a1);
+    cursor: pointer;
+  }
+
+  .volume-slider:focus-visible {
+    outline: 2px solid var(--a1);
+    outline-offset: 2px;
+  }
+
   .correct {
     background: var(--good);
     color: var(--good-ink);

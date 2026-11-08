@@ -230,3 +230,21 @@ All earlier tests pass, apart from declared rewrites. `.\gradlew.bat test`, `npm
 - **Process notes.**
   - `.claude/state/locked-paths.txt` disappeared between the lead's lock and unlock twice in this cycle. The lead's own unlock printed "no locked paths". The cause is not identified. The verifier's `git diff <test commit> HEAD` check remained the guard, and it was empty each time.
   - Overlapping Gradle runs corrupted `build/test-results/test/binary` once. The verifier's `cleanTest test` regenerated it.
+
+## Live setup (owner, 2026-11-08)
+- **What the owner set up on the server:**
+  - the `feedback` folder (uid 10001, 700);
+  - `feedback.env` (admin key from `openssl rand -hex 32`, plus the token), owned by ubuntu with mode 600, because `docker compose` reads `env_file` as the invoking user;
+  - `nginx/htpasswd` (bcrypt);
+  - in `compose.yml`, `env_file`, `SONGRUSH_FEEDBACK_DIR` and the two volume mounts;
+  - `location ^~ /admin` in `songrush.conf` (mode 600). The key was inserted by `sed` from `feedback.env`, so it was never typed or shown.
+  - Before recreating the containers, the owner checked the config with `docker compose run --rm --no-deps nginx nginx -t`.
+- **Guidance errors corrected on the way.**
+  - `htpasswd` behind a pipe mixed its prompts into the output file. Fixed by running it unpiped and pasting the line.
+  - A root-only `feedback.env` blocked `docker compose`. Fixed by `chown ubuntu`.
+- **Lead's outside-in check** (curl against https://animeopguessr.com, `--path-as-is`):
+  - `/admin`, `/admin/`, `/admin/api/feedback`, `/admin;x/api/feedback`, `//admin/api/feedback`, `/%61dmin/api/feedback`, `/admin/../admin/api/feedback` and `/administrator` all gave **401**.
+  - A forged `X-Admin-Key` gave 401, and `/Admin/api/feedback` gave 404.
+  - The `Content-Security-Policy: frame-ancestors 'none'` header is present on `/admin`.
+  - The public POST `{}` gave 400 `bad-feedback`, so the store is enabled.
+- **Owner end-to-end:** submitted feedback on the live site, sent it from `/admin`, and the issue was created with the `문의` label ("잘 돼").
