@@ -196,9 +196,11 @@ public final class Room {
 	}
 
 	// Draws songCount songs from the grouped candidates that match the filter, including its tier by
-	// draw-set rank. Too few: everyone gets not-enough-songs with the narrowed count. With a non-empty
-	// filter, everyone gets settings (only its set fields) before the first prepare
-	// (docs/cycles/060-draw-filters.md, 063-tier-filter.md).
+	// anime rank. Easy keeps at most one song per series group; normal and hard are a uniform draw.
+	// Too few: everyone gets not-enough-songs with the narrowed count (easy counts series groups and
+	// adds unit "series"). With a non-empty filter, everyone gets settings (only its set fields)
+	// before the first prepare (docs/cycles/060-draw-filters.md, 063-tier-filter.md,
+	// 094-nested-tiers.md).
 	public void start(int songCount, DrawFilter filter) {
 		Objects.requireNonNull(filter, "filter");
 		if (phase != Phase.LOBBY) {
@@ -213,18 +215,39 @@ public final class Room {
 			catalog.theme(c.themeId())
 					.flatMap(t -> catalog.anime(t.animeId()).map(a -> new Song(c, t, a)))
 					.filter(s -> s.anime().group() != null)
-					.filter(s -> filter.matches(s.theme(), s.anime()) && filter.matchesRank(catalog.rank(c.themeId())))
+					.filter(s -> filter.matches(s.theme(), s.anime()) && filter.matchesAnimeRank(catalog.animeRank(c.themeId())))
 					.ifPresent(drawable::add);
 		}
-		if (drawable.size() < songCount) {
-			outbox.toAll(message("error", "code", "not-enough-songs", "available", drawable.size()));
-			return;
+		if (DrawFilter.EASY.equals(filter.tier())) {
+			// Shuffle (Fisher-Yates), then keep the first song of each series group not yet kept, until
+			// songCount.
+			for (int i = 0; i < drawable.size(); i++) {
+				Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
+			}
+			List<Song> picked = new ArrayList<>();
+			Set<Integer> groups = new HashSet<>();
+			for (Song s : drawable) {
+				if (groups.add(s.anime().group())) {
+					picked.add(s);
+				}
+			}
+			if (picked.size() < songCount) {
+				outbox.toAll(message("error", "code", "not-enough-songs", "available", picked.size(), "unit", "series"));
+				return;
+			}
+			songs = List.copyOf(picked.subList(0, songCount));
 		}
-		// Partial Fisher-Yates: the first songCount entries are a uniform draw without repeats.
-		for (int i = 0; i < songCount; i++) {
-			Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
+		else {
+			if (drawable.size() < songCount) {
+				outbox.toAll(message("error", "code", "not-enough-songs", "available", drawable.size()));
+				return;
+			}
+			// Partial Fisher-Yates: the first songCount entries are a uniform draw without repeats.
+			for (int i = 0; i < songCount; i++) {
+				Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
+			}
+			songs = List.copyOf(drawable.subList(0, songCount));
 		}
-		songs = List.copyOf(drawable.subList(0, songCount));
 		settings = filter;
 		scores.replaceAll((id, points) -> 0);
 		generation++;

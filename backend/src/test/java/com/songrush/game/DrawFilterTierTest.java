@@ -10,9 +10,10 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-// Cycle 063 (B-012) criterion 1: the tier component of DrawFilter, matchesRank, the three-argument
-// constructor, isEmpty and toMessageFields (docs/cycles/063-tier-filter.md, Behaviour 2 and the
-// spec review's constructor normalization).
+// Cycle 063 (B-012) criterion 1: the tier component of DrawFilter, the three-argument constructor,
+// isEmpty and toMessageFields (docs/cycles/063-tier-filter.md, Behaviour 2 and the spec review's
+// constructor normalization). Cycle 094 (B-021) criteria 2 and 5: matchesAnimeRank with the nested
+// tiers by anime rank, easy 1-100, no tier (normal) 1-300, hard any rank (docs/cycles/094-nested-tiers.md).
 class DrawFilterTierTest {
 
 	private static final DrawFilter EASY = new DrawFilter(null, null, null, "easy");
@@ -21,53 +22,76 @@ class DrawFilterTierTest {
 
 	private static final DrawFilter NO_TIER = new DrawFilter(null, null, null, null);
 
-	// ---- matchesRank ----
+	// ---- matchesAnimeRank ----
 
 	@Test
-	void easyMatchesRanksOneToThreeHundred() {
-		assertThat(EASY.matchesRank(0)).isFalse();
-		assertThat(EASY.matchesRank(1)).isTrue();
-		assertThat(EASY.matchesRank(150)).isTrue();
-		assertThat(EASY.matchesRank(300)).isTrue();
-		assertThat(EASY.matchesRank(301)).isFalse();
-		assertThat(EASY.matchesRank(500)).isFalse();
-		assertThat(EASY.matchesRank(501)).isFalse();
-		assertThat(EASY.matchesRank(1500)).isFalse();
-		assertThat(EASY.matchesRank(-1)).isFalse();
+	void theTierBoundsAreOneHundredAndThreeHundredAnime() {
+		assertThat(DrawFilter.EASY_LAST_ANIME).isEqualTo(100);
+		assertThat(DrawFilter.NORMAL_LAST_ANIME).isEqualTo(300);
 	}
 
 	@Test
-	void hardMatchesRanksFiveHundredOneToFifteenHundred() {
-		assertThat(HARD.matchesRank(0)).isFalse();
-		assertThat(HARD.matchesRank(1)).isFalse();
-		assertThat(HARD.matchesRank(300)).isFalse();
-		assertThat(HARD.matchesRank(301)).isFalse();
-		assertThat(HARD.matchesRank(500)).isFalse();
-		assertThat(HARD.matchesRank(501)).isTrue();
-		assertThat(HARD.matchesRank(1000)).isTrue();
-		assertThat(HARD.matchesRank(1500)).isTrue();
-		assertThat(HARD.matchesRank(1501)).isFalse();
-		assertThat(HARD.matchesRank(-1)).isFalse();
+	void easyMatchesAnimeRanksOneToOneHundred() {
+		assertThat(EASY.matchesAnimeRank(-1)).isFalse();
+		assertThat(EASY.matchesAnimeRank(0)).isFalse();
+		assertThat(EASY.matchesAnimeRank(1)).isTrue();
+		assertThat(EASY.matchesAnimeRank(50)).isTrue();
+		assertThat(EASY.matchesAnimeRank(100)).isTrue();
+		assertThat(EASY.matchesAnimeRank(101)).isFalse();
+		assertThat(EASY.matchesAnimeRank(300)).isFalse();
+		assertThat(EASY.matchesAnimeRank(301)).isFalse();
+		assertThat(EASY.matchesAnimeRank(1500)).isFalse();
 	}
 
 	@Test
-	void noTierMatchesEveryRank() {
-		for (DrawFilter filter : List.of(NO_TIER, DrawFilter.NONE, new DrawFilter(Set.of("OP"), 1990, 2000))) {
-			for (int rank : new int[] {1, 2, 300, 301, 500, 501, 1500, 1501, 100000}) {
-				assertThat(filter.matchesRank(rank)).as(filter + " rank " + rank).isTrue();
+	void noTierAndNormalMatchAnimeRanksOneToThreeHundred() {
+		for (DrawFilter filter : List.of(NO_TIER, DrawFilter.NONE, new DrawFilter(null, null, null, "normal"),
+				new DrawFilter(Set.of("OP"), 1990, 2000))) {
+			assertThat(filter.matchesAnimeRank(-1)).as(filter + " rank -1").isFalse();
+			assertThat(filter.matchesAnimeRank(0)).as(filter + " rank 0").isFalse();
+			for (int rank : new int[] {1, 2, 100, 101, 299, 300}) {
+				assertThat(filter.matchesAnimeRank(rank)).as(filter + " rank " + rank).isTrue();
+			}
+			for (int rank : new int[] {301, 500, 1500, 100000}) {
+				assertThat(filter.matchesAnimeRank(rank)).as(filter + " rank " + rank).isFalse();
 			}
 		}
 	}
 
 	@Test
-	void otherFieldsDoNotChangeTheRankCheck() {
+	void hardMatchesEveryAnimeRankFromOne() {
+		assertThat(HARD.matchesAnimeRank(-1)).isFalse();
+		assertThat(HARD.matchesAnimeRank(0)).isFalse();
+		for (int rank : new int[] {1, 2, 100, 101, 300, 301, 353, 500, 1500, 3000, 100000}) {
+			assertThat(HARD.matchesAnimeRank(rank)).as("hard rank " + rank).isTrue();
+		}
+	}
+
+	@Test
+	void theTiersNest() {
+		for (int rank = 1; rank <= 400; rank++) {
+			if (EASY.matchesAnimeRank(rank)) {
+				assertThat(NO_TIER.matchesAnimeRank(rank)).as("easy rank " + rank + " is in normal").isTrue();
+			}
+			if (NO_TIER.matchesAnimeRank(rank)) {
+				assertThat(HARD.matchesAnimeRank(rank)).as("normal rank " + rank + " is in hard").isTrue();
+			}
+		}
+	}
+
+	@Test
+	void otherFieldsDoNotChangeTheAnimeRankCheck() {
 		DrawFilter easyEd = new DrawFilter(Set.of("ED"), 1990, 2000, "easy");
-		assertThat(easyEd.matchesRank(300)).isTrue();
-		assertThat(easyEd.matchesRank(301)).isFalse();
+		assertThat(easyEd.matchesAnimeRank(100)).isTrue();
+		assertThat(easyEd.matchesAnimeRank(101)).isFalse();
+		DrawFilter normalOp = new DrawFilter(Set.of("OP"), 1990, null, "normal");
+		assertThat(normalOp.matchesAnimeRank(300)).isTrue();
+		assertThat(normalOp.matchesAnimeRank(301)).isFalse();
 		DrawFilter hardOp = new DrawFilter(Set.of("OP"), null, 2010, "hard");
-		assertThat(hardOp.matchesRank(500)).isFalse();
-		assertThat(hardOp.matchesRank(501)).isTrue();
-		assertThat(hardOp.matchesRank(1501)).isFalse();
+		assertThat(hardOp.matchesAnimeRank(0)).isFalse();
+		assertThat(hardOp.matchesAnimeRank(1)).isTrue();
+		assertThat(hardOp.matchesAnimeRank(301)).isTrue();
+		assertThat(hardOp.matchesAnimeRank(1501)).isTrue();
 	}
 
 	// ---- construction ----
