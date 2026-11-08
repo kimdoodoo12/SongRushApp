@@ -48,5 +48,8 @@ data/~tmp-*
 # data: the audio cache (files, .part leftovers, index.json, lock); never in git
 data/audio-cache/
 
+# data: the cover cache (images, .part leftovers, index.json, lock); never in git
+data/cover-cache/
+
 # docker image exports (docker save) never go into git
 *.tar
