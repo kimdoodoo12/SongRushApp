@@ -345,10 +345,11 @@ public final class Room {
 			outbox.toPlayer(playerId, message("error", "code", "too-long"));
 			return;
 		}
-		String normalized = Normalize.normalize(text);
-		if (normalized.isEmpty()) {
+		if (text.strip().isEmpty()) {
 			return;
 		}
+		// A text of only punctuation or symbols normalizes to empty: an ordinary chat line that never matches (D-100).
+		String normalized = Normalize.normalize(text);
 		long now = clock.millis();
 		if (phase == Phase.PLAYING && now >= deadlineAt) {
 			endSong(null);
@@ -364,7 +365,7 @@ public final class Room {
 			return;
 		}
 		Song song = songs.get(songIndex);
-		boolean match = catalog.accepted(song.anime().group()).contains(normalized);
+		boolean match = !normalized.isEmpty() && catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
 			// Too early: match or miss, only the sender sees it, so nothing tells whether it matched.
 			outbox.toPlayer(playerId, chat);
