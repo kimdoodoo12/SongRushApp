@@ -13,7 +13,8 @@ from songrush_data.groups import build_titles
 from songrush_data.http import FileCache
 
 CATALOG_VERSION = 1
-DRAW_SET_SIZE = 1500  # D-019, D-027, D-034
+DRAW_SET_SIZE = 3000  # D-102 (was 1,500 in D-019, D-027, D-034)
+_ANIME_RANK_CUTS = (100, 300)  # D-107: design 088 tier cuts, reported only
 SIZE_CAP_BYTES = 12_000_000
 
 _EMPTY_SLOTS = ("ko", "en", "ja", "romaji")
@@ -117,6 +118,14 @@ def build_catalog(anime, media, wikidata, korean, *, draw_size=DRAW_SET_SIZE) ->
     theme_anime = {t["id"]: t["animeId"] for t in themes}
     draw_anime = {theme_anime[tid] for tid in draw_set}
 
+    # Draw-set themes whose anime is among the first N distinct anime in draw-set order.
+    anime_rank, rank_themes = {}, {str(cut): 0 for cut in _ANIME_RANK_CUTS}
+    for tid in draw_set:
+        rank = anime_rank.setdefault(theme_anime[tid], len(anime_rank) + 1)
+        for cut in _ANIME_RANK_CUTS:
+            if rank <= cut:
+                rank_themes[str(cut)] += 1
+
     catalog = {
         "version": CATALOG_VERSION,
         "anime": records,
@@ -182,6 +191,7 @@ def build_catalog(anime, media, wikidata, korean, *, draw_size=DRAW_SET_SIZE) ->
         },
         "largestGroups": largest_groups,
         "drawSetNoReveal": sum(1 for anime_id in draw_anime if by_id[anime_id]["reveal"] is None),
+        "animeRankThemes": rank_themes,
     }
     return catalog, report
 
