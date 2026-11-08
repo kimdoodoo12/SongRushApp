@@ -296,7 +296,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-021** backend: nested tiers by anime rank, no repeats in easy (from D-106, D-107)
   - Anime rank = order of the anime's first theme in `drawSet`. `easy` = anime ranks 1-100, `normal` (also when `tier` is absent) = 1-300, `hard` = all. Easy shuffles themes and keeps the first theme of each unseen series group; normal and hard draw as today.
   - Acceptance (JUnit): each tier draws only its anime ranks; easy never repeats a group; an easy pool with fewer groups than N answers `not-enough-songs` with `available` = distinct groups and `unit: "series"`; other tiers keep `available` as songs.
-- [~] **C-022** data + backend: accept PNG covers (from I-012 first run)
+- [x] **C-022** data + backend: accept PNG covers (from I-012 first run)
   - AnimeThemes serves many LARGE_COVER links ending in `.jpg` whose body is PNG (`89 50 4E 47`); the first run downloaded 15 and failed 19 of 34 on "not a JPEG". Accept JPEG and PNG by signature; store `<id>.jpg` or `<id>.png` by the real format; `index.json` `file` may be either; `s3covers` sets `image/jpeg` or `image/png` by extension; backend `CoverMap` accepts both suffixes and `/cover/{id}` sends the matching content type.
   - Acceptance (pytest, JUnit): PNG bodies are saved as `.png` and JPEG as `.jpg`; other bodies still fail; s3covers uploads each with its content type; the backend serves each with its content type; an index whose `file` suffix does not match the id is still rejected.
 - [ ] **B-022** backend: easy draws series uniformly (from D-108)
@@ -484,6 +484,9 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+
+- **095 N1** `data/tests/test_covers_gitignore.py:17-21`: also pin `data/cover-cache/x.png` and `x.png.part`.
+- **095 N2** `CoverController.java:147-150`: map `.jpg` and `.png` explicitly and 404 any other suffix instead of defaulting to image/jpeg.
 
 - **092 N1** `s3covers.py:141-143`: the final log line ends with ` (s3-covers.json)`, which the spec's format does not list; drop it or document it.
 
