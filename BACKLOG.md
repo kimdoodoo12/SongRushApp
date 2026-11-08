@@ -284,7 +284,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-019** data: cover tool (from S-007)
   - Lean paged GraphQL query for `images { nodes { facet link } }` with its own cache prefix; download LARGE_COVER for draw-set anime into `data/cover-cache/` with `index.json` (`animeId -> {id, file, size}`, `id` = `token_urlsafe(16)` kept across runs). Add `data/cover-cache/` to `.gitignore`. Gentle rules: UA, 3 s gap, 60 s timeout, 429 Retry-After, resume, stop after 5 consecutive failures.
   - Acceptance (pytest, fixtures only): the query parses a saved page; only draw-set anime are fetched; an existing valid file is skipped and its id kept; 429 waits for Retry-After; 5 failures stop the run; `git check-ignore data/cover-cache/x.jpg` succeeds.
-- [ ] **C-021** data: bound the cover page loop (from cycle 090 review M1)
+- [~] **C-021** data: bound the cover page loop (from cycle 090 review M1)
   - `covers.parse_page` also returns `lastPage`; the run fails with `ValueError` when the page number exceeds page 1's `lastPage` + 5, or when a page has `hasMorePages` true but no data. Must land before I-012 runs the tool live.
   - Acceptance (pytest): a fake transport that always says `hasMorePages: true` ends with `ValueError` after at most `lastPage` + 5 requests; an empty page with `hasMorePages: true` raises.
 - [ ] **C-020** data: S3 upload of covers (from S-007)
