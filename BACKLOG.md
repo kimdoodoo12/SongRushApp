@@ -278,7 +278,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **S-005** design: STOMP realtime protocol (from D-076) - map every current message to STOMP destinations, keep per-room single-thread arrival order, reconnect and clock sync, the web client library, the Flutter client, and the migration of the locked socket tests.
 - [x] **S-006** design: audio on S3 with presigned URLs (from D-092; was S3 + CloudFront, D-077) - random object names, signed URLs, key handling, the server-to-S3 copy, IAM, costs, and tests without network.
 
-- [ ] **C-018** data: draw set 3,000 (from S-007, design 087)
+- [ ] **C-018** data: draw set 3,000 (from S-007, design 088)
   - `DRAW_SET_SIZE = 3000`; rebuild `catalog.json` from the cache with no live request; print the theme counts of anime ranks 1-100 and 1-300.
   - Acceptance (pytest): the draw set has 3,000 entries; its first 1,500 equal the old order on the fixture; the build makes no network call.
 - [ ] **C-019** data: cover tool (from S-007)
@@ -368,7 +368,7 @@ Decided:
 - **D-104** Cover storage (user, 2026-11-08): covers are downloaded from AnimeThemes and served by our own server (gitignored folder and S3), not hotlinked.
 - **D-105** Difficulty for the larger set (user, 2026-11-08): easy plays famous songs and never repeats an anime within a game, and the tiers must account for the game length (up to 30 songs). The exact ranges are left to the S-007 design. This replaces D-069's ranges.
 - **D-106** No-repeat scope (user, 2026-11-08): only easy avoids repeating a series group within a game; normal and hard draw as before.
-- **D-107** Tier shape (user, 2026-11-08): tiers are nested and all start at the most popular anime: easy is the narrowest top range, normal wider, hard the widest; no tier is "only below some rank". Design 087 proposes easy = anime ranks 1-100, normal = 1-300, hard = all.
+- **D-107** Tier shape (user, 2026-11-08): tiers are nested and all start at the most popular anime: easy is the narrowest top range, normal wider, hard the widest; no tier is "only below some rank". Design 088 proposes easy = anime ranks 1-100, normal = 1-300, hard = all.
 - **D-100** A punctuation- or symbol-only chat is shown as normal chat and never scores; blank chat is still ignored (user, 2026-11-08). This replaces the earlier "normalizes to empty is ignored".
 - **D-101** While audio is loading or has failed, the record and equalizer stay visible but stop animating (user, 2026-11-08). Clarified by the owner the same day: the disc is drawn from prepare and moves only while the song is actually heard (cycle 087).
 - **D-099** Per-player volume control (user, 2026-11-08: "자신이 원하는 불륨으로 들을 수 있게"). A slider and mute on the game stage. The default is 80% and the setting is remembered on the device. It is client-only and does not affect playback timing. The lead picked the defaults and told the owner.

@@ -1,6 +1,6 @@
-# 087 design: 3,000 songs and anime covers (S-007)
+# 088 design: 3,000 songs and anime covers (S-007)
 
-Backlog item S-007, from D-102 (3,000 songs), D-103 (cover on the reveal card only), D-104 (covers served by our server) and D-105 (difficulty for the larger set). Investigated by an explorer subagent on branch `cycle/087-songs-3000-covers`, spot-checked by the lead.
+Backlog item S-007, from D-102 (3,000 songs), D-103 (cover on the reveal card only), D-104 (covers served by our server) and D-105 (difficulty for the larger set). Investigated by an explorer subagent on branch `cycle/087-songs-3000-covers` (committed on `cycle/087-disc-before-start` by a shared-checkout mistake, merged with it in 92ae8f4), spot-checked by the lead.
 
 ## Questions
 
