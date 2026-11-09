@@ -79,11 +79,12 @@ function choiceUrls(choices) {
   )
 }
 
-// A ranked snapshot's correct list (cycle 101, R5) as the names in rank
-// order; [] for anything else, such as a first-come snapshot.
-function correctNamesOf(song) {
-  if (song === null || song === undefined || !Array.isArray(song.correct)) return []
-  return song.correct.filter((c) => c !== null && typeof c === 'object' && typeof c.name === 'string').map((c) => c.name)
+// The correct list of a ranked snapshot's song (cycle 101, R5) or of a
+// ranked prepare (C2) as the names in rank order; [] for anything else, such
+// as a first-come frame.
+function correctNamesOf(frame) {
+  if (frame === null || frame === undefined || !Array.isArray(frame.correct)) return []
+  return frame.correct.filter((c) => c !== null && typeof c === 'object' && typeof c.name === 'string').map((c) => c.name)
 }
 
 // A ranked reveal's ranking (cycle 101 item 5) as { name, rank, points }
@@ -419,7 +420,21 @@ export function startSession({
     inGame = true
     resetSkips()
     if (ownPick !== null && ownPick.index !== msg.index) ownPick = null
-    dispatch({ type: 'prepare', index: msg.index, total: msg.total, choices: r.choices, ...pickFields(msg.index) })
+    // A ranked prepare may carry the names already correct this song (spec
+    // 101 C2), also on a resume's re-prepare. With the own name in it this
+    // player has answered: no more picks, and a held pick is not wrong.
+    const correctNames = correctNamesOf(msg)
+    if (myName !== null && correctNames.includes(myName)) {
+      ownPick = { index: msg.index, choice: ownPick === null ? null : ownPick.choice, wrong: false }
+    }
+    dispatch({
+      type: 'prepare',
+      index: msg.index,
+      total: msg.total,
+      choices: r.choices,
+      correctNames,
+      ...pickFields(msg.index),
+    })
     soundCheck()
     load(r, msg.audioUrl)
   }

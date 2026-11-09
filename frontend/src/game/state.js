@@ -156,7 +156,8 @@ export function reducer(state, action) {
         load: 'loading',
         timer: null,
         correct: null,
-        correctNames: [],
+        // A ranked prepare may carry the names already correct (spec 101 C2).
+        correctNames: action.correctNames ?? [],
         reveal: null,
         error: null,
         notice: null,
@@ -293,12 +294,14 @@ export function reducer(state, action) {
     case 'correct': {
       // Ranked (cycle 101): known from the settings or the frame's rank. The
       // song goes on, so correct stays null; the name joins correctNames and
-      // the line carries the rank. Only the own echo goes above the own line
-      // (R3): for any other name the line is placed already, so that
-      // player's later chat appends below it.
+      // the line carries the rank. Only the own echo of a chat room goes
+      // above the own line (R3): for any other name, and in a choice room
+      // where no echo follows a pick (C1), the line is placed already, so a
+      // later chat appends below it.
       const ranked = typeof action.rank === 'number' || (state.settings !== null && state.settings.gameMode === 'ranked')
       if (ranked) {
-        const mine = state.room !== null && state.room.me === action.name
+        const choiceRoom = state.choices !== null || (state.settings !== null && state.settings.answerMode === 'choice')
+        const echoFollows = !choiceRoom && state.room !== null && state.room.me === action.name
         return {
           ...state,
           correctNames: state.correctNames.includes(action.name) ? state.correctNames : [...state.correctNames, action.name],
@@ -309,7 +312,7 @@ export function reducer(state, action) {
               kind: 'system',
               winner: action.name,
               rank: typeof action.rank === 'number' ? action.rank : null,
-              placed: !mine,
+              placed: !echoFollows,
             },
           ],
           chatSeq: state.chatSeq + 1,

@@ -231,13 +231,19 @@ public final class Room {
 		}
 		if (gameMode == GameMode.RANKED) {
 			song.put("answered", rankedIds.contains(playerId));
-			List<Object> correct = new ArrayList<>();
-			for (int i = 0; i < rankedIds.size(); i++) {
-				correct.add(row("name", byId.get(rankedIds.get(i)).name(), "rank", i + 1));
-			}
-			song.put("correct", correct);
+			song.put("correct", correctRows());
 		}
 		return song;
+	}
+
+	// The current song's ranking as [{name, rank}] in rank order: only names already sent in correct
+	// messages, nothing that identifies the song.
+	private List<Object> correctRows() {
+		List<Object> correct = new ArrayList<>();
+		for (int i = 0; i < rankedIds.size(); i++) {
+			correct.add(row("name", byId.get(rankedIds.get(i)).name(), "rank", i + 1));
+		}
+		return correct;
 	}
 
 	// The current song as a reconnecting player needs it: null unless PREPARE or PLAYING, else
@@ -774,6 +780,11 @@ public final class Room {
 		Map<String, Object> prepare = message("prepare", "index", index, "total", songs.size(), "audioUrl", audioUrl);
 		if (answerMode == AnswerMode.CHOICE) {
 			prepare.put("choices", choices.get(index).wire());
+		}
+		// Ranked: a resume's re-prepare of a song that already has a ranking tells everyone who answered,
+		// so a player who answered before everyone left knows it (cycle 101 review round 2 C2).
+		if (gameMode == GameMode.RANKED && !rankedIds.isEmpty()) {
+			prepare.put("correct", correctRows());
 		}
 		outbox.toAll(prepare);
 		schedule(PREPARE_TIMEOUT, this::startSong);
