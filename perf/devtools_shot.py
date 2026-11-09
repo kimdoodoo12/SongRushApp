@@ -121,11 +121,16 @@ SANITIZE_JS = r"""() => {
 }"""
 
 # Every text node of the page, shadow roots included, as a list of strings.
+# Text inside <style> and <script> is never drawn, so it is skipped (DevTools
+# stylesheets would otherwise flood the summary log).
 DEEP_TEXT_JS = """() => {
   const out = [];
+  const hidden = new Set(['STYLE', 'SCRIPT']);
   const walk = (root) => {
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    for (let n = w.nextNode(); n; n = w.nextNode()) out.push(n.nodeValue);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      if (!(n.parentNode && hidden.has(n.parentNode.nodeName))) out.push(n.nodeValue);
+    }
     root.querySelectorAll('*').forEach(e => { if (e.shadowRoot) walk(e.shadowRoot); });
   };
   walk(document);
@@ -135,6 +140,7 @@ DEEP_TEXT_JS = """() => {
 
 # The Network panel's summary bar ("N requests", "... transferred",
 # "Finish: ...", "DOMContentLoaded: ...", "Load: ..."), logged for each shot.
+FOOTER_MAX_LEN = 80
 FOOTER_PATTERN = re.compile(
     r"\brequests?\b|transferred|resources|^Finish:|^DOMContentLoaded:|^Load:")
 
@@ -340,8 +346,13 @@ def setup_profile(pw, edge, profile, base):
 
 
 def footer_text(texts):
-    """The Network summary bar's parts among the deep texts, joined by " | "."""
-    parts = [t.strip() for t in texts if FOOTER_PATTERN.search(t.strip())]
+    """The Network summary bar's parts among the deep texts, joined by " | ".
+
+    Only short nodes without "{" count, so no stylesheet text matches.
+    """
+    parts = [t.strip() for t in texts
+             if len(t.strip()) <= FOOTER_MAX_LEN and "{" not in t
+             and FOOTER_PATTERN.search(t.strip())]
     return " | ".join(parts) if parts else "(summary bar not found)"
 
 
