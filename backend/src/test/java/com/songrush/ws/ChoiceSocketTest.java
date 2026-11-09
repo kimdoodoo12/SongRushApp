@@ -37,12 +37,15 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 // Cycle 100 (D-111) over the raw WebSocket at /ws on a real server
-// (docs/cycles/100-choice-answers.md, amendments A3, A4, A8, A9, A11 and the owner's O1-O2): the
+// (docs/cycles/100-choice-answers.md, amendments A3, A4, A8, A9, A11 and the owner's O2-O4): the
 // start request's answerMode, the pick message {type:"pick", index, choice} (0-based positions), and
 // the frames that answer it. The data folder is written into a static @TempDir before the context
 // loads: anime i (0-11) is id 1000 + i in group 9000 + i with one OP theme 5000 + i of 60 s and a
 // disk cover "ChoiceSock<i>x". The correct position is found from the token in prepare.audioUrl, the
 // Catalog bean and the CoverMap bean.
+//
+// Declared rewrite (owner round 2, O4): anExactTitleByChatWinsInAChoiceRoom (O1) is replaced by
+// anExactTitleByChatInAChoiceRoomNeverScores.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ChoiceSocketTest {
 
@@ -385,9 +388,9 @@ class ChoiceSocketTest {
 		}
 	}
 
-	// O1: the exact title by chat wins in a choice room too.
+	// O4: in a choice room the exact title by chat is only a chat line; only a pick wins.
 	@Test
-	void anExactTitleByChatWinsInAChoiceRoom() throws Exception {
+	void anExactTitleByChatInAChoiceRoomNeverScores() throws Exception {
 		List<TestClient> two = twoInALobby();
 		TestClient host = two.get(0);
 		TestClient guest = two.get(1);
@@ -403,14 +406,32 @@ class ChoiceSocketTest {
 			client.send("ready", "index", 0);
 		}
 		JsonNode start = host.await("start");
+		guest.await("start");
+
+		// Before startAt: the sender only.
+		host.send("chat", "text", title);
+		JsonNode early = host.await("chat");
+		assertThat(early.path("text").asString(null)).isEqualTo(title);
+
 		waitUntilAudible(start);
 		guest.send("pick", "index", 0, "choice", correct == 0 ? 1 : 0);
 		guest.await("pick-result");
 		guest.send("chat", "text", title);
 		for (TestClient client : two) {
-			assertThat(client.await("correct").path("name").asString(null)).isEqualTo("Guest");
+			JsonNode line = client.await("chat");
+			assertThat(line.path("name").asString(null)).isEqualTo("Guest");
+			assertThat(line.path("text").asString(null)).isEqualTo(title);
+			client.assertPingWorks();
+			assertThat(frameTypes(client)).doesNotContain("correct", "reveal");
+		}
+		assertThat(frames(guest).stream().filter(f -> "chat".equals(f.path("type").asString(null))).count())
+				.as("the host's early line never reached the guest").isEqualTo(1);
+
+		host.send("pick", "index", 0, "choice", correct);
+		for (TestClient client : two) {
+			assertThat(client.await("correct").path("name").asString(null)).isEqualTo("Host");
 			JsonNode reveal = client.await("reveal");
-			assertThat(reveal.path("winner").asString(null)).isEqualTo("Guest");
+			assertThat(reveal.path("winner").asString(null)).isEqualTo("Host");
 			assertThat(reveal.path("correctChoice").intValue()).isEqualTo(correct);
 		}
 	}

@@ -25,7 +25,13 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 // Cycle 100 (D-111) at Room level, on the cycle 036 fakes: the choice answer mode
-// (docs/cycles/100-choice-answers.md, with the review amendments A1-A11 and the owner's O1-O2).
+// (docs/cycles/100-choice-answers.md, with the review amendments A1-A11 and the owner's rounds 1
+// and 2: A1 and O1 are void, O2, O3 and O4 stand).
+//
+// Declared rewrite (owner round 2): anExactTitleByChatInAChoiceRoomWins and
+// aPlayerLockedOutOfPicksCanStillWinByChat (O1) are replaced by
+// anExactTitleByChatInAChoiceRoomIsJustAChatLine, anExactTitleByChatBeforeStartAtGoesToTheSenderOnly
+// and anExactTitleByChatFromAWatcherGoesToTheWatcherOnly (O4: chat never scores in a choice room).
 // Room.start(songCount, filter, AnswerMode.CHOICE) puts choices in prepare; Room.pick(playerId,
 // index, choice) answers by position; Room.currentSong(playerId) adds choices and that player's
 // picked. The fixture is 30 covered anime, each its own group with one OP (ChoiceFixture); the
@@ -603,36 +609,64 @@ class RoomChoiceTest {
 		assertThat(outbox.since(mark)).extracting(Sent::type).containsOnly("chat").hasSize(5);
 	}
 
-	// ---- chat in a choice room (O1) ----
+	// ---- chat in a choice room (O4: never scores) ----
 
 	@Test
-	void anExactTitleByChatInAChoiceRoomWins() {
+	void anExactTitleByChatInAChoiceRoomIsJustAChatLine() {
 		build(MINA, JOON);
 		startChoice(DrawFilter.NONE);
-		int correct = correctPosition();
 		String title = ChoiceFixture.title(currentAnimeIndex());
 		toAudible(0);
 		int mark = outbox.mark();
 		room.chat(MINA.id(), title);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("correct", "chat", "reveal", "scores");
-		assertThat(sent.get(0).message()).isEqualTo(msg("correct", "index", 0, "name", "Mina"));
-		assertThat(sent.get(2).message().get("winner")).isEqualTo("Mina");
-		assertThat(sent.get(2).message().get("correctChoice")).isEqualTo(correct);
-		assertThat(room.scores()).containsEntry(MINA.id(), 1);
+		assertThat(sent).hasSize(1);
+		assertThat(sent.get(0).toAll()).isTrue();
+		assertThat(sent.get(0).message()).isEqualTo(msg("chat", "name", "Mina", "text", title));
+		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
+		assertThat(room.scores()).containsEntry(MINA.id(), 0);
+		// A player locked out of picks cannot win by chat either.
+		room.pick(JOON.id(), 0, wrongPosition());
+		mark = outbox.mark();
+		room.chat(JOON.id(), title);
+		assertThat(outbox.since(mark)).extracting(Sent::type).containsExactly("chat");
+		assertThat(outbox.ofType("correct")).isEmpty();
+		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
+		assertThat(room.scores()).containsEntry(JOON.id(), 0);
 	}
 
 	@Test
-	void aPlayerLockedOutOfPicksCanStillWinByChat() {
+	void anExactTitleByChatBeforeStartAtGoesToTheSenderOnly() {
 		build(MINA, JOON);
 		startChoice(DrawFilter.NONE);
 		String title = ChoiceFixture.title(currentAnimeIndex());
-		toAudible(0);
-		room.pick(JOON.id(), 0, wrongPosition());
+		int mark = outbox.mark();
+		room.chat(MINA.id(), title);
+		readyAll(0);
+		int playing = outbox.mark();
 		room.chat(JOON.id(), title);
-		assertThat(outbox.last("correct").message()).isEqualTo(msg("correct", "index", 0, "name", "Joon"));
-		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
-		assertThat(room.scores()).containsEntry(JOON.id(), 1);
+		List<Sent> sent = outbox.since(mark).stream().filter(s -> "chat".equals(s.type())).toList();
+		assertThat(sent).extracting(Sent::to).containsExactly(MINA.id(), JOON.id());
+		assertThat(outbox.since(playing)).hasSize(1);
+		assertThat(outbox.ofType("correct")).isEmpty();
+		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
+		assertThat(room.scores().values()).containsOnly(0);
+	}
+
+	@Test
+	void anExactTitleByChatFromAWatcherGoesToTheWatcherOnly() {
+		build(MINA, JOON);
+		startChoice(DrawFilter.NONE);
+		String title = ChoiceFixture.title(currentAnimeIndex());
+		room.addPlayer(HANA);
+		toAudible(0);
+		int mark = outbox.mark();
+		room.chat(HANA.id(), title);
+		List<Sent> sent = outbox.since(mark);
+		assertThat(sent).hasSize(1);
+		assertThat(sent.get(0).to()).isEqualTo(HANA.id());
+		assertThat(sent.get(0).message()).isEqualTo(msg("chat", "name", "Hana", "text", title));
+		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 
 	@Test

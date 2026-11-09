@@ -22,7 +22,14 @@ import com.songrush.game.ChoiceFixture.Spec;
 import com.songrush.game.RecordingOutbox.Sent;
 
 // Cycle 100 (D-111) at Room level: which songs a choice room draws and which choices each song gets
-// (docs/cycles/100-choice-answers.md items 2 and 3, amendments A1, A2, A5 and A9's shuffle test).
+// (docs/cycles/100-choice-answers.md items 2 and 3, amendments A2, A5 and A9's shuffle test, and the
+// owner's O3: A1 is void, so the only group a distractor never comes from is the current answer's).
+//
+// Declared rewrite (owner round 2, O3): assertChoiceRules no longer asserts A1 (no distractor of an
+// earlier answer's group); hardChoicesFollowTheRulesOverManySeeds now also asserts that earlier
+// answers' groups do appear as distractors; choicesShrinkWhenTooFewGroupsAreLeft (k shrinking with
+// earlier answers) is replaced by choicesShrinkOnlyToTheGroupsOfThePool (k = min(tier k, covered
+// groups in the pool), the same for every song).
 // Games run on the cycle 036 fakes with a seeded Random; every song is readied and skipped. A
 // choice's anime is found from its coverUrl, the song's anime from the token in prepare.audioUrl.
 class RoomChoiceDrawTest {
@@ -103,10 +110,9 @@ class RoomChoiceDrawTest {
 
 	}
 
-	// Checks item 3 and A1 for one game: the correct anime once, distractors of distinct groups, none of
-	// the correct group or of an earlier song's group, all covered, all in the pool.
+	// Checks item 3 for one game: the correct anime once, distractors of distinct groups, none of the
+	// correct group, all covered, all in the pool.
 	private static void assertChoiceRules(Built built, List<Drawn> game, Set<Integer> pool, String what) {
-		Set<Integer> answered = new HashSet<>();
 		for (int k = 0; k < game.size(); k++) {
 			Drawn d = game.get(k);
 			String as = what + " song " + k + " " + d;
@@ -118,16 +124,27 @@ class RoomChoiceDrawTest {
 				assertThat(built.specs().get(a).cover()).as(as).isTrue();
 				assertThat(pool).as(as + ": choice anime " + a + " in the pool").contains(a);
 				assertThat(groups.add(built.groupOf(a))).as(as + ": distinct groups").isTrue();
-				if (a != d.anime()) {
-					assertThat(answered).as(as + ": distractor " + a + " of an earlier answer's group")
-							.doesNotContain(built.groupOf(a));
-				}
 			}
-			answered.add(correctGroup);
+			assertThat(groups).as(as + ": the correct group").contains(correctGroup);
 		}
 	}
 
-	// ---- item 3 and A1, A5: the choice rules ----
+	// O3: how many distractors of a game come from the group of an earlier song's answer.
+	private static int earlierAnswerDistractors(Built built, List<Drawn> game) {
+		Set<Integer> answered = new HashSet<>();
+		int count = 0;
+		for (Drawn d : game) {
+			for (int a : d.choiceAnime()) {
+				if (a != d.anime() && answered.contains(built.groupOf(a))) {
+					count++;
+				}
+			}
+			answered.add(built.groupOf(d.anime()));
+		}
+		return count;
+	}
+
+	// ---- item 3, A5 and O3: the choice rules ----
 
 	// Anime 0-59: group a / 2 (two anime per group), OP of year 1990 + a % 20 with two themes, and
 	// every fifth anime (a % 5 == 4) without a cover; anime 60-119: own group, ED of year 2000, all
@@ -157,11 +174,14 @@ class RoomChoiceDrawTest {
 	void hardChoicesFollowTheRulesOverManySeeds() {
 		Built built = ChoiceFixture.build(dir, richSpecs());
 		Set<Integer> pool = poolOf(built, a -> true);
+		int fromEarlierAnswers = 0;
 		for (long seed = 0; seed < 150; seed++) {
 			List<Drawn> game = new Game(built, seed).play(10, HARD);
 			game.forEach(d -> assertThat(d.choiceAnime()).hasSize(8));
 			assertChoiceRules(built, game, pool, "seed " + seed);
+			fromEarlierAnswers += earlierAnswerDistractors(built, game);
 		}
+		assertThat(fromEarlierAnswers).as("distractors of an earlier answer's group (O3 allows them)").isPositive();
 	}
 
 	@Test
@@ -188,19 +208,35 @@ class RoomChoiceDrawTest {
 		}
 	}
 
-	// A5 with A1: six covered groups in easy, so song k has 5 - k eligible distractor groups and
-	// k = min(4, 6 - k): 4, 4, 4, 3, 2. Uncovered groups never count.
+	// A5 with O3: k = min(tier k, covered groups in the pool), for every song alike; earlier answers
+	// do not shrink it. Five covered single-theme groups in hard: every song has 5 choices, so the
+	// last songs' distractors are all earlier answers. Four covered groups of two themes in normal:
+	// every song has 4. Uncovered groups never count.
 	@Test
-	void choicesShrinkWhenTooFewGroupsAreLeft() {
-		List<Spec> specs = new ArrayList<>(ChoiceFixture.coveredSingles(0, 6));
-		specs.addAll(ChoiceFixture.uncoveredSingles(100, 10));
-		Built built = ChoiceFixture.build(dir, specs);
+	void choicesShrinkOnlyToTheGroupsOfThePool() {
+		List<Spec> five = new ArrayList<>(ChoiceFixture.coveredSingles(0, 5));
+		five.addAll(ChoiceFixture.uncoveredSingles(100, 10));
+		Built built = ChoiceFixture.build(dir.resolve("five"), five);
 		Set<Integer> pool = poolOf(built, a -> true);
 		for (long seed = 0; seed < 100; seed++) {
-			List<Drawn> game = new Game(built, seed).play(5, EASY);
+			List<Drawn> game = new Game(built, seed).play(5, HARD);
 			assertThat(game.stream().map(d -> d.choiceAnime().size()).toList()).as("seed " + seed)
-					.containsExactly(4, 4, 4, 3, 2);
+					.containsExactly(5, 5, 5, 5, 5);
 			assertChoiceRules(built, game, pool, "seed " + seed);
+		}
+
+		List<Spec> four = new ArrayList<>();
+		for (int g = 0; g < 4; g++) {
+			four.add(new Spec(g, 2, "OP", 2000, true));
+		}
+		four.addAll(ChoiceFixture.uncoveredSingles(100, 10));
+		Built small = ChoiceFixture.build(dir.resolve("four"), four);
+		Set<Integer> smallPool = poolOf(small, a -> true);
+		for (long seed = 0; seed < 100; seed++) {
+			List<Drawn> game = new Game(small, seed).play(5, DrawFilter.NONE);
+			assertThat(game.stream().map(d -> d.choiceAnime().size()).toList()).as("seed " + seed)
+					.containsExactly(4, 4, 4, 4, 4);
+			assertChoiceRules(small, game, smallPool, "seed " + seed);
 		}
 	}
 
