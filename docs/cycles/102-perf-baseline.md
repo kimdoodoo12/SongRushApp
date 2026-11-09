@@ -71,3 +71,26 @@ The first baseline run (untracked, discarded) showed 7 of 10 songs not ready whe
 - **H3. Nothing missing silently.** Failed requests are recorded in `failedRequests` (round, path, error), and requests still pending at the end go to `uncountedRequests`. The settle wait is `--song-timeout`.
 - **M2. Page load.** Page load is measured before the games, 3 fresh-context loads with their median and min–max. README notes that the WebSocket connection is not included, and that home TTFB is a cold request (DNS, TCP and TLS included).
 - **Tests.** The pure aggregation is tested first in `perf/test_run.py`, with a declared rewrite of the `readme_row` tests.
+
+## Result
+- **Commits.**
+  - Spec: `0f7eb50`; review round 1: `569046b`.
+  - Tests: `343b514`; declared rewrite `3c98802`.
+  - Tool: `553bd2c`; attempt 2: `2e5509a`.
+  - Baseline result: the commit after `2e5509a`.
+- **Verifier at `553bd2c`.**
+  - `pytest perf`: 28 passed, with no `.pytest_cache`.
+  - The locked test was unchanged.
+  - No `X-Amz-` strings in the results.
+  - Only `perf/`, BACKLOG and this doc changed.
+  - After attempt 2, the lead re-ran pytest: 38 passed.
+- **Review round 1 changed the method** (see above). The first live run was discarded: 7 of 10 songs were not ready at the 25 s server timeout, so its headline metric was the timeout constant.
+- **Baseline** (`perf/results/2026-11-09-baseline.json`), live site, build `index-BL8wr47a.js`, owner's PC network in Korea:
+  - **Ready before the start:** chat 4/5, choice 3/5. The others started before their audio arrived.
+  - **Prepare to audio done,** median: chat 18.9 s, choice 21.2 s. Range 16.9 s to 40.8 s.
+  - **Audio:** median 3.58 MB at 0.18 MB/s.
+  - **Choice covers:** median 2,020 KB per song (6 covers). The reveal cover in chat is 97 to 529 KB.
+  - **JS:** 367 KB, not compressed.
+  - **Page load:** 2.1 to 3.9 s.
+  - **Run health:** no song started while another download was still in flight, no requests failed, and nothing was left uncounted. No `X-Amz-` strings.
+- **What it points at.** Audio size (316 kbps originals; only 90 s is played), cover size (up to 856 KB), no prefetch of the next song, and JS without gzip. The owner decides what to do next.

@@ -360,7 +360,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **B-024 / F-025** Ranked game mode (순위전) with first-come (선착순) kept as today (from D-112; cycle 101, after cycle 100)
 
-- [~] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
+- [x] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
 
 ## Roadmap
 
