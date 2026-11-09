@@ -11,16 +11,23 @@ Writes perf/results/<UTC date>-<label>.json, prints a summary line, and
 appends a row to the table in perf/README.md. URLs are saved as host and
 path only: presigned query strings are never written.
 
-    python -X utf8 perf/run.py --base https://animeopguessr.com/ --songs 5 --label baseline
+Captures (cycle 103, D-114; off with --no-capture): per format a HAR without
+bodies, its queries stripped (perf/results/<date>-<label>-<format>.har), and
+three screenshots of the first song, loading, playing and reveal
+(perf/results/shots/<date>-<label>-<format>-<moment>.png).
+
+    python -X utf8 perf/run.py --base https://animeopguessr.com/ --songs 5 --label baseline --env-note "Korea, home Wi-Fi"
 
 Needs only Playwright for Python with the Edge channel ("msedge").
 """
 
 import argparse
 import json
+import platform
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from datetime import datetime, timezone
@@ -30,11 +37,12 @@ from urllib.parse import urljoin, urlsplit
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
-from perflib import median, readme_row, strip_query, summarize
+from perflib import contains_secret, median, readme_row, strip_har, strip_query, summarize
 
 PERF_DIR = Path(__file__).resolve().parent
 REPO_DIR = PERF_DIR.parent
 RESULTS_DIR = PERF_DIR / "results"
+SHOTS_DIR = RESULTS_DIR / "shots"
 README = PERF_DIR / "README.md"
 
 USER_AGENT = "SongRushBot/perf (+https://github.com/kimdoodoo12/SongRushApp)"
@@ -46,8 +54,25 @@ NICKNAME = "perf-1"
 FORMAT_BUTTON = {"chat": "채팅", "choice": "객관식"}
 SONG_COUNT_MIN = 5
 SONG_COUNT_MAX = 30
-# Text that would mean a presigned URL leaked into the result.
-SECRET_MARKERS = ("X-Amz-", "Signature=", "Credential=")
+# The format games' window (and the screenshots' size).
+VIEWPORT = {"width": 1280, "height": 800}
+# Korean UI and the default room look (놀이터, id play), set before the page's
+# scripts run; a fresh context has neither stored anyway.
+UI_SETUP_SCRIPT = """
+try {
+  window.localStorage.setItem('songrush.lang', 'ko')
+  window.localStorage.setItem('songrush.roomTheme', 'play')
+} catch (e) {}
+"""
+LOADING_TEXT = "음원을 불러오는 중..."
+# How long to look for the loading text after the first prepare.
+LOADING_SHOT_TIMEOUT_S = 10
+SHOT_MOMENTS = ("loading", "playing", "reveal")
+# Where the site runs: constants of this deployment, not measured.
+SERVER_ENV = {
+    "app": "AWS EC2 ap-southeast-2 (Sydney)",
+    "storage": "S3 ap-southeast-2 (Sydney)",
+}
 
 
 def now_ms():
@@ -242,7 +267,12 @@ def response_info(req):
     }
 
 
-def fetches_by_round(rec):
+def response_infos(rec):
+    """response_info of every finished request, read once per request."""
+    return {req: response_info(req) for req in rec.finished}
+
+
+def fetches_by_round(rec, infos):
     """(round tag, origin URL without query) -> {"first", "final", "attempts"}.
 
     first is the request the page made (/audio/ or /cover/), final the one
@@ -255,7 +285,7 @@ def fetches_by_round(rec):
         origin = origin_of(req)
         key = (rec.tags.get(origin), strip_query(origin.url))
         entry = out.setdefault(key, {"attempts": 0})
-        info = response_info(req)
+        info = infos[req]
         if req.redirected_from is None:
             entry["first"] = info
             entry["attempts"] += 1
@@ -322,8 +352,41 @@ def covers_row(index, urls, fetches):
     }
 
 
+def ms_since(epoch, prepare_wall):
+    return None if epoch is None else round(epoch - prepare_wall, 1)
+
+
+def request_timeline(rec, infos, index, prepare_wall):
+    """Every finished /audio/ and /cover/ request of one round, redirect hops included.
+
+    Times are ms since the round's prepare on the epoch clock (the clock of
+    prepareToAudioDone_ms). A hop that was redirected further is
+    audio-redirect or cover-redirect. Sorted by start.
+    """
+    rows = []
+    for req in rec.finished:
+        origin = origin_of(req)
+        if rec.tags.get(origin) != index:
+            continue
+        kind = "audio" if urlsplit(origin.url).path.startswith("/audio/") else "cover"
+        if req.redirected_to is not None:
+            kind += "-redirect"
+        info = infos[req]
+        end = None if info["start"] is None or info["total_ms"] is None else info["start"] + info["total_ms"]
+        rows.append({
+            "kind": kind,
+            "path": info["path"],
+            "start_ms": ms_since(info["start"], prepare_wall),
+            "end_ms": ms_since(end, prepare_wall),
+            "bytes": info["bytes"],
+        })
+    rows.sort(key=lambda r: (r["start_ms"] is None, r["start_ms"] or 0))
+    return rows
+
+
 def song_rows(fmt, rec, base, songs):
-    fetches = fetches_by_round(rec)
+    infos = response_infos(rec)
+    fetches = fetches_by_round(rec, infos)
     rows = []
     for n, index in enumerate(rec.order[:songs], start=1):
         r = rec.rounds[index]
@@ -354,6 +417,7 @@ def song_rows(fmt, rec, base, songs):
             "settledBeforeSkip": r.get("settledBeforeSkip"),
             "audio": audio,
             "covers": covers_row(index, cover_urls, fetches),
+            "requests": request_timeline(rec, infos, index, r["prepare_wall"]),
         })
     return rows
 
@@ -483,10 +547,48 @@ def leave_room(page):
     return True
 
 
-def run_format(browser, fmt, args):
-    """One fresh context, one N-song game in this answer format."""
-    context = browser.new_context(locale="ko-KR")
+def shoot(page, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # The game page scrolls to the chat input; the stage head and the load
+    # line are at the top, so scroll back and capture the whole page.
+    page.evaluate("window.scrollTo(0, 0)")
+    page.screenshot(path=str(path), full_page=True)
+    log(f"screenshot {rel(path)}")
+
+
+def shoot_loading(page, rec, path, timeout):
+    """The first song's loading screenshot, and whether the loading text was on it.
+
+    Taken once the text is visible or, when it does not show within
+    LOADING_SHOT_TIMEOUT_S, right then (loadingTextVisible false).
+    """
+    wait_until(page, lambda: len(rec.order) >= 1, timeout, "first prepare")
+    visible = True
     try:
+        page.get_by_text(LOADING_TEXT, exact=True).first.wait_for(
+            state="visible", timeout=LOADING_SHOT_TIMEOUT_S * 1000)
+    except PlaywrightError as err:  # includes Playwright's TimeoutError
+        log(f"loading text not seen ({type(err).__name__}); screenshot taken anyway")
+        visible = False
+    shot_ms = round(now_ms() - rec.rounds[rec.order[0]]["prepare_t"], 1)
+    shoot(page, path)
+    return {"loadingTextVisible": visible, "loadingShotAfterPrepare_ms": shot_ms}
+
+
+def run_format(browser, fmt, args, capture):
+    """One fresh context, one N-song game in this answer format.
+
+    capture is None (no captures) or one format's capture_plan entry; the
+    HAR goes to its temp path when the context closes.
+    """
+    options = {"locale": "ko-KR", "viewport": VIEWPORT}
+    if capture is not None:
+        options["record_har_path"] = str(capture["har"])
+        options["record_har_content"] = "omit"
+    context = browser.new_context(**options)
+    shot_info = None
+    try:
+        context.add_init_script(UI_SETUP_SCRIPT)
         page = context.new_page()
         rec = Recorder()
         rec.attach(page)
@@ -501,9 +603,13 @@ def run_format(browser, fmt, args):
         page.get_by_role("button", name="게임 시작", exact=True).click()
 
         timeout = args.song_timeout
+        if capture is not None:
+            shot_info = shoot_loading(page, rec, capture["shots"]["loading"], timeout)
         for n in range(1, args.songs + 1):
             wait_until(page, lambda: rec.started(n), timeout, f"{fmt} song {n} start")
             page.locator(".stage-hint").wait_for(state="visible", timeout=timeout * 1000)
+            if capture is not None and n == 1:
+                shoot(page, capture["shots"]["playing"])
             index = rec.order[n - 1]
             # One song at a time: this round's downloads finish before the
             # skip, so the next song's downloads do not overlap them.
@@ -517,6 +623,8 @@ def run_format(browser, fmt, args):
             page.get_by_role("button", name="스킵", exact=True).click()
             wait_until(page, lambda: rec.revealed(n), timeout, f"{fmt} song {n} reveal")
             page.locator(".reveal").wait_for(state="visible", timeout=timeout * 1000)
+            if capture is not None and n == 1:
+                shoot(page, capture["shots"]["reveal"])
             log(f"{fmt} song {n}/{args.songs} done")
 
         try:
@@ -532,9 +640,51 @@ def run_format(browser, fmt, args):
             "failed": request_rows(fmt, rec, rec.failed),
             "uncounted": uncounted,
             "left": left,
+            "shots": shot_info,
         }
     finally:
         context.close()
+
+
+def rel(path):
+    return path.relative_to(REPO_DIR).as_posix()
+
+
+def capture_plan(stem, tmp_dir):
+    """Per format: the temp HAR Playwright writes, the final HAR and the shots."""
+    plan = {}
+    for fmt in ("chat", "choice"):
+        plan[fmt] = {
+            "har": Path(tmp_dir) / f"{fmt}.har",
+            "har_out": RESULTS_DIR / f"{stem}-{fmt}.har",
+            "shots": {m: SHOTS_DIR / f"{stem}-{fmt}-{m}.png" for m in SHOT_MOMENTS},
+        }
+    return plan
+
+
+def scrubbed_har(path):
+    """The HAR at path with its URL queries stripped, as JSON text.
+
+    Raises ValueError when a presigned-URL marker is still in the text.
+    """
+    har = json.loads(path.read_text(encoding="utf-8"))
+    text = json.dumps(strip_har(har), ensure_ascii=False, indent=1) + "\n"
+    if contains_secret(text):
+        raise ValueError(f"the {path.stem} HAR still contains a presigned-URL marker after stripping")
+    return text
+
+
+def environment(browser, note, local_time):
+    return {
+        "client": {
+            "os": f"{platform.system()} {platform.release()} ({platform.version()})",
+            "browser": "Microsoft Edge (Playwright channel msedge)",
+            "version": browser.version,
+            "note": note,
+        },
+        "server": dict(SERVER_ENV),
+        "local_time": local_time,
+    }
 
 
 def result_path(date, label):
@@ -576,6 +726,10 @@ def parse_args(argv):
                              "and for leftover downloads at the end (default 120)")
     parser.add_argument("--headed", action="store_true", help="show the browser window")
     parser.add_argument("--no-readme", action="store_true", help="do not append the row to perf/README.md")
+    parser.add_argument("--no-capture", action="store_true", help="do not record the HARs and screenshots")
+    parser.add_argument("--env-note", default=None,
+                        help='free text about the client network, e.g. "Korea, home Wi-Fi" '
+                             "(saved as environment.client.note)")
     args = parser.parse_args(argv)
     if not args.base.endswith("/"):
         args.base += "/"
@@ -608,19 +762,34 @@ def summary_line(label, medians, page, path):
 def main(argv=None):
     args = parse_args(argv)
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    local_time = datetime.now().astimezone().isoformat(timespec="seconds")
+    # The JSON's name is fixed up front: the HARs and screenshots share its stem.
+    path = result_path(timestamp[:10], args.label)
     runs = {}
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            channel="msedge",
-            headless=not args.headed,
-            args=["--autoplay-policy=no-user-gesture-required"],
-        )
-        try:
-            load_runs, asset_list = measure_page_loads(browser, args.base)
-            for fmt in ("chat", "choice"):
-                runs[fmt] = run_format(browser, fmt, args)
-        finally:
-            browser.close()
+    har_texts = {}
+    # Playwright's raw HARs hold presigned URLs: they stay in this temp folder,
+    # removed on exit, and only stripped and checked copies are written.
+    with tempfile.TemporaryDirectory(prefix="songrush-perf-") as tmp_dir:
+        plan = None if args.no_capture else capture_plan(path.stem, tmp_dir)
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                channel="msedge",
+                headless=not args.headed,
+                args=["--autoplay-policy=no-user-gesture-required"],
+            )
+            try:
+                env = environment(browser, args.env_note, local_time)
+                load_runs, asset_list = measure_page_loads(browser, args.base)
+                for fmt in ("chat", "choice"):
+                    runs[fmt] = run_format(browser, fmt, args, None if plan is None else plan[fmt])
+            finally:
+                browser.close()
+        for fmt in plan or {}:
+            try:
+                har_texts[fmt] = scrubbed_har(plan[fmt]["har"])
+            except ValueError as err:
+                log(f"refusing to write the result and HARs: {err}")
+                return 1
 
     assets = measure_assets(asset_list)
     js_bytes, js_encoding = kind_totals(assets, "js")
@@ -637,6 +806,15 @@ def main(argv=None):
         "build": js_names[0] if js_names else "-",
         "base": strip_query(args.base),
         "songsPerFormat": args.songs,
+        "environment": env,
+        "captures": None if plan is None else {
+            fmt: {
+                "har": rel(plan[fmt]["har_out"]),
+                "shots": {m: rel(p) for m, p in plan[fmt]["shots"].items()},
+                **(runs[fmt]["shots"] or {}),
+            }
+            for fmt in plan
+        },
         "page": {
             "load_ms": median(load_runs),
             "load_ms_min": min(loads) if loads else None,
@@ -658,12 +836,13 @@ def main(argv=None):
     }
 
     text = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
-    leaked = [m for m in SECRET_MARKERS if m in text]
-    if leaked:
-        log(f"refusing to write: the result contains {leaked}")
+    if contains_secret(text):
+        log("refusing to write: the result contains a presigned-URL marker")
         return 1
     RESULTS_DIR.mkdir(exist_ok=True)
-    path = result_path(timestamp[:10], args.label)
+    for fmt, har_text in har_texts.items():
+        plan[fmt]["har_out"].write_text(har_text, encoding="utf-8", newline="\n")
+        log(f"HAR {rel(plan[fmt]['har_out'])}")
     path.write_text(text, encoding="utf-8", newline="\n")
     row = readme_row(result)
     if not args.no_readme:

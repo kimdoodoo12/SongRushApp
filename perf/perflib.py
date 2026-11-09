@@ -1,7 +1,8 @@
 """Pure helpers of the perf tool (cycle 102, D-113).
 
-No I/O here: run.py measures, these compute medians, strip URL queries and
-format the README row. The contract is the docstring of perf/test_run.py
+No I/O here: run.py measures, these compute medians, strip URL queries
+(also from a recorded HAR), check text for presigned-URL secrets and format
+the README row. The contract is the docstring of perf/test_run.py
 (review round 1: honest, uncapped metrics).
 """
 
@@ -12,6 +13,13 @@ FORMATS = ("chat", "choice")
 # Between page load min and max in the README row; built from its code point
 # so this file stays ASCII.
 EN_DASH = chr(0x2013)
+
+# Text that would mean a presigned URL leaked into a result or a HAR. Case
+# matters: S3's lowercase x-amz-request-id response header is harmless.
+SECRET_MARKERS = ("X-Amz-", "Signature=", "Credential=")
+
+# Headers whose value can carry a presigned URL (compared lowercased).
+URL_HEADERS = ("location", "referer")
 
 
 def median(values):
@@ -32,6 +40,42 @@ def strip_query(url):
     if parts.query == "" and parts.fragment == "" and "?" not in url and "#" not in url:
         return url
     return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+
+
+def contains_secret(text):
+    """True when text holds a presigned-URL marker (the acceptance grep's strings)."""
+    return any(marker in text for marker in SECRET_MARKERS)
+
+
+def _strip_url_headers(headers):
+    for header in headers or []:
+        name = header.get("name")
+        value = header.get("value")
+        if isinstance(name, str) and name.lower() in URL_HEADERS and isinstance(value, str):
+            header["value"] = strip_query(value)
+
+
+def strip_har(har):
+    """Strips URL queries from a HAR dict in place and returns it.
+
+    Covers request.url, request.queryString (emptied), response.redirectURL
+    and the Location and Referer headers; any other field stays as is.
+    """
+    for entry in (har.get("log") or {}).get("entries") or []:
+        request = entry.get("request")
+        if request is not None:
+            if isinstance(request.get("url"), str):
+                request["url"] = strip_query(request["url"])
+            if "queryString" in request:
+                request["queryString"] = []
+            _strip_url_headers(request.get("headers"))
+        response = entry.get("response")
+        if response is not None:
+            redirect = response.get("redirectURL")
+            if isinstance(redirect, str) and redirect != "":
+                response["redirectURL"] = strip_query(redirect)
+            _strip_url_headers(response.get("headers"))
+    return har
 
 
 def _audio_rate(audio):

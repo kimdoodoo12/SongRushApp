@@ -362,6 +362,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
 
+- [x] **I-014** Performance report with captures, charts and a 3-run baseline (from D-114, cycle 103)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -382,6 +384,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-114** Performance report done properly (user, 2026-11-10). It follows problem → measurement → cause → improvement → re-measurement, with captures (HAR, screenshots), charts and tables, and serves as both record and portfolio. The report is `docs/performance.md`.
 - **D-113** Performance baseline (user, 2026-11-09: "성능체크를 기록하고 저장했으면 좋겠는데. 그래야 비교할거 아니야"). A measurement tool and dated results live in a new `perf/` folder (owner's choice). Each run plays 5 chat and 5 choice songs on the live site and records medians. Improvements come later and are compared against the baseline.
 - **D-112** Game modes (user, 2026-11-09). Two modes, picked by the host in the lobby next to the answer format: **선착순** (First Come / 早い者勝ち), today's rule, where the first correct answer scores 1 and ends the song; and **순위전** (Ranked / 順位戦), where every player can answer once per song, scored by server arrival order (1st 3, 2nd 2, any later correct 1). A ranked song ends when every connected player has answered (in a choice room, when everyone has picked), at the deadline, or by a passed skip. In ranked mode a correct chat is not echoed to others, and everyone sees only the name line (`✔ <name> 정답!`). Later chat, including spoilers, is the players' business and is not filtered. Answered players may still vote to skip (owner, same day).
 - **D-111** Multiple-choice answer format (user, 2026-11-09). The host picks 채팅 or 객관식 in the lobby; the game rule is unchanged (first correct by arrival wins). Choices are covers only, and their count follows the tier (easy 4; lead: normal 6, hard 8). One pick per player per song (owner). Picks are private until the reveal (lead). Owner, same day (final): in a choice room chat never scores (only a correct pick wins); there is no everyone-wrong ending; distractors may repeat series answered earlier in the game.
@@ -499,6 +502,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (103) Before any performance improvement, run 2 more baselines around 11 pm KST (`perf/run.py --label baseline-4/5`), so the slow case has 3 or more samples (docs/performance.md 3.2).
 
 - **098 M1** `GameScreen.jsx:122-126`: the reveal card still changes height when alternate titles, song or artists are missing; render those rows always (empty when absent) at their fixed heights if the owner wants the card fully fixed.
 - **098 M2** `App.revealcover.test.jsx:242-256`: the keyed-state test passes without the key because prepare unmounts the card each round; rename it or test a same-round reveal swap.
