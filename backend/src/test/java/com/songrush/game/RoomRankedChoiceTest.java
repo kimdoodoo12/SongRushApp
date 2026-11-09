@@ -31,6 +31,7 @@ import tools.jackson.databind.json.JsonMapper;
 // [{name, rank, points}] and winner = rank 1; Room.currentSong(playerId) adds choices and picked
 // (cycle 100) and answered and correct [{name, rank}] (R5). The fixture is ChoiceFixture with 30
 // covered anime; the correct position is found from the token in prepare.audioUrl.
+// Review round 2 C2: a ranked prepare carries correct [{name, rank}] while the ranking is non-empty.
 class RoomRankedChoiceTest {
 
 	private static final PlayerRef MINA = new PlayerRef("p1", "Mina");
@@ -425,6 +426,33 @@ class RoomRankedChoiceTest {
 		assertThat(lastReveal().get("winner")).isEqualTo("Mina");
 		assertThat(lastReveal().get("ranking")).isEqualTo(List.of(ranked("Mina", 1, 3)));
 		assertThat(room.scores()).containsEntry(MINA.id(), 3).containsEntry(JOON.id(), 0).containsEntry(HANA.id(), 0);
+	}
+
+	// review round 2 C2: in a ranked choice room the resume's re-prepare carries choices and the
+	// correct names; the first prepare (empty ranking) has no correct key.
+	@Test
+	void aResumesRePrepareCarriesTheCorrectNamesAndTheFirstPrepareDoesNot() {
+		build(MINA, JOON);
+		startRankedChoice();
+		assertThat(lastPrepare().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
+		List<String> urls = choices();
+		toAudible(0);
+		room.pick(JOON.id(), 0, correctPosition());
+		room.setConnected(JOON.id(), false);
+		room.setConnected(MINA.id(), false);
+		room.pause();
+		int mark = outbox.mark();
+		room.setConnected(JOON.id(), true);
+		room.resume();
+		List<Sent> prepares = outbox.since(mark).stream().filter(s -> "prepare".equals(s.type())).toList();
+		assertThat(prepares).hasSize(1);
+		Map<String, Object> prepare = prepares.get(0).message();
+		List<String> keys = new ArrayList<>(PREPARE_KEYS);
+		keys.add("correct");
+		assertThat(prepare.keySet()).containsExactlyInAnyOrderElementsOf(keys);
+		assertThat(prepare).containsEntry("correct", List.of(row("name", "Joon", "rank", 1)));
+		assertThat(choices()).isEqualTo(urls);
+		assertThat(MAPPER.writeValueAsString(prepare)).doesNotContain("correctChoice");
 	}
 
 	@Test

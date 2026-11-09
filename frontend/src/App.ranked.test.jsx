@@ -880,3 +880,106 @@ describe('other languages', () => {
     expect(chatLines(ja)).toEqual(['✔ 민수 正解！（3位）'])
   })
 })
+
+// review round 2 C1/C2 (docs/cycles/101-game-modes.md "Review round 2"):
+// C1 - in a ranked choice room no echo follows my correct pick, so my own
+// system line is created as already placed and a later chat of mine goes
+// below it. C2 - a ranked prepare (also a resume's re-prepare of the same
+// index) may carry correct:[{name, rank}]; the client restores the Seats
+// tags and its own answered state from it (my tiles stay disabled, never
+// marked wrong).
+describe('review round 2 C1: my correct pick in a ranked choice room', () => {
+  it('a later chat of mine goes below my ✔ line', async () => {
+    const env = setup()
+    const socket = await choiceRoomAudible(env)
+    fireEvent.click(koTiles(4)[1])
+    await waitFor(() => expect(socket.sentOfType('pick')).toHaveLength(1))
+    deliver(socket, { type: 'correct', index: 0, name: '하루', rank: 1 })
+    deliver(socket, { type: 'chat', name: '하루', text: 'ㅋㅋ' })
+    expect(chatLines()).toEqual(['✔ 하루 정답! (1등)', '하루: ㅋㅋ'])
+  })
+
+  it('the ranked chat format is unchanged: there my echo still goes above my line', async () => {
+    const env = setup()
+    const socket = await chatRoomPlaying(env)
+    deliver(socket, { type: 'correct', index: 0, name: '하루', rank: 1 })
+    deliver(socket, { type: 'chat', name: '하루', text: '진격의 거인' })
+    expect(chatLines()).toEqual(['하루: 진격의 거인', '✔ 하루 정답! (1등)'])
+  })
+})
+
+describe('review round 2 C2: prepare carries correct', () => {
+  const TRIO_NAMES = ['하루', '민수', '지수']
+
+  // A re-prepare of song 0 in a ranked choice room (a resume): the preloads
+  // settle, ready is sent again and the song starts and becomes audible.
+  async function rePrepareChoice(env, socket, correct) {
+    deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0', choices: choicesOf(COVERS4), correct })
+    await settlePreloads(COVERS4)
+    await waitFor(() => expect(readiesFor(socket, 0)).toHaveLength(2))
+    deliverStart(env, socket)
+    await waitFor(() => expect(env.audio.last.startedSources().length).toBeGreaterThanOrEqual(2))
+    await settle(300)
+  }
+
+  it('chat room: a re-prepare with correct:[민수, 지수] restores both tags', async () => {
+    const env = setup()
+    const socket = await chatRoomPlaying(env)
+    deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0', correct: [{ name: '민수', rank: 1 }, { name: '지수', rank: 2 }] })
+    await waitFor(() => expect(taggedSeats(TRIO_NAMES)).toEqual(['민수', '지수']))
+  })
+
+  it('chat room: after the resume the tags still stand once the song starts again', async () => {
+    const env = setup()
+    const socket = await chatRoomPlaying(env)
+    deliver(socket, { type: 'correct', index: 0, name: '민수', rank: 1 })
+    deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0', correct: [{ name: '민수', rank: 1 }] })
+    await waitFor(() => expect(readiesFor(socket, 0)).toHaveLength(2))
+    deliverStart(env, socket)
+    await settle(300)
+    expect(taggedSeats(TRIO_NAMES)).toEqual(['민수'])
+  })
+
+  it('choice room: my name in correct keeps my tiles disabled, never marked wrong, and tags my seat', async () => {
+    const env = setup()
+    const socket = await choiceRoomAudible(env)
+    fireEvent.click(koTiles(4)[1])
+    await waitFor(() => expect(socket.sentOfType('pick')).toHaveLength(1))
+    deliver(socket, { type: 'correct', index: 0, name: '하루', rank: 1 })
+    await rePrepareChoice(env, socket, [{ name: '하루', rank: 1 }, { name: '민수', rank: 2 }])
+    expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
+    expect(marks(koTiles(4)).includes('wrong')).toBe(false)
+    expect(taggedSeats(TRIO_NAMES)).toEqual(['하루', '민수'])
+    fireEvent.click(koTiles(4)[2])
+    await settle()
+    expect(socket.sentOfType('pick')).toHaveLength(1)
+  })
+
+  it('choice room: a fresh client whose name is in correct is treated as answered', async () => {
+    const env = setup()
+    const socket = await hostLobby(env, { players: TRIO })
+    fireEvent.click(within(modePicker()).getByRole('button', { name: KO.ranked }))
+    fireEvent.click(within(answerPicker()).getByRole('button', { name: ko.answer.choice }))
+    await clickStartGame(socket)
+    deliver(socket, roster(TRIO, 'playing'))
+    deliver(socket, { type: 'settings', answerMode: 'choice', gameMode: 'ranked' })
+    deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0', choices: choicesOf(COVERS4), correct: [{ name: '하루', rank: 1 }] })
+    await settlePreloads(COVERS4)
+    await waitFor(() => expect(readiesFor(socket, 0)).toHaveLength(1))
+    deliverStart(env, socket)
+    await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
+    await settle(300)
+    expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
+    expect(marks(koTiles(4)).includes('wrong')).toBe(false)
+    expect(taggedSeats(TRIO_NAMES)).toEqual(['하루'])
+  })
+
+  it('choice room: correct without my name leaves my tiles enabled and tags only the others', async () => {
+    const env = setup()
+    const socket = await choiceRoomAudible(env)
+    deliver(socket, { type: 'correct', index: 0, name: '민수', rank: 1 })
+    await rePrepareChoice(env, socket, [{ name: '민수', rank: 1 }])
+    expect(disabledStates(koTiles(4))).toEqual([false, false, false, false])
+    expect(taggedSeats(TRIO_NAMES)).toEqual(['민수'])
+  })
+})

@@ -26,6 +26,7 @@ import com.songrush.game.RecordingOutbox.Sent;
 // correct [{name, rank}]. A leave or disconnect re-checks "every connected Room player answered", but
 // never ends a song with nobody connected (the Lobby pauses instead, cycle 044). Other API as in
 // RoomRankedTest's header. As in LobbyTest, every message is a toPlayer.
+// Review round 2 C2: the re-prepare after a return carries correct [{name, rank}] when the song has a ranking.
 class LobbyGameModeTest {
 
 	private static final String CODE = "RANKD";
@@ -396,6 +397,29 @@ class LobbyGameModeTest {
 		assertThat(outbox.last("correct").message()).isEqualTo(msg("correct", "index", 0, "name", "Joon", "rank", 2));
 		assertThat(outbox.last("scores").message()).isEqualTo(msg("scores", "scores",
 				List.of(row("name", "Mina", "score", 3), row("name", "Joon", "score", 2))));
+	}
+
+	// review round 2 C2: A answered, everyone left, A returns: the re-prepare of the same song
+	// carries correct [{name:"Mina", rank:1}]; the game's first prepare had no correct key.
+	@Test
+	void theReturnsRePrepareCarriesTheCorrectNames() {
+		build();
+		joinTwo();
+		startRanked();
+		assertThat(prepareOf(P1)).doesNotContainKey("correct");
+		assertThat(prepareOf(P2)).doesNotContainKey("correct");
+		String title = title();
+		toAudible(0, P1, P2);
+		lobby.chat(P1, title);
+		lobby.disconnect(P1);
+		lobby.disconnect(P2);
+		int mark = outbox.mark();
+		assertThat(lobby.reconnect(P1)).isTrue();
+		List<Sent> prepares = ofTypeSince(mark, "prepare");
+		assertThat(prepares).extracting(Sent::to).containsExactly(P1);
+		Map<String, Object> prepare = prepares.get(0).message();
+		assertThat(prepare.keySet()).containsExactlyInAnyOrder("type", "index", "total", "audioUrl", "correct");
+		assertThat(prepare).containsEntry("index", 0).containsEntry("correct", List.of(row("name", "Mina", "rank", 1)));
 	}
 
 	// R6: the answered player's lone return ends the song when it starts.

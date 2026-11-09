@@ -40,6 +40,8 @@ import tools.jackson.databind.json.JsonMapper;
 // The fixture is 30 covered anime, each its own group with one OP of 60 s (ChoiceFixture); the
 // current song is found by resolving the token in prepare.audioUrl, and its only title is
 // ChoiceFixture.title(a).
+// Review round 2 C2: in ranked mode prepare (also a resume's re-prepare) carries correct [{name, rank}]
+// while the song's ranking is non-empty, and has no correct key otherwise; first-come prepare is unchanged.
 class RoomRankedTest {
 
 	private static final PlayerRef MINA = new PlayerRef("p1", "Mina");
@@ -629,6 +631,79 @@ class RoomRankedTest {
 		assertThat(lastReveal().get("winner")).isEqualTo("Mina");
 		assertThat(lastReveal().get("ranking")).isEqualTo(List.of(ranked("Mina", 1, 3)));
 		assertThat(room.scores()).containsEntry(MINA.id(), 3).containsEntry(JOON.id(), 0);
+	}
+
+	// ---- review round 2 C2: prepare carries correct while the song's ranking is non-empty ----
+
+	// review round 2 C2
+	@Test
+	void aResumesRePrepareCarriesTheCorrectNamesOfTheSong() {
+		build(MINA, JOON);
+		startRanked();
+		String title = title();
+		toAudible(0);
+		room.chat(MINA.id(), title);
+		room.setConnected(MINA.id(), false);
+		room.setConnected(JOON.id(), false);
+		room.pause();
+		int mark = outbox.mark();
+		room.setConnected(MINA.id(), true);
+		room.resume();
+		List<Sent> prepares = outbox.since(mark).stream().filter(s -> "prepare".equals(s.type())).toList();
+		assertThat(prepares).hasSize(1);
+		assertThat(prepares.get(0).toAll()).isTrue();
+		Map<String, Object> prepare = prepares.get(0).message();
+		List<String> keys = new ArrayList<>(PREPARE_KEYS);
+		keys.add("correct");
+		assertThat(prepare.keySet()).containsExactlyInAnyOrderElementsOf(keys);
+		assertThat(prepare).containsEntry("index", 0)
+				.containsEntry("correct", List.of(row("name", "Mina", "rank", 1)));
+		assertThat(MAPPER.writeValueAsString(prepare)).doesNotContain("Choice Anime");
+	}
+
+	// review round 2 C2
+	@Test
+	void aRankedPrepareWithAnEmptyRankingHasNoCorrectKey() {
+		build(MINA, JOON);
+		startRanked();
+		assertThat(outbox.last("prepare").message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
+
+		// A resume with nobody correct yet: still no correct key.
+		toAudible(0);
+		room.chat(MINA.id(), "not it");
+		room.pause();
+		room.resume();
+		assertThat(outbox.last("prepare").message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
+
+		// The next song's prepare after a song with a ranking: the ranking is cleared, so no key.
+		String title = title();
+		toAudible(0);
+		room.chat(MINA.id(), title);
+		room.chat(JOON.id(), title);
+		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
+		scheduler.advance(Room.REVEAL_PAUSE);
+		assertThat(room.songIndex()).isEqualTo(1);
+		assertThat(outbox.last("prepare").message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
+	}
+
+	// review round 2 C2
+	@Test
+	void aFirstComePrepareKeepsItsKeysAlsoOnAResume() {
+		build(MINA, JOON);
+		room.start(5, DrawFilter.NONE, AnswerMode.CHAT, GameMode.FIRST);
+		assertThat(outbox.last("prepare").message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
+		toAudible(0);
+		room.chat(MINA.id(), "not it");
+		room.pause();
+		room.resume();
+		assertThat(outbox.last("prepare").message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
+		String title = title();
+		toAudible(0);
+		room.chat(JOON.id(), title);
+		scheduler.advance(Room.REVEAL_PAUSE);
+		assertThat(room.songIndex()).isEqualTo(1);
+		assertThat(outbox.ofType("prepare")).allSatisfy(
+				s -> assertThat(s.message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS));
 	}
 
 	// ---- reconnect snapshot (R5) ----
