@@ -47,6 +47,12 @@
     "normal": "Normal",
     "hard": "Hard"
   },
+  "answer": {
+    "label": "Answer format",
+    "chat": "Chat",
+    "choice": "Multiple choice",
+    "choiceN": "Choice {{n}}"
+  },
   "seat": {
     "list": "Seats",
     "empty": "Empty seat",
@@ -124,7 +130,8 @@
     "bad-message": "The request was not valid.",
     "too-large": "The message is too large.",
     "already-in-room": "You are already in a room.",
-    "no-room": "You are not in a room."
+    "no-room": "You are not in a room.",
+    "bad-answer-mode": "Unknown answer format."
   },
   "feedback": {
     "title": "Feedback",

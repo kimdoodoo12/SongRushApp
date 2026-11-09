@@ -533,6 +533,26 @@
     }
   }
 
+  /* A choice room's stage below md (cycle 100, spec A10): the record and
+     the equalizer shrink to one short row, so the cover grid fits a phone
+     screen (390x844) while the song plays. The same in every look; md and
+     up, and chat rooms, keep the full disc. */
+  @media (max-width: 767.98px) {
+    .stage[data-answer-mode="choice"] .record {
+      width: 56px;
+      height: 56px;
+    }
+
+    .stage[data-answer-mode="choice"] .eq {
+      height: 40px;
+      gap: 3px;
+    }
+
+    .stage[data-answer-mode="choice"] .eq span {
+      width: 8px;
+    }
+  }
+
   /* The ring is drawn on a layer above the fill, so the fill never covers
      it; the layer takes no layout space. */
   .timebar {
@@ -596,6 +616,40 @@
     border: var(--bw) dashed color-mix(in srgb, var(--soft) 45%, transparent);
     border-radius: calc(var(--r) / 2);
     background: color-mix(in srgb, var(--soft) 8%, transparent);
+  }
+
+  /* The choice tiles (cycle 100): the box is fixed by utilities (4 columns,
+     3:4); these rules only paint. A disabled tile dims less than a button,
+     and a marked one not at all, so the marks stay readable. */
+  .choice-tile {
+    background: var(--solid);
+  }
+
+  .choice-tile:disabled {
+    opacity: 0.7;
+  }
+
+  .choice-tile[data-choice]:disabled {
+    opacity: 1;
+  }
+
+  .choice-tile[data-choice="picked"] {
+    border-color: var(--a1);
+    box-shadow: inset 0 0 0 3px var(--a1), var(--btn-shadow);
+  }
+
+  .choice-tile[data-choice="wrong"] {
+    border-color: var(--bad);
+    box-shadow: inset 0 0 0 3px var(--bad), var(--btn-shadow);
+  }
+
+  .choice-tile[data-choice="wrong"] img {
+    opacity: 0.45;
+  }
+
+  .choice-tile[data-choice="correct"] {
+    border-color: var(--good);
+    box-shadow: inset 0 0 0 3px var(--good), var(--btn-shadow);
   }
 
   .card-label {

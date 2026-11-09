@@ -21,6 +21,7 @@ const ERROR_CODES = new Set([
   'too-large',
   'already-in-room',
   'no-room',
+  'bad-answer-mode',
 ])
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -74,8 +75,29 @@ export const initialState = {
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
-  settings: null, // the applied filters { types, yearFrom, yearTo, tier } of this game
+  settings: null, // the applied filters { types, yearFrom, yearTo, tier, answerMode } of this game
   roomTheme: null, // the room's look id from the server; null: none received
+  // A choice room's song (cycle 100): the cover URL per position (null for
+  // a cover the client refused), or null without choices. Kept from prepare
+  // to the next prepare, so the grid stays under the reveal card.
+  choices: null,
+  picked: null, // the own pick's position this song, or null
+  pickWrong: false, // the server said the own pick was wrong (pick-result)
+  // No more picks this song: a pick is sent or held by the server, also
+  // when which tile it holds is unknown (already-picked, review M1).
+  pickLocked: false,
+  correctChoice: null, // the reveal's correct position, or null
+}
+
+// The per-song choice fields reset at a new song (or none).
+function choiceFields(action) {
+  return {
+    choices: action.choices ?? null,
+    picked: action.picked ?? null,
+    pickWrong: action.pickWrong === true,
+    pickLocked: action.pickLocked === true,
+    correctChoice: null,
+  }
 }
 
 export function reducer(state, action) {
@@ -104,7 +126,13 @@ export function reducer(state, action) {
       // actions that end or replace a game do (spec 061 review B1).
       return {
         ...state,
-        settings: { types: action.types, yearFrom: action.yearFrom, yearTo: action.yearTo, tier: action.tier },
+        settings: {
+          types: action.types,
+          yearFrom: action.yearFrom,
+          yearTo: action.yearTo,
+          tier: action.tier,
+          answerMode: action.answerMode,
+        },
       }
     case 'prepare': {
       // A new game (index 0) starts from a clean slate (D-062).
@@ -128,6 +156,7 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields(action),
       }
     }
     case 'reconnecting':
@@ -156,6 +185,7 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
         return { ...common, screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
@@ -185,6 +215,7 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields(action),
       }
     case 'abandoned':
       return {
@@ -199,7 +230,20 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields({}),
       }
+    case 'pick':
+      // Sent: every tile waits for the server (cycle 100).
+      return { ...state, picked: action.choice, pickWrong: false, pickLocked: true }
+    case 'pickRefused':
+      // error{for:'pick'}: the pick was not counted; the tiles work again.
+      return { ...state, picked: null, pickWrong: false, pickLocked: false }
+    case 'pickLocked':
+      // error{already-picked, for:'pick'}: the server holds an earlier pick
+      // of this song; which tile is unknown, so none is marked.
+      return { ...state, picked: null, pickWrong: false, pickLocked: true }
+    case 'pickWrong':
+      return { ...state, picked: action.choice, pickWrong: true, pickLocked: true }
     case 'ownSkip':
       return { ...state, skipVoted: action.voted }
     case 'skipState':
@@ -247,7 +291,14 @@ export function reducer(state, action) {
         chatSeq: state.chatSeq + 1,
       }
     case 'reveal':
-      return { ...state, timer: null, reveal: action.reveal, started: false, skipCount: null }
+      return {
+        ...state,
+        timer: null,
+        reveal: action.reveal,
+        started: false,
+        skipCount: null,
+        correctChoice: action.correctChoice ?? null,
+      }
     case 'scores':
       // score is null without an own row.
       return {

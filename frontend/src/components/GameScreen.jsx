@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { settingsLine } from '../game/filters.js'
 import { nameColour } from '../game/themes.js'
+import ChoiceGrid from './ChoiceGrid.jsx'
 import Seats from './Seats.jsx'
 import VolumeControl from './VolumeControl.jsx'
 import { Trans, currentLanguage, messageText, useTranslation } from '../i18n/index.js'
@@ -267,7 +268,7 @@ const LOAD_KEY = {
 // The game and its result. In a room the result has no 다시 하기; once the
 // room is back in its lobby, 대기실로 shows the lobby screen. A room also
 // shows everyone's scores, the skip vote and the final ranking.
-function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, volume, onVolumeLevel, onToggleMute }) {
+function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnlockSound, volume, onVolumeLevel, onToggleMute }) {
   const { t } = useTranslation()
   const {
     screen,
@@ -294,6 +295,11 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
     replaced,
     settings,
     players,
+    choices,
+    picked,
+    pickWrong,
+    pickLocked,
+    correctChoice,
   } = state
   const line = settings === null ? '' : settingsLine(settings, t)
   const me = room === null ? null : room.me
@@ -306,10 +312,18 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
   // the sound not blocked.
   const discShown = screen === 'game' && round !== null && reveal === null
   const discPaused = !started || !reached || load === 'loading' || load === 'failed' || soundBlocked
+  // A choice room's tiles (cycle 100): shown from prepare to the next
+  // prepare, so also under the reveal card. They work while the song is
+  // audible (087 reached), for a player who has not picked, until the first
+  // correct answer.
+  const gridShown = screen === 'game' && choices !== null
+  const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
   const clock = timer === null ? null : t('stage.seconds', { seconds: Math.ceil(timer.remaining / 1000) })
   const stage = (
     <section
       aria-label={t('stage.label')}
+      // A choice room's song: below md the disc is compact (index.css).
+      data-answer-mode={gridShown ? 'choice' : undefined}
       className="stage panel relative z-10 flex min-w-0 flex-col items-stretch gap-3 p-4 md:col-start-2 md:row-start-1 md:min-h-[340px] md:gap-4 md:p-5"
     >
       <div className="status stage-head flex flex-wrap items-center gap-3">
@@ -364,6 +378,16 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
         </p>
       )}
       {reveal !== null && <RevealCard reveal={reveal} />}
+      {gridShown && (
+        <ChoiceGrid
+          choices={choices}
+          picked={picked}
+          pickWrong={pickWrong}
+          correctChoice={correctChoice}
+          enabled={canPick}
+          onPick={onPick}
+        />
+      )}
       {timer !== null && <TimeBar max={timer.max} remaining={timer.remaining} />}
       {(playing || canSkip) && (
         <div className="stage-foot grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
