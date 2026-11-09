@@ -298,6 +298,7 @@ function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnloc
     choices,
     picked,
     pickWrong,
+    pickLocked,
     correctChoice,
   } = state
   const line = settings === null ? '' : settingsLine(settings, t)
@@ -316,11 +317,13 @@ function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnloc
   // audible (087 reached), for a player who has not picked, until the first
   // correct answer.
   const gridShown = screen === 'game' && choices !== null
-  const canPick = started && reached && !watching && picked === null && correct === null && reveal === null
+  const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
   const clock = timer === null ? null : t('stage.seconds', { seconds: Math.ceil(timer.remaining / 1000) })
   const stage = (
     <section
       aria-label={t('stage.label')}
+      // A choice room's song: below md the disc is compact (index.css).
+      data-answer-mode={gridShown ? 'choice' : undefined}
       className="stage panel relative z-10 flex min-w-0 flex-col items-stretch gap-3 p-4 md:col-start-2 md:row-start-1 md:min-h-[340px] md:gap-4 md:p-5"
     >
       <div className="status stage-head flex flex-wrap items-center gap-3">

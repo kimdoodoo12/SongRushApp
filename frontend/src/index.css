@@ -533,6 +533,26 @@
     }
   }
 
+  /* A choice room's stage below md (cycle 100, spec A10): the record and
+     the equalizer shrink to one short row, so the cover grid fits a phone
+     screen (390x844) while the song plays. The same in every look; md and
+     up, and chat rooms, keep the full disc. */
+  @media (max-width: 767.98px) {
+    .stage[data-answer-mode="choice"] .record {
+      width: 56px;
+      height: 56px;
+    }
+
+    .stage[data-answer-mode="choice"] .eq {
+      height: 40px;
+      gap: 3px;
+    }
+
+    .stage[data-answer-mode="choice"] .eq span {
+      width: 8px;
+    }
+  }
+
   /* The ring is drawn on a layer above the fill, so the fill never covers
      it; the layer takes no layout space. */
   .timebar {

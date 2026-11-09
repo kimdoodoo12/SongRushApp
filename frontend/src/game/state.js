@@ -83,6 +83,9 @@ export const initialState = {
   choices: null,
   picked: null, // the own pick's position this song, or null
   pickWrong: false, // the server said the own pick was wrong (pick-result)
+  // No more picks this song: a pick is sent or held by the server, also
+  // when which tile it holds is unknown (already-picked, review M1).
+  pickLocked: false,
   correctChoice: null, // the reveal's correct position, or null
 }
 
@@ -92,6 +95,7 @@ function choiceFields(action) {
     choices: action.choices ?? null,
     picked: action.picked ?? null,
     pickWrong: action.pickWrong === true,
+    pickLocked: action.pickLocked === true,
     correctChoice: null,
   }
 }
@@ -230,12 +234,16 @@ export function reducer(state, action) {
       }
     case 'pick':
       // Sent: every tile waits for the server (cycle 100).
-      return { ...state, picked: action.choice, pickWrong: false }
+      return { ...state, picked: action.choice, pickWrong: false, pickLocked: true }
     case 'pickRefused':
       // error{for:'pick'}: the pick was not counted; the tiles work again.
-      return { ...state, picked: null, pickWrong: false }
+      return { ...state, picked: null, pickWrong: false, pickLocked: false }
+    case 'pickLocked':
+      // error{already-picked, for:'pick'}: the server holds an earlier pick
+      // of this song; which tile is unknown, so none is marked.
+      return { ...state, picked: null, pickWrong: false, pickLocked: true }
     case 'pickWrong':
-      return { ...state, picked: action.choice, pickWrong: true }
+      return { ...state, picked: action.choice, pickWrong: true, pickLocked: true }
     case 'ownSkip':
       return { ...state, skipVoted: action.voted }
     case 'skipState':

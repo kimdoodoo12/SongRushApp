@@ -278,12 +278,20 @@ export function startSession({
   function onError(msg) {
     const code = msg.code
     const refused = msg.for
-    // A refused pick (too-early, already-picked) was not counted: the tiles
-    // work again. The tiles are the feedback, so no error text is shown.
+    // A refused pick. already-picked: the server holds an earlier pick of
+    // this song (a resume's re-prepare keeps it, review M1), so the tiles
+    // stay locked with no tile marked, since which one it holds is unknown.
+    // Any other refusal (too-early) was not counted: the tiles work again.
+    // The tiles are the feedback, so no error text is shown.
     if (refused === 'pick') {
       if (ownPick !== null && !ownPick.wrong && round !== null && ownPick.index === round.index) {
-        ownPick = null
-        dispatch({ type: 'pickRefused' })
+        if (code === 'already-picked') {
+          ownPick = { index: round.index, choice: null, wrong: true }
+          dispatch({ type: 'pickLocked' })
+        } else {
+          ownPick = null
+          dispatch({ type: 'pickRefused' })
+        }
       }
       return
     }
@@ -382,8 +390,8 @@ export function startSession({
 
   // The own pick as the screen shows it, for the song at index.
   function pickFields(index) {
-    if (ownPick === null || ownPick.index !== index) return { picked: null, pickWrong: false }
-    return { picked: ownPick.choice, pickWrong: ownPick.wrong }
+    if (ownPick === null || ownPick.index !== index) return { picked: null, pickWrong: false, pickLocked: false }
+    return { picked: ownPick.choice, pickWrong: ownPick.wrong, pickLocked: true }
   }
 
   function onPrepare(msg) {
