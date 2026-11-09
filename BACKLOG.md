@@ -355,8 +355,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-021** Disc drawn from prepare, paused until the song plays (D-101 as clarified by the owner)
 
-- [~] **B-023** Choice answers: the server side (from D-111, cycle 100)
-- [~] **F-024** Choice answers: the lobby picker and the stage grid (from D-111, cycle 100)
+- [x] **B-023** Choice answers: the server side (from D-111, cycle 100)
+- [x] **F-024** Choice answers: the lobby picker and the stage grid (from D-111, cycle 100)
 
 - [ ] **B-024 / F-025** Ranked game mode (순위전) with first-come (선착순) kept as today (from D-112; cycle 101, after cycle 100)
 

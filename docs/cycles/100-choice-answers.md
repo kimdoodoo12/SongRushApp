@@ -164,3 +164,33 @@
 "굳이 보기에서 이미 나온 작품을 넣는 규칙은 없어도 될것 같아 ... 채팅 정답도 막아야겠네. 객관식모드는"
 - **O3. A1 is void.** Distractors may come from series groups that were answered earlier in the game; the only group excluded is the current answer's. L1 is void with it, because there is no conflict left. A2 (draw by the game's own rule), A5 (pool, `k` and the 4-group minimum) and everything else stand.
 - **O4. Chat never scores in a choice room.** This reverses O1. In a choice room the answer check never runs for chat. Every non-blank chat line follows today's wrong-guess visibility rules: sender-only before `startAt` and for watchers, otherwise to everyone, with the original text. The only way to win a song in a choice room is a correct pick. O2 (no everyone-wrong ending) stands.
+
+## Result
+- **Commits.**
+  - Spec: `8ee93e0`, `5954800`, `6b1b79e`.
+  - Tests: `ec7fb77`; rewritten for owner round 2 at `9874ba0`; review M1 change at `3f6a82d`.
+  - Implementation: `9f0fca5`.
+  - Attempt 2: `155500c`.
+  - CLAUDE.md secrecy line: the commit after `9f0fca5`.
+- **Rule changes during the cycle (owner).**
+  - O1 (chat scores) was later reversed by O4: chat never scores in a choice room.
+  - O2: no everyone-wrong ending.
+  - O3: A1 was voided. The implementer had been stopped mid-way for O3 and O4 and then resumed.
+- **Verifier.**
+  - Backend at `9f0fca5`: 747 tests, 0 failures, 1 skipped (the POSIX-only store test). Choice tests: RoomChoiceTest 28, RoomChoiceDrawTest 9, LobbyAnswerModeTest 11, ChoiceSocketTest 7.
+  - Frontend at `155500c`: 465 tests; lint and build exit 0.
+  - No backend change since `9f0fca5`.
+  - The locked-test diffs are empty.
+- **Code review.** No Blocker or High.
+  - **M1:** after a paused resume the client forgot its lockout and re-enabled the tiles on `already-picked`. Attempt 2 locks the tiles instead, backed by a declared test.
+  - **M2:** possible double cover download because of `no-store`. **Not reproduced:** the browser made 6 cover requests for 6 distinct covers per page.
+  - **M3:** in easy, an earlier answer's series can appear as a distractor and be eliminated. This is accepted under O3, and the owner was told.
+- **Lead's browser check.** Local jar and built client, Playwright on Edge, host at 1280 and guest at 390.
+  - The guest sees the setting line `객관식`. Normal tier gives 6 tiles.
+  - The `prepare` keys are exactly `audioUrl, choices, index, total, type`, and each choice is `{coverUrl}` only.
+  - The guest's wrong pick is marked `wrong` and all its tiles are disabled.
+  - At the reveal, `correctChoice` is marked and the host's own wrong pick stays marked.
+  - Cover requests: 6 for 6 distinct covers on each page.
+  - While a song plays at 390×844, the grid spans y 419 to 610 after attempt 2's compact disc. The first reading of 790 to 981 was taken after the reveal, not during play.
+  - No horizontal overflow.
+  - Theme box differences are **0** in ko, en and ja at 1280 and 390.
