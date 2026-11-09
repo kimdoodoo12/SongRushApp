@@ -117,3 +117,4 @@ spread; run twice when in doubt.
 
 | date | label | build | chat ready | chat p->audio done ms | choice ready | choice p->audio done ms | audio MB | MB/s | choice cover KB | JS KB (enc) | page load min-max ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-09 | baseline | index-BL8wr47a.js | 4/5 | 18909 | 3/5 | 21188 | 3.58 | 0.18 | 2020 | 367 (identity) | 2118–3904 |
