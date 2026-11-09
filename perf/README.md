@@ -45,6 +45,13 @@ Per song (`songs` in the JSON):
   `/cover/` request to the last byte of the final response), and `cached`, the
   ones shown without a network request in that song (no bytes counted).
 
+- `requests` (cycle 103): every finished `/audio/` and `/cover/` request of
+  the song as `{kind, path, start_ms, end_ms, bytes}`. `kind` is `audio`,
+  `cover`, or `audio-redirect` / `cover-redirect` for a hop that was
+  redirected further (the site's 302 before the storage request); `path` has
+  no query; times are ms since the song's `prepare` on the same clock as
+  `prepareToAudioDone_ms`; `bytes` is the response body as transferred.
+
 Requests are attributed to the song that was current when the page made them.
 Failed requests go to `failedRequests` (format, round, host, path, error), and
 requests still running at the end of a game to `uncountedRequests`.
@@ -63,8 +70,36 @@ download was not seen), and `prepareToReady_censored` (true when a song
 without a ready, counted at its start time, sits at the median, so the real
 median is higher).
 
+Per run (`environment`): `client` (`os`, `browser`, `version` and `note`, the
+free text of `--env-note`), `server` (where the site runs, constants in the
+tool: EC2 and S3 in ap-southeast-2, Sydney) and `local_time`, the local start
+time with its UTC offset, since the time of day can change the network.
+
 URLs are saved as host and path only. Presigned query strings are never
-written; the tool refuses to write a result that contains `X-Amz-`.
+written; the tool refuses to write a result or HAR that contains `X-Amz-`,
+`Signature=` or `Credential=`.
+
+## Captures
+
+On by default; `--no-capture` turns them off (`captures` is then null).
+
+- **HAR**, one per format: `perf/results/<date>-<label>-<format>.har`.
+  Playwright records it without bodies (`record_har_content="omit"`) into a
+  temp folder. After the game every URL, query string, `redirectURL` and
+  `Location`/`Referer` header is stripped of its query, and the text is
+  checked for the three markers above. If one remains, nothing is written
+  (no JSON, no HAR) and the tool exits 1. The raw HAR is deleted with the
+  temp folder. Open it in the browser's DevTools (Network, import HAR).
+- **Screenshots**, 1280x800, Korean UI, room look 놀이터 (the default), of
+  each format's first song: `perf/results/shots/<date>-<label>-<format>-loading.png`
+  while `음원을 불러오는 중...` shows, `-playing.png` once the song is
+  audible, `-reveal.png` at the reveal. If the loading text does not appear
+  within 10 s of the first `prepare`, the loading shot is taken anyway.
+  `captures.<format>.loadingTextVisible` says whether the text was seen, and
+  `loadingShotAfterPrepare_ms` when the shot was taken.
+
+The format games always use a 1280x800 window, with or without captures, so
+runs stay comparable.
 
 ## How to run
 
@@ -79,12 +114,37 @@ python -X utf8 perf/run.py --base https://animeopguessr.com/ --songs 5 --label b
   its reveal, and for leftover downloads at the end of a game (default 120).
 - `--headed`: show the browser window.
 - `--no-readme`: write the JSON but do not add a row below.
+- `--no-capture`: no HARs and no screenshots.
+- `--env-note TEXT`: where the client was, e.g. `--env-note "Korea, home Wi-Fi"`
+  (saved as `environment.client.note`).
 
 The result goes to `perf/results/<UTC date>-<label>.json` (a `-2`, `-3`
 suffix if that name exists), a summary line is printed, and a row is appended
 to the table below. Commit both.
 
-The unit tests of the pure helpers (`perflib.py`) run offline:
+## Charts
+
+`perf/report.py` draws the report charts from one or more result JSONs. It
+needs matplotlib, so run it with the system Python (the data venv does not
+have it):
+
+```
+python -X utf8 perf/report.py --results perf/results/2026-11-10-baseline-1.json perf/results/2026-11-10-baseline-2.json --out docs/perf
+```
+
+- `timeline-<label>.png`: per song, chat and choice, prepare -> ready, start
+  and audio done, with the server's 25 s prepare timeout as a dashed line.
+- `waterfall-<label>-<format>-song<N>.png`: one bar per request of the
+  format's typical song (audio done closest to the median), with sizes.
+  Skipped, with a message, for results without `requests` (before cycle 103).
+- `bytes-<label>.png`: audio and cover MB per song.
+- `runs.png`: each run's p->audio done median, chat and choice, in the order
+  given, with the spread across the runs.
+
+`--out` defaults to `docs/perf`. Charts use Malgun Gothic for the Korean
+text when it is installed. The chart data comes from `reportlib.py`.
+
+The unit tests of the pure helpers (`perflib.py`, `reportlib.py`) run offline:
 
 ```
 data/.venv/Scripts/python.exe -m pytest perf
