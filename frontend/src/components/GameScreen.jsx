@@ -99,6 +99,25 @@ function RevealCover({ coverUrl }) {
   )
 }
 
+// A ranked song's ranking on the reveal card (cycle 101), in place of the
+// winner line: one fixed box in every look, three rows high, which scrolls
+// inside when more players answered.
+function RankingList({ rows }) {
+  const { t } = useTranslation()
+  return (
+    <ul
+      className="card-ranking mt-3 flex h-20 w-full flex-col gap-1 overflow-y-auto text-sm leading-6"
+      aria-label={t('reveal.ranking')}
+    >
+      {rows.map((row) => (
+        <li key={row.name} className="card-rank-row font-display block h-6 w-full shrink-0 truncate rounded-full px-3.5">
+          {t('reveal.rankLine', { rank: row.rank, name: row.name, points: row.points })}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 // The answer card; the flip-in is a CSS animation of this one card. The
 // big title is the line in the UI language when the frame has one, else
 // the line equal to the reveal text, else the bare reveal text; the other
@@ -131,9 +150,15 @@ function RevealCard({ reveal }) {
         <p className="card-slug mx-auto mt-1 block h-6 w-24 max-w-full truncate rounded-full px-3 py-0.5 text-xs leading-5 tracking-wide">{reveal.themeSlug}</p>
         {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 min-w-0 truncate text-base leading-6 wrap-anywhere">{reveal.song}</p>}
         {reveal.artists.length > 0 && <p className="h-5 min-w-0 truncate text-sm leading-5 wrap-anywhere text-muted">{reveal.artists.join(', ')}</p>}
-        <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
-          {reveal.winner === null || reveal.winner === undefined ? t('reveal.noWinner') : t('reveal.winner', { name: reveal.winner })}
-        </p>
+        {Array.isArray(reveal.ranking) && reveal.ranking.length > 0 ? (
+          <RankingList rows={reveal.ranking} />
+        ) : (
+          <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
+            {reveal.winner === null || reveal.winner === undefined || Array.isArray(reveal.ranking)
+              ? t('reveal.noWinner')
+              : t('reveal.winner', { name: reveal.winner })}
+          </p>
+        )}
       </section>
     </div>
   )
@@ -183,7 +208,9 @@ function ChatLog({ chat }) {
       {chat.map((line) =>
         line.kind === 'system' ? (
           <li key={line.id} className="chat-system min-w-0 wrap-anywhere">
-            {`${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
+            {typeof line.rank === 'number'
+              ? `${CHECK} ${t('chat.correctRanked', { name: line.winner, rank: line.rank })}`
+              : `${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
           </li>
         ) : (
           <li key={line.id} className="min-w-0 wrap-anywhere">
@@ -277,6 +304,7 @@ function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnloc
     timer,
     chat,
     correct,
+    correctNames,
     reveal,
     score,
     error,
@@ -315,7 +343,8 @@ function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnloc
   // A choice room's tiles (cycle 100): shown from prepare to the next
   // prepare, so also under the reveal card. They work while the song is
   // audible (087 reached), for a player who has not picked, until the first
-  // correct answer.
+  // correct answer. In ranked correct stays null (cycle 101, R4), so only the
+  // own pick locks them.
   const gridShown = screen === 'game' && choices !== null
   const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
   const clock = timer === null ? null : t('stage.seconds', { seconds: Math.ceil(timer.remaining / 1000) })
@@ -452,7 +481,7 @@ function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnloc
           me={me}
           chat={chat}
           scoreboard={scoreboard}
-          correct={correct}
+          correct={correctNames.length > 0 ? correctNames : correct}
           roundIndex={round === null ? null : round.index}
         />
         {stage}

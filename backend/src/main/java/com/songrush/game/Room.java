@@ -61,6 +61,13 @@ public final class Room {
 	// Never fewer choices than this (cycle 100 item 3).
 	static final int MIN_CHOICES = 2;
 
+	// Ranked points by rank (cycle 101 item 3): 3 for 1st, 2 for 2nd, then 1.
+	static final int FIRST_RANK_POINTS = 3;
+
+	static final int SECOND_RANK_POINTS = 2;
+
+	static final int LATER_RANK_POINTS = 1;
+
 	// Chat token bucket (D-024), in thousandths of a token so the refill fraction carries over exactly.
 	static final long ONE_TOKEN = 1000;
 
@@ -130,12 +137,19 @@ public final class Room {
 	// The answer mode of the current (or last started) game; CHAT before the first start.
 	private AnswerMode answerMode = AnswerMode.CHAT;
 
+	// The game mode of the current (or last started) game; FIRST before the first start.
+	private GameMode gameMode = GameMode.FIRST;
+
 	// In a choice game, each song's choices by song index, drawn at start; empty in a chat game.
 	private List<Choices> choices = List.of();
 
 	// The current song's picks: player id to position. Cleared only when the song index changes
 	// (not on a resume's re-prepare) and at start (cycle 100 A4).
 	private final Map<String, Integer> picks = new HashMap<>();
+
+	// In a ranked game, the current song's correct players by id in rank order. Kept like picks:
+	// cleared only when the song index changes and at start, never by a resume (cycle 101 R2).
+	private final List<String> rankedIds = new ArrayList<>();
 
 	private long startAt;
 
@@ -203,15 +217,33 @@ public final class Room {
 	}
 
 	// As currentSong(), and in a choice game also the song's choices (as sent in its prepare) and
-	// that player's picked position, or null (always null for a watcher).
+	// that player's picked position, or null (always null for a watcher). In a ranked game also
+	// answered (that player answered this song correctly; false for a watcher) and correct, the
+	// [{name, rank}] rows already sent in correct messages, in rank order (cycle 101 R5).
 	public Map<String, Object> currentSong(String playerId) {
 		Map<String, Object> song = currentSong();
-		if (song == null || answerMode != AnswerMode.CHOICE) {
-			return song;
+		if (song == null) {
+			return null;
 		}
-		song.put("choices", choices.get(songIndex).wire());
-		song.put("picked", picks.get(playerId));
+		if (answerMode == AnswerMode.CHOICE) {
+			song.put("choices", choices.get(songIndex).wire());
+			song.put("picked", picks.get(playerId));
+		}
+		if (gameMode == GameMode.RANKED) {
+			song.put("answered", rankedIds.contains(playerId));
+			song.put("correct", correctRows());
+		}
 		return song;
+	}
+
+	// The current song's ranking as [{name, rank}] in rank order: only names already sent in correct
+	// messages, nothing that identifies the song.
+	private List<Object> correctRows() {
+		List<Object> correct = new ArrayList<>();
+		for (int i = 0; i < rankedIds.size(); i++) {
+			correct.add(row("name", byId.get(rankedIds.get(i)).name(), "rank", i + 1));
+		}
+		return correct;
 	}
 
 	// The current song as a reconnecting player needs it: null unless PREPARE or PLAYING, else
@@ -249,8 +281,15 @@ public final class Room {
 	// choices at start, after the songs, so a chat game uses no more randomness than before
 	// (docs/cycles/100-choice-answers.md).
 	public void start(int songCount, DrawFilter filter, AnswerMode mode) {
+		start(songCount, filter, mode, GameMode.FIRST);
+	}
+
+	// As start(songCount, filter, mode), with the game mode (D-112) fixed for this game; a ranked game
+	// also sends settings (docs/cycles/101-game-modes.md).
+	public void start(int songCount, DrawFilter filter, AnswerMode mode, GameMode game) {
 		Objects.requireNonNull(filter, "filter");
 		Objects.requireNonNull(mode, "mode");
+		Objects.requireNonNull(game, "game");
 		if (phase != Phase.LOBBY) {
 			return;
 		}
@@ -311,8 +350,10 @@ public final class Room {
 		}
 		choices = choice ? drawChoices(drawable, filter) : List.of();
 		picks.clear();
+		rankedIds.clear();
 		settings = filter;
 		answerMode = mode;
+		gameMode = game;
 		scores.replaceAll((id, points) -> 0);
 		generation++;
 		Map<String, Object> settingsMessage = settingsMessage();
@@ -323,15 +364,19 @@ public final class Room {
 	}
 
 	// The settings message of this game: the filter's set fields, then answerMode for a choice game
-	// (left out for chat); null when there is nothing to tell (no filter, chat).
+	// (left out for chat), then gameMode for a ranked game (left out for first); null when there is
+	// nothing to tell (no filter, chat, first).
 	Map<String, Object> settingsMessage() {
-		if (settings.isEmpty() && answerMode != AnswerMode.CHOICE) {
+		if (settings.isEmpty() && answerMode != AnswerMode.CHOICE && gameMode != GameMode.RANKED) {
 			return null;
 		}
 		Map<String, Object> message = message("settings");
 		message.putAll(settings.toMessageFields());
 		if (answerMode == AnswerMode.CHOICE) {
 			message.put("answerMode", answerMode.wire());
+		}
+		if (gameMode == GameMode.RANKED) {
+			message.put("gameMode", gameMode.wire());
 		}
 		return message;
 	}
@@ -406,6 +451,10 @@ public final class Room {
 		return answerMode;
 	}
 
+	public GameMode gameMode() {
+		return gameMode;
+	}
+
 	public boolean paused() {
 		return paused;
 	}
@@ -478,8 +527,14 @@ public final class Room {
 		if (phase == Phase.PREPARE) {
 			startIfAllReady();
 		}
-		else if (phase == Phase.PLAYING && hadVotes) {
-			sendSkipStateAndPass();
+		else if (phase == Phase.PLAYING) {
+			if (hadVotes) {
+				sendSkipStateAndPass();
+			}
+			if (!connected) {
+				// Ranked: the song does not wait for a player who left (cycle 101 item 6).
+				endIfAllAnswered();
+			}
 		}
 	}
 
@@ -513,6 +568,8 @@ public final class Room {
 	// winner and nothing more; before startAt the sender gets too-early; a second pick of the song gets
 	// already-picked. A correct pick wins as a correct chat does (without a chat line); a wrong one
 	// locks the player out of picks for the song and tells the sender only. A pick costs no chat token.
+	// In a ranked game a correct pick is ranked and scored instead and the song goes on; the song ends
+	// once every connected Room player has picked, right or wrong (cycle 101 item 4).
 	public void pick(String playerId, int index, int choice) {
 		if (answerMode != AnswerMode.CHOICE || paused || phase != Phase.PLAYING || !isConnected(playerId)
 				|| index != songIndex) {
@@ -536,6 +593,16 @@ public final class Room {
 			return;
 		}
 		picks.put(playerId, choice);
+		if (gameMode == GameMode.RANKED) {
+			if (choice == current.correct()) {
+				rankCorrect(byId.get(playerId));
+			}
+			else {
+				outbox.toPlayer(playerId, message("pick-result", "index", songIndex, "choice", choice));
+			}
+			endIfAllAnswered();
+			return;
+		}
 		if (choice != current.correct()) {
 			outbox.toPlayer(playerId, message("pick-result", "index", songIndex, "choice", choice));
 			return;
@@ -580,7 +647,10 @@ public final class Room {
 		}
 		Song song = songs.get(songIndex);
 		// In a choice game chat never scores (cycle 100 O4): every line takes the wrong-guess path below.
+		// In a ranked game a player who already answered this song is never answer-checked: their
+		// lines are ordinary chat, spoilers included (cycle 101 item 3).
 		boolean match = answerMode != AnswerMode.CHOICE && !normalized.isEmpty()
+				&& !(gameMode == GameMode.RANKED && rankedIds.contains(playerId))
 				&& catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
 			// Too early: match or miss, only the sender sees it, so nothing tells whether it matched.
@@ -588,6 +658,12 @@ public final class Room {
 		}
 		else if (!match) {
 			outbox.toAll(chat);
+		}
+		else if (gameMode == GameMode.RANKED) {
+			rankCorrect(player);
+			// The song goes on, so the correct text reaches only its sender, right after correct (R3).
+			outbox.toPlayer(playerId, chat);
+			endIfAllAnswered();
 		}
 		else {
 			scores.merge(playerId, 1, Integer::sum);
@@ -619,6 +695,41 @@ public final class Room {
 			}
 		}
 		return connected;
+	}
+
+	// Ranked: the player gets the next rank of this song and its points; everyone gets
+	// correct{index, name, rank}, which names nothing of the song.
+	private void rankCorrect(PlayerRef player) {
+		rankedIds.add(player.id());
+		int rank = rankedIds.size();
+		scores.merge(player.id(), points(rank), Integer::sum);
+		outbox.toAll(message("correct", "index", songIndex, "name", player.name(), "rank", rank));
+	}
+
+	private static int points(int rank) {
+		return rank == 1 ? FIRST_RANK_POINTS : rank == 2 ? SECOND_RANK_POINTS : LATER_RANK_POINTS;
+	}
+
+	// Ranked, in PLAYING: ends the song once every connected Room player has answered correctly (chat)
+	// or picked (choice), never with nobody connected (cycle 101 R1).
+	private void endIfAllAnswered() {
+		if (gameMode != GameMode.RANKED || phase != Phase.PLAYING) {
+			return;
+		}
+		int connected = 0;
+		for (PlayerRef p : players) {
+			if (disconnected.contains(p.id())) {
+				continue;
+			}
+			connected++;
+			boolean answered = answerMode == AnswerMode.CHOICE ? picks.containsKey(p.id()) : rankedIds.contains(p.id());
+			if (!answered) {
+				return;
+			}
+		}
+		if (connected > 0) {
+			endSong(null);
+		}
 	}
 
 	// In PREPARE: starts the song once every connected player is ready (never with nobody connected).
@@ -670,6 +781,11 @@ public final class Room {
 		if (answerMode == AnswerMode.CHOICE) {
 			prepare.put("choices", choices.get(index).wire());
 		}
+		// Ranked: a resume's re-prepare of a song that already has a ranking tells everyone who answered,
+		// so a player who answered before everyone left knows it (cycle 101 review round 2 C2).
+		if (gameMode == GameMode.RANKED && !rankedIds.isEmpty()) {
+			prepare.put("correct", correctRows());
+		}
 		outbox.toAll(prepare);
 		schedule(PREPARE_TIMEOUT, this::startSong);
 	}
@@ -682,11 +798,19 @@ public final class Room {
 		outbox.toAll(message("start", "index", songIndex, "startAt", startAt, "deadlineAt", deadlineAt,
 				"serverTime", now));
 		schedule(Duration.ofMillis(deadlineAt - now), () -> endSong(null));
+		// Ranked: a resumed song whose connected players have all answered ends at once (cycle 101 R6).
+		endIfAllAnswered();
 	}
 
+	// Ends the song with that winner; in a ranked game always with the rank-1 player (or null) and the
+	// ranking [{name, rank, points}], whatever ended it (cycle 101 R7).
 	private void endSong(PlayerRef winner) {
 		phase = Phase.REVEAL;
 		votes.clear();
+		boolean ranked = gameMode == GameMode.RANKED;
+		if (ranked) {
+			winner = rankedIds.isEmpty() ? null : byId.get(rankedIds.get(0));
+		}
 		Song song = songs.get(songIndex);
 		Map<String, List<String>> titles = new LinkedHashMap<>();
 		for (String key : TITLE_KEYS) {
@@ -699,6 +823,13 @@ public final class Room {
 		if (answerMode == AnswerMode.CHOICE) {
 			reveal.put("correctChoice", choices.get(songIndex).correct());
 		}
+		if (ranked) {
+			List<Object> ranking = new ArrayList<>();
+			for (int i = 0; i < rankedIds.size(); i++) {
+				ranking.add(row("name", byId.get(rankedIds.get(i)).name(), "rank", i + 1, "points", points(i + 1)));
+			}
+			reveal.put("ranking", ranking);
+		}
 		outbox.toAll(reveal);
 		List<Object> rows = new ArrayList<>();
 		for (PlayerRef p : players) {
@@ -710,6 +841,7 @@ public final class Room {
 
 	private void afterReveal() {
 		picks.clear();
+		rankedIds.clear();
 		if (songIndex + 1 < songs.size()) {
 			prepare(songIndex + 1);
 			return;

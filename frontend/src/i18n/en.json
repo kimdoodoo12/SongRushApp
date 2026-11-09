@@ -53,6 +53,11 @@
     "choice": "Multiple choice",
     "choiceN": "Choice {{n}}"
   },
+  "mode": {
+    "label": "Game mode",
+    "first": "First Come",
+    "ranked": "Ranked"
+  },
   "seat": {
     "list": "Seats",
     "empty": "Empty seat",
@@ -82,6 +87,8 @@
     "heading": "Answer",
     "noWinner": "Nobody got it",
     "winner": "Winner: {{name}}",
+    "ranking": "This song's ranking",
+    "rankLine": "#{{rank}} {{name}} +{{points}}",
     "label": {
       "ko": "KO",
       "en": "EN",
@@ -94,7 +101,8 @@
     "input": "Your answer",
     "placeholder": "Type the anime title",
     "send": "Send",
-    "correctLine": "{{name}} got it!"
+    "correctLine": "{{name}} got it!",
+    "correctRanked": "{{name}} got it! (#{{rank}})"
   },
   "score": {
     "board": "Scoreboard",
@@ -131,7 +139,8 @@
     "too-large": "The message is too large.",
     "already-in-room": "You are already in a room.",
     "no-room": "You are not in a room.",
-    "bad-answer-mode": "Unknown answer format."
+    "bad-answer-mode": "Unknown answer format.",
+    "bad-game-mode": "Unknown game mode."
   },
   "feedback": {
     "title": "Feedback",

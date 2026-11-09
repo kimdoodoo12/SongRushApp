@@ -32,6 +32,7 @@ import com.songrush.catalog.Catalog;
 import com.songrush.cover.CoverMap;
 import com.songrush.game.AnswerMode;
 import com.songrush.game.DrawFilter;
+import com.songrush.game.GameMode;
 import com.songrush.game.Lobby;
 import com.songrush.game.Room;
 import com.songrush.game.RoomCodes;
@@ -429,8 +430,25 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			sendError(sessionId, "bad-answer-mode");
 			return;
 		}
+		// Right after the answer mode, so bad-game-mode also comes before not-host, in-game and no-room
+		// (cycle 101 item 1).
+		GameMode gameMode = gameMode(node);
+		if (gameMode == null) {
+			sendError(sessionId, "bad-game-mode");
+			return;
+		}
 		int count = songCount.intValue();
-		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count, filter, mode));
+		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count, filter, mode, gameMode));
+	}
+
+	// The start request's optional gameMode: FIRST when absent, else the exact string "first" or
+	// "ranked"; null for anything else, a present JSON null included (D-112).
+	private static GameMode gameMode(JsonNode node) {
+		if (!node.has("gameMode")) {
+			return GameMode.FIRST;
+		}
+		JsonNode mode = node.get("gameMode");
+		return mode.isString() ? GameMode.fromWire(mode.stringValue()) : null;
 	}
 
 	// The start request's optional answerMode: CHAT when absent, else the exact string "chat" or

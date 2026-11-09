@@ -667,6 +667,18 @@
     color: var(--good-ink);
   }
 
+  /* A ranked reveal's rows (cycle 101): the box is fixed by utilities and
+     scrolls inside; these rules only paint. Rank 1 looks like the winner
+     line, the others are softer. */
+  .card-rank-row {
+    background: color-mix(in srgb, var(--good) 22%, transparent);
+  }
+
+  .card-rank-row:first-child {
+    background: var(--good);
+    color: var(--good-ink);
+  }
+
   .rank-row:first-child {
     border-color: var(--a1);
     box-shadow: inset 0 0 0 var(--ring) var(--a1), var(--shadow);

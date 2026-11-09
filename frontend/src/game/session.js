@@ -79,6 +79,26 @@ function choiceUrls(choices) {
   )
 }
 
+// The correct list of a ranked snapshot's song (cycle 101, R5) or of a
+// ranked prepare (C2) as the names in rank order; [] for anything else, such
+// as a first-come frame.
+function correctNamesOf(frame) {
+  if (frame === null || frame === undefined || !Array.isArray(frame.correct)) return []
+  return frame.correct.filter((c) => c !== null && typeof c === 'object' && typeof c.name === 'string').map((c) => c.name)
+}
+
+// A ranked reveal's ranking (cycle 101 item 5) as { name, rank, points }
+// rows, or null when the frame has none (first come).
+function rankingRows(ranking) {
+  if (!Array.isArray(ranking)) return null
+  return ranking
+    .filter(
+      (r) =>
+        r !== null && typeof r === 'object' && typeof r.name === 'string' && Number.isInteger(r.rank) && Number.isInteger(r.points),
+    )
+    .map((r) => ({ name: r.name, rank: r.rank, points: r.points }))
+}
+
 function isPosition(value, choices) {
   return choices !== null && Number.isInteger(value) && value >= 0 && value < choices.length
 }
@@ -400,7 +420,21 @@ export function startSession({
     inGame = true
     resetSkips()
     if (ownPick !== null && ownPick.index !== msg.index) ownPick = null
-    dispatch({ type: 'prepare', index: msg.index, total: msg.total, choices: r.choices, ...pickFields(msg.index) })
+    // A ranked prepare may carry the names already correct this song (spec
+    // 101 C2), also on a resume's re-prepare. With the own name in it this
+    // player has answered: no more picks, and a held pick is not wrong.
+    const correctNames = correctNamesOf(msg)
+    if (myName !== null && correctNames.includes(myName)) {
+      ownPick = { index: msg.index, choice: ownPick === null ? null : ownPick.choice, wrong: false }
+    }
+    dispatch({
+      type: 'prepare',
+      index: msg.index,
+      total: msg.total,
+      choices: r.choices,
+      correctNames,
+      ...pickFields(msg.index),
+    })
     soundCheck()
     load(r, msg.audioUrl)
   }
@@ -468,9 +502,13 @@ export function startSession({
     const scores = Array.isArray(msg.scores) && msg.scores.length > 0 ? msg.scores : null
     const own = scores === null ? undefined : ownRow(scores)
     const choices = song === null ? null : choiceUrls(song.choices)
-    // The server's record of the own pick this song (L3). A pick it holds
-    // was wrong, since a correct one ends the song.
-    ownPick = song !== null && isPosition(song.picked, choices) ? { index: song.index, choice: song.picked, wrong: true } : null
+    // The server's record of the own pick this song (L3). In first come a
+    // pick it holds was wrong, since a correct one ends the song; in ranked
+    // the song goes on after a correct pick, so it was wrong only when
+    // answered is false (cycle 101, R5). answered is absent in first come.
+    const answered = song !== null && song.answered === true
+    ownPick =
+      song !== null && isPosition(song.picked, choices) ? { index: song.index, choice: song.picked, wrong: !answered } : null
     inGame = playing
     dispatch({
       type: 'restore',
@@ -480,6 +518,7 @@ export function startSession({
       board: scores,
       score: own === undefined ? null : own.score,
       choices,
+      correctNames: correctNamesOf(song),
       ...pickFields(song === null ? null : song.index),
     })
     if (song === null) return
@@ -506,13 +545,18 @@ export function startSession({
     const song = msg.song
     if (song === null || song === undefined) {
       round = null
-      dispatch({ type: 'watching', round: null, choices: null })
+      dispatch({ type: 'watching', round: null, choices: null, correctNames: [] })
       return
     }
     const late = typeof song.startAt === 'number' ? { startAt: song.startAt, deadlineAt: song.deadlineAt } : null
     const r = newRound(song.index, true, late, choiceUrls(song.choices))
     round = r
-    dispatch({ type: 'watching', round: { index: song.index, total: song.total }, choices: r.choices })
+    dispatch({
+      type: 'watching',
+      round: { index: song.index, total: song.total },
+      choices: r.choices,
+      correctNames: correctNamesOf(song),
+    })
     soundCheck()
     load(r, song.audioUrl)
     lateStart(r)
@@ -562,6 +606,8 @@ export function startSession({
         song: msg.song,
         artists: msg.artists ?? [],
         winner: msg.winner,
+        // Ranked only (cycle 101): the song's ranking rows; null in first come.
+        ranking: rankingRows(msg.ranking),
         coverUrl: typeof msg.coverUrl === 'string' && COVER_URL.test(msg.coverUrl) ? msg.coverUrl : null,
       },
     })
@@ -581,7 +627,8 @@ export function startSession({
         dispatch({ type: 'chat', name: msg.name, text: msg.text })
         break
       case 'correct':
-        dispatch({ type: 'correct', name: msg.name })
+        // rank is set only in a ranked game (cycle 101).
+        dispatch({ type: 'correct', name: msg.name, rank: Number.isInteger(msg.rank) ? msg.rank : undefined })
         break
       case 'reveal':
         onReveal(msg)
@@ -650,6 +697,7 @@ export function startSession({
           yearTo: msg.yearTo,
           tier: msg.tier,
           answerMode: msg.answerMode,
+          gameMode: msg.gameMode,
         })
         break
       case 'roster':
