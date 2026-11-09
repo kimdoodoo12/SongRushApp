@@ -14,7 +14,10 @@ How it works (docs/cycles/104-devtools-captures.md):
    URL contains devtools_app.html (never device_mode_emulation_frame).
 2. A one-time setup launch sets the DevTools settings (Network columns,
    Network tab selected, undocked), waits ~12 s so Edge writes them to the
-   profile, and ends Edge. Then each view gets its own launch.
+   profile, and ends Edge. Then each view gets its own launch; before each,
+   the saved session is deleted and the profile marked as cleanly exited, so
+   Edge does not restore the previous tab (exactly one site tab and one
+   DevTools frontend are required).
 3. Presigned-URL signatures are hidden before every DevTools screenshot (every
    text node, shadow roots included, is cut at "?" when it holds a marker).
    After the screenshot the deep text is read again and checked with
@@ -33,6 +36,7 @@ so run it with the system Python (data/.venv does not have Playwright).
 """
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -62,6 +66,9 @@ EDGE_START_S = 5
 DEVTOOLS_PAGE_TIMEOUT_S = 40
 # How long one CDP connection is searched for the pages before reconnecting.
 PAGE_LOOKUP_S = 4
+# Session files under <profile>/Default that make Edge restore the last tab.
+SESSION_ENTRIES = ("Sessions", "Current Session", "Current Tabs",
+                   "Last Session", "Last Tabs")
 # Edge writes changed DevTools settings to Default/Preferences lazily; ending
 # it sooner loses them (seen in the lead's probe).
 SETTINGS_FLUSH_S = 12
@@ -147,6 +154,7 @@ def edge_args(profile, port, url):
         "--disable-extensions",
         "--no-first-run",
         "--no-default-browser-check",
+        "--hide-crash-restore-bubble",
         "--lang=ko-KR",
         "--window-size=1300,900",
         "--autoplay-policy=no-user-gesture-required",
@@ -239,40 +247,70 @@ def all_pages(browser):
     return [pg for ctx in browser.contexts for pg in ctx.pages]
 
 
-def find_page(browser, match, timeout_s):
-    """The first page whose URL matches, or None after timeout_s."""
+def find_pages(browser, origin, timeout_s):
+    """The DevTools frontend pages and the site pages, once both are seen or
+    after timeout_s (either list may then be empty)."""
     deadline = time.monotonic() + timeout_s
     while True:
-        for pg in all_pages(browser):
-            if match(pg.url):
-                return pg
-        if time.monotonic() >= deadline:
-            return None
+        pages = all_pages(browser)
+        # Only the DevTools frontend; device_mode_emulation_frame is a
+        # different page and must not be used.
+        dts = [pg for pg in pages if "devtools_app.html" in pg.url]
+        sites = [pg for pg in pages if pg.url.startswith(origin)]
+        if (dts and sites) or time.monotonic() >= deadline:
+            return dts, sites
         time.sleep(0.5)
 
 
 def attach(pw, origin):
-    """Connects over CDP and finds the DevTools and site pages.
+    """Connects over CDP and finds the one DevTools page and the one site page.
 
     A CDP connection made before the DevTools target exists never shows that
     page (seen in the first live run), so when either page is missing after
     PAGE_LOOKUP_S the connection is closed and made again, until
-    DEVTOOLS_PAGE_TIMEOUT_S.
+    DEVTOOLS_PAGE_TIMEOUT_S. More than one of either (a restored tab brings
+    its own DevTools) is not ready either: driving one tab while watching the
+    other tab's DevTools records nothing.
     """
     deadline = time.monotonic() + DEVTOOLS_PAGE_TIMEOUT_S
     while True:
         browser = connect(pw, CDP_PORT)
-        # Only the DevTools frontend; device_mode_emulation_frame is a
-        # different page and must not be used.
-        dt = find_page(browser, lambda url: "devtools_app.html" in url, PAGE_LOOKUP_S)
-        site = find_page(browser, lambda url: url.startswith(origin), PAGE_LOOKUP_S)
-        if dt is not None and site is not None:
-            return browser, dt, site
+        dts, sites = find_pages(browser, origin, PAGE_LOOKUP_S)
+        if len(dts) == 1 and len(sites) == 1:
+            return browser, dts[0], sites[0]
         browser.close()
+        counts = f"{len(dts)} DevTools page(s), {len(sites)} site page(s)"
         if time.monotonic() >= deadline:
-            missing = "DevTools" if dt is None else "site"
-            raise ShotError(f"no {missing} page within {DEVTOOLS_PAGE_TIMEOUT_S} s")
-        log(f"{'DevTools' if dt is None else 'site'} page not seen yet; reconnecting")
+            raise ShotError(f"expected 1 DevTools page and 1 site page within "
+                            f"{DEVTOOLS_PAGE_TIMEOUT_S} s; found {counts}")
+        log(f"{counts}; reconnecting")
+
+
+def reset_session(profile):
+    """Stops the next launch from restoring the previous launch's tab.
+
+    Edge is ended with taskkill, so it counts the exit as a crash and would
+    reopen the old tab (with a second DevTools) next to the start URL. The
+    saved session files are deleted, and Preferences is marked as a clean
+    exit; everything else in it, the DevTools settings included, is kept.
+    """
+    default = Path(profile) / "Default"
+    for name in SESSION_ENTRIES:
+        entry = default / name
+        if entry.is_dir():
+            shutil.rmtree(entry)
+        elif entry.exists():
+            entry.unlink()
+    prefs_path = default / "Preferences"
+    if not prefs_path.exists():
+        raise ShotError("the profile has no Default/Preferences: the DevTools "
+                        "settings of the setup launch were not saved")
+    prefs = json.loads(prefs_path.read_text(encoding="utf-8"))
+    profile_prefs = prefs.setdefault("profile", {})
+    profile_prefs["exit_type"] = "Normal"
+    profile_prefs["exited_cleanly"] = True
+    prefs_path.write_text(json.dumps(prefs, ensure_ascii=False, separators=(",", ":")),
+                          encoding="utf-8")
 
 
 @contextmanager
@@ -424,6 +462,7 @@ def main(argv=None):
             setup_profile(pw, args.edge, profile, args.base)
             for view in args.views:
                 log(f"view {view}")
+                reset_session(profile)
                 with edge_session(pw, args.edge, profile, args.base) as (dt, site):
                     if view == "pageload":
                         capture_pageload(dt, site, args.base, paths)
