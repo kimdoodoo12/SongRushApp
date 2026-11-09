@@ -20,14 +20,17 @@ How it works (docs/cycles/104-devtools-captures.md):
    DevTools frontend are required).
 3. Presigned-URL signatures are hidden before every DevTools screenshot (every
    text node, shadow roots included, is cut at "?" when it holds a marker).
-   After the screenshot the deep text is read again and checked with
-   perflib.contains_secret; a hit deletes the image and retakes it, up to 30
-   times. No clean image: the image is deleted and the tool exits 1.
+   The screenshot is kept in memory; the deep text is read again and checked
+   with perflib.contains_secret, and only a clean image is written to disk. A
+   hit drops the image and retakes it, up to 30 times; no clean image means
+   nothing is written and the tool exits 1.
 4. The Edge process tree is always ended with taskkill, and the temp profile
    is deleted at the end.
 
 Writes perf/results/shots/<label>-devtools-<view>.png and, for the song views,
-<label>-game-<format>-<moment>.png, and prints each saved path.
+<label>-game-<format>-<moment>.png, and prints each saved path (its KST time
+goes to stderr). The song views' "loading" shots are taken 1 s after the
+loading text appears, the "done" shots once the song's audio is done.
 
     python -X utf8 perf/devtools_shot.py --label baseline
 
@@ -45,6 +48,7 @@ import sys
 import tempfile
 import time
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -81,6 +85,10 @@ DONE_TIMEOUT_MS = 90_000
 # Seconds after the loading text appears before the "loading" shot; short,
 # so the shot shows the downloads running even on a fast network.
 LOADING_SHOT_DELAY_S = 1.0
+# Seconds for DevTools' viewport-size overlay to fade before a game shot.
+OVERLAY_FADE_S = 1.5
+# Korean time for the shot log (fixed UTC+9, no DST).
+KST = timezone(timedelta(hours=9))
 # The JS bundle's row name; its presence in DevTools proves the page load
 # was recorded (the first live run recorded only favicon.ico).
 BUNDLE_ROW = "index-"
@@ -90,14 +98,22 @@ PAGELOAD_ATTEMPTS = 2
 FONT_FILTER = "-domain:fonts.gstatic.com -domain:fonts.googleapis.com"
 
 # DevTools settings for the one-time setup, through the frontend's own
-# Settings module: waterfall on, the noisy columns off, Network selected,
+# Settings module: waterfall on, the noisy columns off, the Content-Encoding
+# response header shown (compression evidence in the page-load shot), big
+# request rows (Size shows transferred and resource size), Network selected,
 # undocked (docked, the panel is a narrow strip beside a blank page area).
+# Big rows: Chromium's NetworkLogView names the setting
+# 'network-log-large-rows'; 'network-log.large-rows' is set too, harmlessly,
+# in case this Edge build uses that spelling.
 SETUP_JS = """async () => {
   const C = await import('./core/common/common.js');
   const s = C.Settings.Settings.instance();
   s.createSetting('network-log-columns', {}).set({
     waterfall: {visible: true}, initiator: {visible: false},
-    'fulfilled-by': {visible: false}, source: {visible: false}});
+    'fulfilled-by': {visible: false}, source: {visible: false},
+    'response-header-content-encoding': {visible: true, title: 'Content-Encoding'}});
+  s.createSetting('network-log-large-rows', false).set(true);
+  s.createSetting('network-log.large-rows', false).set(true);
   s.createSetting('panel-selected-tab', 'network').set('network');
   s.createSetting('currentDockState', 'right').set('undocked');
 }"""
@@ -360,26 +376,37 @@ def devtools_shot(dt, path):
     """Screenshots DevTools with signatures hidden; retakes until the text is clean."""
     for attempt in range(SHOT_ATTEMPTS):
         dt.evaluate(SANITIZE_JS)
-        dt.screenshot(path=str(path))
+        # Kept in memory: an image is written only after its check passes.
+        png = dt.screenshot()
         # A row can appear between the clean-up and the screenshot, so the
         # image may hold text the clean-up never saw: check again after it.
         texts = dt.evaluate(DEEP_TEXT_JS)
         if not deep_text_has_secret(texts):
+            path.write_bytes(png)
             if attempt > 0:
                 log(f"{rel(path)}: clean after {attempt} retake(s)")
             log(f"{rel(path)} network summary: {footer_text(texts)}")
-            print(rel(path), flush=True)
+            saved(path)
             return
-        path.unlink()
         time.sleep(0.3)
     raise ShotError(f"no clean DevTools image after {SHOT_ATTEMPTS} attempts; "
-                    f"{rel(path)} not kept")
+                    f"{rel(path)} not written")
 
 
 def game_shot(site, path):
+    # DevTools shows a viewport-size overlay while the mouse is over the
+    # page; move it off and let the overlay fade.
+    site.mouse.move(0, 0)
+    time.sleep(OVERLAY_FADE_S)
     # Full page from the top, as perf/run.py takes them.
     site.evaluate("window.scrollTo(0, 0)")
     site.screenshot(path=str(path), full_page=True)
+    saved(path)
+
+
+def saved(path):
+    """Prints the saved path, and logs its KST wall time."""
+    log(f"{rel(path)} saved at {datetime.now(KST).strftime('%H:%M')} KST")
     print(rel(path), flush=True)
 
 

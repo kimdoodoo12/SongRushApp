@@ -162,11 +162,13 @@ python -X utf8 perf/devtools_shot.py --label baseline
 - `--views pageload,choice,chat`: which views to capture (default all three).
 - `--edge PATH`: `msedge.exe` (default: under Program Files (x86), then Program Files).
 
-It writes to `perf/results/shots/` and prints each saved path:
+It writes to `perf/results/shots/` and prints each saved path (with its
+Korean time, HH:MM KST, and the Network summary line on stderr):
 
-- `<label>-devtools-pageload.png`: the home page loaded with Disable cache.
+- `<label>-devtools-pageload.png`: the home page loaded with Disable cache,
+  with a Content-Encoding column and big rows (transferred and resource size).
 - `<label>-devtools-{choice,chat}-{loading,done}.png`: one song's requests,
-  3 s after 음원을 불러오는 중 appears, and when the song's audio is done.
+  1 s after 음원을 불러오는 중 appears, and when the song's audio is done.
 - `<label>-game-{choice,chat}-{loading,done}.png`: the game page at the same moments.
 
 It opens a visible Edge window, with DevTools undocked, for about 3 minutes;
@@ -175,9 +177,10 @@ the end. Disable cache, checked for the page load, stays checked for the song
 views of the same run.
 
 Presigned-URL signatures are hidden before every DevTools screenshot, and the
-panel's text is checked again after it: an image that still holds `X-Amz-`,
-`Signature=` or `Credential=` is deleted and retaken, up to 30 times. If no
-clean image results, none is kept and the tool exits 1.
+panel's text is checked again after it, before the image is written: an image
+taken while the panel still holds `X-Amz-`, `Signature=` or `Credential=` is
+never written, and is retaken, up to 30 times. If no clean image results,
+nothing is written and the tool exits 1.
 
 ## Tests
 
