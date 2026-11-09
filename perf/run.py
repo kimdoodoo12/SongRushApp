@@ -1,9 +1,11 @@
 """Measures the song-preparation wait on a live SongRush site (cycle 102, D-113).
 
-One user's experience, not server capacity: for each answer format (chat,
-then choice) it opens a fresh Edge context, creates a room as host perf-1,
-starts an N-song game, and skips every song once it is audible. It sends no
-answers, plays one game per format, and leaves the room at the end.
+One user's experience, not server capacity. First it loads the home page in
+3 fresh Edge contexts (page load). Then, for each answer format (chat, then
+choice), it opens a fresh context, creates a room as host perf-1, starts an
+N-song game, and skips every song once it is audible and its downloads have
+finished. It sends no answers, plays one game per format, and leaves the
+room at the end.
 
 Writes perf/results/<UTC date>-<label>.json, prints a summary line, and
 appends a row to the table in perf/README.md. URLs are saved as host and
@@ -39,18 +41,22 @@ USER_AGENT = "SongRushBot/perf (+https://github.com/kimdoodoo12/SongRushApp)"
 HTTP_TIMEOUT_S = 60
 HOME_TTFB_REQUESTS = 3
 HOME_TTFB_GAP_S = 1.0
+PAGE_LOADS = 3
 NICKNAME = "perf-1"
 FORMAT_BUTTON = {"chat": "채팅", "choice": "객관식"}
 SONG_COUNT_MIN = 5
 SONG_COUNT_MAX = 30
-# Leftover cover or audio requests get this long to finish before a run is read.
-SETTLE_S = 15
 # Text that would mean a presigned URL leaked into the result.
 SECRET_MARKERS = ("X-Amz-", "Signature=", "Credential=")
 
 
 def now_ms():
     return time.perf_counter() * 1000
+
+
+def wall_ms():
+    """Epoch ms, the clock of Playwright's request timing.startTime."""
+    return time.time() * 1000
 
 
 def log(text):
@@ -66,14 +72,32 @@ def wait_until(page, cond, timeout_s, what):
         page.wait_for_timeout(100)
 
 
+def origin_of(req):
+    while req.redirected_from is not None:
+        req = req.redirected_from
+    return req
+
+
+def url_parts(url):
+    parts = urlsplit(strip_query(url))
+    return parts.netloc, parts.path
+
+
 class Recorder:
-    """The WebSocket frames and finished requests of one format's run."""
+    """The WebSocket frames and the /audio/ and /cover/ requests of one game.
+
+    Every request is tagged with the round (server index) current when the
+    page created it; a redirect's follow-up keeps its origin's tag.
+    """
 
     def __init__(self):
         self.rounds = {}  # server index -> prepare/ready/start/reveal times and URLs
         self.order = []  # server indexes in order of their first prepare
-        self.finished = []  # finished Playwright requests, read after the run
-        self.pending = set()  # in-flight /audio/ and /cover/ requests
+        self.current = None  # server index of the latest prepare
+        self.tags = {}  # Playwright request -> round tag
+        self.finished = []  # finished requests, read after the game
+        self.pending = set()  # in-flight requests
+        self.failed = []  # (request, error text)
         self.bad_frames = 0
         self.errors = []  # server error frames, for the log
 
@@ -105,6 +129,7 @@ class Recorder:
 
     def _on_received(self, payload):
         t = now_ms()
+        wall = wall_ms()
         msg = self._parse(payload)
         if msg is None:
             return
@@ -120,10 +145,13 @@ class Recorder:
             audio = msg.get("audioUrl")
             self.rounds[index] = {
                 "prepare_t": t,
+                "prepare_wall": wall,
+                "inflight_at_prepare": len(self.pending),
                 "audio_url": audio if isinstance(audio, str) else None,
                 "covers": covers,
             }
             self.order.append(index)
+            self.current = index
         elif kind == "start":
             r = self._round(msg)
             if r is not None and "start_t" not in r:
@@ -154,8 +182,11 @@ class Recorder:
         return path.startswith("/audio/") or path.startswith("/cover/")
 
     def _on_request(self, req):
-        if self._tracked(req):
-            self.pending.add(req)
+        if not self._tracked(req):
+            return
+        origin = origin_of(req)
+        self.tags[req] = self.current if origin is req else self.tags.get(origin, self.current)
+        self.pending.add(req)
 
     def _on_finished(self, req):
         self.pending.discard(req)
@@ -165,19 +196,21 @@ class Recorder:
     def _on_failed(self, req):
         self.pending.discard(req)
         if self._tracked(req):
+            self.failed.append((req, req.failure))
             log(f"request failed: {strip_query(req.url)} ({req.failure})")
+
+    def pending_in_round(self, index):
+        return any(self.tags.get(req) == index for req in self.pending)
+
+    def ordinal(self, index):
+        """1-based song number of a server index; None before the first prepare."""
+        return self.order.index(index) + 1 if index in self.order else None
 
     def started(self, n):
         return len(self.order) >= n and "start_t" in self.rounds[self.order[n - 1]]
 
     def revealed(self, n):
         return len(self.order) >= n and "reveal_t" in self.rounds[self.order[n - 1]]
-
-
-def origin_of(req):
-    while req.redirected_from is not None:
-        req = req.redirected_from
-    return req
 
 
 def timing_value(value):
@@ -196,33 +229,38 @@ def response_info(req):
     except PlaywrightError as err:
         log(f"no size for {strip_query(req.url)}: {err}")
         size = None
-    parts = urlsplit(strip_query(req.url))
+    host, path = url_parts(req.url)
+    start = timing.get("startTime")
     return {
         "status": None if response is None else response.status,
         "bytes": size,
-        "start": timing.get("startTime"),
+        "start": None if start is None or start <= 0 else start,  # epoch ms
         "ttfb_ms": timing_value(timing.get("responseStart")),
         "total_ms": timing_value(timing.get("responseEnd")),
-        "host": parts.netloc,
-        "path": parts.path,
+        "host": host,
+        "path": path,
     }
 
 
-def fetches_by_origin(finished):
-    """Origin URL (query stripped) -> {"first": info, "final": info}.
+def fetches_by_round(rec):
+    """(round tag, origin URL without query) -> {"first", "final", "attempts"}.
 
     first is the request the page made (/audio/ or /cover/), final the one
-    that was not redirected further (the S3 response); without a redirect
-    both are the same info object.
+    that was not redirected further (the storage response); without a
+    redirect both are the same info object. A retried download keeps its
+    last attempt.
     """
     out = {}
-    for req in finished:
-        rec = out.setdefault(strip_query(origin_of(req).url), {})
+    for req in rec.finished:
+        origin = origin_of(req)
+        key = (rec.tags.get(origin), strip_query(origin.url))
+        entry = out.setdefault(key, {"attempts": 0})
         info = response_info(req)
         if req.redirected_from is None:
-            rec["first"] = info
+            entry["first"] = info
+            entry["attempts"] += 1
         if req.redirected_to is None:
-            rec["final"] = info
+            entry["final"] = info
     return out
 
 
@@ -241,25 +279,43 @@ def audio_row(fetch):
         "total_ms": final["total_ms"],
         "host": final["host"],
         "path": final["path"],
+        "attempts": fetch["attempts"],
     }
+
+
+def done_epoch(fetch):
+    """Epoch ms of the final response's last byte, or None."""
+    final = fetch["final"]
+    if final["start"] is None or final["total_ms"] is None:
+        return None
+    return final["start"] + final["total_ms"]
 
 
 def end_to_end_ms(fetch):
     """From the first request's start to the final response's last byte."""
     first, final = fetch.get("first"), fetch["final"]
-    if first is None or first["start"] is None or final["start"] is None or final["total_ms"] is None:
+    done = done_epoch(fetch)
+    if first is None or first["start"] is None or done is None:
         return final["total_ms"]
-    return round(final["start"] + final["total_ms"] - first["start"], 1)
+    return round(done - first["start"], 1)
 
 
-def covers_row(urls, fetches):
+def covers_row(index, urls, fetches):
+    """Covers shown in this round: fetched here (bytes) or not fetched (cached)."""
     if not urls:
         return None
-    seen = [f for f in (fetches.get(u) for u in dict.fromkeys(urls)) if f is not None and "final" in f]
+    seen, cached = [], 0
+    for url in dict.fromkeys(urls):
+        fetch = fetches.get((index, url))
+        if fetch is not None and "final" in fetch:
+            seen.append(fetch)
+        else:
+            cached += 1
     sizes = [f["final"]["bytes"] for f in seen if f["final"]["bytes"] is not None]
     times = [t for t in (end_to_end_ms(f) for f in seen) if t is not None]
     return {
         "count": len(seen),
+        "cached": cached,
         "total_bytes": sum(sizes) if sizes else None,
         "slowest_ms": max(times) if times else None,
         "urls": sorted({f"{f['final']['host']}{f['final']['path']}" for f in seen}),
@@ -267,7 +323,7 @@ def covers_row(urls, fetches):
 
 
 def song_rows(fmt, rec, base, songs):
-    fetches = fetches_by_origin(rec.finished)
+    fetches = fetches_by_round(rec)
     rows = []
     for n, index in enumerate(rec.order[:songs], start=1):
         r = rec.rounds[index]
@@ -275,18 +331,42 @@ def song_rows(fmt, rec, base, songs):
         def since_prepare(key):
             return None if key not in r else round(r[key] - r["prepare_t"], 1)
 
+        ready_before = "ready_t" in r and ("start_t" not in r or r["ready_t"] <= r["start_t"])
         audio_url = None if r["audio_url"] is None else strip_query(urljoin(base, r["audio_url"]))
+        audio_fetch = None if audio_url is None else fetches.get((index, audio_url))
+        audio = audio_row(audio_fetch)
+        audio_done = None
+        if audio is not None:
+            done = done_epoch(audio_fetch)
+            if done is not None:
+                audio_done = round(done - r["prepare_wall"], 1)
         cover_urls = [strip_query(urljoin(base, u)) for u in r["covers"]]
         rows.append({
             "format": fmt,
             "index": n,
             "serverIndex": index,
-            "prepareToReady_ms": since_prepare("ready_t"),
+            "readyBeforeStart": ready_before,
+            "prepareToReady_ms": since_prepare("ready_t") if ready_before else None,
             "prepareToStart_ms": since_prepare("start_t"),
+            "prepareToAudioDone_ms": audio_done,
             "prepareToReveal_ms": since_prepare("reveal_t"),
-            "audio": audio_row(None if audio_url is None else fetches.get(audio_url)),
-            "covers": covers_row(cover_urls, fetches),
+            "inflight_at_prepare": r["inflight_at_prepare"],
+            "settledBeforeSkip": r.get("settledBeforeSkip"),
+            "audio": audio,
+            "covers": covers_row(index, cover_urls, fetches),
         })
+    return rows
+
+
+def request_rows(fmt, rec, pairs):
+    """Failed or uncounted requests as (format, round, host, path[, error])."""
+    rows = []
+    for req, error in pairs:
+        host, path = url_parts(req.url)
+        row = {"format": fmt, "round": rec.ordinal(rec.tags.get(origin_of(req))), "host": host, "path": path}
+        if error is not None:
+            row["error"] = error
+        rows.append(row)
     return rows
 
 
@@ -312,6 +392,22 @@ def asset_urls(page, base):
     )
     host = urlsplit(base).netloc
     return {kind: [u for u in dict.fromkeys(urls) if urlsplit(u).netloc == host] for kind, urls in found.items()}
+
+
+def measure_page_loads(browser, base):
+    """PAGE_LOADS fresh-context loads of the home page; the asset URLs of the first."""
+    runs, assets = [], None
+    for _ in range(PAGE_LOADS):
+        context = browser.new_context(locale="ko-KR")
+        try:
+            page = context.new_page()
+            page.goto(base, wait_until="load", timeout=HTTP_TIMEOUT_S * 1000)
+            runs.append(page_load_ms(page))
+            if assets is None:
+                assets = asset_urls(page, base)
+        finally:
+            context.close()
+    return runs, assets
 
 
 def http_get(url, accept_encoding=None):
@@ -352,6 +448,7 @@ def kind_totals(assets, kind):
 
 
 def home_ttfb(base):
+    """TTFB of plain cold requests: DNS, TCP and TLS are included each time."""
     runs = []
     for i in range(HOME_TTFB_REQUESTS):
         if i > 0:
@@ -386,7 +483,7 @@ def leave_room(page):
     return True
 
 
-def run_format(browser, fmt, args, want_assets):
+def run_format(browser, fmt, args):
     """One fresh context, one N-song game in this answer format."""
     context = browser.new_context(locale="ko-KR")
     try:
@@ -394,8 +491,6 @@ def run_format(browser, fmt, args, want_assets):
         rec = Recorder()
         rec.attach(page)
         page.goto(args.base, wait_until="load", timeout=HTTP_TIMEOUT_S * 1000)
-        load_ms = page_load_ms(page)
-        assets = asset_urls(page, args.base) if want_assets else None
 
         page.get_by_label("닉네임").fill(NICKNAME)
         page.get_by_role("button", name="방 만들기", exact=True).click()
@@ -409,20 +504,35 @@ def run_format(browser, fmt, args, want_assets):
         for n in range(1, args.songs + 1):
             wait_until(page, lambda: rec.started(n), timeout, f"{fmt} song {n} start")
             page.locator(".stage-hint").wait_for(state="visible", timeout=timeout * 1000)
+            index = rec.order[n - 1]
+            # One song at a time: this round's downloads finish before the
+            # skip, so the next song's downloads do not overlap them.
+            try:
+                wait_until(page, lambda: not rec.pending_in_round(index), timeout,
+                           f"{fmt} song {n} downloads")
+                rec.rounds[index]["settledBeforeSkip"] = True
+            except TimeoutError as err:
+                log(f"{err}; skipping anyway")
+                rec.rounds[index]["settledBeforeSkip"] = False
             page.get_by_role("button", name="스킵", exact=True).click()
             wait_until(page, lambda: rec.revealed(n), timeout, f"{fmt} song {n} reveal")
             page.locator(".reveal").wait_for(state="visible", timeout=timeout * 1000)
             log(f"{fmt} song {n}/{args.songs} done")
 
         try:
-            wait_until(page, lambda: not rec.pending, SETTLE_S, "leftover audio/cover requests")
+            wait_until(page, lambda: not rec.pending, timeout, "leftover audio/cover requests")
         except TimeoutError as err:
-            log(f"{err}; {len(rec.pending)} request(s) not counted")
+            log(f"{err}; {len(rec.pending)} request(s) recorded as uncounted")
+        uncounted = request_rows(fmt, rec, [(req, None) for req in rec.pending])
         left = leave_room(page)
         if rec.bad_frames:
             log(f"{rec.bad_frames} unreadable WebSocket frame(s) ignored")
-        songs = song_rows(fmt, rec, args.base, args.songs)
-        return {"songs": songs, "load_ms": load_ms, "assets": assets, "left": left}
+        return {
+            "songs": song_rows(fmt, rec, args.base, args.songs),
+            "failed": request_rows(fmt, rec, rec.failed),
+            "uncounted": uncounted,
+            "left": left,
+        }
     finally:
         context.close()
 
@@ -462,13 +572,37 @@ def parse_args(argv):
     parser.add_argument("--songs", type=song_count, default=5,
                         help=f"songs per format, {SONG_COUNT_MIN}-{SONG_COUNT_MAX} (default 5)")
     parser.add_argument("--song-timeout", type=float, default=120,
-                        help="seconds to wait for each song's start and reveal (default 120)")
+                        help="seconds to wait for each song's start, downloads and reveal, "
+                             "and for leftover downloads at the end (default 120)")
     parser.add_argument("--headed", action="store_true", help="show the browser window")
     parser.add_argument("--no-readme", action="store_true", help="do not append the row to perf/README.md")
     args = parser.parse_args(argv)
     if not args.base.endswith("/"):
         args.base += "/"
     return args
+
+
+def summary_line(label, medians, page, path):
+    def show(value, spec):
+        return "-" if value is None else spec.format(value)
+
+    parts = []
+    for fmt in ("chat", "choice"):
+        m = medians.get(fmt)
+        if m is None:
+            parts.append(f"{fmt} -")
+            continue
+        star = "*" if m["audio_missing"] > 0 else ""
+        parts.append(f"{fmt} ready {m['readyBeforeStart']}/{m['songs']}, "
+                     f"p->audio done {show(m['prepareToAudioDone_ms'], '{:.0f}')}{star} ms")
+    allm = medians["all"]
+    audio_mb = None if allm["audio_bytes"] is None else allm["audio_bytes"] / 1e6
+    return (
+        f"perf {label}: {'; '.join(parts)}; audio {show(audio_mb, '{:.2f}')} MB at "
+        f"{show(allm['audio_mb_per_s'], '{:.2f}')} MB/s; page load "
+        f"{show(page['load_ms_min'], '{:.0f}')}-{show(page['load_ms_max'], '{:.0f}')} ms "
+        f"-> {path.relative_to(REPO_DIR).as_posix()}"
+    )
 
 
 def main(argv=None):
@@ -482,28 +616,31 @@ def main(argv=None):
             args=["--autoplay-policy=no-user-gesture-required"],
         )
         try:
+            load_runs, asset_list = measure_page_loads(browser, args.base)
             for fmt in ("chat", "choice"):
-                runs[fmt] = run_format(browser, fmt, args, want_assets=(fmt == "chat"))
+                runs[fmt] = run_format(browser, fmt, args)
         finally:
             browser.close()
 
-    assets = measure_assets(runs["chat"]["assets"])
+    assets = measure_assets(asset_list)
     js_bytes, js_encoding = kind_totals(assets, "js")
     css_bytes, css_encoding = kind_totals(assets, "css")
     js_names = [a["url"].rsplit("/", 1)[-1] for a in assets if a["kind"] == "js"]
     ttfb_runs = home_ttfb(args.base)
     songs = runs["chat"]["songs"] + runs["choice"]["songs"]
-    load_runs = {fmt: runs[fmt]["load_ms"] for fmt in runs}
+    loads = [v for v in load_runs if v is not None]
 
     result = {
         "label": args.label,
         "timestamp": timestamp,
         "commit": git_commit(),
-        "build": js_names[0] if js_names else None,
+        "build": js_names[0] if js_names else "-",
         "base": strip_query(args.base),
         "songsPerFormat": args.songs,
         "page": {
-            "load_ms": median(load_runs.values()),
+            "load_ms": median(load_runs),
+            "load_ms_min": min(loads) if loads else None,
+            "load_ms_max": max(loads) if loads else None,
             "load_ms_runs": load_runs,
             "js_bytes": js_bytes,
             "js_encoding": js_encoding,
@@ -514,11 +651,11 @@ def main(argv=None):
             "home_ttfb_runs": ttfb_runs,
         },
         "leftRoom": {fmt: runs[fmt]["left"] for fmt in runs},
+        "failedRequests": runs["chat"]["failed"] + runs["choice"]["failed"],
+        "uncountedRequests": runs["chat"]["uncounted"] + runs["choice"]["uncounted"],
         "songs": songs,
         "medians": summarize(songs),
     }
-    if result["build"] is None:
-        result["build"] = "-"
 
     text = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
     leaked = [m for m in SECRET_MARKERS if m in text]
@@ -531,20 +668,7 @@ def main(argv=None):
     row = readme_row(result)
     if not args.no_readme:
         append_readme_row(row)
-
-    m = result["medians"]
-
-    def show(value, spec):
-        return "-" if value is None else spec.format(value)
-
-    print(
-        f"perf {args.label}: prepare->start chat "
-        f"{show(m.get('chat', {}).get('prepareToStart_ms'), '{:.0f}')} ms, choice "
-        f"{show(m.get('choice', {}).get('prepareToStart_ms'), '{:.0f}')} ms; audio "
-        f"{show(None if m['all']['audio_bytes'] is None else m['all']['audio_bytes'] / 1e6, '{:.2f}')} MB at "
-        f"{show(m['all']['audio_mb_per_s'], '{:.2f}')} MB/s; page load "
-        f"{show(result['page']['load_ms'], '{:.0f}')} ms -> {path.relative_to(REPO_DIR).as_posix()}"
-    )
+    print(summary_line(args.label, result["medians"], result["page"], path))
     print(row)
     return 0
 
