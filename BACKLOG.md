@@ -363,6 +363,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
 
 - [x] **I-014** Performance report with captures, charts and a 3-run baseline (from D-114, cycle 103)
+- [~] **I-015** DevTools Network-panel captures of the measurement (`perf/devtools_shot.py`) in the report (from D-115, cycle 104)
 
 ## Roadmap
 
@@ -385,6 +386,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 Decided:
 - **D-114** Performance report done properly (user, 2026-11-10). It follows problem → measurement → cause → improvement → re-measurement, with captures (HAR, screenshots), charts and tables, and serves as both record and portfolio. The report is `docs/performance.md`.
+- **D-115** The report must show the measurement itself (user, 2026-11-10: "내가 포트폴리오용으로 캡쳐하라고했음에도 불구하고 넌 성능측정을 캡쳐 안한거네?"). Real DevTools Network-panel captures (page load, a choice song, a chat song) go into `docs/performance.md`, made by `perf/devtools_shot.py` with signatures hidden.
 - **D-113** Performance baseline (user, 2026-11-09: "성능체크를 기록하고 저장했으면 좋겠는데. 그래야 비교할거 아니야"). A measurement tool and dated results live in a new `perf/` folder (owner's choice). Each run plays 5 chat and 5 choice songs on the live site and records medians. Improvements come later and are compared against the baseline.
 - **D-112** Game modes (user, 2026-11-09). Two modes, picked by the host in the lobby next to the answer format: **선착순** (First Come / 早い者勝ち), today's rule, where the first correct answer scores 1 and ends the song; and **순위전** (Ranked / 順位戦), where every player can answer once per song, scored by server arrival order (1st 3, 2nd 2, any later correct 1). A ranked song ends when every connected player has answered (in a choice room, when everyone has picked), at the deadline, or by a passed skip. In ranked mode a correct chat is not echoed to others, and everyone sees only the name line (`✔ <name> 정답!`). Later chat, including spoilers, is the players' business and is not filtered. Answered players may still vote to skip (owner, same day).
 - **D-111** Multiple-choice answer format (user, 2026-11-09). The host picks 채팅 or 객관식 in the lobby; the game rule is unchanged (first correct by arrival wins). Choices are covers only, and their count follows the tier (easy 4; lead: normal 6, hard 8). One pick per player per song (owner). Picks are private until the reveal (lead). Owner, same day (final): in a choice room chat never scores (only a correct pick wins); there is no everyone-wrong ending; distractors may repeat series answered earlier in the game.
