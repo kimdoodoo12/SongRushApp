@@ -109,3 +109,28 @@
 ## Review round 2 (code review of 9e313ca). These override the text above.
 - **C1 (M1).** In a ranked **choice** room the client creates its own system line as already placed: no echo follows a pick, so a later chat of mine goes below my ✔ line. The ranked chat format is unchanged; there my echo goes above my line.
 - **C2 (M2).** In ranked mode, while the song's ranking is non-empty, `prepare` (including a resume's re-prepare) carries `correct: [{name, rank}]`, the names already broadcast. The client restores the Seats tags and its own answered state from it. Without this, a player who answered before everyone left would not know it after the resume, and a retyped title would be broadcast to the others.
+
+## Result
+- **Commits.**
+  - Spec: `5586d8f`, `3b2716e`.
+  - Tests: `83228ff`; declared fix `b02e09b` (stop assertions ignore the scheduled deadline stop: the implementer reported it and the lead confirmed it against App.flow.test.jsx:261); round-2 additions `d732401`.
+  - Implementation: `9e313ca`.
+  - Attempt 2: `e708d40`.
+- **Owner decision during the cycle.** Answered players may still vote to skip (R8).
+- **Verifier at `e708d40`.**
+  - Backend: 816 tests, 0 failures, 1 skipped (the POSIX-only store test). RoomRankedTest 32, RoomRankedChoiceTest 16, LobbyGameModeTest 14, RankedSocketTest 7.
+  - Frontend: 507 tests; lint and build exit 0.
+  - The locked-test diff is empty.
+- **Code review (round 2).** No Blocker or High. Both Mediums were fixed in attempt 2:
+  - **C1:** in a ranked choice room my later chat jumped above my ✔ line.
+  - **C2:** after a pause and resume the client lost who had answered, so a retyped title could be broadcast. `prepare` now carries the correct names.
+- **Lead's browser check.** Local jar and built client, Playwright on Edge, three players, choice and ranked.
+  - The guest's settings line reads `객관식 · 순위전`.
+  - Song 1: players picked tiles 1 to 3, and the song ended right after the third pick.
+  - The winner and ranking were `[{영희, rank 1, points 3}]`. Only one `correct` frame went out, `{index 0, name 영희, rank 1}`, and no first-come banner appeared.
+  - The reveal list showed `1등 영희 +3점`, and the host chat showed `✔ 영희 정답! (1등)`.
+  - Seat tag: `정답!`. Scores: 영희 3, the others 0.
+  - An earlier run where all three picked wrong ended the song on the last pick, with an empty ranking and winner null.
+  - Theme box differences are 0 in ko, en and ja at 1280 and 390.
+- **Not checked in the browser.** Multiple ranks (2nd and 3rd) and ranked chat need known answers, which a browser cannot learn before the reveal. The unit and socket tests cover them: 3/2/1 points, arrival order, sender-only echo, end conditions.
+- **Process note.** A Stop hook started `gradlew test` on `backend/` twice while the implementer was running, which broke both runs with `EOFException`. Each run passed after waiting. This is the known Follow-up.
