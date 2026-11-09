@@ -57,7 +57,10 @@ EDGE_CANDIDATES = (
 )
 CDP_PORT = 9335
 CDP_CONNECT_TIMEOUT_S = 30
-DEVTOOLS_PAGE_TIMEOUT_S = 20
+EDGE_START_S = 5
+DEVTOOLS_PAGE_TIMEOUT_S = 40
+# How long one CDP connection is searched for the pages before reconnecting.
+PAGE_LOOKUP_S = 4
 # Edge writes changed DevTools settings to Default/Preferences lazily; ending
 # it sooner loses them (seen in the lead's probe).
 SETTINGS_FLUSH_S = 12
@@ -224,14 +227,40 @@ def all_pages(browser):
     return [pg for ctx in browser.contexts for pg in ctx.pages]
 
 
-def find_page(browser, match, what):
-    deadline = time.monotonic() + DEVTOOLS_PAGE_TIMEOUT_S
-    while time.monotonic() < deadline:
+def find_page(browser, match, timeout_s):
+    """The first page whose URL matches, or None after timeout_s."""
+    deadline = time.monotonic() + timeout_s
+    while True:
         for pg in all_pages(browser):
             if match(pg.url):
                 return pg
+        if time.monotonic() >= deadline:
+            return None
         time.sleep(0.5)
-    raise ShotError(f"no {what} page within {DEVTOOLS_PAGE_TIMEOUT_S} s")
+
+
+def attach(pw, origin):
+    """Connects over CDP and finds the DevTools and site pages.
+
+    A CDP connection made before the DevTools target exists never shows that
+    page (seen in the first live run), so when either page is missing after
+    PAGE_LOOKUP_S the connection is closed and made again, until
+    DEVTOOLS_PAGE_TIMEOUT_S.
+    """
+    deadline = time.monotonic() + DEVTOOLS_PAGE_TIMEOUT_S
+    while True:
+        browser = connect(pw, CDP_PORT)
+        # Only the DevTools frontend; device_mode_emulation_frame is a
+        # different page and must not be used.
+        dt = find_page(browser, lambda url: "devtools_app.html" in url, PAGE_LOOKUP_S)
+        site = find_page(browser, lambda url: url.startswith(origin), PAGE_LOOKUP_S)
+        if dt is not None and site is not None:
+            return browser, dt, site
+        browser.close()
+        if time.monotonic() >= deadline:
+            missing = "DevTools" if dt is None else "site"
+            raise ShotError(f"no {missing} page within {DEVTOOLS_PAGE_TIMEOUT_S} s")
+        log(f"{'DevTools' if dt is None else 'site'} page not seen yet; reconnecting")
 
 
 @contextmanager
@@ -240,11 +269,9 @@ def edge_session(pw, edge, profile, base):
     origin = "{0.scheme}://{0.netloc}/".format(urlsplit(base))
     proc = subprocess.Popen([edge] + edge_args(profile, CDP_PORT, base))
     try:
-        browser = connect(pw, CDP_PORT)
-        # Only the DevTools frontend; device_mode_emulation_frame is a
-        # different page and must not be used.
-        dt = find_page(browser, lambda url: "devtools_app.html" in url, "DevTools")
-        site = find_page(browser, lambda url: url.startswith(origin), "site")
+        # Give Edge time to open the DevTools target before attaching.
+        time.sleep(EDGE_START_S)
+        browser, dt, site = attach(pw, origin)
         time.sleep(2)
         try:
             yield dt, site
