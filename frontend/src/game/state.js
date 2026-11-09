@@ -22,6 +22,7 @@ const ERROR_CODES = new Set([
   'already-in-room',
   'no-room',
   'bad-answer-mode',
+  'bad-game-mode',
 ])
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -55,9 +56,15 @@ export const initialState = {
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  chat: [], // { id, name, body, text }, or a system line { id, kind: 'system', winner, placed }
+  // { id, name, body, text }, or a system line { id, kind: 'system', winner,
+  // rank, placed }; rank is a number only in a ranked game (cycle 101).
+  chat: [],
   chatSeq: 0,
-  correct: null,
+  correct: null, // the first-come winner's name this song, or null
+  // Ranked (cycle 101, R4): every name with a correct answer this song, in
+  // rank order. correct stays null in a ranked game, so another player's
+  // answer never shows the banner or locks the own tiles.
+  correctNames: [],
   reveal: null,
   score: null,
   error: null,
@@ -75,7 +82,7 @@ export const initialState = {
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
-  settings: null, // the applied filters { types, yearFrom, yearTo, tier, answerMode } of this game
+  settings: null, // the applied filters { types, yearFrom, yearTo, tier, answerMode, gameMode } of this game
   roomTheme: null, // the room's look id from the server; null: none received
   // A choice room's song (cycle 100): the cover URL per position (null for
   // a cover the client refused), or null without choices. Kept from prepare
@@ -132,6 +139,7 @@ export function reducer(state, action) {
           yearTo: action.yearTo,
           tier: action.tier,
           answerMode: action.answerMode,
+          gameMode: action.gameMode,
         },
       }
     case 'prepare': {
@@ -148,6 +156,7 @@ export function reducer(state, action) {
         load: 'loading',
         timer: null,
         correct: null,
+        correctNames: [],
         reveal: null,
         error: null,
         notice: null,
@@ -178,6 +187,7 @@ export function reducer(state, action) {
         score: action.score === null ? state.score : action.score,
         timer: null,
         correct: null,
+        correctNames: action.correctNames ?? [],
         reveal: null,
         error: null,
         notice: null,
@@ -207,6 +217,7 @@ export function reducer(state, action) {
         load: action.round === null ? null : 'loading',
         timer: null,
         correct: null,
+        correctNames: action.correctNames ?? [],
         reveal: null,
         error: null,
         notice: null,
@@ -226,6 +237,7 @@ export function reducer(state, action) {
         lobbyOpen: false,
         notice: ABANDONED_NOTICE,
         settings: null,
+        correctNames: [],
         watching: false,
         started: false,
         skipVoted: false,
@@ -278,7 +290,31 @@ export function reducer(state, action) {
       }
       return { ...state, chat: [...state.chat, line], chatSeq: state.chatSeq + 1 }
     }
-    case 'correct':
+    case 'correct': {
+      // Ranked (cycle 101): known from the settings or the frame's rank. The
+      // song goes on, so correct stays null; the name joins correctNames and
+      // the line carries the rank. Only the own echo goes above the own line
+      // (R3): for any other name the line is placed already, so that
+      // player's later chat appends below it.
+      const ranked = typeof action.rank === 'number' || (state.settings !== null && state.settings.gameMode === 'ranked')
+      if (ranked) {
+        const mine = state.room !== null && state.room.me === action.name
+        return {
+          ...state,
+          correctNames: state.correctNames.includes(action.name) ? state.correctNames : [...state.correctNames, action.name],
+          chat: [
+            ...state.chat,
+            {
+              id: state.chatSeq,
+              kind: 'system',
+              winner: action.name,
+              rank: typeof action.rank === 'number' ? action.rank : null,
+              placed: !mine,
+            },
+          ],
+          chatSeq: state.chatSeq + 1,
+        }
+      }
       // A system line in the log (D-094). It has no name, so no seat bubble;
       // its text is made when shown, in the current language.
       return {
@@ -286,10 +322,11 @@ export function reducer(state, action) {
         correct: action.name,
         chat: [
           ...state.chat,
-          { id: state.chatSeq, kind: 'system', winner: action.name, placed: false },
+          { id: state.chatSeq, kind: 'system', winner: action.name, rank: null, placed: false },
         ],
         chatSeq: state.chatSeq + 1,
       }
+    }
     case 'reveal':
       return {
         ...state,

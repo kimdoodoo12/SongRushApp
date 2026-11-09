@@ -159,7 +159,9 @@ const LIST_CLASS = {
 // as a speech bubble. A bubble shows only lines after the watermark, which
 // moves to the newest line whenever roundIndex changes (the next song is
 // prepared); each bubble hides 6 s after its line, and a newer line from the
-// same player restarts that player's timer.
+// same player restarts that player's timer. correct is the one first-come
+// winner's name, or in a ranked game (cycle 101) the list of every name that
+// answered correctly; null for none.
 export default function Seats({ players, me, chat, scoreboard, correct, roundIndex, layout = 'grid' }) {
   const { t } = useTranslation()
   const [round, setRound] = useState(roundIndex)
@@ -213,7 +215,7 @@ export default function Seats({ players, me, chat, scoreboard, correct, roundInd
         player={player}
         me={me}
         score={scoreOf(player, scoreboard)}
-        isCorrect={correct !== null && correct !== undefined && correct === player.name}
+        isCorrect={Array.isArray(correct) ? correct.includes(player.name) : correct === player.name}
         bubble={bubble}
         placement={placement}
       />,
