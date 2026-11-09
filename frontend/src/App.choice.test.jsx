@@ -33,9 +33,12 @@
 //   pick and from the reveal on.
 // - A click sends exactly one {type:"pick", index, choice} and disables all
 //   tiles; the clicked tile gets data-choice="picked". pick-result{index,
-//   choice} (means wrong) sets data-choice="wrong" on that tile. Any
-//   error{for:"pick"} (too-early, already-picked) re-enables the tiles and
-//   clears the mark; an error for something else does not.
+//   choice} (means wrong) sets data-choice="wrong" on that tile.
+//   error{code:"too-early", for:"pick"} re-enables the tiles and clears the
+//   mark; error{code:"already-picked", for:"pick"} keeps every tile disabled;
+//   an error for something else does not re-enable them.
+// - declared change (100 review M1): already-picked locks instead of
+//   re-enabling; too-early still re-enables.
 // - reveal{..., correctChoice}: the tile at correctChoice gets
 //   data-choice="correct"; the own wrong pick keeps data-choice="wrong"; the
 //   grid stays (all tiles disabled) under the reveal card. The next prepare
@@ -628,13 +631,17 @@ describe('a pick', () => {
     ]))
   })
 
-  it('error{already-picked, for:"pick"} re-enables the tiles', async () => {
+  it('error{already-picked, for:"pick"} keeps the tiles locked', async () => {
     const env = setup()
     const socket = await choiceSongAudible(env)
     fireEvent.click(koTiles(4)[0])
     await waitFor(() => expect(socket.sentOfType('pick')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'already-picked', for: 'pick' })
-    await waitFor(() => expect(disabledStates(koTiles(4))).toEqual([false, false, false, false]))
+    await settle(300)
+    expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
+    fireEvent.click(koTiles(4)[1])
+    await settle()
+    expect(socket.sentOfType('pick')).toHaveLength(1)
   })
 
   it('an error for something else leaves the tiles disabled', async () => {
@@ -847,6 +854,37 @@ describe('rejoin', () => {
     await playingSnapshot(env, attempt, 2)
     expect(marks(koTiles(4))).toEqual([null, null, 'wrong', null])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
+  })
+
+  // Declared change (100 review M1): the server remembers the pick across a
+  // resume's re-prepare of the same index, so already-picked locks the tiles.
+  it('song:null snapshot, then prepare for the same index: a pick answered already-picked leaves every tile disabled', async () => {
+    const env = setup()
+    const attempt = await rejoined(env)
+    deliver(attempt, { type: 'snapshot', phase: 'playing', players: ALONE, song: null, scores: [] })
+    deliver(attempt, roster(ALONE, 'playing'))
+    deliver(attempt, prepareMsg(0, COVERS4))
+    await flushUntil(() => preloadsOf(COVERS4).length === 4)
+    expect(preloadsOf(COVERS4)).toHaveLength(4)
+    await act(async () => {
+      for (const img of pendingPreloads(COVERS4)) img.fire('load')
+    })
+    await flushUntil(() => readiesFor(attempt, 0).length === 1)
+    expect(readiesFor(attempt, 0)).toEqual([{ type: 'ready', index: 0 }])
+    deliverStart(env, attempt)
+    const ctx = env.audio.last
+    await flushUntil(() => ctx.startedSources().length === 1)
+    expect(ctx.startedSources()).toHaveLength(1)
+    await advance(env, 300)
+    fireEvent.click(koTiles(4)[1])
+    await flushUntil(() => attempt.sentOfType('pick').length === 1)
+    expect(attempt.sentOfType('pick')).toEqual([{ type: 'pick', index: 0, choice: 1 }])
+    deliver(attempt, { type: 'error', code: 'already-picked', for: 'pick' })
+    await advance(env, 300)
+    expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
+    fireEvent.click(koTiles(4)[2])
+    await advance(env, 50)
+    expect(attempt.sentOfType('pick')).toHaveLength(1)
   })
 })
 
