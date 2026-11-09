@@ -150,3 +150,12 @@
 "채팅에서 제목쳐도 상관없을것 같은데 ... 모두 틀리면? 그게 아니라 먼저 맞춘사람이면 뜨는거지"
 - **O1.** In a choice room, chat answers work exactly as in a chat room: the answer check runs, and the first correct chat wins. Item 7 of the Backend section ("Chat in a choice room never runs the answer check") is void. A player locked out of picks can still answer by chat.
 - **O2.** The everyone-wrong rule (A6) is void. A song ends only as today: by the first correct answer (a pick or a chat), a passed skip, or the deadline.
+
+## Lead rulings after the test writers
+- **L1 (A1 against A5).** When excluding already-answered groups would leave no distractor for a song, that song may use already-answered groups. This keeps at least 2 choices; A1 holds whenever it can. The draw of all songs' choices at start must never throw.
+- **L2. Randomness in chat rooms.** A chat room consumes no extra randomness, so the seeded draws of existing tests keep their order.
+- **L3. Contract.**
+  - Positions are 0-based.
+  - The reconnect snapshot carries `song.choices` and `song.picked` (`Room.currentSong(playerId)`); watchers get `choices` with `picked` null.
+  - `answerMode` is omitted for chat.
+  - The API is `AnswerMode {CHAT, CHOICE}`, `Room.start(int, DrawFilter, AnswerMode)`, `Room.pick(String,int,int)` and `Lobby.start(..., AnswerMode)` / `Lobby.pick(...)`, as listed in the backend tests' header comments.
