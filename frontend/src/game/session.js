@@ -29,6 +29,7 @@ import { errorText } from './state.js'
 const TICK_MS = 250
 // A reveal's cover path (cycle 097): the server's CoverMap.ID rule under
 // /cover/. Anything else is dropped, so the client never loads another URL.
+// The same rule applies to a choice's cover (cycle 100).
 const COVER_URL = /^\/cover\/[A-Za-z0-9_-]{1,64}$/
 // Room clock sync (F-004): a burst of 8 pings on joined, 3 after each load,
 // 3 every 30 s, and 3 when a start's receipt offset drifts beyond rtt + 50.
@@ -68,6 +69,40 @@ function clearRejoin() {
   }
 }
 
+// A frame's choices (cycle 100) as the list of their cover URLs, in order,
+// or null when the frame has none. An entry whose coverUrl breaks the rule
+// stays as null, so the positions still match the server's.
+function choiceUrls(choices) {
+  if (!Array.isArray(choices) || choices.length === 0) return null
+  return choices.map((c) =>
+    c !== null && typeof c === 'object' && typeof c.coverUrl === 'string' && COVER_URL.test(c.coverUrl) ? c.coverUrl : null,
+  )
+}
+
+// The correct list of a ranked snapshot's song (cycle 101, R5) or of a
+// ranked prepare (C2) as the names in rank order; [] for anything else, such
+// as a first-come frame.
+function correctNamesOf(frame) {
+  if (frame === null || frame === undefined || !Array.isArray(frame.correct)) return []
+  return frame.correct.filter((c) => c !== null && typeof c === 'object' && typeof c.name === 'string').map((c) => c.name)
+}
+
+// A ranked reveal's ranking (cycle 101 item 5) as { name, rank, points }
+// rows, or null when the frame has none (first come).
+function rankingRows(ranking) {
+  if (!Array.isArray(ranking)) return null
+  return ranking
+    .filter(
+      (r) =>
+        r !== null && typeof r === 'object' && typeof r.name === 'string' && Number.isInteger(r.rank) && Number.isInteger(r.points),
+    )
+    .map((r) => ({ name: r.name, rank: r.rank, points: r.points }))
+}
+
+function isPosition(value, choices) {
+  return choices !== null && Number.isInteger(value) && value >= 0 && value < choices.length
+}
+
 function scheduleTimeout(fn, ms) {
   const id = setTimeout(fn, ms)
   return () => clearTimeout(id)
@@ -95,11 +130,18 @@ export function startSession({
   let joined = false
   let myName = null
   // The current song: { index, revealed, buffer, start, source, watching,
-  // lateStart, provisional }. lateStart is a watched song's { startAt,
-  // deadlineAt }, kept until a clock estimate exists. provisional: the start
-  // used a drifted receipt and fresh pongs may move it earlier (spec 051);
-  // a new round (prepare, snapshot, reconnect) starts without it.
+  // lateStart, provisional, choices, audioDone, imagesLeft, readySent }.
+  // lateStart is a watched song's { startAt, deadlineAt }, kept until a
+  // clock estimate exists. provisional: the start used a drifted receipt and
+  // fresh pongs may move it earlier (spec 051); a new round (prepare,
+  // snapshot, reconnect) starts without it. choices are the cover URLs of a
+  // choice room's song (cycle 100); ready waits for the audio and for every
+  // choice image to load or fail.
   let round = null
+  // The own pick in a choice room (cycle 100): { index, choice, wrong }, or
+  // null. It belongs to a song index, so a resume's re-prepare of the same
+  // song keeps it (spec 100 A4); another index clears it.
+  let ownPick = null
   // A game is on (prepare or a playing snapshot) and its
   // gameOver has not arrived; a lobby roster then means it was abandoned.
   let inGame = false
@@ -256,6 +298,23 @@ export function startSession({
   function onError(msg) {
     const code = msg.code
     const refused = msg.for
+    // A refused pick. already-picked: the server holds an earlier pick of
+    // this song (a resume's re-prepare keeps it, review M1), so the tiles
+    // stay locked with no tile marked, since which one it holds is unknown.
+    // Any other refusal (too-early) was not counted: the tiles work again.
+    // The tiles are the feedback, so no error text is shown.
+    if (refused === 'pick') {
+      if (ownPick !== null && !ownPick.wrong && round !== null && ownPick.index === round.index) {
+        if (code === 'already-picked') {
+          ownPick = { index: round.index, choice: null, wrong: true }
+          dispatch({ type: 'pickLocked' })
+        } else {
+          ownPick = null
+          dispatch({ type: 'pickRefused' })
+        }
+      }
+      return
+    }
     // A refused skip vote was not counted (spec 050); an untagged error (a
     // chat refusal) never touches the vote.
     if (code === 'rate-limited' && refused === 'skipVote' && skipsRefused < skipsSent) {
@@ -272,39 +331,110 @@ export function startSession({
     }
   }
 
-  function newRound(index, watching, lateStart) {
-    return { index, revealed: false, buffer: null, start: null, source: null, watching, lateStart, provisional: false }
+  function newRound(index, watching, lateStart, choices = null) {
+    return {
+      index,
+      revealed: false,
+      buffer: null,
+      start: null,
+      source: null,
+      watching,
+      lateStart,
+      provisional: false,
+      choices,
+      audioDone: false,
+      imagesLeft: 0,
+      readySent: false,
+    }
   }
 
-  // Loads the round's audio. A played round then sends ready, also after a
-  // failed load so the game is not held up; a watched round, or a played one
-  // already running (a rejoin into PLAYING), sends none.
-  function load(r, audioUrl) {
-    const readies = !r.watching && r.lateStart === null
+  // A played round sends ready once its audio has loaded (or failed, so the
+  // game is not held up) and every choice image has loaded or failed. A
+  // watched round, or a played one already running (a rejoin into PLAYING),
+  // sends none.
+  function maybeReady(r) {
+    if (r.watching || r.lateStart !== null || r.readySent) return
+    if (!r.audioDone || r.imagesLeft > 0) return
+    r.readySent = true
+    sendReady(r.index)
+  }
+
+  // Loads the round's choice covers before the start (spec 100 A3), so every
+  // player can see them from the same moment. A failed image counts as
+  // settled: its tile shows the empty placeholder.
+  function preloadChoices(r) {
+    if (r.choices === null) return
     const current = () => active && round === r && !r.revealed
+    for (const url of r.choices) {
+      if (url === null) continue
+      r.imagesLeft += 1
+      const img = new Image()
+      let settled = false
+      const done = () => {
+        if (settled) return
+        settled = true
+        img.onload = null
+        img.onerror = null
+        if (!current()) return
+        r.imagesLeft -= 1
+        maybeReady(r)
+      }
+      img.onload = done
+      img.onerror = done
+      img.src = url
+    }
+  }
+
+  // Loads the round's audio and its choice images; ready follows maybeReady.
+  function load(r, audioUrl) {
+    const current = () => active && round === r && !r.revealed
+    preloadChoices(r)
     loadTrack(ctx, audioUrl, fetchFn).then(
       (buffer) => {
         if (!current()) return
         r.buffer = buffer
+        r.audioDone = true
         dispatch({ type: 'loaded' })
-        if (readies) sendReady(r.index)
+        maybeReady(r)
         schedule(r)
       },
       (err) => {
         if (!current()) return
         console.warn('audio load failed twice', err)
+        r.audioDone = true
         dispatch({ type: 'loadFailed' })
-        if (readies) sendReady(r.index)
+        maybeReady(r)
       },
     )
   }
 
+  // The own pick as the screen shows it, for the song at index.
+  function pickFields(index) {
+    if (ownPick === null || ownPick.index !== index) return { picked: null, pickWrong: false, pickLocked: false }
+    return { picked: ownPick.choice, pickWrong: ownPick.wrong, pickLocked: true }
+  }
+
   function onPrepare(msg) {
-    const r = newRound(msg.index, false, null)
+    const r = newRound(msg.index, false, null, choiceUrls(msg.choices))
     round = r
     inGame = true
     resetSkips()
-    dispatch({ type: 'prepare', index: msg.index, total: msg.total })
+    if (ownPick !== null && ownPick.index !== msg.index) ownPick = null
+    // A ranked prepare may carry the names already correct this song (spec
+    // 101 C2), also on a resume's re-prepare. With the own name in it this
+    // player has answered: no more picks, and a held pick is not wrong.
+    const correctNames = correctNamesOf(msg)
+    if (myName !== null && correctNames.includes(myName)) {
+      ownPick = { index: msg.index, choice: ownPick === null ? null : ownPick.choice, wrong: false }
+    }
+    dispatch({
+      type: 'prepare',
+      index: msg.index,
+      total: msg.total,
+      choices: r.choices,
+      correctNames,
+      ...pickFields(msg.index),
+    })
     soundCheck()
     load(r, msg.audioUrl)
   }
@@ -371,6 +501,14 @@ export function startSession({
     const song = playing && msg.song !== null && msg.song !== undefined ? msg.song : null
     const scores = Array.isArray(msg.scores) && msg.scores.length > 0 ? msg.scores : null
     const own = scores === null ? undefined : ownRow(scores)
+    const choices = song === null ? null : choiceUrls(song.choices)
+    // The server's record of the own pick this song (L3). In first come a
+    // pick it holds was wrong, since a correct one ends the song; in ranked
+    // the song goes on after a correct pick, so it was wrong only when
+    // answered is false (cycle 101, R5). answered is absent in first come.
+    const answered = song !== null && song.answered === true
+    ownPick =
+      song !== null && isPosition(song.picked, choices) ? { index: song.index, choice: song.picked, wrong: !answered } : null
     inGame = playing
     dispatch({
       type: 'restore',
@@ -379,10 +517,13 @@ export function startSession({
       round: song === null ? null : { index: song.index, total: song.total },
       board: scores,
       score: own === undefined ? null : own.score,
+      choices,
+      correctNames: correctNamesOf(song),
+      ...pickFields(song === null ? null : song.index),
     })
     if (song === null) return
     const late = typeof song.startAt === 'number' ? { startAt: song.startAt, deadlineAt: song.deadlineAt } : null
-    const r = newRound(song.index, false, late)
+    const r = newRound(song.index, false, late, choices)
     round = r
     soundCheck()
     load(r, song.audioUrl)
@@ -400,16 +541,22 @@ export function startSession({
     if (msg.phase !== 'playing') return
     inGame = true
     resetSkips()
+    ownPick = null
     const song = msg.song
     if (song === null || song === undefined) {
       round = null
-      dispatch({ type: 'watching', round: null })
+      dispatch({ type: 'watching', round: null, choices: null, correctNames: [] })
       return
     }
     const late = typeof song.startAt === 'number' ? { startAt: song.startAt, deadlineAt: song.deadlineAt } : null
-    const r = newRound(song.index, true, late)
+    const r = newRound(song.index, true, late, choiceUrls(song.choices))
     round = r
-    dispatch({ type: 'watching', round: { index: song.index, total: song.total } })
+    dispatch({
+      type: 'watching',
+      round: { index: song.index, total: song.total },
+      choices: r.choices,
+      correctNames: correctNamesOf(song),
+    })
     soundCheck()
     load(r, song.audioUrl)
     lateStart(r)
@@ -425,13 +572,23 @@ export function startSession({
   // abandoned (in practice only a watcher gets this, spec 048 review H2).
   function abandon() {
     inGame = false
+    ownPick = null
     resetSkips()
     dropRound()
     dispatch({ type: 'abandoned' })
   }
 
+  // pick-result means the own pick was wrong (spec 100 A11): no more picks
+  // this song.
+  function onPickResult(msg) {
+    if (round === null || msg.index !== round.index || !isPosition(msg.choice, round.choices)) return
+    ownPick = { index: round.index, choice: msg.choice, wrong: true }
+    dispatch({ type: 'pickWrong', choice: msg.choice })
+  }
+
   function onReveal(msg) {
     stopTimer()
+    const choices = round === null ? null : round.choices
     if (round !== null) {
       round.revealed = true
       round.provisional = false
@@ -439,6 +596,8 @@ export function startSession({
     }
     dispatch({
       type: 'reveal',
+      // The correct tile of a choice room (spec 100 item 6), or null.
+      correctChoice: isPosition(msg.correctChoice, choices) ? msg.correctChoice : null,
       reveal: {
         title: msg.reveal,
         // The accepted titles per language, for the card's KO/EN/JA/Romaji lines.
@@ -447,6 +606,8 @@ export function startSession({
         song: msg.song,
         artists: msg.artists ?? [],
         winner: msg.winner,
+        // Ranked only (cycle 101): the song's ranking rows; null in first come.
+        ranking: rankingRows(msg.ranking),
         coverUrl: typeof msg.coverUrl === 'string' && COVER_URL.test(msg.coverUrl) ? msg.coverUrl : null,
       },
     })
@@ -466,10 +627,14 @@ export function startSession({
         dispatch({ type: 'chat', name: msg.name, text: msg.text })
         break
       case 'correct':
-        dispatch({ type: 'correct', name: msg.name })
+        // rank is set only in a ranked game (cycle 101).
+        dispatch({ type: 'correct', name: msg.name, rank: Number.isInteger(msg.rank) ? msg.rank : undefined })
         break
       case 'reveal':
         onReveal(msg)
+        break
+      case 'pick-result':
+        onPickResult(msg)
         break
       case 'scores': {
         const row = ownRow(msg.scores)
@@ -480,6 +645,7 @@ export function startSession({
         const row = ownRow(msg.ranking)
         stopTimer()
         inGame = false
+        ownPick = null
         dispatch({
           type: 'gameOver',
           score: row === undefined ? null : row.score,
@@ -530,6 +696,8 @@ export function startSession({
           yearFrom: msg.yearFrom,
           yearTo: msg.yearTo,
           tier: msg.tier,
+          answerMode: msg.answerMode,
+          gameMode: msg.gameMode,
         })
         break
       case 'roster':
@@ -576,6 +744,8 @@ export function startSession({
     awaitingSnapshot = true
     joined = false
     resetSkips()
+    // The snapshot after the rejoin carries the server's record of the pick.
+    ownPick = null
     attempts = 0
     dropRound()
     stopSync()
@@ -707,6 +877,16 @@ export function startSession({
       send({ type: 'skipVote', index: round.index })
       skipsSent += 1
       dispatchOwnSkip()
+    },
+    // The own pick in a choice room (cycle 100): one per song, between the
+    // song becoming audible and its reveal. Watchers do not pick.
+    pick(choice) {
+      if (!active || round === null || round.watching || round.start === null || round.revealed) return
+      if (!isPosition(choice, round.choices) || !reached(round.start)) return
+      if (ownPick !== null && ownPick.index === round.index) return
+      ownPick = { index: round.index, choice, wrong: false }
+      send({ type: 'pick', index: round.index, choice })
+      dispatch({ type: 'pick', choice })
     },
     // The host's room-look pick (F-012); the server broadcasts it back.
     setRoomTheme(theme) {

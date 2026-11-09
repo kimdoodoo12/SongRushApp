@@ -134,8 +134,9 @@ function GameApp({
   const opusOk = canPlayOpus === undefined ? detectedOpus : canPlayOpus
   // Read once at mount (D-048 share links).
   const [initialCode] = useState(codeFromPath)
-  // 곡 수 and the filters, the host's lobby controls, kept for the page's
-  // lifetime (F-008): neither 처음으로 nor 나가기 resets them.
+  // 곡 수, the filters and 정답 형식 (cycle 100), the host's lobby controls,
+  // kept for the page's lifetime (F-008): neither 처음으로 nor 나가기 resets
+  // them.
   const [selection, setSelection] = useState(DEFAULT_SELECTION)
   // The own room look (F-012): the start screen uses it; a room uses the
   // host's pick from the server instead.
@@ -268,6 +269,11 @@ function GameApp({
     if (sessionRef.current !== null) sessionRef.current.sendChat(text)
   }
 
+  // A choice tile click (cycle 100); the session checks it may be sent.
+  function handlePick(choice) {
+    if (sessionRef.current !== null) sessionRef.current.pick(choice)
+  }
+
   function handleToLobby() {
     resumeIfSuspended()
     dispatch({ type: 'toLobby' })
@@ -372,6 +378,7 @@ function GameApp({
           <GameScreen
             state={state}
             onChat={handleChat}
+            onPick={handlePick}
             onSkip={handleSkip}
             onReset={handleReset}
             onToLobby={handleToLobby}

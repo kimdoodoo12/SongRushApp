@@ -21,6 +21,8 @@ const ERROR_CODES = new Set([
   'too-large',
   'already-in-room',
   'no-room',
+  'bad-answer-mode',
+  'bad-game-mode',
 ])
 
 // The lobby notice after a game ended without gameOver (F-005).
@@ -54,9 +56,15 @@ export const initialState = {
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  chat: [], // { id, name, body, text }, or a system line { id, kind: 'system', winner, placed }
+  // { id, name, body, text }, or a system line { id, kind: 'system', winner,
+  // rank, placed }; rank is a number only in a ranked game (cycle 101).
+  chat: [],
   chatSeq: 0,
-  correct: null,
+  correct: null, // the first-come winner's name this song, or null
+  // Ranked (cycle 101, R4): every name with a correct answer this song, in
+  // rank order. correct stays null in a ranked game, so another player's
+  // answer never shows the banner or locks the own tiles.
+  correctNames: [],
   reveal: null,
   score: null,
   error: null,
@@ -74,8 +82,29 @@ export const initialState = {
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
   replaced: false, // the 'disconnected' screen: replaced by another tab
-  settings: null, // the applied filters { types, yearFrom, yearTo, tier } of this game
+  settings: null, // the applied filters { types, yearFrom, yearTo, tier, answerMode, gameMode } of this game
   roomTheme: null, // the room's look id from the server; null: none received
+  // A choice room's song (cycle 100): the cover URL per position (null for
+  // a cover the client refused), or null without choices. Kept from prepare
+  // to the next prepare, so the grid stays under the reveal card.
+  choices: null,
+  picked: null, // the own pick's position this song, or null
+  pickWrong: false, // the server said the own pick was wrong (pick-result)
+  // No more picks this song: a pick is sent or held by the server, also
+  // when which tile it holds is unknown (already-picked, review M1).
+  pickLocked: false,
+  correctChoice: null, // the reveal's correct position, or null
+}
+
+// The per-song choice fields reset at a new song (or none).
+function choiceFields(action) {
+  return {
+    choices: action.choices ?? null,
+    picked: action.picked ?? null,
+    pickWrong: action.pickWrong === true,
+    pickLocked: action.pickLocked === true,
+    correctChoice: null,
+  }
 }
 
 export function reducer(state, action) {
@@ -104,7 +133,14 @@ export function reducer(state, action) {
       // actions that end or replace a game do (spec 061 review B1).
       return {
         ...state,
-        settings: { types: action.types, yearFrom: action.yearFrom, yearTo: action.yearTo, tier: action.tier },
+        settings: {
+          types: action.types,
+          yearFrom: action.yearFrom,
+          yearTo: action.yearTo,
+          tier: action.tier,
+          answerMode: action.answerMode,
+          gameMode: action.gameMode,
+        },
       }
     case 'prepare': {
       // A new game (index 0) starts from a clean slate (D-062).
@@ -120,6 +156,8 @@ export function reducer(state, action) {
         load: 'loading',
         timer: null,
         correct: null,
+        // A ranked prepare may carry the names already correct (spec 101 C2).
+        correctNames: action.correctNames ?? [],
         reveal: null,
         error: null,
         notice: null,
@@ -128,6 +166,7 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields(action),
       }
     }
     case 'reconnecting':
@@ -149,6 +188,7 @@ export function reducer(state, action) {
         score: action.score === null ? state.score : action.score,
         timer: null,
         correct: null,
+        correctNames: action.correctNames ?? [],
         reveal: null,
         error: null,
         notice: null,
@@ -156,6 +196,7 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
         return { ...common, screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
@@ -177,6 +218,7 @@ export function reducer(state, action) {
         load: action.round === null ? null : 'loading',
         timer: null,
         correct: null,
+        correctNames: action.correctNames ?? [],
         reveal: null,
         error: null,
         notice: null,
@@ -185,6 +227,7 @@ export function reducer(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields(action),
       }
     case 'abandoned':
       return {
@@ -195,11 +238,25 @@ export function reducer(state, action) {
         lobbyOpen: false,
         notice: ABANDONED_NOTICE,
         settings: null,
+        correctNames: [],
         watching: false,
         started: false,
         skipVoted: false,
         skipCount: null,
+        ...choiceFields({}),
       }
+    case 'pick':
+      // Sent: every tile waits for the server (cycle 100).
+      return { ...state, picked: action.choice, pickWrong: false, pickLocked: true }
+    case 'pickRefused':
+      // error{for:'pick'}: the pick was not counted; the tiles work again.
+      return { ...state, picked: null, pickWrong: false, pickLocked: false }
+    case 'pickLocked':
+      // error{already-picked, for:'pick'}: the server holds an earlier pick
+      // of this song; which tile is unknown, so none is marked.
+      return { ...state, picked: null, pickWrong: false, pickLocked: true }
+    case 'pickWrong':
+      return { ...state, picked: action.choice, pickWrong: true, pickLocked: true }
     case 'ownSkip':
       return { ...state, skipVoted: action.voted }
     case 'skipState':
@@ -234,7 +291,33 @@ export function reducer(state, action) {
       }
       return { ...state, chat: [...state.chat, line], chatSeq: state.chatSeq + 1 }
     }
-    case 'correct':
+    case 'correct': {
+      // Ranked (cycle 101): known from the settings or the frame's rank. The
+      // song goes on, so correct stays null; the name joins correctNames and
+      // the line carries the rank. Only the own echo of a chat room goes
+      // above the own line (R3): for any other name, and in a choice room
+      // where no echo follows a pick (C1), the line is placed already, so a
+      // later chat appends below it.
+      const ranked = typeof action.rank === 'number' || (state.settings !== null && state.settings.gameMode === 'ranked')
+      if (ranked) {
+        const choiceRoom = state.choices !== null || (state.settings !== null && state.settings.answerMode === 'choice')
+        const echoFollows = !choiceRoom && state.room !== null && state.room.me === action.name
+        return {
+          ...state,
+          correctNames: state.correctNames.includes(action.name) ? state.correctNames : [...state.correctNames, action.name],
+          chat: [
+            ...state.chat,
+            {
+              id: state.chatSeq,
+              kind: 'system',
+              winner: action.name,
+              rank: typeof action.rank === 'number' ? action.rank : null,
+              placed: !echoFollows,
+            },
+          ],
+          chatSeq: state.chatSeq + 1,
+        }
+      }
       // A system line in the log (D-094). It has no name, so no seat bubble;
       // its text is made when shown, in the current language.
       return {
@@ -242,12 +325,20 @@ export function reducer(state, action) {
         correct: action.name,
         chat: [
           ...state.chat,
-          { id: state.chatSeq, kind: 'system', winner: action.name, placed: false },
+          { id: state.chatSeq, kind: 'system', winner: action.name, rank: null, placed: false },
         ],
         chatSeq: state.chatSeq + 1,
       }
+    }
     case 'reveal':
-      return { ...state, timer: null, reveal: action.reveal, started: false, skipCount: null }
+      return {
+        ...state,
+        timer: null,
+        reveal: action.reveal,
+        started: false,
+        skipCount: null,
+        correctChoice: action.correctChoice ?? null,
+      }
     case 'scores':
       // score is null without an own row.
       return {

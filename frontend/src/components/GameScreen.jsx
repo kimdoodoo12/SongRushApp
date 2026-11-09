@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { settingsLine } from '../game/filters.js'
 import { nameColour } from '../game/themes.js'
+import ChoiceGrid from './ChoiceGrid.jsx'
 import Seats from './Seats.jsx'
 import VolumeControl from './VolumeControl.jsx'
 import { Trans, currentLanguage, messageText, useTranslation } from '../i18n/index.js'
@@ -98,6 +99,25 @@ function RevealCover({ coverUrl }) {
   )
 }
 
+// A ranked song's ranking on the reveal card (cycle 101), in place of the
+// winner line: one fixed box in every look, three rows high, which scrolls
+// inside when more players answered.
+function RankingList({ rows }) {
+  const { t } = useTranslation()
+  return (
+    <ul
+      className="card-ranking mt-3 flex h-20 w-full flex-col gap-1 overflow-y-auto text-sm leading-6"
+      aria-label={t('reveal.ranking')}
+    >
+      {rows.map((row) => (
+        <li key={row.name} className="card-rank-row font-display block h-6 w-full shrink-0 truncate rounded-full px-3.5">
+          {t('reveal.rankLine', { rank: row.rank, name: row.name, points: row.points })}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 // The answer card; the flip-in is a CSS animation of this one card. The
 // big title is the line in the UI language when the frame has one, else
 // the line equal to the reveal text, else the bare reveal text; the other
@@ -130,9 +150,15 @@ function RevealCard({ reveal }) {
         <p className="card-slug mx-auto mt-1 block h-6 w-24 max-w-full truncate rounded-full px-3 py-0.5 text-xs leading-5 tracking-wide">{reveal.themeSlug}</p>
         {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 min-w-0 truncate text-base leading-6 wrap-anywhere">{reveal.song}</p>}
         {reveal.artists.length > 0 && <p className="h-5 min-w-0 truncate text-sm leading-5 wrap-anywhere text-muted">{reveal.artists.join(', ')}</p>}
-        <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
-          {reveal.winner === null || reveal.winner === undefined ? t('reveal.noWinner') : t('reveal.winner', { name: reveal.winner })}
-        </p>
+        {Array.isArray(reveal.ranking) && reveal.ranking.length > 0 ? (
+          <RankingList rows={reveal.ranking} />
+        ) : (
+          <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
+            {reveal.winner === null || reveal.winner === undefined || Array.isArray(reveal.ranking)
+              ? t('reveal.noWinner')
+              : t('reveal.winner', { name: reveal.winner })}
+          </p>
+        )}
       </section>
     </div>
   )
@@ -182,7 +208,9 @@ function ChatLog({ chat }) {
       {chat.map((line) =>
         line.kind === 'system' ? (
           <li key={line.id} className="chat-system min-w-0 wrap-anywhere">
-            {`${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
+            {typeof line.rank === 'number'
+              ? `${CHECK} ${t('chat.correctRanked', { name: line.winner, rank: line.rank })}`
+              : `${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
           </li>
         ) : (
           <li key={line.id} className="min-w-0 wrap-anywhere">
@@ -267,7 +295,7 @@ const LOAD_KEY = {
 // The game and its result. In a room the result has no 다시 하기; once the
 // room is back in its lobby, 대기실로 shows the lobby screen. A room also
 // shows everyone's scores, the skip vote and the final ranking.
-function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, volume, onVolumeLevel, onToggleMute }) {
+function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnlockSound, volume, onVolumeLevel, onToggleMute }) {
   const { t } = useTranslation()
   const {
     screen,
@@ -276,6 +304,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
     timer,
     chat,
     correct,
+    correctNames,
     reveal,
     score,
     error,
@@ -294,6 +323,11 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
     replaced,
     settings,
     players,
+    choices,
+    picked,
+    pickWrong,
+    pickLocked,
+    correctChoice,
   } = state
   const line = settings === null ? '' : settingsLine(settings, t)
   const me = room === null ? null : room.me
@@ -306,10 +340,19 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
   // the sound not blocked.
   const discShown = screen === 'game' && round !== null && reveal === null
   const discPaused = !started || !reached || load === 'loading' || load === 'failed' || soundBlocked
+  // A choice room's tiles (cycle 100): shown from prepare to the next
+  // prepare, so also under the reveal card. They work while the song is
+  // audible (087 reached), for a player who has not picked, until the first
+  // correct answer. In ranked correct stays null (cycle 101, R4), so only the
+  // own pick locks them.
+  const gridShown = screen === 'game' && choices !== null
+  const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
   const clock = timer === null ? null : t('stage.seconds', { seconds: Math.ceil(timer.remaining / 1000) })
   const stage = (
     <section
       aria-label={t('stage.label')}
+      // A choice room's song: below md the disc is compact (index.css).
+      data-answer-mode={gridShown ? 'choice' : undefined}
       className="stage panel relative z-10 flex min-w-0 flex-col items-stretch gap-3 p-4 md:col-start-2 md:row-start-1 md:min-h-[340px] md:gap-4 md:p-5"
     >
       <div className="status stage-head flex flex-wrap items-center gap-3">
@@ -364,6 +407,16 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
         </p>
       )}
       {reveal !== null && <RevealCard reveal={reveal} />}
+      {gridShown && (
+        <ChoiceGrid
+          choices={choices}
+          picked={picked}
+          pickWrong={pickWrong}
+          correctChoice={correctChoice}
+          enabled={canPick}
+          onPick={onPick}
+        />
+      )}
       {timer !== null && <TimeBar max={timer.max} remaining={timer.remaining} />}
       {(playing || canSkip) && (
         <div className="stage-foot grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -428,7 +481,7 @@ function GameScreen({ state, onChat, onSkip, onReset, onToLobby, onUnlockSound, 
           me={me}
           chat={chat}
           scoreboard={scoreboard}
-          correct={correct}
+          correct={correctNames.length > 0 ? correctNames : correct}
           roundIndex={round === null ? null : round.index}
         />
         {stage}

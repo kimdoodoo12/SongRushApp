@@ -56,7 +56,7 @@ public final class Lobby {
 
 	private final Runnable onClosed;
 
-	// Passed to every Room; only a reveal names a cover.
+	// Passed to every Room; only a reveal names a cover, and in a choice game the choices (cycle 100 A9).
 	private final CoverMap covers;
 
 	// Join order. In LOBBY a disconnected member is one in grace; during a game a member who left
@@ -308,7 +308,19 @@ public final class Lobby {
 
 	// As start(playerId, songCount), with the game's draw limited by the filter.
 	public void start(String playerId, int songCount, DrawFilter filter) {
+		start(playerId, songCount, filter, AnswerMode.CHAT);
+	}
+
+	// As start(playerId, songCount, filter), with the game's answer mode (D-111), fixed for that game.
+	public void start(String playerId, int songCount, DrawFilter filter, AnswerMode mode) {
+		start(playerId, songCount, filter, mode, GameMode.FIRST);
+	}
+
+	// As start(playerId, songCount, filter, mode), with the game's game mode (D-112), fixed for that game.
+	public void start(String playerId, int songCount, DrawFilter filter, AnswerMode mode, GameMode gameMode) {
 		Objects.requireNonNull(filter, "filter");
+		Objects.requireNonNull(mode, "mode");
+		Objects.requireNonNull(gameMode, "gameMode");
 		Member m = member(playerId);
 		if (closed || m == null || !m.connected) {
 			return;
@@ -335,7 +347,7 @@ public final class Lobby {
 		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players, covers);
 		room = next;
 		roomOutbox = wrapper;
-		next.start(songCount, filter);
+		next.start(songCount, filter, mode, gameMode);
 		if (next.phase() == Room.Phase.LOBBY) {
 			// The Room sent its error (not-enough-songs) and never started.
 			room = null;
@@ -380,6 +392,12 @@ public final class Lobby {
 	public void skip(String playerId, int index) {
 		if (forwards(playerId)) {
 			room.skip(playerId, index);
+		}
+	}
+
+	public void pick(String playerId, int index, int choice) {
+		if (forwards(playerId)) {
+			room.pick(playerId, index, choice);
 		}
 	}
 
@@ -557,10 +575,12 @@ public final class Lobby {
 	}
 
 	// joined{code, name} and then the allow-listed snapshot, to that player only. The snapshot never
-	// carries a player id, a token or a catalog field: rows as in roster, the Room's currentSong()
-	// (already-sent prepare and start values) and the Room's scores by name. During a game with a
-	// non-empty draw filter, settings follows the snapshot: the one place every joiner, rejoiner and
-	// replaced socket gets it (cycle 060, review H2).
+	// carries a player id, a token or a catalog field: rows as in roster, the Room's currentSong for
+	// that player (already-sent prepare and start values, and in a choice game the choices and the
+	// player's own pick, in a ranked game that player's answered and the correct names) and the Room's
+	// scores by name. During a game with a non-empty draw filter, the choice mode or the ranked mode,
+	// settings follows the snapshot: the one place every joiner, rejoiner and replaced socket gets it
+	// (cycle 060, review H2; cycle 100 A8; cycle 101).
 	private void sendJoinedAndSnapshot(Member m) {
 		outbox.toPlayer(m.id, message("joined", "code", code, "name", m.name));
 		List<Object> scores = new ArrayList<>();
@@ -576,10 +596,9 @@ public final class Lobby {
 			}
 		}
 		outbox.toPlayer(m.id, message("snapshot", "phase", phaseName(), "players", playerRows(), "song",
-				room == null ? null : room.currentSong(), "scores", scores));
-		if (room != null && !room.settings().isEmpty()) {
-			Map<String, Object> settings = message("settings");
-			settings.putAll(room.settings().toMessageFields());
+				room == null ? null : room.currentSong(m.id), "scores", scores));
+		Map<String, Object> settings = room == null ? null : room.settingsMessage();
+		if (settings != null) {
 			outbox.toPlayer(m.id, settings);
 		}
 	}

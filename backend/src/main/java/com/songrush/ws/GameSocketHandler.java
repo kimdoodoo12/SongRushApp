@@ -30,7 +30,9 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.songrush.audio.AudioTokens;
 import com.songrush.catalog.Catalog;
 import com.songrush.cover.CoverMap;
+import com.songrush.game.AnswerMode;
 import com.songrush.game.DrawFilter;
+import com.songrush.game.GameMode;
 import com.songrush.game.Lobby;
 import com.songrush.game.Room;
 import com.songrush.game.RoomCodes;
@@ -206,6 +208,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 				case "ready" -> ready(sessionId, node);
 				case "chat" -> chat(sessionId, node);
 				case "skipVote" -> skipVote(sessionId, node);
+				case "pick" -> pick(sessionId, node);
 				case "roomTheme" -> roomTheme(sessionId, node);
 				case "leave" -> leave(sessionId);
 				case "rejoin" -> rejoin(sessionId, node);
@@ -421,8 +424,41 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			sendError(sessionId, "bad-filter");
 			return;
 		}
+		// Like the filter, so bad-answer-mode also comes before not-host, in-game and no-room (cycle 100 A8).
+		AnswerMode mode = answerMode(node);
+		if (mode == null) {
+			sendError(sessionId, "bad-answer-mode");
+			return;
+		}
+		// Right after the answer mode, so bad-game-mode also comes before not-host, in-game and no-room
+		// (cycle 101 item 1).
+		GameMode gameMode = gameMode(node);
+		if (gameMode == null) {
+			sendError(sessionId, "bad-game-mode");
+			return;
+		}
 		int count = songCount.intValue();
-		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count, filter));
+		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count, filter, mode, gameMode));
+	}
+
+	// The start request's optional gameMode: FIRST when absent, else the exact string "first" or
+	// "ranked"; null for anything else, a present JSON null included (D-112).
+	private static GameMode gameMode(JsonNode node) {
+		if (!node.has("gameMode")) {
+			return GameMode.FIRST;
+		}
+		JsonNode mode = node.get("gameMode");
+		return mode.isString() ? GameMode.fromWire(mode.stringValue()) : null;
+	}
+
+	// The start request's optional answerMode: CHAT when absent, else the exact string "chat" or
+	// "choice"; null for anything else, a present JSON null included (D-111).
+	private static AnswerMode answerMode(JsonNode node) {
+		if (!node.has("answerMode")) {
+			return AnswerMode.CHAT;
+		}
+		JsonNode mode = node.get("answerMode");
+		return mode.isString() ? AnswerMode.fromWire(mode.stringValue()) : null;
 	}
 
 	// The optional draw filter of create (solo) and start, or null when a present field is bad
@@ -500,6 +536,19 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		}
 		int i = index.intValue();
 		onLobby(sessionId, seat -> seat.hosted().lobby.skip(seat.playerId(), i));
+	}
+
+	// pick{index, choice}: both JSON integers, else bad-message; the Room checks the rest (cycle 100).
+	private void pick(String sessionId, JsonNode node) {
+		JsonNode index = node.path("index");
+		JsonNode choice = node.path("choice");
+		if (!index.isInt() || !choice.isInt()) {
+			sendError(sessionId, "bad-message");
+			return;
+		}
+		int i = index.intValue();
+		int c = choice.intValue();
+		onLobby(sessionId, seat -> seat.hosted().lobby.pick(seat.playerId(), i, c));
 	}
 
 	private void chat(String sessionId, JsonNode node) {

@@ -23,7 +23,9 @@ import com.songrush.cover.CoverMap;
 // One room's game as a server-side state machine: LOBBY -> (PREPARE -> PLAYING -> REVEAL) per song
 // -> LOBBY (docs/cycles/036-room-state-machine.md). Not thread-safe: every method and every
 // scheduled task runs on the room's single thread. Holds answers: nothing that identifies the
-// current song leaves the room before its reveal message.
+// current song leaves the room before its reveal message. The one exception (D-111, cycle 100 A9):
+// in a choice game the k cover ids of a song's choices leave in its prepare (and the snapshot),
+// in shuffled order and with nothing that marks the correct one.
 public final class Room {
 
 	public enum Phase {
@@ -45,6 +47,26 @@ public final class Room {
 	static final int MAX_SONGS = 30;
 
 	static final int MAX_CHAT = 200;
+
+	// A choice game needs this many covered series groups in its pool (cycle 100 A5).
+	static final int MIN_CHOICE_GROUPS = 4;
+
+	// Choices per song by tier (cycle 100 item 3): easy, normal (no tier), hard.
+	static final int EASY_CHOICES = 4;
+
+	static final int NORMAL_CHOICES = 6;
+
+	static final int HARD_CHOICES = 8;
+
+	// Never fewer choices than this (cycle 100 item 3).
+	static final int MIN_CHOICES = 2;
+
+	// Ranked points by rank (cycle 101 item 3): 3 for 1st, 2 for 2nd, then 1.
+	static final int FIRST_RANK_POINTS = 3;
+
+	static final int SECOND_RANK_POINTS = 2;
+
+	static final int LATER_RANK_POINTS = 1;
 
 	// Chat token bucket (D-024), in thousandths of a token so the refill fraction carries over exactly.
 	static final long ONE_TOKEN = 1000;
@@ -69,7 +91,8 @@ public final class Room {
 
 	private final Outbox outbox;
 
-	// Cover ids leave the room only in a reveal's coverUrl (cycle 093).
+	// Cover ids leave the room only in a reveal's coverUrl (cycle 093), and in a choice game in the
+	// choices of a prepare and the snapshot (cycle 100 A9).
 	private final CoverMap covers;
 
 	// Room players in player order; late joiners are appended when promoted.
@@ -110,6 +133,23 @@ public final class Room {
 
 	// The draw filter of the current (or last started) game; NONE before the first start.
 	private DrawFilter settings = DrawFilter.NONE;
+
+	// The answer mode of the current (or last started) game; CHAT before the first start.
+	private AnswerMode answerMode = AnswerMode.CHAT;
+
+	// The game mode of the current (or last started) game; FIRST before the first start.
+	private GameMode gameMode = GameMode.FIRST;
+
+	// In a choice game, each song's choices by song index, drawn at start; empty in a chat game.
+	private List<Choices> choices = List.of();
+
+	// The current song's picks: player id to position. Cleared only when the song index changes
+	// (not on a resume's re-prepare) and at start (cycle 100 A4).
+	private final Map<String, Integer> picks = new HashMap<>();
+
+	// In a ranked game, the current song's correct players by id in rank order. Kept like picks:
+	// cleared only when the song index changes and at start, never by a resume (cycle 101 R2).
+	private final List<String> rankedIds = new ArrayList<>();
 
 	private long startAt;
 
@@ -176,6 +216,36 @@ public final class Room {
 		return Collections.unmodifiableMap(new LinkedHashMap<>(scores));
 	}
 
+	// As currentSong(), and in a choice game also the song's choices (as sent in its prepare) and
+	// that player's picked position, or null (always null for a watcher). In a ranked game also
+	// answered (that player answered this song correctly; false for a watcher) and correct, the
+	// [{name, rank}] rows already sent in correct messages, in rank order (cycle 101 R5).
+	public Map<String, Object> currentSong(String playerId) {
+		Map<String, Object> song = currentSong();
+		if (song == null) {
+			return null;
+		}
+		if (answerMode == AnswerMode.CHOICE) {
+			song.put("choices", choices.get(songIndex).wire());
+			song.put("picked", picks.get(playerId));
+		}
+		if (gameMode == GameMode.RANKED) {
+			song.put("answered", rankedIds.contains(playerId));
+			song.put("correct", correctRows());
+		}
+		return song;
+	}
+
+	// The current song's ranking as [{name, rank}] in rank order: only names already sent in correct
+	// messages, nothing that identifies the song.
+	private List<Object> correctRows() {
+		List<Object> correct = new ArrayList<>();
+		for (int i = 0; i < rankedIds.size(); i++) {
+			correct.add(row("name", byId.get(rankedIds.get(i)).name(), "rank", i + 1));
+		}
+		return correct;
+	}
+
 	// The current song as a reconnecting player needs it: null unless PREPARE or PLAYING, else
 	// {index, total, audioUrl}, plus startAt and deadlineAt in PLAYING. Only values already sent in
 	// that song's prepare and start messages, never anything that identifies the song.
@@ -195,15 +265,31 @@ public final class Room {
 		start(songCount, DrawFilter.NONE);
 	}
 
+	public void start(int songCount, DrawFilter filter) {
+		start(songCount, filter, AnswerMode.CHAT);
+	}
+
 	// Draws songCount songs from the grouped candidates that match the filter, including its tier by
 	// anime rank. Easy draws series groups uniformly and one song per group; normal and hard are a
 	// uniform draw over songs.
 	// Too few: everyone gets not-enough-songs with the narrowed count (easy counts series groups and
-	// adds unit "series"). With a non-empty filter, everyone gets settings (only its set fields)
-	// before the first prepare (docs/cycles/060-draw-filters.md, 063-tier-filter.md,
-	// 094-nested-tiers.md).
-	public void start(int songCount, DrawFilter filter) {
+	// adds unit "series"). With a non-empty filter or the choice mode, everyone gets settings (the
+	// filter's set fields, then answerMode for choice) before the first prepare
+	// (docs/cycles/060-draw-filters.md, 063-tier-filter.md, 094-nested-tiers.md).
+	// A choice game draws only themes whose anime has a cover, needs MIN_CHOICE_GROUPS covered series
+	// groups in that pool (else not-enough-songs in groups, unit "series"), and draws every song's
+	// choices at start, after the songs, so a chat game uses no more randomness than before
+	// (docs/cycles/100-choice-answers.md).
+	public void start(int songCount, DrawFilter filter, AnswerMode mode) {
+		start(songCount, filter, mode, GameMode.FIRST);
+	}
+
+	// As start(songCount, filter, mode), with the game mode (D-112) fixed for this game; a ranked game
+	// also sends settings (docs/cycles/101-game-modes.md).
+	public void start(int songCount, DrawFilter filter, AnswerMode mode, GameMode game) {
 		Objects.requireNonNull(filter, "filter");
+		Objects.requireNonNull(mode, "mode");
+		Objects.requireNonNull(game, "game");
 		if (phase != Phase.LOBBY) {
 			return;
 		}
@@ -211,13 +297,22 @@ public final class Room {
 			outbox.toAll(message("error", "code", "bad-song-count"));
 			return;
 		}
+		boolean choice = mode == AnswerMode.CHOICE;
 		List<Song> drawable = new ArrayList<>();
 		for (Candidate c : catalog.candidates()) {
 			catalog.theme(c.themeId())
 					.flatMap(t -> catalog.anime(t.animeId()).map(a -> new Song(c, t, a)))
 					.filter(s -> s.anime().group() != null)
 					.filter(s -> filter.matches(s.theme(), s.anime()) && filter.matchesAnimeRank(catalog.animeRank(c.themeId())))
+					.filter(s -> !choice || covers.idFor(s.anime().id()).isPresent())
 					.ifPresent(drawable::add);
+		}
+		if (choice) {
+			int groupCount = (int) drawable.stream().map(s -> s.anime().group()).distinct().count();
+			if (groupCount < MIN_CHOICE_GROUPS) {
+				outbox.toAll(message("error", "code", "not-enough-songs", "available", groupCount, "unit", "series"));
+				return;
+			}
 		}
 		if (DrawFilter.EASY.equals(filter.tier())) {
 			// Group by series group in order of first appearance (deterministic for a seeded random),
@@ -253,20 +348,111 @@ public final class Room {
 			}
 			songs = List.copyOf(drawable.subList(0, songCount));
 		}
+		choices = choice ? drawChoices(drawable, filter) : List.of();
+		picks.clear();
+		rankedIds.clear();
 		settings = filter;
+		answerMode = mode;
+		gameMode = game;
 		scores.replaceAll((id, points) -> 0);
 		generation++;
-		if (!filter.isEmpty()) {
-			Map<String, Object> message = message("settings");
-			message.putAll(filter.toMessageFields());
-			outbox.toAll(message);
+		Map<String, Object> settingsMessage = settingsMessage();
+		if (settingsMessage != null) {
+			outbox.toAll(settingsMessage);
 		}
 		prepare(0);
+	}
+
+	// The settings message of this game: the filter's set fields, then answerMode for a choice game
+	// (left out for chat), then gameMode for a ranked game (left out for first); null when there is
+	// nothing to tell (no filter, chat, first).
+	Map<String, Object> settingsMessage() {
+		if (settings.isEmpty() && answerMode != AnswerMode.CHOICE && gameMode != GameMode.RANKED) {
+			return null;
+		}
+		Map<String, Object> message = message("settings");
+		message.putAll(settings.toMessageFields());
+		if (answerMode == AnswerMode.CHOICE) {
+			message.put("answerMode", answerMode.wire());
+		}
+		if (gameMode == GameMode.RANKED) {
+			message.put("gameMode", gameMode.wire());
+		}
+		return message;
+	}
+
+	// Each drawn song's choices, from the game's covered pool (cycle 100 item 3, A2, A5, O3): the
+	// song's anime and up to k - 1 distractors, each from a different series group other than the
+	// song's own (earlier answers' groups may appear, O3), so k = min(tier k, covered groups in the
+	// pool). Shuffled (Fisher-Yates); the correct position is kept.
+	private List<Choices> drawChoices(List<Song> pool, DrawFilter filter) {
+		boolean easy = DrawFilter.EASY.equals(filter.tier());
+		int k = easy ? EASY_CHOICES : DrawFilter.HARD.equals(filter.tier()) ? HARD_CHOICES : NORMAL_CHOICES;
+		List<Choices> out = new ArrayList<>();
+		for (Song song : songs) {
+			int group = song.anime().group();
+			List<Song> eligible = new ArrayList<>();
+			for (Song s : pool) {
+				if (s.anime().group() != group) {
+					eligible.add(s);
+				}
+			}
+			List<Anime> shown = new ArrayList<>();
+			shown.add(song.anime());
+			shown.addAll(easy ? distractorsByGroup(eligible, k - 1) : distractorsBySong(eligible, k - 1));
+			for (int i = 0; i < shown.size(); i++) {
+				Collections.swap(shown, i, random.nextInt(i, shown.size()));
+			}
+			List<Object> wire = new ArrayList<>();
+			for (Anime a : shown) {
+				wire.add(Collections.unmodifiableMap(row("coverUrl", "/cover/" + covers.idFor(a.id()).orElseThrow())));
+			}
+			out.add(new Choices(Collections.unmodifiableList(wire), shown.indexOf(song.anime())));
+		}
+		return List.copyOf(out);
+	}
+
+	// Easy's draw (D-108): a uniformly drawn remaining group, then a uniform song in it; up to n.
+	private List<Anime> distractorsByGroup(List<Song> eligible, int n) {
+		Map<Integer, List<Song>> byGroup = new LinkedHashMap<>();
+		for (Song s : eligible) {
+			byGroup.computeIfAbsent(s.anime().group(), g -> new ArrayList<>()).add(s);
+		}
+		List<List<Song>> groups = new ArrayList<>(byGroup.values());
+		int count = Math.min(n, groups.size());
+		List<Anime> out = new ArrayList<>();
+		for (int i = 0; i < count; i++) {
+			Collections.swap(groups, i, random.nextInt(i, groups.size()));
+			List<Song> group = groups.get(i);
+			out.add(group.get(random.nextInt(group.size())).anime());
+		}
+		return out;
+	}
+
+	// Normal's and hard's draw: a uniform song among those whose group is not yet shown; up to n.
+	private List<Anime> distractorsBySong(List<Song> eligible, int n) {
+		List<Song> left = new ArrayList<>(eligible);
+		List<Anime> out = new ArrayList<>();
+		while (out.size() < n && !left.isEmpty()) {
+			Anime a = left.get(random.nextInt(left.size())).anime();
+			out.add(a);
+			int group = a.group();
+			left.removeIf(other -> other.anime().group() == group);
+		}
+		return out;
 	}
 
 	// The draw filter of this game (NONE when started without one).
 	public DrawFilter settings() {
 		return settings;
+	}
+
+	public AnswerMode answerMode() {
+		return answerMode;
+	}
+
+	public GameMode gameMode() {
+		return gameMode;
 	}
 
 	public boolean paused() {
@@ -341,8 +527,14 @@ public final class Room {
 		if (phase == Phase.PREPARE) {
 			startIfAllReady();
 		}
-		else if (phase == Phase.PLAYING && hadVotes) {
-			sendSkipStateAndPass();
+		else if (phase == Phase.PLAYING) {
+			if (hadVotes) {
+				sendSkipStateAndPass();
+			}
+			if (!connected) {
+				// Ranked: the song does not wait for a player who left (cycle 101 item 6).
+				endIfAllAnswered();
+			}
 		}
 	}
 
@@ -368,6 +560,57 @@ public final class Room {
 			votes.add(playerId);
 		}
 		sendSkipStateAndPass();
+	}
+
+	// Answers the current song by choice position in a choice game (cycle 100 item 5, A4, A11). In
+	// order: not a choice game, paused, not PLAYING, not a connected Room player (a watcher), another
+	// index or a position out of range send nothing; at or after the deadline the song ends with no
+	// winner and nothing more; before startAt the sender gets too-early; a second pick of the song gets
+	// already-picked. A correct pick wins as a correct chat does (without a chat line); a wrong one
+	// locks the player out of picks for the song and tells the sender only. A pick costs no chat token.
+	// In a ranked game a correct pick is ranked and scored instead and the song goes on; the song ends
+	// once every connected Room player has picked, right or wrong (cycle 101 item 4).
+	public void pick(String playerId, int index, int choice) {
+		if (answerMode != AnswerMode.CHOICE || paused || phase != Phase.PLAYING || !isConnected(playerId)
+				|| index != songIndex) {
+			return;
+		}
+		Choices current = choices.get(songIndex);
+		if (choice < 0 || choice >= current.wire().size()) {
+			return;
+		}
+		long now = clock.millis();
+		if (now >= deadlineAt) {
+			endSong(null);
+			return;
+		}
+		if (now < startAt) {
+			outbox.toPlayer(playerId, message("error", "code", "too-early", "for", "pick"));
+			return;
+		}
+		if (picks.containsKey(playerId)) {
+			outbox.toPlayer(playerId, message("error", "code", "already-picked", "for", "pick"));
+			return;
+		}
+		picks.put(playerId, choice);
+		if (gameMode == GameMode.RANKED) {
+			if (choice == current.correct()) {
+				rankCorrect(byId.get(playerId));
+			}
+			else {
+				outbox.toPlayer(playerId, message("pick-result", "index", songIndex, "choice", choice));
+			}
+			endIfAllAnswered();
+			return;
+		}
+		if (choice != current.correct()) {
+			outbox.toPlayer(playerId, message("pick-result", "index", songIndex, "choice", choice));
+			return;
+		}
+		PlayerRef player = byId.get(playerId);
+		scores.merge(playerId, 1, Integer::sum);
+		outbox.toAll(message("correct", "index", songIndex, "name", player.name()));
+		endSong(player);
 	}
 
 	public void chat(String playerId, String text) {
@@ -403,13 +646,24 @@ public final class Room {
 			return;
 		}
 		Song song = songs.get(songIndex);
-		boolean match = !normalized.isEmpty() && catalog.accepted(song.anime().group()).contains(normalized);
+		// In a choice game chat never scores (cycle 100 O4): every line takes the wrong-guess path below.
+		// In a ranked game a player who already answered this song is never answer-checked: their
+		// lines are ordinary chat, spoilers included (cycle 101 item 3).
+		boolean match = answerMode != AnswerMode.CHOICE && !normalized.isEmpty()
+				&& !(gameMode == GameMode.RANKED && rankedIds.contains(playerId))
+				&& catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
 			// Too early: match or miss, only the sender sees it, so nothing tells whether it matched.
 			outbox.toPlayer(playerId, chat);
 		}
 		else if (!match) {
 			outbox.toAll(chat);
+		}
+		else if (gameMode == GameMode.RANKED) {
+			rankCorrect(player);
+			// The song goes on, so the correct text reaches only its sender, right after correct (R3).
+			outbox.toPlayer(playerId, chat);
+			endIfAllAnswered();
 		}
 		else {
 			scores.merge(playerId, 1, Integer::sum);
@@ -441,6 +695,41 @@ public final class Room {
 			}
 		}
 		return connected;
+	}
+
+	// Ranked: the player gets the next rank of this song and its points; everyone gets
+	// correct{index, name, rank}, which names nothing of the song.
+	private void rankCorrect(PlayerRef player) {
+		rankedIds.add(player.id());
+		int rank = rankedIds.size();
+		scores.merge(player.id(), points(rank), Integer::sum);
+		outbox.toAll(message("correct", "index", songIndex, "name", player.name(), "rank", rank));
+	}
+
+	private static int points(int rank) {
+		return rank == 1 ? FIRST_RANK_POINTS : rank == 2 ? SECOND_RANK_POINTS : LATER_RANK_POINTS;
+	}
+
+	// Ranked, in PLAYING: ends the song once every connected Room player has answered correctly (chat)
+	// or picked (choice), never with nobody connected (cycle 101 R1).
+	private void endIfAllAnswered() {
+		if (gameMode != GameMode.RANKED || phase != Phase.PLAYING) {
+			return;
+		}
+		int connected = 0;
+		for (PlayerRef p : players) {
+			if (disconnected.contains(p.id())) {
+				continue;
+			}
+			connected++;
+			boolean answered = answerMode == AnswerMode.CHOICE ? picks.containsKey(p.id()) : rankedIds.contains(p.id());
+			if (!answered) {
+				return;
+			}
+		}
+		if (connected > 0) {
+			endSong(null);
+		}
 	}
 
 	// In PREPARE: starts the song once every connected player is ready (never with nobody connected).
@@ -488,7 +777,16 @@ public final class Room {
 		votes.clear();
 		String token = tokens.issue(songs.get(index).theme().id(), TOKEN_TTL);
 		audioUrl = "/audio/" + token;
-		outbox.toAll(message("prepare", "index", index, "total", songs.size(), "audioUrl", audioUrl));
+		Map<String, Object> prepare = message("prepare", "index", index, "total", songs.size(), "audioUrl", audioUrl);
+		if (answerMode == AnswerMode.CHOICE) {
+			prepare.put("choices", choices.get(index).wire());
+		}
+		// Ranked: a resume's re-prepare of a song that already has a ranking tells everyone who answered,
+		// so a player who answered before everyone left knows it (cycle 101 review round 2 C2).
+		if (gameMode == GameMode.RANKED && !rankedIds.isEmpty()) {
+			prepare.put("correct", correctRows());
+		}
+		outbox.toAll(prepare);
 		schedule(PREPARE_TIMEOUT, this::startSong);
 	}
 
@@ -500,20 +798,39 @@ public final class Room {
 		outbox.toAll(message("start", "index", songIndex, "startAt", startAt, "deadlineAt", deadlineAt,
 				"serverTime", now));
 		schedule(Duration.ofMillis(deadlineAt - now), () -> endSong(null));
+		// Ranked: a resumed song whose connected players have all answered ends at once (cycle 101 R6).
+		endIfAllAnswered();
 	}
 
+	// Ends the song with that winner; in a ranked game always with the rank-1 player (or null) and the
+	// ranking [{name, rank, points}], whatever ended it (cycle 101 R7).
 	private void endSong(PlayerRef winner) {
 		phase = Phase.REVEAL;
 		votes.clear();
+		boolean ranked = gameMode == GameMode.RANKED;
+		if (ranked) {
+			winner = rankedIds.isEmpty() ? null : byId.get(rankedIds.get(0));
+		}
 		Song song = songs.get(songIndex);
 		Map<String, List<String>> titles = new LinkedHashMap<>();
 		for (String key : TITLE_KEYS) {
 			titles.put(key, song.anime().titles().getOrDefault(key, List.of()));
 		}
-		outbox.toAll(message("reveal", "index", songIndex, "reveal", song.anime().reveal(), "titles", titles,
+		Map<String, Object> reveal = message("reveal", "index", songIndex, "reveal", song.anime().reveal(), "titles", titles,
 				"song", song.theme().song(), "artists", song.theme().artists(), "themeType", song.theme().type(),
 				"themeSlug", song.theme().slug(), "winner", winner == null ? null : winner.name(), "coverUrl",
-				covers.idFor(song.anime().id()).map(id -> "/cover/" + id).orElse(null)));
+				covers.idFor(song.anime().id()).map(id -> "/cover/" + id).orElse(null));
+		if (answerMode == AnswerMode.CHOICE) {
+			reveal.put("correctChoice", choices.get(songIndex).correct());
+		}
+		if (ranked) {
+			List<Object> ranking = new ArrayList<>();
+			for (int i = 0; i < rankedIds.size(); i++) {
+				ranking.add(row("name", byId.get(rankedIds.get(i)).name(), "rank", i + 1, "points", points(i + 1)));
+			}
+			reveal.put("ranking", ranking);
+		}
+		outbox.toAll(reveal);
 		List<Object> rows = new ArrayList<>();
 		for (PlayerRef p : players) {
 			rows.add(row("name", p.name(), "score", scores.get(p.id())));
@@ -523,6 +840,8 @@ public final class Room {
 	}
 
 	private void afterReveal() {
+		picks.clear();
+		rankedIds.clear();
 		if (songIndex + 1 < songs.size()) {
 			prepare(songIndex + 1);
 			return;
@@ -595,6 +914,17 @@ public final class Room {
 
 		Bucket(long lastMs) {
 			this.lastMs = lastMs;
+		}
+
+	}
+
+	// One song's choices: the {coverUrl} rows by position, as sent, and the correct position.
+	private record Choices(List<Object> wire, int correct) {
+
+		// Never prints the correct position.
+		@Override
+		public String toString() {
+			return "Choices[size=" + wire.size() + "]";
 		}
 
 	}

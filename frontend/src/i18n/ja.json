@@ -47,6 +47,17 @@
     "normal": "ふつう",
     "hard": "むずかしい"
   },
+  "answer": {
+    "label": "回答形式",
+    "chat": "チャット",
+    "choice": "選択式",
+    "choiceN": "選択肢{{n}}"
+  },
+  "mode": {
+    "label": "ゲームモード",
+    "first": "早い者勝ち",
+    "ranked": "順位戦"
+  },
   "seat": {
     "list": "席",
     "empty": "空席",
@@ -76,6 +87,8 @@
     "heading": "正解発表",
     "noWinner": "正解者なし",
     "winner": "正解: {{name}}",
+    "ranking": "この曲の順位",
+    "rankLine": "{{rank}}位 {{name}} +{{points}}点",
     "label": {
       "ko": "KO",
       "en": "EN",
@@ -88,7 +101,8 @@
     "input": "答えを入力",
     "placeholder": "アニメのタイトルを入力",
     "send": "送信",
-    "correctLine": "{{name}} 正解！"
+    "correctLine": "{{name}} 正解！",
+    "correctRanked": "{{name}} 正解！（{{rank}}位）"
   },
   "score": {
     "board": "スコアボード",
@@ -124,7 +138,9 @@
     "bad-message": "不正なリクエストです。",
     "too-large": "メッセージが大きすぎます。",
     "already-in-room": "すでにルームに参加しています。",
-    "no-room": "ルームに参加していません。"
+    "no-room": "ルームに参加していません。",
+    "bad-answer-mode": "不明な回答形式です。",
+    "bad-game-mode": "不明なゲームモードです。"
   },
   "feedback": {
     "title": "お問い合わせ",

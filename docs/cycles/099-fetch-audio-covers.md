@@ -20,3 +20,12 @@ Logs are in the lead's scratchpad (`i012-covers.log`, `i012-audio.log`, `i012-co
 ## Not verified
 
 A real-browser check of the reveal card across three languages and six moods with real covers needs the backend serving the covers; it is left for after the owner's upload.
+
+## Owner run (2026-11-09)
+
+- Audio to S3: `s3 upload done: uploaded=1233 skipped=1765 missing=0 mismatched=0 failed=0 served=2998 (s3-keys.json)`. The 266 skipped beyond the first 1,499 were already in S3 from an interrupted earlier attempt. Local check: `s3-keys.json` holds 2,998 entries, all keys under `a/`.
+- Covers to S3: local check of `cover-cache/s3-covers.json`: 846 entries, every key `c/<id>`, ids equal to `cover-cache/index.json`.
+- Server copy: the owner's `ls -la` on `/opt/songrush/data` shows `catalog.json` 5,746,355, `audio-cache/index.json` 294,546, `audio-cache/s3-keys.json` 269,550, `cover-cache/s3-covers.json` 86,673 bytes, equal to the local files; the previous three are kept as `.bak`.
+- Release: the owner merged PR #15 (dev to main); the `Docker image` workflow on main `5d977e4` succeeded and `GET https://animeopguessr.com/health` returned `{"ok":true}`.
+- Live check (lead, built-in browser, Korean, default mood, a hard game of 5): the reveal card showed `.reveal-cover mx-auto mb-3 h-32 w-24` with `img` `/cover/<id>` loaded (`naturalWidth` 460, 1.7 s); no `/cover/` request before the reveal. Audio loaded through `/audio/<token>` (200) but slowly: 47.6 s for the first song and 10.3 s for the second; `curl -L` of one audio link from the owner's PC: `size=3593948 total=9.944020s redirect=0.862031s speed=361418B/s`. The owner considered CloudFront for this and dropped it (D-110).
+- Not checked: the reveal card in en/ja and the other five moods with a real cover.
