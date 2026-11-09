@@ -47,6 +47,8 @@
 //   reveal.ranking      이번 곡 순위 / This song's ranking / この曲の順位
 //   reveal.rankLine     {{rank}}등 {{name}} +{{points}}점 / #{{rank}} {{name}} +{{points}} / {{rank}}位 {{name}} +{{points}}点
 //
+// declared fix (101): stop assertions ignore the scheduled deadline stop
+//
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -526,10 +528,12 @@ describe('ranked correct in a chat room', () => {
     const env = setup()
     const socket = await chatRoomPlaying(env)
     const source = env.audio.last.startedSources()[0]
+    const before = source.stop.mock.calls.length
     deliver(socket, { type: 'correct', index: 0, name: '민수', rank: 1 })
     await settle(300)
     expect(screen.queryByText(tr(ko, 'chat.correctLine', { name: '민수' }))).toBeNull()
-    expect(source.stop).not.toHaveBeenCalled()
+    expect(source.stop.mock.calls.length).toBe(before)
+    expect(source.stop.mock.calls.some((args) => args.length === 0)).toBe(false)
     expect(screen.queryByText(ko.reveal.heading)).toBeNull()
   })
 
@@ -537,11 +541,13 @@ describe('ranked correct in a chat room', () => {
     const env = setup()
     const socket = await chatRoomPlaying(env)
     const source = env.audio.last.startedSources()[0]
+    const before = source.stop.mock.calls.length
     deliver(socket, { type: 'correct', index: 0, name: '하루', rank: 1 })
     deliver(socket, { type: 'chat', name: '하루', text: '진격의 거인' })
     await settle(300)
     expect(screen.queryByText(tr(ko, 'chat.correctLine', { name: '하루' }))).toBeNull()
-    expect(source.stop).not.toHaveBeenCalled()
+    expect(source.stop.mock.calls.length).toBe(before)
+    expect(source.stop.mock.calls.some((args) => args.length === 0)).toBe(false)
   })
 
   it('my own echo right after my correct goes above my system line (R3)', async () => {
