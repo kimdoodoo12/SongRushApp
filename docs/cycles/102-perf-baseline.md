@@ -53,3 +53,21 @@
 - Any performance improvement.
 - Server-side metrics.
 - Load testing.
+
+## Review round 1 (critic, on the first baseline run). These override the text above.
+The first baseline run (untracked, discarded) showed 7 of 10 songs not ready when the server started them at its 25 s prepare timeout. `prepareToStart_ms` is therefore capped at 25 s by `Room.PREPARE_TIMEOUT` and cannot show improvements.
+- **B1. Honest metrics.**
+  - **Per song:**
+    - `readyBeforeStart` (bool);
+    - `prepareToAudioDone_ms`, from `prepare` received to the end of the final audio response, uncapped (epoch-based: Playwright `timing.startTime` + `responseEnd`, against a wall-clock `prepare` time);
+    - `inflight_at_prepare`, the audio and cover requests still pending when `prepare` arrived.
+  - **Per format:** the `readyBeforeStart` count out of `songs`, the median of `prepareToAudioDone_ms`, and `audio_missing` (songs whose audio is None).
+  - **`prepareToReady_ms`:** songs without a ready are filled with their start time as a lower bound, and `prepareToReady_censored: true` is set when a filled value sits at the median position.
+  - **README row columns,** in order: date, label, build, then for chat and for choice `ready k/N` and `p→audio done` median ms, then audio MB (all), audio MB/s (all), choice cover KB (choice median), JS KB with its encoding, and page load min–max ms.
+  - A cell gets a `*` when `audio_missing` is greater than 0.
+  - "How to read" says that `p→s` is capped by the 25 s server timeout, and that the headline comparison is `p→audio done` and `ready k/N`.
+- **H1. One song at a time.** Before clicking skip, the tool waits until this round's audio and cover requests have finished (up to `--song-timeout`), so downloads of different songs do not overlap. A song with `inflight_at_prepare > 0` is still recorded and marked.
+- **H2. Attribution by round.** Each request is tagged with the round current at its creation, and fetches are keyed by (round, url). A cover shown in a round without a network request is counted as `cached`, not as bytes.
+- **H3. Nothing missing silently.** Failed requests are recorded in `failedRequests` (round, path, error), and requests still pending at the end go to `uncountedRequests`. The settle wait is `--song-timeout`.
+- **M2. Page load.** Page load is measured before the games, 3 fresh-context loads with their median and min–max. README notes that the WebSocket connection is not included, and that home TTFB is a cold request (DNS, TCP and TLS included).
+- **Tests.** The pure aggregation is tested first in `perf/test_run.py`, with a declared rewrite of the `readme_row` tests.
