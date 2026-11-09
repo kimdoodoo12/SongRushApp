@@ -34,6 +34,7 @@ so run it with the system Python (data/.venv does not have Playwright).
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -70,8 +71,13 @@ SONG_COUNT = "5"
 LOADING_TEXT = "음원을 불러오는 중"
 LOADING_TIMEOUT_MS = 60_000
 DONE_TIMEOUT_MS = 90_000
-# Seconds after the loading text appears before the "loading" shot.
-LOADING_SHOT_DELAY_S = 3
+# Seconds after the loading text appears before the "loading" shot; short,
+# so the shot shows the downloads running even on a fast network.
+LOADING_SHOT_DELAY_S = 1.0
+# The JS bundle's row name; its presence in DevTools proves the page load
+# was recorded (the first live run recorded only favicon.ico).
+BUNDLE_ROW = "index-"
+PAGELOAD_ATTEMPTS = 2
 
 # Hides the Google Fonts rows in the song views, so the song's own requests fit.
 FONT_FILTER = "-domain:fonts.gstatic.com -domain:fonts.googleapis.com"
@@ -118,6 +124,12 @@ DEEP_TEXT_JS = """() => {
   walk(document);
   return out;
 }"""
+
+
+# The Network panel's summary bar ("N requests", "... transferred",
+# "Finish: ...", "DOMContentLoaded: ...", "Load: ..."), logged for each shot.
+FOOTER_PATTERN = re.compile(
+    r"\brequests?\b|transferred|resources|^Finish:|^DOMContentLoaded:|^Load:")
 
 
 class ShotError(RuntimeError):
@@ -289,6 +301,12 @@ def setup_profile(pw, edge, profile, base):
         time.sleep(SETTINGS_FLUSH_S)
 
 
+def footer_text(texts):
+    """The Network summary bar's parts among the deep texts, joined by " | "."""
+    parts = [t.strip() for t in texts if FOOTER_PATTERN.search(t.strip())]
+    return " | ".join(parts) if parts else "(summary bar not found)"
+
+
 def devtools_shot(dt, path):
     """Screenshots DevTools with signatures hidden; retakes until the text is clean."""
     for attempt in range(SHOT_ATTEMPTS):
@@ -296,9 +314,11 @@ def devtools_shot(dt, path):
         dt.screenshot(path=str(path))
         # A row can appear between the clean-up and the screenshot, so the
         # image may hold text the clean-up never saw: check again after it.
-        if not deep_text_has_secret(dt.evaluate(DEEP_TEXT_JS)):
+        texts = dt.evaluate(DEEP_TEXT_JS)
+        if not deep_text_has_secret(texts):
             if attempt > 0:
                 log(f"{rel(path)}: clean after {attempt} retake(s)")
+            log(f"{rel(path)} network summary: {footer_text(texts)}")
             print(rel(path), flush=True)
             return
         path.unlink()
@@ -308,7 +328,9 @@ def devtools_shot(dt, path):
 
 
 def game_shot(site, path):
-    site.screenshot(path=str(path))
+    # Full page from the top, as perf/run.py takes them.
+    site.evaluate("window.scrollTo(0, 0)")
+    site.screenshot(path=str(path), full_page=True)
     print(rel(path), flush=True)
 
 
@@ -324,14 +346,26 @@ def open_network(dt, filter_text):
     time.sleep(0.5)
 
 
-def capture_pageload(dt, site, paths):
+def capture_pageload(dt, site, base, paths):
+    # The panel is open and recording before the navigation, so the page
+    # load's requests are logged.
     open_network(dt, "")
     dt.get_by_role("checkbox", name="Disable cache").check()
     log("Disable cache is checked; it stays checked in this profile for the later views")
-    time.sleep(0.5)
-    site.reload()
-    site.wait_for_load_state("networkidle")
-    time.sleep(2)
+    for attempt in range(1, PAGELOAD_ATTEMPTS + 1):
+        dt.get_by_role("button", name="Clear network log").click()
+        time.sleep(1)
+        # goto, not reload: a reload of the start page can be restored
+        # without the requests showing.
+        site.goto(base, wait_until="load")
+        site.wait_for_load_state("networkidle")
+        time.sleep(2)
+        if any(BUNDLE_ROW in t for t in dt.evaluate(DEEP_TEXT_JS)):
+            break
+        log(f"page load attempt {attempt}: no {BUNDLE_ROW}* row in DevTools")
+    else:
+        raise ShotError(f"the page load was not recorded in DevTools after "
+                        f"{PAGELOAD_ATTEMPTS} attempts; no pageload image taken")
     dt.keyboard.press("Control+E")  # stop recording
     time.sleep(1)
     devtools_shot(dt, paths["pageload"])
@@ -392,7 +426,7 @@ def main(argv=None):
                 log(f"view {view}")
                 with edge_session(pw, args.edge, profile, args.base) as (dt, site):
                     if view == "pageload":
-                        capture_pageload(dt, site, paths)
+                        capture_pageload(dt, site, args.base, paths)
                     else:
                         capture_song(dt, site, view, paths)
     except Exception as err:  # reported, then the tool exits 1
