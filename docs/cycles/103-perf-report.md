@@ -53,3 +53,30 @@ The performance work is documented the standard way: **problem â†’ measurement â
 
 ## Out of scope
 - Any improvement to the site itself.
+
+## Result
+- **Commits.**
+  - Spec: `b7ab1ed`.
+  - Tests: `6435648`.
+  - Tool: `85e1719`, plus the full-page screenshot fix and baseline-1 in `9ce8b5e`.
+  - Report: `b31d4fe`, revised in the commit after it.
+- **Verifier.**
+  - `pytest perf`: 73 passed, with no `.pytest_cache`.
+  - The locked tests were unchanged.
+  - 4 JSON and 6 HAR files have 0 secret markers.
+  - Each of baseline-1, -2 and -3 has 1 JSON, 2 HARs and 6 screenshots.
+  - All 5 image links in the report resolve.
+  - The `--help` of `run.py` and `report.py` works under the system Python. They need Playwright and matplotlib, which the data venv does not have; the README says so.
+- **Baseline runs (KST).** baseline at 11-09 23:26 (from cycle 102), baseline-1 at 11-10 00:33, baseline-2 at 00:39 and baseline-3 at 01:07.
+  - Runs 1 and 2 are 6 minutes apart, not the 30 the spec asked for. The report states this in 3.3.
+- **Report review (critic).** No Blocker. All five Highs were fixed in the report:
+  - **H1:** late players start mid-song and miss the opening (`playback.js`). They do not hear it late. In the evening run one song missed about 13 s.
+  - **H2:** improvement 1 conflicts with D-053 (no transcoding). It is now marked as the owner's decision.
+  - **H3:** every number now has a reproducible command and its output (appendix A). The live JS gzips to 115,065 B.
+  - **H4:** the claim about time of day was softened to "varied between runs, cause unconfirmed". Two more 11 pm runs come first.
+  - **H5:** covers do not measurably slow the audio (0.47 against 0.46 MB/s; pooled 7.0 s against 7.6 s). Cover shrinking is framed as a transfer-volume fix.
+  - **Mediums**, all applied: a limits section, the meaning of the pooled and per-run medians, KST everywhere, the perceived wait between songs (13 to 30 s), the waterfall song's audio size, the fairness note on prefetch, and a glossary.
+  - **Nits**, all applied: chart labels, the cover wording and the README example path.
+- **Open, before improvements.**
+  - Two more baseline runs around 11 pm.
+  - Owner decisions: the target values, and D-053 for audio re-encoding.
