@@ -531,3 +531,150 @@ def test_readme_row_pipe_in_label_is_replaced():
     row = readme_row(result)
     assert "| a/b |" in row
     assert row.count("|") == 13
+
+
+# --- strip_har / contains_secret (cycle 103, declared addition) ------------
+#
+# Contract (added in cycle 103; the tests above are unchanged):
+#
+# strip_har(har: dict) -> dict
+#     Modifies the HAR dict in place and returns the same object. For every
+#     entry in har["log"]["entries"]:
+#         request.url               -> strip_query(url)
+#         request.queryString       -> [] (when the key is present)
+#         response.redirectURL      -> strip_query(value) when non-empty
+#                                      ("" stays "")
+#         request.headers and response.headers: the value of every header
+#         named Location or Referer (any case) -> strip_query(value)
+#     Any other field is left as is. Missing "request", "response",
+#     "headers", "queryString" or "redirectURL" keys are tolerated, as is
+#     a HAR without entries.
+#
+# contains_secret(text: str) -> bool
+#     True when text contains "X-Amz-", "Signature=" or "Credential="
+#     (case-sensitive, the same strings as the acceptance grep; S3's
+#     harmless lowercase "x-amz-request-id" response header is not a secret).
+#
+# Imported as an attribute inside each test so a missing helper fails only
+# these tests, not the collection of the ones above.
+
+import json
+
+import perflib as _perflib
+
+PRESIGNED = ("https://b.s3.ap-southeast-2.amazonaws.com/audio/a.ogg"
+             "?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AK%2F1"
+             "&X-Amz-Signature=deadbeef")
+PLAIN = "https://b.s3.ap-southeast-2.amazonaws.com/audio/a.ogg"
+
+
+def har_sample():
+    return {
+        "log": {
+            "version": "1.2",
+            "pages": [{"id": "page@1", "title": "SongRush"}],
+            "entries": [
+                {
+                    "startedDateTime": "2026-11-10T01:02:03.000Z",
+                    "request": {
+                        "method": "GET",
+                        "url": "https://songrush.example/api/audio/t1?k=v",
+                        "queryString": [{"name": "k", "value": "v"}],
+                        "headers": [
+                            {"name": "referer",
+                             "value": "https://songrush.example/room?code=AB"},
+                            {"name": "accept", "value": "*/*"},
+                        ],
+                    },
+                    "response": {
+                        "status": 302,
+                        "redirectURL": PRESIGNED,
+                        "headers": [
+                            {"name": "Location", "value": PRESIGNED},
+                            {"name": "x-amz-request-id", "value": "R1"},
+                        ],
+                    },
+                },
+                {
+                    "request": {"method": "GET", "url": PRESIGNED,
+                                "queryString": [
+                                    {"name": "X-Amz-Signature",
+                                     "value": "deadbeef"}],
+                                "headers": []},
+                    "response": {"status": 200, "redirectURL": "",
+                                 "headers": [{"name": "content-type",
+                                              "value": "audio/ogg"}]},
+                },
+            ],
+        }
+    }
+
+
+def test_strip_har_returns_same_object():
+    har = har_sample()
+    assert _perflib.strip_har(har) is har
+
+
+def test_strip_har_strips_urls_and_query_strings():
+    har = _perflib.strip_har(har_sample())
+    first, second = har["log"]["entries"]
+    assert first["request"]["url"] == "https://songrush.example/api/audio/t1"
+    assert first["request"]["queryString"] == []
+    assert first["response"]["redirectURL"] == PLAIN
+    assert second["request"]["url"] == PLAIN
+    assert second["request"]["queryString"] == []
+    assert second["response"]["redirectURL"] == ""
+
+
+def test_strip_har_strips_location_and_referer_headers():
+    har = _perflib.strip_har(har_sample())
+    first = har["log"]["entries"][0]
+    assert first["request"]["headers"] == [
+        {"name": "referer", "value": "https://songrush.example/room"},
+        {"name": "accept", "value": "*/*"},
+    ]
+    assert first["response"]["headers"] == [
+        {"name": "Location", "value": PLAIN},
+        {"name": "x-amz-request-id", "value": "R1"},
+    ]
+
+
+def test_strip_har_leaves_other_fields():
+    har = _perflib.strip_har(har_sample())
+    assert har["log"]["version"] == "1.2"
+    assert har["log"]["pages"] == [{"id": "page@1", "title": "SongRush"}]
+    second = har["log"]["entries"][1]
+    assert second["response"]["status"] == 200
+    assert second["response"]["headers"] == [
+        {"name": "content-type", "value": "audio/ogg"}]
+
+
+def test_strip_har_output_has_no_secret():
+    text = json.dumps(_perflib.strip_har(har_sample()))
+    assert not _perflib.contains_secret(text)
+
+
+def test_strip_har_tolerates_missing_parts():
+    har = {"log": {"entries": [
+        {"request": {"url": "https://h.example/a?x=1"}},
+        {"response": {"status": 204}},
+        {},
+    ]}}
+    out = _perflib.strip_har(har)
+    assert out["log"]["entries"][0]["request"]["url"] == "https://h.example/a"
+    assert out["log"]["entries"][1] == {"response": {"status": 204}}
+    assert _perflib.strip_har({"log": {"entries": []}}) == \
+        {"log": {"entries": []}}
+
+
+def test_contains_secret_detects_each_marker():
+    assert _perflib.contains_secret(PRESIGNED)
+    assert _perflib.contains_secret("...X-Amz-Date=1...")
+    assert _perflib.contains_secret("a?Signature=abc")
+    assert _perflib.contains_secret("b&Credential=xyz")
+
+
+def test_contains_secret_clean_text():
+    assert not _perflib.contains_secret(PLAIN)
+    assert not _perflib.contains_secret("")
+    assert not _perflib.contains_secret('{"name": "x-amz-request-id"}')
