@@ -355,6 +355,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **F-021** Disc drawn from prepare, paused until the song plays (D-101 as clarified by the owner)
 
+- [~] **B-023** Choice answers: the server side (from D-111, cycle 100)
+- [~] **F-024** Choice answers: the lobby picker and the stage grid (from D-111, cycle 100)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -375,6 +378,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-111** Multiple-choice answer format (user, 2026-11-09). The host picks 채팅 or 객관식 in the lobby; the game rule is unchanged (first correct by arrival wins). Choices are covers only, and their count follows the tier (easy 4; lead: normal 6, hard 8). One pick per player per song (owner). Lead's choices, told to the owner: chat never scores in a choice room, picks are private until the reveal, and the song ends when everyone has picked wrong.
 - **D-110** Media delivery (user, 2026-11-09): CloudFront is dropped. The owner first chose CloudFront because audio from the Sydney bucket loads slowly in Korea (about 0.36 MB/s), then dropped it the same day after the investigation (signed URLs need a private key on the server and more console work; unsigned URLs never expire). Audio and covers stay on S3 presigned URLs (D-092). The slow loading is still open.
 - **D-109** Reveal card without a cover (user, 2026-11-09): the reveal card always keeps the cover slot at the same size; without a cover (null or failed to load) the slot shows an empty placeholder, so the card height never changes between rounds because of the cover. (Scope: the cover slot only; the other card rows are a follow-up, cycle 098 review M1.)
 - **D-108** Easy draw by series (user, 2026-11-08): in easy, every series group of the pool is equally likely; pick a group uniformly, then one of its themes. Replaces design 088's option D2 for easy (with D2 a series of 85 themes appeared in 83% of easy games).
