@@ -360,6 +360,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **B-024 / F-025** Ranked game mode (순위전) with first-come (선착순) kept as today (from D-112; cycle 101, after cycle 100)
 
+- [~] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -380,6 +382,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-113** Performance baseline (user, 2026-11-09: "성능체크를 기록하고 저장했으면 좋겠는데. 그래야 비교할거 아니야"). A measurement tool and dated results live in a new `perf/` folder (owner's choice). Each run plays 5 chat and 5 choice songs on the live site and records medians. Improvements come later and are compared against the baseline.
 - **D-112** Game modes (user, 2026-11-09). Two modes, picked by the host in the lobby next to the answer format: **선착순** (First Come / 早い者勝ち), today's rule, where the first correct answer scores 1 and ends the song; and **순위전** (Ranked / 順位戦), where every player can answer once per song, scored by server arrival order (1st 3, 2nd 2, any later correct 1). A ranked song ends when every connected player has answered (in a choice room, when everyone has picked), at the deadline, or by a passed skip. In ranked mode a correct chat is not echoed to others, and everyone sees only the name line (`✔ <name> 정답!`). Later chat, including spoilers, is the players' business and is not filtered. Answered players may still vote to skip (owner, same day).
 - **D-111** Multiple-choice answer format (user, 2026-11-09). The host picks 채팅 or 객관식 in the lobby; the game rule is unchanged (first correct by arrival wins). Choices are covers only, and their count follows the tier (easy 4; lead: normal 6, hard 8). One pick per player per song (owner). Picks are private until the reveal (lead). Owner, same day (final): in a choice room chat never scores (only a correct pick wins); there is no everyone-wrong ending; distractors may repeat series answered earlier in the game.
 - **D-110** Media delivery (user, 2026-11-09): CloudFront is dropped. The owner first chose CloudFront because audio from the Sydney bucket loads slowly in Korea (about 0.36 MB/s), then dropped it the same day after the investigation (signed URLs need a private key on the server and more console work; unsigned URLs never expire). Audio and covers stay on S3 presigned URLs (D-092). The slow loading is still open.
