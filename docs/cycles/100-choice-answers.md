@@ -145,3 +145,8 @@
   - **Shuffle test:** with a seeded random over at least 4000 songs and k=4, each position holds the correct choice 25 ± 3 % of the time.
 - **A10 (N1). Layout at 390 px.** Every `k` uses 4 columns with 3:4 tiles (`object-contain`). The browser check adds: the whole grid is visible without vertical scroll at 390×844 while a song plays, with the stage and chat input layout as is (scroll of the chat area allowed).
 - **A11 (N2). No redundant fields.** `lockedOut` is dropped, because it equals `picked !== null` (a correct pick ends the song). `pick-result` is `{index, choice}` and means wrong.
+
+## Amendments from the owner (2026-11-09). These override everything above.
+"채팅에서 제목쳐도 상관없을것 같은데 ... 모두 틀리면? 그게 아니라 먼저 맞춘사람이면 뜨는거지"
+- **O1.** In a choice room, chat answers work exactly as in a chat room: the answer check runs, and the first correct chat wins. Item 7 of the Backend section ("Chat in a choice room never runs the answer check") is void. A player locked out of picks can still answer by chat.
+- **O2.** The everyone-wrong rule (A6) is void. A song ends only as today: by the first correct answer (a pick or a chat), a passed skip, or the deadline.
