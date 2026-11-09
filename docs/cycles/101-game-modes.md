@@ -105,3 +105,7 @@
   - Ranked: after `correct{B}`, a `chat{B}` on another client goes below the ✔ line.
   - After another player's ranked `correct`, my tiles are still enabled and no banner shows.
   - Deadline and skip reveals have `winner` = rank 1 and the ranking.
+
+## Review round 2 (code review of 9e313ca). These override the text above.
+- **C1 (M1).** In a ranked **choice** room the client creates its own system line as already placed: no echo follows a pick, so a later chat of mine goes below my ✔ line. The ranked chat format is unchanged; there my echo goes above my line.
+- **C2 (M2).** In ranked mode, while the song's ranking is non-empty, `prepare` (including a resume's re-prepare) carries `correct: [{name, rank}]`, the names already broadcast. The client restores the Seats tags and its own answered state from it. Without this, a player who answered before everyone left would not know it after the resume, and a retyped title would be broadcast to the others.
