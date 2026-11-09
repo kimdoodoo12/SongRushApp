@@ -31,6 +31,16 @@
 
 *그림 1. 객관식 방의 곡 준비 화면(실제 사이트, baseline-2). 음원을 받는 동안 보기 표지 6칸이 비어 있습니다.*
 
+같은 순간을 브라우저 개발자 도구(F12 → Network)로 보면 이렇습니다.
+
+![같은 순간의 게임 화면](../perf/results/shots/2026-11-10-game-choice-loading.png)
+![같은 순간의 개발자 도구 Network 탭: 표지는 거의 다 받았지만 음원은 3.7 MB 중 487 kB](../perf/results/shots/2026-11-10-devtools-choice-loading.png)
+
+*캡처 A. 객관식 곡의 준비 중(2026-11-10, 실제 사이트, `perf/devtools_shot.py`).*
+- *위는 게임 화면, 아래는 같은 순간의 Edge 개발자 도구 Network 탭입니다.*
+- *준비 신호 후 약 1.8초 시점에 표지 6장은 대부분 받았지만, 음원(`fetch`, 맨 위 200 행)은 **487 kB**만 받은 상태입니다. 다 받은 크기는 3.7 MB였습니다(캡처 B).*
+- *이름 칸의 긴 문자열은 일회용 다운로드 주소입니다. 서명 부분(`?` 뒤)은 캡처 전에 지웠습니다.*
+
 이 대기 시간이 실제로 얼마나 되는지, 무엇 때문에 생기는지를 측정과 증거로 정리합니다.
 
 ---
@@ -72,6 +82,11 @@
   - presigned URL의 서명 부분은 저장 전에 지웁니다.
   - 저장 전에 `X-Amz-`, `Signature=`, `Credential=`를 검사해서 하나라도 남아 있으면 저장하지 않습니다.
   - 결과 4개와 HAR 6개 모두 검사 결과는 0건입니다.
+
+- **측정 화면 캡처:** `perf/devtools_shot.py`가 실제 Edge 개발자 도구(Network 탭)를 열고 첫 화면 로딩, 객관식 1곡, 채팅 1곡을 진행하며 화면을 그대로 찍습니다(캡처 A~D).
+  - 곡 캡처는 게임 시작 직전에 Network 기록을 비워 **그 곡의 요청만** 보이게 했습니다. 글꼴 요청은 필터로 뺐습니다.
+  - 찍기 전에 화면의 서명 부분을 지우고, 찍은 뒤 화면 글자를 다시 검사해 서명이 하나라도 있으면 그 이미지를 버리고 다시 찍습니다.
+  - 캐시를 끈 상태(`Disable cache`)로 찍어서, 다시 받는 경우의 실제 전송량이 보입니다.
 
 다시 재는 법은 부록 A에 있습니다.
 
@@ -149,6 +164,16 @@
 - *음원 2,024 KB가 6.6초 걸려 가장 마지막에 끝납니다. 이 곡의 음원은 평균(3.6 MB)보다 작은 편입니다.*
 - *표지 6장(83~566 KB)은 1~3초 안에 끝납니다.*
 
+개발자 도구로 직접 본 곡 하나도 같습니다.
+
+![개발자 도구: 객관식 곡 완료](../perf/results/shots/2026-11-10-devtools-choice-done.png)
+
+*캡처 B. 객관식 곡 하나를 다 받은 시점(2026-11-10). 음원 **3.7 MB에 7.53초**, 표지 6장(69~422 kB)은 **0.87~1.79초**입니다. 하단 합계는 14개 요청, 5,056 kB입니다.*
+
+![개발자 도구: 채팅 곡 완료](../perf/results/shots/2026-11-10-devtools-chat-done.png)
+
+*캡처 C. 채팅 곡 하나(2026-11-10). 표지 없이 음원 **3.5 MB에 8.91초**입니다. 표지가 없어도 음원 하나가 대기 시간을 정합니다.*
+
 ### 4.2 서버와 저장소가 멀다 (속도의 상한)
 - **위치와 속도:** 음원과 표지는 **호주 시드니 S3**에서 직접 받습니다. 곡별 음원 수신 속도는 0.09~0.91 MB/s였고, 중앙값은 채팅 0.46, 객관식 0.47 MB/s입니다(부록 A-4). 사이트 서버까지는 TCP 연결에만 0.2초 이상 걸립니다(부록 A-3).
 - **바꾸기 어려운 이유:** 계정 지역이 시드니로 고정돼 있고, CloudFront는 쓰지 않기로 이미 결정했습니다(D-110).
@@ -176,6 +201,10 @@
 - **압축 여부:** JS 367 KB와 CSS 45 KB를 `Accept-Encoding: gzip, br`로 요청해도 응답에 `Content-Encoding`이 없습니다. 서버에서 압축이 꺼져 있는 것으로 보입니다(부록 A-3).
 - **압축하면:** 같은 JS를 gzip으로 압축하면 **115 KB**입니다(부록 A-3).
 - **영향 범위:** 첫 화면 로딩(1.8~3.9초)에만 영향을 주고, 게임 중 대기에는 영향이 없습니다.
+
+![개발자 도구: 첫 화면 로딩](../perf/results/shots/2026-11-10-devtools-pageload.png)
+
+*캡처 D. 캐시를 끄고 본 첫 화면 로딩(2026-11-10). `index-BL8wr47a.js`가 **368 kB 그대로** 옵니다(압축됐다면 약 115 kB). 글꼴(Google Fonts)은 압축돼 와서, 전체로는 전송 965 kB, 원본 1.5 MB입니다. 로딩 완료(Load)는 1.72초입니다.*
 
 ### 4.6 원인 요약
 | 원인 | 영향 | 근거 |
@@ -230,6 +259,12 @@ python -X utf8 perf/run.py --base https://animeopguessr.com/ --songs 5 --label <
 python -X utf8 perf/report.py --results perf/results/2026-11-09-baseline.json perf/results/2026-11-09-baseline-1.json perf/results/2026-11-09-baseline-2.json perf/results/2026-11-09-baseline-3.json --out docs/perf
 ```
 측정 도구는 Playwright와 matplotlib이 설치된 시스템 Python으로 실행합니다. 단위 테스트는 `data/.venv/Scripts/python.exe -m pytest perf`입니다.
+
+### A-0-1. 개발자 도구 캡처
+```bash
+python -X utf8 perf/devtools_shot.py --label <날짜> [--views pageload,choice,chat]
+```
+화면에 Edge 창이 약 3분 동안 뜹니다. 결과는 `perf/results/shots/<날짜>-devtools-*.png`, `<날짜>-game-*.png`입니다.
 
 ### A-1. 음원 통계 (`data/audio-cache/index.json`)
 ```python
