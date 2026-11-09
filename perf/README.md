@@ -130,7 +130,7 @@ needs matplotlib, so run it with the system Python (the data venv does not
 have it):
 
 ```
-python -X utf8 perf/report.py --results perf/results/2026-11-10-baseline-1.json perf/results/2026-11-10-baseline-2.json --out docs/perf
+python -X utf8 perf/report.py --results perf/results/2026-11-09-baseline.json perf/results/2026-11-09-baseline-1.json perf/results/2026-11-09-baseline-2.json perf/results/2026-11-09-baseline-3.json --out docs/perf
 ```
 
 - `timeline-<label>.png`: per song, chat and choice, prepare -> ready, start
@@ -139,6 +139,9 @@ python -X utf8 perf/report.py --results perf/results/2026-11-10-baseline-1.json 
   format's typical song (audio done closest to the median), with sizes.
   Skipped, with a message, for results without `requests` (before cycle 103).
 - `bytes-<label>.png`: audio and cover MB per song.
+
+Times in the charts are Korean time (KST, UTC+9), converted from the UTC
+`timestamp`; the chart text says 표지 for covers.
 - `runs.png`: each run's p->audio done median, chat and choice, in the order
   given, with the spread across the runs.
 

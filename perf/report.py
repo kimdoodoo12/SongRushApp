@@ -18,6 +18,7 @@ import json
 import math
 import re
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import matplotlib
@@ -38,6 +39,9 @@ FONT = "Malgun Gothic"
 FIGSIZE = (10, 5)  # inches; 1200 x 600 at DPI
 DPI = 120
 PREPARE_TIMEOUT_S = 25
+# Korea Standard Time; Korea has no daylight saving, so a fixed offset is exact
+# (and needs no tzdata on Windows).
+KST = timezone(timedelta(hours=9), "KST")
 FORMAT_NAMES = {"chat": "채팅", "choice": "객관식"}
 FORMAT_COLOURS = {"chat": "#2b7bb9", "choice": "#e07b39"}
 TIMELINE_SERIES = (
@@ -77,9 +81,29 @@ def seconds(ms):
     return None if ms is None else ms / 1000
 
 
+def kst(stamp):
+    """run.py's UTC timestamp ("...Z") as "YYYY-MM-DD HH:MM" Korean time; "" if missing or unreadable."""
+    if not stamp:
+        return ""
+    try:
+        utc = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        log(f"unreadable timestamp {stamp!r}; shown without a time")
+        return ""
+    return utc.astimezone(KST).strftime("%Y-%m-%d %H:%M")
+
+
 def run_title(result):
-    stamp = result.get("timestamp") or ""
-    return f"{result['label']} ({stamp[:16].replace('T', ' ')} UTC)" if stamp else result["label"]
+    when = kst(result.get("timestamp"))
+    return f"{result['label']} ({when} 한국 시간)" if when else result["label"]
+
+
+def display_label(label):
+    """A waterfall row label from reportlib, in Korean for the chart."""
+    return (label.replace("audio redirect", "음원 리다이렉트")
+            .replace("cover redirect", "표지 리다이렉트")
+            .replace("audio", "음원")
+            .replace("cover", "표지"))
 
 
 def timeout_line(ax, horizontal=True):
@@ -182,7 +206,7 @@ def waterfall_chart(result, fmt, out_dir):
         ax.axvline(start_s, color="#2e7d32", linestyle=":", linewidth=1.5, label=f"곡 시작 {start_s:.1f}초")
     timeout_line(ax, horizontal=False)
     ax.set_yticks(ys)
-    ax.set_yticklabels([r["label"] for r in rows])
+    ax.set_yticklabels([display_label(r["label"]) for r in rows])
     ax.invert_yaxis()
     ax.set_xlim(min(0, min(r["start_ms"] for r in rows) / 1000) - 0.3, right * 1.18)
     ax.set_xlabel("준비 신호(prepare)부터의 시각 (초)")
@@ -209,7 +233,7 @@ def bytes_chart(result, out_dir):
         audio = [a / 1000 for _, a, _ in series]
         covers = [c / 1000 for _, _, c in series]
         ax.bar(xs, audio, 0.6, color=AUDIO_COLOUR, label="음원")
-        ax.bar(xs, covers, 0.6, bottom=audio, color=COVER_COLOUR, label="커버 이미지")
+        ax.bar(xs, covers, 0.6, bottom=audio, color=COVER_COLOUR, label="표지 이미지")
         for x, a, c in zip(xs, audio, covers):
             top = max(top, a + c)
             ax.annotate(f"{a + c:.2f}", (x, a + c), xytext=(0, 2), textcoords="offset points",
@@ -222,9 +246,19 @@ def bytes_chart(result, out_dir):
     axes[0][0].set_ylim(0, max(top, 0.1) * 1.15)
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", ncol=2, fontsize=9, frameon=False)
-    fig.suptitle(f"곡별 전송량 (음원 + 커버) - {run_title(result)}")
+    fig.suptitle(f"곡별 전송량 (음원 + 표지) - {run_title(result)}")
     fig.tight_layout(rect=(0, 0.06, 1, 1))
     save(fig, out_dir / f"bytes-{safe_name(result['label'])}.png")
+
+
+def run_values(results, fmt):
+    """Each run's p->audio done median of fmt in seconds, NaN where missing."""
+    values = []
+    for r in results:
+        entry = (r.get("medians") or {}).get(fmt) or {}
+        v = seconds(entry.get("prepareToAudioDone_ms"))
+        values.append(math.nan if v is None else v)
+    return values
 
 
 def runs_chart(results, out_dir):
@@ -235,12 +269,8 @@ def runs_chart(results, out_dir):
     fig, ax = plt.subplots(figsize=FIGSIZE)
     xs = list(range(len(results)))
     top = PREPARE_TIMEOUT_S
+    values = {fmt: run_values(results, fmt) for fmt in FORMATS}
     for fmt in FORMATS:
-        values = []
-        for r in results:
-            entry = (r.get("medians") or {}).get(fmt) or {}
-            v = seconds(entry.get("prepareToAudioDone_ms"))
-            values.append(math.nan if v is None else v)
         s = summary[fmt]
         if not s["runs"]:
             continue
@@ -249,26 +279,32 @@ def runs_chart(results, out_dir):
         top = max(top, hi)
         ax.axhspan(lo, hi, color=colour, alpha=0.08)
         ax.axhline(mid, color=colour, linestyle=":", linewidth=1)
-        ax.plot(xs, values, marker="o", color=colour, linewidth=1.5,
+        ax.plot(xs, values[fmt], marker="o", color=colour, linewidth=1.5,
                 label=f"{FORMAT_NAMES[fmt]}: 중앙값 {mid:.1f}초 (범위 {lo:.1f}~{hi:.1f}초)")
-        # chat values below their points, choice above, so close runs stay readable
-        below = fmt == "chat"
-        for x, v in zip(xs, values):
-            if not math.isnan(v):
-                ax.annotate(f"{v:.1f}", (x, v), xytext=(0, -9 if below else 7), textcoords="offset points",
-                            ha="center", va="top" if below else "bottom", fontsize=9, color=colour)
+    # At each run the higher of the two values is labelled above its point and
+    # the lower one below, so the two labels never overlap; a lone value goes above.
+    for i, x in enumerate(xs):
+        pair = {fmt: values[fmt][i] for fmt in FORMATS if not math.isnan(values[fmt][i])}
+        for fmt, v in pair.items():
+            other = [w for f, w in pair.items() if f != fmt]
+            above = not other or v >= other[0]
+            if other and v == other[0]:
+                above = fmt == "choice"
+            ax.annotate(f"{v:.1f}", (x, v), xytext=(0, 8 if above else -9), textcoords="offset points",
+                        ha="center", va="bottom" if above else "top", fontsize=9,
+                        color=FORMAT_COLOURS[fmt], fontweight="bold")
     timeout_line(ax)
     ax.set_xticks(xs)
-    ax.set_xticklabels([f"{r['label']}\n{(r.get('timestamp') or '')[:16].replace('T', ' ')}" for r in results],
-                       fontsize=9)
+    ax.set_xticklabels([f"{r['label']}\n{kst(r.get('timestamp'))}" for r in results], fontsize=9)
     ax.set_xlim(-0.5, len(results) - 0.5)
-    ax.set_ylim(0, top * 1.2)
-    ax.set_xlabel("실행 (UTC 시각)")
+    ax.set_ylim(0, top * 1.15)
+    ax.set_xlabel("실행 (한국 시간)")
     ax.set_ylabel("준비 신호 → 음원 다운로드 완료, 곡 중앙값 (초)")
     ax.grid(axis="y", alpha=0.3)
-    ax.legend(loc="lower right", fontsize=9)
-    ax.set_title("실행별 음원 준비 시간 (색 띠: 실행 간 최소~최대, 점선: 실행들의 중앙값)")
-    fig.tight_layout()
+    # The legend sits above the plot area, between the title and the axes.
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=3, fontsize=9, frameon=False)
+    fig.suptitle("실행별 음원 준비 시간 (색 띠: 실행 간 최소~최대, 점선: 실행들의 중앙값)")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     save(fig, out_dir / "runs.png")
 
 
