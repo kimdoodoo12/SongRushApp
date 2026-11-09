@@ -159,3 +159,8 @@
   - The reconnect snapshot carries `song.choices` and `song.picked` (`Room.currentSong(playerId)`); watchers get `choices` with `picked` null.
   - `answerMode` is omitted for chat.
   - The API is `AnswerMode {CHAT, CHOICE}`, `Room.start(int, DrawFilter, AnswerMode)`, `Room.pick(String,int,int)` and `Lobby.start(..., AnswerMode)` / `Lobby.pick(...)`, as listed in the backend tests' header comments.
+
+## Owner amendments, round 2 (2026-11-09). These override everything above.
+"굳이 보기에서 이미 나온 작품을 넣는 규칙은 없어도 될것 같아 ... 채팅 정답도 막아야겠네. 객관식모드는"
+- **O3. A1 is void.** Distractors may come from series groups that were answered earlier in the game; the only group excluded is the current answer's. L1 is void with it, because there is no conflict left. A2 (draw by the game's own rule), A5 (pool, `k` and the 4-group minimum) and everything else stand.
+- **O4. Chat never scores in a choice room.** This reverses O1. In a choice room the answer check never runs for chat. Every non-blank chat line follows today's wrong-guess visibility rules: sender-only before `startAt` and for watchers, otherwise to everyone, with the original text. The only way to win a song in a choice room is a correct pick. O2 (no everyone-wrong ending) stands.
