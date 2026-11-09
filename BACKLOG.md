@@ -358,6 +358,8 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [~] **B-023** Choice answers: the server side (from D-111, cycle 100)
 - [~] **F-024** Choice answers: the lobby picker and the stage grid (from D-111, cycle 100)
 
+- [ ] **B-024 / F-025** Ranked game mode (순위전) with first-come (선착순) kept as today (from D-112; cycle 101, after cycle 100)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -378,6 +380,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-112** Game modes (user, 2026-11-09). Two modes, picked by the host in the lobby next to the answer format: **선착순** (First Come / 早い者勝ち), today's rule, where the first correct answer scores 1 and ends the song; and **순위전** (Ranked / 順位戦), where every player can answer once per song, scored by server arrival order (1st 3, 2nd 2, any later correct 1). A ranked song ends when every connected player has answered (in a choice room, when everyone has picked), at the deadline, or by a passed skip. In ranked mode a correct chat is not echoed to others, and everyone sees only the name line (`✔ <name> 정답!`). Later chat, including spoilers, is the players' business and is not filtered.
 - **D-111** Multiple-choice answer format (user, 2026-11-09). The host picks 채팅 or 객관식 in the lobby; the game rule is unchanged (first correct by arrival wins). Choices are covers only, and their count follows the tier (easy 4; lead: normal 6, hard 8). One pick per player per song (owner). Picks are private until the reveal (lead). Owner, same day (final): in a choice room chat never scores (only a correct pick wins); there is no everyone-wrong ending; distractors may repeat series answered earlier in the game.
 - **D-110** Media delivery (user, 2026-11-09): CloudFront is dropped. The owner first chose CloudFront because audio from the Sydney bucket loads slowly in Korea (about 0.36 MB/s), then dropped it the same day after the investigation (signed URLs need a private key on the server and more console work; unsigned URLs never expire). Audio and covers stay on S3 presigned URLs (D-092). The slow loading is still open.
 - **D-109** Reveal card without a cover (user, 2026-11-09): the reveal card always keeps the cover slot at the same size; without a cover (null or failed to load) the slot shows an empty placeholder, so the card height never changes between rounds because of the cover. (Scope: the cover slot only; the other card rows are a follow-up, cycle 098 review M1.)
