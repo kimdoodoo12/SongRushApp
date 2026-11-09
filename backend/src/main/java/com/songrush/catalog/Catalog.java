@@ -22,6 +22,9 @@ public final class Catalog {
 	// Draw-set theme id to its 1-based position.
 	private final Map<Integer, Integer> ranks;
 
+	// Draw-set theme id to the 1-based rank of its anime, by first appearance in drawSet.
+	private final Map<Integer, Integer> animeRanks;
+
 	Catalog(Map<Integer, Anime> anime, Map<Integer, Theme> themes, Map<Integer, List<String>> accepted,
 			List<Integer> drawSet, List<Candidate> candidates) {
 		this.anime = Map.copyOf(anime);
@@ -36,6 +39,22 @@ public final class Catalog {
 			byTheme.putIfAbsent(this.drawSet.get(i), i + 1);
 		}
 		this.ranks = Map.copyOf(byTheme);
+		// The draw set sorts by anime popularity, so the order in which anime first appear is their rank.
+		Map<Integer, Integer> byAnime = new HashMap<>();
+		Map<Integer, Integer> themeToAnimeRank = new HashMap<>();
+		for (int themeId : this.drawSet) {
+			Theme theme = this.themes.get(themeId);
+			if (theme == null) {
+				continue;
+			}
+			Integer animeRank = byAnime.get(theme.animeId());
+			if (animeRank == null) {
+				animeRank = byAnime.size() + 1;
+				byAnime.put(theme.animeId(), animeRank);
+			}
+			themeToAnimeRank.putIfAbsent(themeId, animeRank);
+		}
+		this.animeRanks = Map.copyOf(themeToAnimeRank);
 	}
 
 	public Optional<Anime> anime(int id) {
@@ -60,6 +79,13 @@ public final class Catalog {
 	// is not in the draw set.
 	public int rank(int themeId) {
 		return ranks.getOrDefault(themeId, 0);
+	}
+
+	// The 1-based rank of the theme's anime among the distinct anime of drawSet, by first appearance
+	// (cached or not); the same for every draw-set theme of the anime; 0 when the theme is not in the
+	// draw set.
+	public int animeRank(int themeId) {
+		return animeRanks.getOrDefault(themeId, 0);
 	}
 
 	// Cached draw-set themes in draw-set order.

@@ -464,6 +464,16 @@ def test_run_log_lines(env):
     assert "build catalog bytes=%d" % report["catalogBytes"] in logs
 
 
+def test_run_logs_anime_rank_themes(env):
+    # Cycle 089 criterion 3. The fixture has fewer than 100 anime, so both cuts
+    # count every draw-set theme.
+    report, _, logs = env.run()
+    draw_set = _catalog(env)["drawSet"]
+    lines = [line for line in logs if line.startswith("build animeRankThemes ")]
+    assert lines == ["build animeRankThemes 100=%d 300=%d" % (len(draw_set), len(draw_set))], logs
+    assert report["animeRankThemes"] == {"100": len(draw_set), "300": len(draw_set)}
+
+
 # Criteria 11 and 11b: the command line.
 
 @pytest.fixture

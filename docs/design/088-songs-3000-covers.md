@@ -1,6 +1,6 @@
-# 087 design: 3,000 songs and anime covers (S-007)
+# 088 design: 3,000 songs and anime covers (S-007)
 
-Backlog item S-007, from D-102 (3,000 songs), D-103 (cover on the reveal card only), D-104 (covers served by our server) and D-105 (difficulty for the larger set). Investigated by an explorer subagent on branch `cycle/087-songs-3000-covers`, spot-checked by the lead.
+Backlog item S-007, from D-102 (3,000 songs), D-103 (cover on the reveal card only), D-104 (covers served by our server) and D-105 (difficulty for the larger set). Investigated by an explorer subagent on branch `cycle/087-songs-3000-covers` (committed on `cycle/087-disc-before-start` by a shared-checkout mistake, merged with it in 92ae8f4), spot-checked by the lead.
 
 ## Questions
 
@@ -74,7 +74,7 @@ Backlog item S-007, from D-102 (3,000 songs), D-103 (cover on the reveal card on
 
 - Draw set: 3,000 (D-102). The expected total is 10.69 GB (9.96 GiB), which is the "about 10 GB" the owner accepted when choosing 3,000 songs (D-102 raised D-044's stop to it), so an agent may start the prefetch of ranks 1,501-3,000 on this PC. Upload to S3 and copying the small data files to the server are the owner's (AWS account, server access).
 - Tiers (D-107, owner): cut by **anime popularity rank**, and every tier starts at rank 1 and widens. `easy` = anime ranks 1-100 (about 612 themes, 77 groups). `normal` = anime ranks 1-300 (C-018 prints the theme count). `hard` = all 3,000. The default (no `tier` sent) becomes `normal` = 1-300, so `hard` is the only tier that draws from all songs. The 300 is the design's proposal; the owner fixed only the nested shape.
-- No repeated series group in **easy only** (D-106), drawn by option D2. An easy pool with fewer groups than N answers `not-enough-songs` with `available` = distinct groups and `unit: "series"`; the frontend says "작품" instead of "곡" for it.
+- No repeated series group in **easy only** (D-106), drawn by option D2. (Superseded for easy by D-108, cycle 096: pick a series uniformly, then a theme uniformly within it.) An easy pool with fewer groups than N answers `not-enough-songs` with `available` = distinct groups and `unit: "series"`; the frontend says "작품" instead of "곡" for it.
 - Covers: option E2 to fetch, F3 to serve, LARGE_COVER jpg. A missing cover for one anime sends `coverUrl: null` and the card shows no image. A missing or broken cover map logs a WARN and sends null for every reveal; it never stops startup (unlike the audio map).
 - A player who reconnects during the 5 s reveal gets no reveal card and no cover (current behaviour, `Room.java:173`); unchanged on purpose.
 

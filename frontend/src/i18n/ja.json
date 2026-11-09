@@ -118,6 +118,7 @@
     "bad-filter": "条件が正しくありません。",
     "bad-room-theme": "不明なテーマです。",
     "available": "出題できる曲は{{available}}曲だけです。",
+    "availableSeries": "出題できる作品は{{available}}作品だけです。",
     "unknown": "エラーが発生しました（{{code}}）",
     "rate-limited": "送信が速すぎます。",
     "bad-message": "不正なリクエストです。",

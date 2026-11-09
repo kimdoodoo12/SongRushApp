@@ -107,6 +107,8 @@ def run(*, transport, clock, cache_root, out_dir, refresh_all: bool = False, ani
         report["catalogBytes"] = size
 
         log("build counts %s" % json.dumps(report["counts"], sort_keys=True))
+        log("build animeRankThemes 100=%d 300=%d"
+            % (report["animeRankThemes"]["100"], report["animeRankThemes"]["300"]))
         log("build catalog bytes=%d" % size)
         log("build englishFromSynonyms catalog=%d drawSet=%d"
             % (report["englishFromSynonyms"]["catalog"], report["englishFromSynonyms"]["drawSet"]))

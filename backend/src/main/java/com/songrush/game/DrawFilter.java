@@ -11,8 +11,8 @@ import com.songrush.catalog.Anime;
 import com.songrush.catalog.Theme;
 
 // The host's limits on one game's draw (docs/cycles/060-draw-filters.md): theme types, an
-// inclusive anime year range, and a popularity tier (docs/cycles/063-tier-filter.md). A null field
-// is not set. Carries only OP/ED strings, tier names and numbers, so its message fields never
+// inclusive anime year range, and a popularity tier by anime rank that nests from the top
+// (docs/cycles/063-tier-filter.md, 094-nested-tiers.md). A null field is not set. Carries only OP/ED strings, tier names and numbers, so its message fields never
 // identify a song.
 public record DrawFilter(Set<String> types, Integer yearFrom, Integer yearTo, String tier) {
 
@@ -25,12 +25,10 @@ public record DrawFilter(Set<String> types, Integer yearFrom, Integer yearTo, St
 	// The draw of today's game: the constructor maps it to no tier.
 	public static final String NORMAL = "normal";
 
-	// Inclusive draw-set ranks of each tier.
-	static final int EASY_LAST = 300;
+	// The last anime rank (Catalog.animeRank) of easy, and of normal (no tier); hard has no limit.
+	static final int EASY_LAST_ANIME = 100;
 
-	static final int HARD_FIRST = 501;
-
-	static final int HARD_LAST = 1500;
+	static final int NORMAL_LAST_ANIME = 300;
 
 	// OP before ED; any other value after them, alphabetically.
 	private static final Comparator<String> TYPE_ORDER = Comparator
@@ -69,16 +67,19 @@ public record DrawFilter(Set<String> types, Integer yearFrom, Integer yearTo, St
 		return (yearFrom == null || yearFrom <= year) && (yearTo == null || year <= yearTo);
 	}
 
-	// True when the 1-based draw-set rank is in the tier: easy 1-300, hard 501-1500; always true
-	// without a tier.
-	public boolean matchesRank(int rank) {
+	// True when the 1-based anime rank is in the tier: easy 1-100, no tier (normal) 1-300, hard any
+	// rank; never for 0 (not in the draw set) or below.
+	public boolean matchesAnimeRank(int animeRank) {
+		if (animeRank < 1) {
+			return false;
+		}
 		if (tier == null) {
-			return true;
+			return animeRank <= NORMAL_LAST_ANIME;
 		}
 		if (EASY.equals(tier)) {
-			return 1 <= rank && rank <= EASY_LAST;
+			return animeRank <= EASY_LAST_ANIME;
 		}
-		return HARD_FIRST <= rank && rank <= HARD_LAST;
+		return true;
 	}
 
 	public boolean isEmpty() {

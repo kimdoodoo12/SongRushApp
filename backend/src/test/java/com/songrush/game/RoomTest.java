@@ -51,7 +51,7 @@ class RoomTest {
 			"error", Set.of("type", "code"),
 			"scores", Set.of("type", "scores"),
 			"reveal", Set.of("type", "index", "reveal", "titles", "song", "artists", "themeType", "themeSlug",
-					"winner"),
+					"winner", "coverUrl"),
 			"gameOver", Set.of("type", "ranking"));
 
 	@TempDir

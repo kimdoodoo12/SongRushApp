@@ -18,6 +18,7 @@ import com.songrush.catalog.Anime;
 import com.songrush.catalog.Candidate;
 import com.songrush.catalog.Catalog;
 import com.songrush.catalog.Theme;
+import com.songrush.cover.CoverMap;
 
 // One room's game as a server-side state machine: LOBBY -> (PREPARE -> PLAYING -> REVEAL) per song
 // -> LOBBY (docs/cycles/036-room-state-machine.md). Not thread-safe: every method and every
@@ -67,6 +68,9 @@ public final class Room {
 	private final RandomGenerator random;
 
 	private final Outbox outbox;
+
+	// Cover ids leave the room only in a reveal's coverUrl (cycle 093).
+	private final CoverMap covers;
 
 	// Room players in player order; late joiners are appended when promoted.
 	private final List<PlayerRef> players;
@@ -119,12 +123,18 @@ public final class Room {
 
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players) {
+		this(catalog, tokens, scheduler, clock, random, outbox, players, CoverMap.empty());
+	}
+
+	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
+			Outbox outbox, List<PlayerRef> players, CoverMap covers) {
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.tokens = Objects.requireNonNull(tokens, "tokens");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.random = Objects.requireNonNull(random, "random");
 		this.outbox = Objects.requireNonNull(outbox, "outbox");
+		this.covers = Objects.requireNonNull(covers, "covers");
 		this.players = new ArrayList<>(players);
 		if (this.players.isEmpty()) {
 			throw new IllegalArgumentException("a room needs at least one player");
@@ -186,9 +196,12 @@ public final class Room {
 	}
 
 	// Draws songCount songs from the grouped candidates that match the filter, including its tier by
-	// draw-set rank. Too few: everyone gets not-enough-songs with the narrowed count. With a non-empty
-	// filter, everyone gets settings (only its set fields) before the first prepare
-	// (docs/cycles/060-draw-filters.md, 063-tier-filter.md).
+	// anime rank. Easy draws series groups uniformly and one song per group; normal and hard are a
+	// uniform draw over songs.
+	// Too few: everyone gets not-enough-songs with the narrowed count (easy counts series groups and
+	// adds unit "series"). With a non-empty filter, everyone gets settings (only its set fields)
+	// before the first prepare (docs/cycles/060-draw-filters.md, 063-tier-filter.md,
+	// 094-nested-tiers.md).
 	public void start(int songCount, DrawFilter filter) {
 		Objects.requireNonNull(filter, "filter");
 		if (phase != Phase.LOBBY) {
@@ -203,18 +216,43 @@ public final class Room {
 			catalog.theme(c.themeId())
 					.flatMap(t -> catalog.anime(t.animeId()).map(a -> new Song(c, t, a)))
 					.filter(s -> s.anime().group() != null)
-					.filter(s -> filter.matches(s.theme(), s.anime()) && filter.matchesRank(catalog.rank(c.themeId())))
+					.filter(s -> filter.matches(s.theme(), s.anime()) && filter.matchesAnimeRank(catalog.animeRank(c.themeId())))
 					.ifPresent(drawable::add);
 		}
-		if (drawable.size() < songCount) {
-			outbox.toAll(message("error", "code", "not-enough-songs", "available", drawable.size()));
-			return;
+		if (DrawFilter.EASY.equals(filter.tier())) {
+			// Group by series group in order of first appearance (deterministic for a seeded random),
+			// shuffle the groups (Fisher-Yates), then one uniform song from each of the first songCount
+			// groups: every group is equally likely, whatever its song count
+			// (docs/cycles/096-easy-uniform-series.md).
+			Map<Integer, List<Song>> byGroup = new LinkedHashMap<>();
+			for (Song s : drawable) {
+				byGroup.computeIfAbsent(s.anime().group(), g -> new ArrayList<>()).add(s);
+			}
+			List<List<Song>> groups = new ArrayList<>(byGroup.values());
+			if (groups.size() < songCount) {
+				outbox.toAll(message("error", "code", "not-enough-songs", "available", groups.size(), "unit", "series"));
+				return;
+			}
+			for (int i = 0; i < groups.size(); i++) {
+				Collections.swap(groups, i, random.nextInt(i, groups.size()));
+			}
+			List<Song> picked = new ArrayList<>();
+			for (List<Song> group : groups.subList(0, songCount)) {
+				picked.add(group.get(random.nextInt(group.size())));
+			}
+			songs = List.copyOf(picked);
 		}
-		// Partial Fisher-Yates: the first songCount entries are a uniform draw without repeats.
-		for (int i = 0; i < songCount; i++) {
-			Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
+		else {
+			if (drawable.size() < songCount) {
+				outbox.toAll(message("error", "code", "not-enough-songs", "available", drawable.size()));
+				return;
+			}
+			// Partial Fisher-Yates: the first songCount entries are a uniform draw without repeats.
+			for (int i = 0; i < songCount; i++) {
+				Collections.swap(drawable, i, random.nextInt(i, drawable.size()));
+			}
+			songs = List.copyOf(drawable.subList(0, songCount));
 		}
-		songs = List.copyOf(drawable.subList(0, songCount));
 		settings = filter;
 		scores.replaceAll((id, points) -> 0);
 		generation++;
@@ -474,7 +512,8 @@ public final class Room {
 		}
 		outbox.toAll(message("reveal", "index", songIndex, "reveal", song.anime().reveal(), "titles", titles,
 				"song", song.theme().song(), "artists", song.theme().artists(), "themeType", song.theme().type(),
-				"themeSlug", song.theme().slug(), "winner", winner == null ? null : winner.name()));
+				"themeSlug", song.theme().slug(), "winner", winner == null ? null : winner.name(), "coverUrl",
+				covers.idFor(song.anime().id()).map(id -> "/cover/" + id).orElse(null)));
 		List<Object> rows = new ArrayList<>();
 		for (PlayerRef p : players) {
 			rows.add(row("name", p.name(), "score", scores.get(p.id())));

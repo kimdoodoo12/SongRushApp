@@ -75,6 +75,29 @@ function lineTitle(reveal, lang) {
   return firstTitle(reveal.titles, lang)
 }
 
+// The anime's cover at the top of the reveal card (cycle 097). It is
+// decorative (the title is on the card), so alt is empty. The slot is always
+// there, so the card keeps one height (cycle 098, D-109); with no cover, or
+// after the image fails, it is the empty placeholder. The caller keys this
+// component by coverUrl, so a failure is forgotten when the cover changes.
+function RevealCover({ coverUrl }) {
+  const [failed, setFailed] = useState(false)
+  const showing = coverUrl !== null && !failed
+  return (
+    <div className={`reveal-cover mx-auto mb-3 h-32 w-24${showing ? '' : ' reveal-cover-empty'}`}>
+      {showing && (
+        <img
+          src={coverUrl}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  )
+}
+
 // The answer card; the flip-in is a CSS animation of this one card. The
 // big title is the line in the UI language when the frame has one, else
 // the line equal to the reveal text, else the bare reveal text; the other
@@ -88,6 +111,7 @@ function RevealCard({ reveal }) {
   return (
     <div className="flip grid w-full min-w-0 max-w-full flex-1 grid-cols-1 place-items-center">
       <section className="reveal card w-full min-w-0 max-w-[min(420px,100%)] p-5 text-center md:p-6">
+        <RevealCover key={reveal.coverUrl ?? 'none'} coverUrl={reveal.coverUrl} />
         <p className="card-label font-display h-5 truncate text-[13px] leading-5 tracking-[0.14em]">{t('reveal.heading')}</p>
         {/* Two lines are kept for the title in every look, so the card has
             the same box whichever font wraps it. */}
