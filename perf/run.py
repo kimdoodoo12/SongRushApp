@@ -549,7 +549,10 @@ def leave_room(page):
 
 def shoot(page, path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    page.screenshot(path=str(path))
+    # The game page scrolls to the chat input; the stage head and the load
+    # line are at the top, so scroll back and capture the whole page.
+    page.evaluate("window.scrollTo(0, 0)")
+    page.screenshot(path=str(path), full_page=True)
     log(f"screenshot {rel(path)}")
 
 

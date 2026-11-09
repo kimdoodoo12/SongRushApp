@@ -90,7 +90,8 @@ On by default; `--no-capture` turns them off (`captures` is then null).
   checked for the three markers above. If one remains, nothing is written
   (no JSON, no HAR) and the tool exits 1. The raw HAR is deleted with the
   temp folder. Open it in the browser's DevTools (Network, import HAR).
-- **Screenshots**, 1280x800, Korean UI, room look 놀이터 (the default), of
+- **Screenshots**, full page in a 1280x800 window (scrolled to the top first,
+  so they can be taller than 800 px), Korean UI, room look 놀이터 (the default), of
   each format's first song: `perf/results/shots/<date>-<label>-<format>-loading.png`
   while `음원을 불러오는 중...` shows, `-playing.png` once the song is
   audible, `-reveal.png` at the reveal. If the loading text does not appear
@@ -178,3 +179,4 @@ spread; run twice when in doubt.
 | date | label | build | chat ready | chat p->audio done ms | choice ready | choice p->audio done ms | audio MB | MB/s | choice cover KB | JS KB (enc) | page load min-max ms |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-11-09 | baseline | index-BL8wr47a.js | 4/5 | 18909 | 3/5 | 21188 | 3.58 | 0.18 | 2020 | 367 (identity) | 2118–3904 |
+| 2026-11-09 | baseline-1 | index-BL8wr47a.js | 5/5 | 6759 | 5/5 | 6304 | 3.59 | 0.56 | 1469 | 367 (identity) | 2189–2888 |
