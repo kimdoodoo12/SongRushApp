@@ -26,6 +26,9 @@ import com.songrush.cover.CoverMap;
 // current song leaves the room before its reveal message. The one exception (D-111, cycle 100 A9):
 // in a choice game the k cover ids of a song's choices leave in its prepare (and the snapshot),
 // in shuffled order and with nothing that marks the correct one.
+// With prefetchOnReveal (D-119, docs/cycles/107-prefetch-on-reveal.md) the next song's prepare goes out
+// when a reveal starts: the room is then in PREPARE for the next song while revealing, and the song
+// starts only after the reveal pause, as before.
 public final class Room {
 
 	public enum Phase {
@@ -75,7 +78,9 @@ public final class Room {
 
 	static final long REFILL_PER_MS = 2;
 
-	private static final Duration TOKEN_TTL = PREPARE_TIMEOUT.plus(LEAD).plus(MAX_PLAY).plus(TOKEN_SLACK);
+	// Covers an early prepare's reveal pause too (cycle 107 item 7).
+	private static final Duration TOKEN_TTL = REVEAL_PAUSE.plus(PREPARE_TIMEOUT).plus(LEAD).plus(MAX_PLAY)
+			.plus(TOKEN_SLACK);
 
 	private static final List<String> TITLE_KEYS = List.of("ko", "en", "ja", "romaji");
 
@@ -158,8 +163,19 @@ public final class Room {
 	// The audioUrl sent in the current song's prepare.
 	private String audioUrl;
 
-	// The one task of the current phase: prepare timeout, deadline, or reveal pause.
+	// The one task of the current phase: prepare timeout, deadline, or reveal pause. While revealing
+	// it is the reveal pause, then the prepare timeout (cycle 107).
 	private Cancellable pending;
+
+	// Early mode (D-119): the next song's prepare goes out when a reveal starts. Fixed per room.
+	private final boolean prefetchOnReveal;
+
+	// Early mode only: true from an early prepare until its reveal pause ends (or a pause). The room is
+	// in PREPARE for the next song; ready is recorded but starts nothing, chat is as in REVEAL.
+	private boolean revealing;
+
+	// When the current early prepare's reveal pause ends; meaningful only while revealing.
+	private long revealEndsAt;
 
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players) {
@@ -168,6 +184,13 @@ public final class Room {
 
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players, CoverMap covers) {
+		this(catalog, tokens, scheduler, clock, random, outbox, players, covers, false);
+	}
+
+	// As above; with prefetchOnReveal the next song is prepared when a reveal starts (D-119).
+	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
+			Outbox outbox, List<PlayerRef> players, CoverMap covers, boolean prefetchOnReveal) {
+		this.prefetchOnReveal = prefetchOnReveal;
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.tokens = Objects.requireNonNull(tokens, "tokens");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
@@ -194,13 +217,29 @@ public final class Room {
 	}
 
 	// Adds a watcher who becomes a Room player with 0 points at the next prepare. Ignored in LOBBY and
-	// for a known or already pending id. Sends nothing.
+	// for a known or already pending id. Sends nothing, except while revealing (early mode): the next
+	// song is already prepared, so the player is promoted at once and alone gets its prepare with the
+	// remaining reveal time as holdMs (D-059, cycle 107 item 5).
 	public void addPlayer(PlayerRef player) {
 		if (phase == Phase.LOBBY || byId.containsKey(player.id()) || watchers.containsKey(player.id())) {
 			return;
 		}
-		watchers.put(player.id(), player);
 		buckets.put(player.id(), new Bucket(clock.millis()));
+		if (revealing) {
+			promote(player);
+			Map<String, Object> prepare = prepareMessage(songIndex);
+			prepare.put("holdMs", Math.max(0, revealEndsAt - clock.millis()));
+			outbox.toPlayer(player.id(), prepare);
+			return;
+		}
+		watchers.put(player.id(), player);
+	}
+
+	// Makes a watcher (or a joiner during an early reveal) a Room player with 0 points, last in order.
+	private void promote(PlayerRef p) {
+		players.add(p);
+		byId.put(p.id(), p);
+		scores.put(p.id(), 0);
 	}
 
 	public Phase phase() {
@@ -471,10 +510,13 @@ public final class Room {
 		}
 		generation++;
 		paused = true;
+		// A pause ends an early prepare's reveal: resume re-prepares the song (cycle 107 item 6).
+		revealing = false;
 	}
 
-	// From PREPARE or PLAYING, prepares the same song again (new token, ready set cleared); from
-	// REVEAL, continues as if the reveal pause had just ended. Does nothing when not paused.
+	// From PREPARE or PLAYING, prepares the same song again (new token, ready set cleared, no holdMs,
+	// also after an early prepare); from REVEAL, continues as if the reveal pause had just ended. Does
+	// nothing when not paused.
 	public void resume() {
 		if (!paused) {
 			return;
@@ -636,7 +678,9 @@ public final class Room {
 			endSong(null);
 		}
 		Map<String, Object> chat = message("chat", "name", player.name(), "text", text);
-		if (phase != Phase.PREPARE && phase != Phase.PLAYING) {
+		// While revealing (early mode) chat is as in REVEAL: broadcast, never answer-checked, also when
+		// the endSong just above started the reveal (cycle 107 item 3, review M2).
+		if (revealing || (phase != Phase.PREPARE && phase != Phase.PLAYING)) {
 			outbox.toAll(chat);
 			return;
 		}
@@ -733,7 +777,11 @@ public final class Room {
 	}
 
 	// In PREPARE: starts the song once every connected player is ready (never with nobody connected).
+	// Does nothing while revealing: the reveal's end checks again (cycle 107 item 2).
 	private void startIfAllReady() {
+		if (revealing) {
+			return;
+		}
 		int connected = connectedCount();
 		if (connected > 0 && ready.size() == connected) {
 			startSong();
@@ -765,18 +813,28 @@ public final class Room {
 	}
 
 	private void prepare(int index) {
+		outbox.toAll(enterPrepare(index));
+		schedule(PREPARE_TIMEOUT, this::startSong);
+	}
+
+	// Everything a prepare does but sending and scheduling: enters PREPARE for that index, promotes the
+	// watchers, clears ready and votes and issues the token. Returns the prepare message.
+	private Map<String, Object> enterPrepare(int index) {
 		phase = Phase.PREPARE;
 		songIndex = index;
 		for (PlayerRef p : watchers.values()) {
-			players.add(p);
-			byId.put(p.id(), p);
-			scores.put(p.id(), 0);
+			promote(p);
 		}
 		watchers.clear();
 		ready.clear();
 		votes.clear();
 		String token = tokens.issue(songs.get(index).theme().id(), TOKEN_TTL);
 		audioUrl = "/audio/" + token;
+		return prepareMessage(index);
+	}
+
+	// The current song's prepare message as everyone gets it, with the audioUrl already issued.
+	private Map<String, Object> prepareMessage(int index) {
 		Map<String, Object> prepare = message("prepare", "index", index, "total", songs.size(), "audioUrl", audioUrl);
 		if (answerMode == AnswerMode.CHOICE) {
 			prepare.put("choices", choices.get(index).wire());
@@ -786,7 +844,18 @@ public final class Room {
 		if (gameMode == GameMode.RANKED && !rankedIds.isEmpty()) {
 			prepare.put("correct", correctRows());
 		}
-		outbox.toAll(prepare);
+		return prepare;
+	}
+
+	// Early mode: the reveal pause of an early prepare is over. Starts the song if every connected
+	// player is already ready, else waits for them up to PREPARE_TIMEOUT, as a prepare does.
+	private void revealOver() {
+		revealing = false;
+		int connected = connectedCount();
+		if (connected > 0 && ready.size() == connected) {
+			startSong();
+			return;
+		}
 		schedule(PREPARE_TIMEOUT, this::startSong);
 	}
 
@@ -836,6 +905,19 @@ public final class Room {
 			rows.add(row("name", p.name(), "score", scores.get(p.id())));
 		}
 		outbox.toAll(message("scores", "scores", rows));
+		if (prefetchOnReveal && songIndex + 1 < songs.size()) {
+			// Early mode (cycle 107 item 2): the next song's prepare right after reveal and scores, held
+			// on clients for the reveal pause; the song starts only after it.
+			picks.clear();
+			rankedIds.clear();
+			Map<String, Object> prepare = enterPrepare(songIndex + 1);
+			prepare.put("holdMs", REVEAL_PAUSE.toMillis());
+			revealing = true;
+			revealEndsAt = clock.millis() + REVEAL_PAUSE.toMillis();
+			outbox.toAll(prepare);
+			schedule(REVEAL_PAUSE, this::revealOver);
+			return;
+		}
 		schedule(REVEAL_PAUSE, this::afterReveal);
 	}
 
