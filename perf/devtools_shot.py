@@ -20,8 +20,11 @@ How it works (docs/cycles/104-devtools-captures.md):
    DevTools frontend are required).
 3. Presigned-URL signatures are hidden before every DevTools screenshot (every
    text node, shadow roots included, is cut at "?" when it holds a marker).
+   The S3 bucket host (shown under each name with big rows; it holds the AWS
+   account id) is replaced by "S3 (ap-southeast-2)" the same way.
    The screenshot is kept in memory; the deep text is read again and checked
-   with perflib.contains_secret, and only a clean image is written to disk. A
+   with perflib.contains_secret and BUCKET_PATTERN, and only a clean image is
+   written to disk. A
    hit drops the image and retakes it, up to 30 times; no clean image means
    nothing is written and the tool exits 1.
 4. The Edge process tree is always ended with taskkill, and the temp profile
@@ -124,16 +127,23 @@ SETUP_JS = """async () => {
   s.createSetting('currentDockState', 'right').set('undocked');
 }"""
 
-# Cuts every text node holding a presigned-URL marker at its "?" and appends
-# an ellipsis (built from its code point so this file stays free of it).
-# Walks shadow roots too. Returns how many nodes it changed.
+# Two clean-ups on every text node, shadow roots included:
+# - a node naming the S3 bucket host (big rows show it under each name; the
+#   bucket name holds the AWS account id) is replaced whole with BUCKET_LABEL;
+#   the test is generous, the same markers as BUCKET_PATTERN below;
+# - a node holding a presigned-URL marker is cut at its "?" and gets an
+#   ellipsis (built from its code point so this file stays free of it).
+# Returns how many nodes it changed.
+BUCKET_LABEL = "S3 (ap-southeast-2)"
 SANITIZE_JS = r"""() => {
+  const bucket = /amazonaws|\.s3[.-]|songrush-audio-|(^|\D)\d{12}(\D|$)/i;
   const marker = /X-Amz-|Signature=|Credential=/;
   const tail = '?' + String.fromCharCode(0x2026);
   let fixed = 0;
   const walk = (root) => {
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     for (let n = w.nextNode(); n; n = w.nextNode()) {
+      if (bucket.test(n.nodeValue)) { n.nodeValue = '""" + BUCKET_LABEL + r"""'; fixed++; }
       if (marker.test(n.nodeValue)) { n.nodeValue = n.nodeValue.replace(/\?.*$/s, tail); fixed++; }
     }
     root.querySelectorAll('*').forEach(e => { if (e.shadowRoot) walk(e.shadowRoot); });
@@ -183,6 +193,10 @@ DEEP_TEXT_JS = """() => {
 
 # The Network panel's summary bar ("N requests", "... transferred",
 # "Finish: ...", "DOMContentLoaded: ...", "Load: ..."), logged for each shot.
+# The S3 bucket host or the AWS account id in it: never in an image or a log.
+BUCKET_PATTERN = re.compile(r"amazonaws|\.s3\.|songrush-audio-|(?<!\d)\d{12}(?!\d)",
+                            re.IGNORECASE)
+
 FOOTER_MAX_LEN = 80
 FOOTER_PATTERN = re.compile(
     r"\brequests?\b|transferred|resources|^Finish:|^DOMContentLoaded:|^Load:")
@@ -224,6 +238,17 @@ def shot_paths(label):
 def deep_text_has_secret(texts):
     """True when any of the texts holds a presigned-URL marker."""
     return any(contains_secret(text) for text in texts)
+
+
+def deep_text_has_bucket(texts):
+    """True when any of the texts names the S3 bucket host (or holds a
+    standalone 12-digit number, the shape of the AWS account id in it)."""
+    return any(BUCKET_PATTERN.search(text) for text in texts)
+
+
+def unsafe_text(text):
+    """True when text must not be printed or logged (secret or bucket host)."""
+    return contains_secret(text) or BUCKET_PATTERN.search(text) is not None
 
 
 def default_edge():
@@ -395,7 +420,7 @@ def footer_text(texts):
     """
     parts = [t.strip() for t in texts
              if len(t.strip()) <= FOOTER_MAX_LEN and "{" not in t
-             and FOOTER_PATTERN.search(t.strip())]
+             and not unsafe_text(t) and FOOTER_PATTERN.search(t.strip())]
     return " | ".join(parts) if parts else "(summary bar not found)"
 
 
@@ -414,7 +439,7 @@ def devtools_shot(dt, path):
         # A row can appear between the clean-up and the screenshot, so the
         # image may hold text the clean-up never saw: check again after it.
         texts = dt.evaluate(DEEP_TEXT_JS)
-        if not deep_text_has_secret(texts):
+        if not deep_text_has_secret(texts) and not deep_text_has_bucket(texts):
             path.write_bytes(png)
             if attempt > 0:
                 log(f"{rel(path)}: clean after {attempt} retake(s)")
@@ -512,10 +537,10 @@ def capture_song(dt, site, fmt, paths):
 
 
 def safe_message(err):
-    """The error's text, unless it could hold a presigned URL."""
+    """The error's text, unless it could hold a presigned URL or the bucket host."""
     text = f"{type(err).__name__}: {err}"
-    if contains_secret(text) or "?" in text:
-        return f"{type(err).__name__} (message hidden: it may contain a URL query)"
+    if unsafe_text(text) or "?" in text:
+        return f"{type(err).__name__} (message hidden: it may contain a URL query or storage host)"
     return text
 
 

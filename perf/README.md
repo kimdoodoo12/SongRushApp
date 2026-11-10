@@ -183,7 +183,10 @@ Presigned-URL signatures are hidden before every DevTools screenshot, and the
 panel's text is checked again after it, before the image is written: an image
 taken while the panel still holds `X-Amz-`, `Signature=` or `Credential=` is
 never written, and is retaken, up to 30 times. If no clean image results,
-nothing is written and the tool exits 1.
+nothing is written and the tool exits 1. The S3 bucket host (shown under each
+name with big rows; it holds the AWS account id) is replaced by
+`S3 (ap-southeast-2)` and checked the same way, and neither it nor a signature
+is ever printed in the log.
 
 ## Tests
 
