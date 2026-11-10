@@ -366,9 +366,9 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-015** DevTools Network-panel captures of the measurement (`perf/devtools_shot.py`) in the report (from D-115, cycle 104)
 
 
-- [ ] **B-031** backend: eight mood ids, additive (from D-122, design 108 item 1). Accept the new ids `sunset rain sakura neon chalk pixel matsuri manga`. Map the old `play`, `star`, `arcade` to `sunset`, `rain`, `pixel`. The default is `sunset`, and the snapshot always carries `roomTheme`.
-- [ ] **F-025** frontend: mood tokens and picker (from D-122, design 108 item 2). Eight token blocks from the mockup, with fonts loaded through `display=swap`. The picker has eight entries, named in ko/en/ja. An old stored id falls back to `sunset`. `ThemeDecor` is removed.
-- [ ] **F-026** frontend: game room structure and choice rows (from D-121/D-123, design 108 item 3). Stage on the left and a 380 px chat column on the right, stacked below 900 px. Seats are a grid under the stage. In a choice room, the top row has a small deck and the hint, and the bottom row has the tiles: 4 → 4×1, 6 → 3×2, 8 → 4×2. The tiles carry number badges 1..N. The A10 no-scroll check at 390×844.
+- [x] **B-031** backend: eight mood ids, additive (from D-122, design 108 item 1). Accept the new ids `sunset rain sakura neon chalk pixel matsuri manga`. Map the old `play`, `star`, `arcade` to `sunset`, `rain`, `pixel`. The default is `sunset`, and the snapshot always carries `roomTheme`.
+- [x] **F-025** frontend: mood tokens and picker (from D-122, design 108 item 2). Eight token blocks from the mockup, with fonts loaded through `display=swap`. The picker has eight entries, named in ko/en/ja. An old stored id falls back to `sunset`. `ThemeDecor` is removed.
+- [~] **F-026** frontend: game room structure and choice rows (from D-121/D-123, design 108 item 3). Stage on the left and a 380 px chat column on the right, stacked below 900 px. Seats are a grid under the stage. In a choice room, the top row has a small deck and the hint, and the bottom row has the tiles: 4 → 4×1, 6 → 3×2, 8 → 4×2. The tiles carry number badges 1..N. The A10 no-scroll check at 390×844.
 - [ ] **F-030** frontend: per-mood skins (design 108 item 4). Disc, chat and tile skins per mood, with the `themeLayout.test.js` allow-list. The stage, chat and grid boxes are equal across all eight moods.
 - [ ] **F-027** frontend: reveal frame and fly-in (design 108 item 5). The disc slides aside and the cover frame takes its own ratio, clamped 0.56–0.8, inside a fixed deck (D-109). With no cover, a title card. In a choice room the correct tile flies in. Reduced motion makes it instant.
 - [ ] **F-031** frontend: per-mood reveal frames (design 108 item 6). Polaroid, foggy glass, holo card, CRT, pinned print, pixel mosaic, festival poster with stamp, manga panel.
@@ -611,3 +611,4 @@ Decided:
   - `../data` resolves against the working directory: `backend/` under Gradle, the repo's parent under `java -jar` from the root. Log the absolute data dir at startup.
   - `JsonErrorController` turns non-standard status codes into 500; use `HttpStatusCode.valueOf`. A direct `/error` call returns 500; return 404 when there is no status attribute.
   - The Stop hook runs areas one after another, each up to 850 s, so two changed areas can exceed the 900 s cap. Share one deadline across runners.
+- (109) The manga mood's `--good` and `--bad` are nearly the same red, so a correct mark and an error are hard to tell apart. Chalk lost its wooden frame shadow. Review both in F-030.
