@@ -570,13 +570,17 @@ describe('lobby markup', () => {
 
   it('a guest sees every control disabled, the waiting line with .dots and no start button', async () => {
     const env = setup()
-    await guestLobby(env)
+    const socket = await guestLobby(env)
     expect(startButton()).toBeNull()
     expect(q('.start-row .go')).toBeNull()
     const waiting = q('.start-row p.waiting')
     expect(waiting).not.toBeNull()
     expect(waiting.querySelector('.dots')).not.toBeNull()
     expect(waiting.textContent.trim()).toBe(WAITING)
+    // Cycle 116 (declared change, round 2): before any lobbySettings the host is still choosing;
+    // after one, the card shows the host's settings.
+    expect(text('section.opts .opts-hd .opts-who')).toBe('방장이 설정을 고르는 중이에요')
+    deliver(socket, { type: 'lobbySettings', songCount: 10 })
     expect(text('section.opts .opts-hd .opts-who')).toBe('방장이 정한 설정이에요')
     const controls = qa('section.opts .opt-grid button, section.opts .opt-grid select')
     expect(controls.length).toBeGreaterThanOrEqual(2 + 3 + 3 + 2 + 2 + 2)

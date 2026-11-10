@@ -89,6 +89,14 @@ export const initialState = {
   replaced: false, // the 'disconnected' screen: replaced by another tab
   settings: null, // the applied filters { types, yearFrom, yearTo, tier, answerMode, gameMode } of this game
   roomTheme: null, // the room's look id from the server; null: none received
+  // The host's lobby selection from the last lobbySettings (cycle 116): {
+  // songCount, types, yearFrom, yearTo, tier, answerMode, gameMode }, a
+  // missing field undefined; null before any. A guest's lobby card shows it.
+  lobbySettings: null,
+  // Bumped by every rejoin snapshot into the lobby phase (cycle 116 round
+  // 3): the server may have handed host to another member meanwhile, so a
+  // host sends its selection again.
+  lobbyRestores: 0,
   // A choice room's song (cycle 100): the cover URL per position (null for
   // a cover the client refused), or null without choices. Kept from prepare
   // to the next prepare, so the grid stays under the reveal card.
@@ -180,6 +188,21 @@ function step(state, action) {
       }
     case 'roomTheme':
       return { ...state, roomTheme: action.theme }
+    case 'lobbySettings':
+      // Kept across a game and a rejoin: the server keeps the selection and
+      // sends any change; only leaving the room (reset, connecting) clears it.
+      return {
+        ...state,
+        lobbySettings: {
+          songCount: action.songCount,
+          types: action.types,
+          yearFrom: action.yearFrom,
+          yearTo: action.yearTo,
+          tier: action.tier,
+          answerMode: action.answerMode,
+          gameMode: action.gameMode,
+        },
+      }
     case 'toLobby':
       return { ...lobbyLog(state, 'chat.lobbyBack'), screen: 'lobby', error: null, settings: null }
     case 'settings':
@@ -263,7 +286,15 @@ function step(state, action) {
         ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
-        return { ...lobbyLog(common), screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
+        return {
+          ...lobbyLog(common),
+          screen: 'lobby',
+          round: null,
+          load: null,
+          waitingNext: false,
+          lobbyOpen: false,
+          lobbyRestores: state.lobbyRestores + 1,
+        }
       }
       return {
         ...common,
