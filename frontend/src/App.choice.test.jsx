@@ -60,6 +60,10 @@
 //   answer.choice    객관식 / Multiple choice / 選択式
 //   answer.choiceN   보기 {{n}} / Choice {{n}} / 選択肢{{n}}
 //
+// Cycle 114 (D-124, declared): the start button is .start-row .go in every
+// language, 곡 수 is the stepper and 곡 종류 a .seg group, all through
+// src/testing/lobby.js.
+//
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -69,6 +73,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { pickSeg, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -288,8 +293,8 @@ function pressedIn(group) {
     .map((b) => b.textContent.trim())
 }
 
-async function clickStartGame(socket, total = 1, label = ko.lobby.startGame) {
-  fireEvent.click(screen.getByRole('button', { name: label }))
+async function clickStartGame(socket, total = 1) {
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(total))
   return socket.sentOfType('start')[total - 1]
 }
@@ -436,7 +441,7 @@ describe('lobby picker', () => {
   it('객관식 with 오프닝만: both go into start', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    fireEvent.change(screen.getByLabelText(ko.filter.type), { target: { value: 'OP' } })
+    pickSeg(ko.filter.type, ko.filter.op)
     fireEvent.click(within(answerPicker()).getByRole('button', { name: KO.choice }))
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10, types: ['OP'], answerMode: 'choice' })
   })
@@ -910,7 +915,7 @@ describe('other languages', () => {
       tr(en, 'answer.choice'),
     ])
     fireEvent.click(within(group).getByRole('button', { name: tr(en, 'answer.choice') }))
-    await clickStartGame(socket, 1, en.lobby.startGame)
+    await clickStartGame(socket, 1)
     deliver(socket, roster(ALONE, 'playing'))
     deliver(socket, { type: 'settings', answerMode: 'choice' })
     deliver(socket, prepareMsg(0, COVERS4))
@@ -929,7 +934,7 @@ describe('other languages', () => {
       tr(ja, 'answer.choice'),
     ])
     fireEvent.click(within(group).getByRole('button', { name: tr(ja, 'answer.choice') }))
-    await clickStartGame(socket, 1, ja.lobby.startGame)
+    await clickStartGame(socket, 1)
     deliver(socket, roster(ALONE, 'playing'))
     deliver(socket, { type: 'settings', answerMode: 'choice' })
     deliver(socket, prepareMsg(0, COVERS6))

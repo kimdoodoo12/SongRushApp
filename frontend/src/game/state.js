@@ -133,6 +133,20 @@ function withNotice(state, key, values) {
   return { ...state, chat: [...state.chat, { id: state.chatSeq, kind: 'notice', key, values }], chatSeq: state.chatSeq + 1 }
 }
 
+// The log on a way into the lobby (cycle 114): cleared, then the mockup's
+// lobby line for that way, if it has one. ids keep counting up.
+function lobbyLog(state, key, values) {
+  const cleared = { ...state, chat: [], announced: null }
+  return key === undefined ? cleared : withNotice(cleared, key, values)
+}
+
+// The log without the join line (chat.lobbyJoined): joined adds it before
+// the snapshot says the phase, so a late joiner who goes to the game drops
+// it (critic M1 of 114).
+function withoutJoinLine(chat) {
+  return chat.filter((line) => !(line.kind === 'notice' && line.key === 'chat.lobbyJoined'))
+}
+
 // The mockup's startRound line: "<n>번째 곡 시작" once per song, when the
 // song becomes audible.
 export function reducer(state, action) {
@@ -151,7 +165,13 @@ function step(state, action) {
     case 'reset':
       return initialState
     case 'joined':
-      return { ...state, screen: 'lobby', room: { code: action.code, me: action.name }, error: null, notice: null }
+      return {
+        ...lobbyLog(state, 'chat.lobbyJoined', { code: action.code }),
+        screen: 'lobby',
+        room: { code: action.code, me: action.name },
+        error: null,
+        notice: null,
+      }
     case 'roster':
       return {
         ...state,
@@ -161,7 +181,7 @@ function step(state, action) {
     case 'roomTheme':
       return { ...state, roomTheme: action.theme }
     case 'toLobby':
-      return { ...state, screen: 'lobby', error: null, settings: null }
+      return { ...lobbyLog(state, 'chat.lobbyBack'), screen: 'lobby', error: null, settings: null }
     case 'settings':
       // Sent before the first prepare, so prepare never clears it; the
       // actions that end or replace a game do (spec 061 review B1).
@@ -243,10 +263,11 @@ function step(state, action) {
         ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
-        return { ...common, screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
+        return { ...lobbyLog(common), screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
       }
       return {
         ...common,
+        chat: withoutJoinLine(state.chat),
         screen: 'game',
         round: action.round,
         load: action.round === null ? null : 'loading',
@@ -257,6 +278,7 @@ function step(state, action) {
       // round is null when the snapshot has no song (paused or revealing).
       return {
         ...state,
+        chat: withoutJoinLine(state.chat),
         screen: 'game',
         round: action.round,
         load: action.round === null ? null : 'loading',
@@ -275,7 +297,7 @@ function step(state, action) {
       }
     case 'abandoned':
       return {
-        ...state,
+        ...lobbyLog(state),
         screen: 'lobby',
         timer: null,
         error: null,

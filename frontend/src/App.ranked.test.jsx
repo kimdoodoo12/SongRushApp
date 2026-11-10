@@ -53,6 +53,10 @@
 // reveal card is the .reveal element (the mockup's markup); the ranking list
 // is an ol.rank.
 //
+// Cycle 114 (D-124, declared): the start button is .start-row .go in every
+// language, 곡 수 is the stepper and 곡 종류 a .seg group, all through
+// src/testing/lobby.js.
+//
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -62,6 +66,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { pickSeg, setSongCount, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -266,8 +271,8 @@ function pressedIn(group) {
     .map((b) => b.textContent.trim())
 }
 
-async function clickStartGame(socket, total = 1, label = ko.lobby.startGame) {
-  fireEvent.click(screen.getByRole('button', { name: label }))
+async function clickStartGame(socket, total = 1) {
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(total))
   return socket.sentOfType('start')[total - 1]
 }
@@ -351,7 +356,7 @@ async function chatRoomPlaying(env, mode = KO.ranked) {
   const socket = await hostLobby(env, { players: TRIO })
   // 선착순 is the default; the first-come path does not touch the new picker.
   if (mode !== KO.first) fireEvent.click(within(modePicker()).getByRole('button', { name: mode }))
-  fireEvent.change(screen.getByLabelText(ko.lobby.songCount), { target: { value: '5' } })
+  setSongCount(5)
   await clickStartGame(socket)
   deliver(socket, roster(TRIO, 'playing'))
   if (mode === KO.ranked) deliver(socket, { type: 'settings', gameMode: 'ranked' })
@@ -443,7 +448,7 @@ describe('lobby picker', () => {
   it('순위전 with 객관식 and 오프닝만: all go into start', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    fireEvent.change(screen.getByLabelText(ko.filter.type), { target: { value: 'OP' } })
+    pickSeg(ko.filter.type, ko.filter.op)
     fireEvent.click(within(answerPicker()).getByRole('button', { name: ko.answer.choice }))
     fireEvent.click(within(modePicker()).getByRole('button', { name: KO.ranked }))
     expect(await clickStartGame(socket)).toEqual({
@@ -859,7 +864,7 @@ describe('other languages', () => {
       tr(en, 'mode.ranked'),
     ])
     fireEvent.click(within(group).getByRole('button', { name: tr(en, 'mode.ranked') }))
-    expect(await clickStartGame(socket, 1, en.lobby.startGame)).toEqual({ type: 'start', songCount: 10, gameMode: 'ranked' })
+    expect(await clickStartGame(socket, 1)).toEqual({ type: 'start', songCount: 10, gameMode: 'ranked' })
     deliver(socket, roster(TRIO, 'playing'))
     deliver(socket, { type: 'settings', gameMode: 'ranked' })
     deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0' })
@@ -887,7 +892,7 @@ describe('other languages', () => {
       tr(ja, 'mode.ranked'),
     ])
     fireEvent.click(within(group).getByRole('button', { name: tr(ja, 'mode.ranked') }))
-    await clickStartGame(socket, 1, ja.lobby.startGame)
+    await clickStartGame(socket, 1)
     deliver(socket, roster(TRIO, 'playing'))
     deliver(socket, { type: 'settings', gameMode: 'ranked' })
     deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0' })

@@ -25,14 +25,22 @@
     "manga": "Manga Manuscript"
   },
   "lobby": {
-    "roomCode": "Code: ",
     "copy": "Copy",
-    "players": "Players {{n}} / 8",
     "waiting": "Waiting for the host to start the game...",
     "songCount": "Songs",
-    "startGame": "Start game",
     "leave": "Leave",
-    "abandoned": "The game was stopped, so you are back in the lobby."
+    "abandoned": "The game was stopped, so you are back in the lobby.",
+    "seats": "{{seats}} · Players {{n}} / 8",
+    "hostSeat": "Host",
+    "of": "/ {{n}}",
+    "settingsTitle": "Game settings",
+    "whoHost": "Only the host can change these",
+    "whoGuest": "Set by the host",
+    "shareHint": "Send the link: a friend only enters a nickname to join",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy. Press and hold the address to copy it",
+    "songCountDown": "Fewer songs",
+    "songCountUp": "More songs"
   },
   "filter": {
     "type": "Song type",
@@ -47,18 +55,23 @@
     "ed": "ED only",
     "easy": "Easy",
     "normal": "Normal",
-    "hard": "Hard"
+    "hard": "Hard",
+    "years": "Years"
   },
   "answer": {
     "label": "Answer format",
     "chat": "Chat",
     "choice": "Multiple choice",
-    "choiceN": "Choice {{n}}"
+    "choiceN": "Choice {{n}}",
+    "hintChat": "Guess the anime title in the chat",
+    "hintChoice": "Pick from {{k}} covers (4, 6 or 8 by difficulty)"
   },
   "mode": {
     "label": "Game mode",
     "first": "First Come",
-    "ranked": "Ranked"
+    "ranked": "Ranked",
+    "hintFirst": "Only the first to get it right scores",
+    "hintRanked": "The song goes on until everyone answers or picks, and points follow the ranking"
   },
   "seat": {
     "list": "Seats",
@@ -125,7 +138,9 @@
     "live": "{{n}} online",
     "gameStart": "Game starting",
     "songStart": "Song {{n}} started",
-    "gameOver": "Game over"
+    "gameOver": "Game over",
+    "lobbyJoined": "You joined room {{code}}. The host is choosing the settings",
+    "lobbyBack": "Back in the lobby"
   },
   "score": {
     "board": "Scoreboard",
@@ -201,6 +216,80 @@
       "pixel": "Insert coin",
       "matsuri": "Guess the song under the fireworks",
       "manga": "Next chapter: the answer revealed!"
+    }
+  },
+  "skin": {
+    "sunset": {
+      "title": "Rooftop Record Bar",
+      "label": "Tonight's room no.",
+      "admit": "ADMIT ONE",
+      "start": "Drop the needle",
+      "seats": "Tonight's guests",
+      "ready": "In",
+      "empty": "Empty seat"
+    },
+    "rain": {
+      "title": "Dawn by the window: rainy-day requests",
+      "label": "Reserved seat no.",
+      "admit": "RESERVED",
+      "start": "Play the first song",
+      "seats": "By the window",
+      "ready": "Seated",
+      "empty": "Empty chair"
+    },
+    "sakura": {
+      "title": "Bias card pull lounge",
+      "label": "Room code",
+      "admit": "CARD PACK",
+      "start": "Start pulling!",
+      "seats": "Friends gathered",
+      "ready": "Card ready",
+      "empty": "Empty slot"
+    },
+    "neon": {
+      "title": "Club SongRush",
+      "label": "ENTRY CODE",
+      "admit": "VIP",
+      "start": "START SIGNAL",
+      "seats": "GUEST LIST",
+      "ready": "ON LIST",
+      "empty": "—"
+    },
+    "chalk": {
+      "title": "Today's music quiz",
+      "label": "Our class",
+      "admit": "Present",
+      "start": "Class begins",
+      "seats": "Roll call",
+      "ready": "Present ✓",
+      "empty": "Empty seat"
+    },
+    "pixel": {
+      "title": "PLAYER SELECT",
+      "label": "ROOM",
+      "admit": "CREDIT",
+      "start": "PRESS START",
+      "seats": "PLAYERS",
+      "ready": "READY",
+      "empty": "INSERT COIN"
+    },
+    "matsuri": {
+      "title": "Summer festival song quiz booth",
+      "label": "Number tag",
+      "admit": "Entry ticket",
+      "start": "Festival on!",
+      "seats": "Gathered here",
+      "ready": "Lantern lit",
+      "empty": "Empty spot"
+    },
+    "manga": {
+      "title": "Chapter 1: \"Waiting\"",
+      "label": "Serial code",
+      "admit": "VOL.1",
+      "start": "Chapter 1, start!",
+      "seats": "Characters",
+      "ready": "Enter!",
+      "empty": "???"
     }
   }
 }

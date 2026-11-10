@@ -3,8 +3,9 @@ import { useTranslation } from '../i18n/index.js'
 
 // The mood picker in the mockup's markup (D-124, cycle 110): .moods, one
 // toggle button per mood with its .sw swatch and name, the current one
-// pressed. disabled (a guest) disables every button. The game room's header
-// shows it; the start screen and the lobby use it too until cycle 114.
+// pressed. disabled (a guest) disables every button. Only the header's
+// .moodbar shows it, on the start screen, in the lobby and in a game (cycle
+// 114).
 export default function ThemePicker({ value, onPick, disabled = false }) {
   const { t } = useTranslation()
   return (

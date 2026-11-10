@@ -7,12 +7,15 @@
 // M2: the audio context is created at mount without a gesture, so it may be
 // suspended; the 탭하여 소리 켜기 prompt shows in the rejoined game and its
 // click resumes the context.
+// Cycle 114 (D-124, declared): the lobby's room code is read from the
+// ticket's .tk-code through src/testing/lobby.js.
 // Timer rule: fake timers in every test, with the injected now() moved
 // together with the timers.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { lobbyCode } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -182,7 +185,7 @@ describe('M1: the reload socket has 5 s to reach joined', () => {
     deliver(socket, { type: 'snapshot', phase: 'lobby', players: ROSTER, song: null, scores: [] })
     deliver(socket, roster(ROSTER))
     await advance(env, 31_000)
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
     expect(pageText()).not.toContain(REJOIN_FAILED)
     expect(socket.closed).toBe(false)
     expect(stored()).toEqual(ENTRY)

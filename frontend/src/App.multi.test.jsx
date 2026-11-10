@@ -4,12 +4,17 @@
 // lobby when a game is abandoned, and the session side of the clock-jump
 // guard (the drift re-sync clears stale samples; outputLatency only when
 // finite).
+// Cycle 114 (D-124, declared): the lobby is read through src/testing/lobby.js:
+// the room code from the ticket's .tk-code, the roster rows from the seats'
+// name lines (the lobby seats are li.seat now), and the start button
+// .start-row .go. The abandon notice stays a <p>.
 // Timer rule (cycle 039): real timers and waitFor, except the drift-clear test,
 // which needs the pings' 150 ms spacing and uses fake timers.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { lobbyCode, seatNames, startButton } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -67,11 +72,6 @@ function pingsOf(socket) {
 
 function pageText() {
   return document.body.textContent
-}
-
-// The text of every <li> on the page, in document order.
-function listRows() {
-  return Array.from(document.querySelectorAll('li')).map((li) => li.textContent)
 }
 
 // The rows of the list labelled `name` (점수판, 최종 순위); [] when absent.
@@ -414,7 +414,7 @@ describe('watching (a mid-game joiner)', () => {
     deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana (2)' })
     deliver(socket, snapshot(null, 'lobby'))
     deliver(socket, roster(PLAYERS_3))
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
     expect(screen.getByText(WAITING)).toBeTruthy()
     expect(pageText()).not.toContain(WATCHING)
   })
@@ -425,7 +425,7 @@ describe('watching (a mid-game joiner)', () => {
     expect(screen.getByText(WATCHING)).toBeTruthy()
     // The game screen, not the lobby.
     expect(screen.queryByText(WAITING)).toBeNull()
-    expect(pageText()).not.toContain('방 코드:')
+    expect(lobbyCode()).toBeNull()
     const ctx = env.audio.last
     await waitFor(() => expect(env.fetch.urls).toEqual(['/audio/watch']))
     await waitFor(() => expect(ctx.decoded).toHaveLength(1))
@@ -532,25 +532,25 @@ describe('abandoned game', () => {
     expect(source.stop).toHaveBeenCalledTimes(1)
     deliver(socket, roster(PLAYERS_3, 'lobby'))
     expect(source.stop.mock.calls.length).toBeGreaterThan(1)
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
     expect(screen.getByText(WAITING)).toBeTruthy()
     const text = screen.getByText(ABANDONED)
     expect(text.tagName).toBe('P')
-    // The roster rows are still the only <li> on the lobby screen.
-    expect(listRows()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
+    // The roster rows are the seats' name lines.
+    expect(seatNames()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
     expect(pageText()).not.toContain(WATCHING)
     expect(socket.closed).toBe(false)
   })
 
-  it('(b) a watcher with a song:null snapshot who receives roster{lobby} shows the lobby, and as host 게임 시작', async () => {
+  it('(b) a watcher with a song:null snapshot who receives roster{lobby} shows the lobby, and as host the start button', async () => {
     const env = setup()
     const socket = await joinAsWatcher(env, null)
-    expect(pageText()).not.toContain('방 코드:')
+    expect(lobbyCode()).toBeNull()
     deliver(socket, roster([player('Hana (2)', { host: true }), player('Joon')], 'lobby'))
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
     expect(screen.getByText(ABANDONED).tagName).toBe('P')
-    expect(listRows()).toEqual(['Hana (2) (방장) (나)', 'Joon'])
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(seatNames()).toEqual(['Hana (2) (방장) (나)', 'Joon'])
+    expect(startButton()).not.toBeNull()
     expect(pageText()).not.toContain(WATCHING)
   })
 
@@ -560,7 +560,7 @@ describe('abandoned game', () => {
     deliver(socket, roster([...PLAYERS_3, player('Sora')], 'playing'))
     expect(screen.getByText(WATCHING)).toBeTruthy()
     expect(pageText()).not.toContain(ABANDONED)
-    expect(pageText()).not.toContain('방 코드:')
+    expect(lobbyCode()).toBeNull()
   })
 })
 

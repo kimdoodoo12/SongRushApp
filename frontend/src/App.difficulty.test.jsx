@@ -3,11 +3,16 @@
 // message without it, 쉬움 / 어려움 on the applied-conditions line, and the
 // choice kept across games (대기실로, and 나가기 with a new room). Cycle 078
 // (D-093): no solo form; one player plays alone in a room of their own.
+// Cycle 114 (D-124, declared): 난이도 is the lobby's .seg group (쉬움, 보통,
+// 어려움, aria-pressed) instead of a select, still between 곡 종류 and 연도
+// 시작; the start button is .start-row .go. Both through
+// src/testing/lobby.js; the behaviour checked is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { pressedIn, segGroup, setTier, startButton, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 
@@ -44,14 +49,6 @@ function deliver(socket, msg) {
 
 function setNickname(nickname) {
   fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
-}
-
-function choose(label, value) {
-  fireEvent.change(screen.getByLabelText(label), { target: { value } })
-}
-
-function valueOf(label) {
-  return screen.getByLabelText(label).value
 }
 
 // Waits for socket number `count`, opens it and waits for its first message.
@@ -94,12 +91,12 @@ async function hostLobby(env, count = 1, players = HOST_PLAYERS) {
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))
-  expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+  expect(startButton()).not.toBeNull()
   return socket
 }
 
 async function clickStartGame(socket, total = 1) {
-  fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(total))
   return socket.sentOfType('start')[total - 1]
 }
@@ -112,33 +109,28 @@ const gameOver = () => ({
   ],
 })
 
-function optionsOf(label) {
-  return Array.from(screen.getByLabelText(label).options).map((o) => [o.value, o.textContent])
-}
-
-function expectTierSelect() {
-  const select = screen.getByLabelText('난이도')
-  expect(select.tagName).toBe('SELECT')
-  expect(optionsOf('난이도')).toEqual([
-    ['easy', '쉬움'],
-    ['normal', '보통'],
-    ['hard', '어려움'],
-  ])
-  expect(valueOf('난이도')).toBe('normal')
-  const selected = Array.from(select.options).filter((o) => o.selected)
-  expect(selected.map((o) => o.textContent)).toEqual(['보통'])
+function expectTierSeg() {
+  const group = segGroup('난이도')
+  expect(group.classList.contains('seg')).toBe(true)
+  const buttons = Array.from(group.querySelectorAll('button'))
+  expect(buttons.map((b) => b.textContent.trim())).toEqual(['쉬움', '보통', '어려움'])
+  for (const b of buttons) {
+    expect(b.getAttribute('type')).toBe('button')
+    expect(b.disabled).toBe(false)
+  }
+  expect(pressedIn('난이도')).toEqual(['보통'])
   // After 곡 종류 and before 연도 시작 in document order.
-  const type = screen.getByLabelText('곡 종류')
+  const type = segGroup('곡 종류')
   const from = screen.getByLabelText('연도 시작')
-  expect(type.compareDocumentPosition(select) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(select.compareDocumentPosition(from) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(type.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(group.compareDocumentPosition(from) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 }
 
-describe('the 난이도 select', () => {
+describe('the 난이도 seg', () => {
   it('the host controls offer the same options and default', async () => {
     const env = setup()
     await hostLobby(env)
-    expectTierSelect()
+    expectTierSeg()
   })
 })
 
@@ -152,22 +144,22 @@ describe('host start', () => {
   it('보통 chosen explicitly still sends no tier', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    choose('난이도', 'hard')
-    choose('난이도', 'normal')
+    setTier('어려움')
+    setTier('보통')
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10 })
   })
 
   it('쉬움 adds tier:"easy"', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    choose('난이도', 'easy')
+    setTier('쉬움')
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10, tier: 'easy' })
   })
 
   it('어려움 adds tier:"hard"', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    choose('난이도', 'hard')
+    setTier('어려움')
     expect(await clickStartGame(socket)).toEqual({ type: 'start', songCount: 10, tier: 'hard' })
   })
 
@@ -175,10 +167,10 @@ describe('host start', () => {
     const env = setup()
     const first = await hostLobby(env)
     expect(first.sent[0]).toEqual({ type: 'create', nickname: '하루' })
-    choose('난이도', 'easy')
+    setTier('쉬움')
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
     const second = await hostLobby(env, 2)
-    expect(valueOf('난이도')).toBe('easy')
+    expect(pressedIn('난이도')).toEqual(['쉬움'])
     expect(second.sent[0]).toEqual({ type: 'create', nickname: '하루' })
   })
 })
@@ -210,7 +202,7 @@ describe('kept across games', () => {
   it('the host picks 어려움; after a game and 대기실로 it is still selected and sent again', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    choose('난이도', 'hard')
+    setTier('어려움')
     const expected = { type: 'start', songCount: 10, tier: 'hard' }
     expect(await clickStartGame(socket)).toEqual(expected)
     deliver(socket, roster(HOST_PLAYERS, 'playing'))
@@ -219,15 +211,15 @@ describe('kept across games', () => {
     deliver(socket, gameOver())
     deliver(socket, roster(HOST_PLAYERS, 'lobby'))
     fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
-    expect(valueOf('난이도')).toBe('hard')
+    expect(startButton()).not.toBeNull()
+    expect(pressedIn('난이도')).toEqual(['어려움'])
     expect(await clickStartGame(socket, 2)).toEqual(expected)
   })
 
-  it('alone: 어려움 survives a game, 나가기 and a new room, whose 게임 시작 carries tier:"hard"', async () => {
+  it('alone: 어려움 survives a game, 나가기 and a new room, whose start carries tier:"hard"', async () => {
     const env = setup()
     const first = await hostLobby(env, 1, ALONE)
-    choose('난이도', 'hard')
+    setTier('어려움')
     const expected = { type: 'start', songCount: 10, tier: 'hard' }
     expect(await clickStartGame(first)).toEqual(expected)
     deliver(first, roster(ALONE, 'playing'))
@@ -238,7 +230,7 @@ describe('kept across games', () => {
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
     const second = await hostLobby(env, 2, ALONE)
     expect(second.sent[0]).toEqual({ type: 'create', nickname: '하루' })
-    expect(valueOf('난이도')).toBe('hard')
+    expect(pressedIn('난이도')).toEqual(['어려움'])
     expect(await clickStartGame(second)).toEqual(expected)
   })
 })

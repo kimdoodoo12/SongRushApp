@@ -7,6 +7,9 @@
 // arcade) maps to sunset, rain and pixel (docs/cycles/109-eight-moods.md).
 // Cycle 110 (D-124, declared): the applied mood is read from <html
 // data-mood> instead of the shell's data-room-theme; the behaviour is kept.
+// Cycle 114 (D-124, declared): the picker is the header's .moodbar on the
+// start screen and in the lobby too, the only 분위기 group on the page; its
+// .ml label reads 분위기 (방장이 고름) for a guest. The behaviour is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -67,8 +70,19 @@ function rootTheme() {
   return document.documentElement.dataset.mood
 }
 
+// The one mood picker: the header's .moodbar (cycle 114).
 function picker() {
-  return screen.getByRole('group', { name: '분위기' })
+  const groups = screen.getAllByRole('group', { name: '분위기' })
+  expect(groups).toHaveLength(1)
+  expect(groups[0].closest('header .moodbar')).not.toBeNull()
+  return groups[0]
+}
+
+// The header picker's label (.moodbar .ml).
+function pickerLabel() {
+  const label = document.querySelector('header .moodbar .ml')
+  expect(label).not.toBeNull()
+  return label.textContent.trim()
 }
 
 function themeButton(name) {
@@ -137,6 +151,7 @@ describe('start screen picker', () => {
     }
     expect(pressedNames()).toEqual(['노을 옥상'])
     expect(rootTheme()).toBe('sunset')
+    expect(pickerLabel()).toBe('분위기')
   })
 
   it('clicking 칠판 교실 applies chalk to the root and stores it', () => {
@@ -201,6 +216,7 @@ describe('lobby picker', () => {
     const socket = await hostLobby(env)
     expect(rootTheme()).toBe('sunset')
     expect(pressedNames()).toEqual(['노을 옥상'])
+    expect(pickerLabel()).toBe('분위기')
     for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(false)
 
     fireEvent.click(themeButton('네온 시티'))
@@ -218,9 +234,10 @@ describe('lobby picker', () => {
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 
-  it('a non-host sees every button disabled; a server pixel frame applies and presses 8비트 오락실', async () => {
+  it('a non-host sees every button disabled under 분위기 (방장이 고름); a server pixel frame applies and presses 8비트 오락실', async () => {
     const env = setup()
     const socket = await guestLobby(env)
+    expect(pickerLabel()).toBe('분위기 (방장이 고름)')
     for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(true)
     expect(pressedNames()).toEqual(['노을 옥상'])
 

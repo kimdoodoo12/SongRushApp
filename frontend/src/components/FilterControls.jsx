@@ -1,12 +1,36 @@
-import { ANSWER_OPTIONS, GAME_MODE_OPTIONS, TIER_OPTIONS, TYPE_OPTIONS, YEAR_FROM_OPTIONS, YEAR_TO_OPTIONS, isReversed } from '../game/filters.js'
+import { ANSWER_OPTIONS, GAME_MODE_OPTIONS, TIER_OPTIONS, TYPE_OPTIONS, YEAR_FROM_OPTIONS, YEAR_TO_OPTIONS } from '../game/filters.js'
 import { useTranslation } from '../i18n/index.js'
 
-// 곡 종류, 난이도 (F-009), 연도 시작 and 연도 끝 (F-008), 정답 형식
-// (cycle 100) and 게임 모드 (cycle 101), the host's lobby controls.
-// selection is the App-level { songCount, type, from, to, tier, answerMode,
-// gameMode }; onChange gets the whole new selection. The parent disables its
-// start button while the range is reversed; the hint is shown here.
-function FilterControls({ selection, onChange }) {
+// The 정답 형식 hint's cover count per 난이도 (the mockup's choiceK).
+const CHOICE_COVERS = { easy: 4, normal: 6, hard: 8 }
+
+// One .seg group of toggle buttons (the mockup's lobby control): the
+// group's name is its label, the current value is pressed. hint, when
+// given, is the mockup's .oh line under the group.
+function Seg({ label, options, value, disabled, onPick, hint = null }) {
+  const { t } = useTranslation()
+  return (
+    <div className="opt">
+      <span className="ol">{label}</span>
+      <div className="seg" role="group" aria-label={label}>
+        {options.map(([v, key]) => (
+          <button key={v} type="button" aria-pressed={value === v} disabled={disabled} onClick={() => onPick(v)}>
+            {t(key)}
+          </button>
+        ))}
+      </div>
+      {hint !== null && <span className="oh">{hint}</span>}
+    </div>
+  )
+}
+
+// 곡 종류, 난이도 (F-009), 연도 (F-008), 정답 형식 (cycle 100) and 게임 모드
+// (cycle 101), the host's lobby controls, as the mockup's .opt cells (cycle
+// 114): .seg groups and the two .years selects. selection is the App-level
+// { songCount, type, from, to, tier, answerMode, gameMode }; onChange gets
+// the whole new selection. disabled (a guest) disables every control. The
+// parent shows the reversed-range warning and disables its start button.
+function FilterControls({ selection, onChange, disabled = false }) {
   const { t } = useTranslation()
   function set(key, value) {
     onChange({ ...selection, [key]: value })
@@ -14,85 +38,50 @@ function FilterControls({ selection, onChange }) {
 
   return (
     <>
-      <label>
-        {t('filter.type')}
-        <select value={selection.type} onChange={(e) => set('type', e.target.value)}>
-          {TYPE_OPTIONS.map(([value, key]) => (
-            <option key={value} value={value}>
-              {t(key)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t('filter.tier')}
-        <select value={selection.tier} onChange={(e) => set('tier', e.target.value)}>
-          {TIER_OPTIONS.map(([value, key]) => (
-            <option key={value} value={value}>
-              {t(key)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t('filter.from')}
-        <select value={selection.from} onChange={(e) => set('from', e.target.value)}>
-          <option value="">{t('filter.fromAny')}</option>
-          {YEAR_FROM_OPTIONS.map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {t('filter.to')}
-        <select value={selection.to} onChange={(e) => set('to', e.target.value)}>
-          <option value="">{t('filter.toAny')}</option>
-          {YEAR_TO_OPTIONS.map((y) => (
-            <option key={y} value={String(y)}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </label>
-      {isReversed(selection) && <p className="hint col-span-full text-sm text-bad">{t('filter.reversed')}</p>}
-      {/* 정답 형식 (cycle 100, D-111): toggle buttons like the 분위기 picker,
-          kept in the selection with the filters (spec 100 A8). */}
-      <div className="answer-mode col-span-full flex flex-col gap-1">
-        <span className="h-4 truncate text-xs leading-4 text-muted">{t('answer.label')}</span>
-        <div role="group" aria-label={t('answer.label')} className="flex flex-wrap items-center gap-2">
-          {ANSWER_OPTIONS.map(([value, key]) => (
-            <button
-              key={value}
-              type="button"
-              className="pick"
-              aria-pressed={selection.answerMode === value}
-              onClick={() => set('answerMode', value)}
-            >
-              <span className="pick-name">{t(key)}</span>
-            </button>
-          ))}
+      <Seg label={t('filter.type')} options={TYPE_OPTIONS} value={selection.type} disabled={disabled} onPick={(v) => set('type', v)} />
+      <Seg label={t('filter.tier')} options={TIER_OPTIONS} value={selection.tier} disabled={disabled} onPick={(v) => set('tier', v)} />
+      <div className="opt">
+        <span className="ol">{t('filter.years')}</span>
+        <div className="years">
+          <select aria-label={t('filter.from')} value={selection.from} disabled={disabled} onChange={(e) => set('from', e.target.value)}>
+            <option value="">{t('filter.fromAny')}</option>
+            {YEAR_FROM_OPTIONS.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <span>~</span>
+          <select aria-label={t('filter.to')} value={selection.to} disabled={disabled} onChange={(e) => set('to', e.target.value)}>
+            <option value="">{t('filter.toAny')}</option>
+            {YEAR_TO_OPTIONS.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
-      {/* 게임 모드 (cycle 101, D-112): 선착순 or 순위전, the same toggle
-          buttons as 정답 형식, kept in the selection with the filters. */}
-      <div className="game-mode col-span-full flex flex-col gap-1">
-        <span className="h-4 truncate text-xs leading-4 text-muted">{t('mode.label')}</span>
-        <div role="group" aria-label={t('mode.label')} className="flex flex-wrap items-center gap-2">
-          {GAME_MODE_OPTIONS.map(([value, key]) => (
-            <button
-              key={value}
-              type="button"
-              className="pick"
-              aria-pressed={selection.gameMode === value}
-              onClick={() => set('gameMode', value)}
-            >
-              <span className="pick-name">{t(key)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <Seg
+        label={t('answer.label')}
+        options={ANSWER_OPTIONS}
+        value={selection.answerMode}
+        disabled={disabled}
+        onPick={(v) => set('answerMode', v)}
+        hint={
+          selection.answerMode === 'choice'
+            ? t('answer.hintChoice', { k: CHOICE_COVERS[selection.tier] ?? CHOICE_COVERS.normal })
+            : t('answer.hintChat')
+        }
+      />
+      <Seg
+        label={t('mode.label')}
+        options={GAME_MODE_OPTIONS}
+        value={selection.gameMode}
+        disabled={disabled}
+        onPick={(v) => set('gameMode', v)}
+        hint={selection.gameMode === 'ranked' ? t('mode.hintRanked') : t('mode.hintFirst')}
+      />
     </>
   )
 }

@@ -8,10 +8,14 @@
 // missing or malformed entry, or a blocked storage leaves the start screen.
 // Timer rule: fake timers in every test, as in App.reconnect.test.jsx, with
 // the injected now() moved together with the timers.
+// Cycle 114 (D-124, declared): the lobby is read through src/testing/lobby.js:
+// the room code from the ticket's .tk-code, the roster rows from the seats'
+// name lines, and the start button .start-row .go.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { lobbyCode, seatNames, startButton } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -73,10 +77,6 @@ function pageText() {
 function stored() {
   const raw = window.sessionStorage.getItem(STORAGE_KEY)
   return raw === null ? null : JSON.parse(raw)
-}
-
-function listRows() {
-  return Array.from(document.querySelectorAll('li')).map((li) => li.textContent)
 }
 
 const player = (name, { host = false, score = 0, connected = true } = {}) => ({ name, score, host, connected })
@@ -169,9 +169,9 @@ describe('reload into the lobby', () => {
     deliver(socket, joinedMsg)
     deliver(socket, snapshot('lobby', null))
     deliver(socket, roster(ROSTER))
-    expect(pageText()).toContain('방 코드: ABCDE')
-    expect(listRows()).toEqual(['하루 (방장) (나)', 'Mina'])
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(lobbyCode()).toBe('ABCDE')
+    expect(seatNames()).toEqual(['하루 (방장) (나)', 'Mina'])
+    expect(startButton()).not.toBeNull()
     expect(pageText()).not.toContain(RECONNECTING)
     expect(pageText()).not.toContain(REJOIN_FAILED)
     // The clock sync burst starts after joined.
@@ -194,7 +194,7 @@ describe('reload into the lobby', () => {
     deliver(socket, roster(ROSTER))
     expect(pageText()).not.toContain('먼저 온 채팅')
     expect(pageText()).not.toContain('스냅샷 전 채팅')
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
   })
 })
 
@@ -211,7 +211,7 @@ describe('reload into a game', () => {
     expect(pageText()).not.toContain(RECONNECTING)
     expect(pageText()).toContain('1 / 5')
     expect(screen.getByLabelText('정답 입력')).toBeTruthy()
-    expect(pageText()).not.toContain('방 코드:')
+    expect(lobbyCode()).toBeNull()
 
     await flushUntil(() => ctx.decoded.length === 1)
     expect(env.fetch.urls).toEqual(['/audio/re'])
@@ -350,7 +350,7 @@ describe('token refresh', () => {
     deliver(socket, snapshot('lobby', null))
     act(() => socket.serverClose(1006))
     expect(screen.getByText(RECONNECTING)).toBeTruthy()
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
     await advance(env, 500)
     expect(env.sockets.sockets).toHaveLength(2)
     const attempt = env.sockets.last

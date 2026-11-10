@@ -25,14 +25,22 @@
     "manga": "漫画原稿"
   },
   "lobby": {
-    "roomCode": "コード: ",
     "copy": "コピー",
-    "players": "参加者 {{n}} / 8",
     "waiting": "ホストがゲームを始めるのを待っています...",
     "songCount": "曲数",
-    "startGame": "ゲーム開始",
     "leave": "退出",
-    "abandoned": "ゲームが中断されたため、ロビーに戻りました。"
+    "abandoned": "ゲームが中断されたため、ロビーに戻りました。",
+    "seats": "{{seats}} · 参加者 {{n}} / 8",
+    "hostSeat": "ホスト",
+    "of": "/ {{n}}人",
+    "settingsTitle": "ゲーム設定",
+    "whoHost": "ホストだけが変更できます",
+    "whoGuest": "ホストが決めた設定です",
+    "shareHint": "リンクを送れば、友だちはニックネームを入れるだけで入れます",
+    "copied": "リンクをコピーしました",
+    "copyFailed": "コピーできませんでした。アドレスを長押ししてコピーしてください",
+    "songCountDown": "曲数を減らす",
+    "songCountUp": "曲数を増やす"
   },
   "filter": {
     "type": "曲の種類",
@@ -47,18 +55,23 @@
     "ed": "EDのみ",
     "easy": "かんたん",
     "normal": "ふつう",
-    "hard": "むずかしい"
+    "hard": "むずかしい",
+    "years": "年代"
   },
   "answer": {
     "label": "回答形式",
     "chat": "チャット",
     "choice": "選択式",
-    "choiceN": "選択肢{{n}}"
+    "choiceN": "選択肢{{n}}",
+    "hintChat": "チャットでアニメのタイトルを当てます",
+    "hintChoice": "表紙{{k}}枚の中から選びます（難易度により4・6・8枚）"
   },
   "mode": {
     "label": "ゲームモード",
     "first": "早い者勝ち",
-    "ranked": "順位戦"
+    "ranked": "順位戦",
+    "hintFirst": "最初に正解した1人だけが得点します",
+    "hintRanked": "全員が答えるか選ぶまで曲が続き、順位どおりに得点します"
   },
   "seat": {
     "list": "席",
@@ -125,7 +138,9 @@
     "live": "{{n}}人接続中",
     "gameStart": "ゲームを始めます",
     "songStart": "{{n}}曲目スタート",
-    "gameOver": "ゲーム終了"
+    "gameOver": "ゲーム終了",
+    "lobbyJoined": "ルーム {{code}} に入りました。ホストが設定を選んでいます",
+    "lobbyBack": "ロビーに戻りました"
   },
   "score": {
     "board": "スコアボード",
@@ -201,6 +216,80 @@
       "pixel": "Insert coin",
       "matsuri": "花火の下でイントロクイズ",
       "manga": "次回、正解発表！"
+    }
+  },
+  "skin": {
+    "sunset": {
+      "title": "屋上レコードバー",
+      "label": "今夜のルーム番号",
+      "admit": "ADMIT ONE",
+      "start": "レコードを載せる",
+      "seats": "今夜のお客さん",
+      "ready": "入場",
+      "empty": "空席"
+    },
+    "rain": {
+      "title": "夜明けの窓辺、雨の日のリクエスト",
+      "label": "予約席番号",
+      "admit": "RESERVED",
+      "start": "最初の曲をかける",
+      "seats": "窓辺に座る人",
+      "ready": "着席",
+      "empty": "空いた椅子"
+    },
+    "sakura": {
+      "title": "推しカードガチャ待合室",
+      "label": "ルームコード",
+      "admit": "CARD PACK",
+      "start": "ガチャスタート！",
+      "seats": "集まった友だち",
+      "ready": "カード準備完了",
+      "empty": "空きスロット"
+    },
+    "neon": {
+      "title": "Club SongRush",
+      "label": "ENTRY CODE",
+      "admit": "VIP",
+      "start": "START SIGNAL",
+      "seats": "GUEST LIST",
+      "ready": "ON LIST",
+      "empty": "—"
+    },
+    "chalk": {
+      "title": "今日の音楽クイズ",
+      "label": "うちのクラス",
+      "admit": "出席",
+      "start": "授業開始",
+      "seats": "出席簿",
+      "ready": "出席 ✓",
+      "empty": "空席"
+    },
+    "pixel": {
+      "title": "PLAYER SELECT",
+      "label": "ROOM",
+      "admit": "CREDIT",
+      "start": "PRESS START",
+      "seats": "PLAYERS",
+      "ready": "READY",
+      "empty": "INSERT COIN"
+    },
+    "matsuri": {
+      "title": "夏祭り 歌当てブース",
+      "label": "番号札",
+      "admit": "入場券",
+      "start": "祭り開始！",
+      "seats": "集まった人たち",
+      "ready": "提灯点灯",
+      "empty": "空き"
+    },
+    "manga": {
+      "title": "第1話「待機中」",
+      "label": "連載コード",
+      "admit": "VOL.1",
+      "start": "第1話スタート！",
+      "seats": "登場人物",
+      "ready": "登場！",
+      "empty": "???"
     }
   }
 }

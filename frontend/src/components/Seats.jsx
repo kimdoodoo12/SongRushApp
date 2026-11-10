@@ -1,11 +1,9 @@
-import { useContext } from 'react'
 import { nameColour } from '../game/themes.js'
 import { useTranslation } from '../i18n/index.js'
-import { SeatsAsDivs } from './seatList.js'
 
 const SEAT_COUNT = 8
 
-// The same text as the lobby roster row: the name, (방장), then (나).
+// The name line: the name, (방장), then (나).
 function nameText(player, me, t) {
   let text = player.name
   if (player.host) text += ` ${t('seat.host')}`
@@ -28,30 +26,31 @@ function scoreOf(player, scoreboard) {
 // correct is the one first-come winner's name, or in a ranked game (cycle
 // 101) the list of every name that answered correctly; null for none. Chat
 // is shown only in the chat log, never in a seat.
-export default function Seats({ players, me, scoreboard, correct }) {
+// skin is the lobby's (cycle 114, the mockup's renderSeats while idle):
+// { ready, empty } from the mood's SKIN; then small reads 방장 for the host
+// and skin.ready for the others, and an empty seat reads skin.empty.
+export default function Seats({ players, me, scoreboard, correct, skin = null }) {
   const { t } = useTranslation()
-  const asDivs = useContext(SeatsAsDivs)
-  const List = asDivs ? 'div' : 'ol'
-  const Item = asDivs ? 'div' : 'li'
-  const itemRole = asDivs ? 'listitem' : undefined
 
   const seats = []
   for (let i = 0; i < SEAT_COUNT; i += 1) {
     const player = players[i]
     if (player === undefined) {
       seats.push(
-        <Item key={`empty-${i}`} role={itemRole} className="seat empty">
-          {t('seat.empty')}
-        </Item>,
+        <li key={`empty-${i}`} className="seat empty">
+          {skin === null ? t('seat.empty') : skin.empty}
+        </li>,
       )
       continue
     }
-    const won = Array.isArray(correct) ? correct.includes(player.name) : correct === player.name
+    const won = skin === null && (Array.isArray(correct) ? correct.includes(player.name) : correct === player.name)
     const connected = player.connected !== false
+    let small
+    if (skin !== null) small = player.host ? t('lobby.hostSeat') : skin.ready
+    else small = t('seat.score', { score: scoreOf(player, scoreboard) })
     seats.push(
-      <Item
+      <li
         key={player.name}
-        role={itemRole}
         data-connected={String(connected)}
         className={`seat${won ? ' win' : ''}${connected ? '' : ' opacity-50'}`}
       >
@@ -61,17 +60,17 @@ export default function Seats({ players, me, scoreboard, correct }) {
         <span className="sm">
           <b>{nameText(player, me, t)}</b>
           <small>
-            {t('seat.score', { score: scoreOf(player, scoreboard) })}
+            {small}
             {won && <span className="ok">{t('seat.correct')}</span>}
           </small>
         </span>
-      </Item>,
+      </li>,
     )
   }
 
   return (
-    <List role={asDivs ? 'list' : undefined} aria-label={t('seat.list')} className="seat-grid">
+    <ol aria-label={t('seat.list')} className="seat-grid">
       {seats}
-    </List>
+    </ol>
   )
 }

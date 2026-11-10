@@ -2,14 +2,13 @@ import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { canPlayOggOpus } from './audio/playback.js'
 import { startSession } from './game/session.js'
 import { initialState, reducer } from './game/state.js'
-import { DEFAULT_SELECTION, isReversed, toFields } from './game/filters.js'
+import { DEFAULT_SELECTION, isReversed, settingsLine, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
-import GameScreen from './components/GameScreen.jsx'
+import GameScreen, { Frame } from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import FeedbackDialog from './components/FeedbackDialog.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
-import { SeatsAsDivs } from './components/seatList.js'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 import { gainOf, loadVolume, saveVolume, toggleMute, withLevel } from './game/volume.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
@@ -362,11 +361,28 @@ function GameApp({
     return () => document.body.classList.remove('choice-mode')
   }, [choiceGame])
 
+  // The view the frame shows: 'start', 'lobby', or 'game' (also over and
+  // disconnected). body.lobby-on is the lobby's (the mockup's showView), for
+  // room.css's per-mood lobby seats.
+  const view = page
+  useLayoutEffect(() => {
+    document.body.classList.toggle('lobby-on', view === 'lobby')
+    return () => document.body.classList.remove('lobby-on')
+  }, [view])
+
+  // A view switch starts at the top, as the mockup's showView does: the
+  // stage (its own scroller on wide screens) and the page. Not on mount.
+  const shownViewRef = useRef(view)
+  useLayoutEffect(() => {
+    if (shownViewRef.current === view) return
+    shownViewRef.current = view
+    const stage = document.querySelector('.stage')
+    if (stage !== null) stage.scrollTop = 0
+    window.scrollTo(0, 0)
+  }, [view])
+
   const banner = state.reconnecting && (
-    <p
-      className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
-      role="status"
-    >
+    <p className="warn" role="status">
       {t('app.reconnecting')}
     </p>
   )
@@ -382,8 +398,9 @@ function GameApp({
     </footer>
   )
   const feedback = feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />
+  const volumeProps = { volume, onVolumeLevel: handleVolumeLevel, onToggleMute: handleToggleMute }
 
-  if (state.screen !== 'start' && state.screen !== 'lobby') {
+  if (view === 'game') {
     return (
       <>
         <GameScreen
@@ -396,9 +413,7 @@ function GameApp({
           onReset={handleReset}
           onToLobby={handleToLobby}
           onUnlockSound={handleUnlockSound}
-          volume={volume}
-          onVolumeLevel={handleVolumeLevel}
-          onToggleMute={handleToggleMute}
+          {...volumeProps}
           banner={banner}
           footer={footer}
         />
@@ -407,53 +422,62 @@ function GameApp({
     )
   }
 
-  // The start screen and the lobby keep their own layout until cycle 114,
-  // under the mockup's header and logo.
-  return (
-    <div className="flex min-h-screen flex-col">
-      <header>
-        <h1 className="logo">
-          <span className="eq" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          SongRush
-        </h1>
-      </header>
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
-        {banner}
-        {state.screen === 'start' && (
+  if (view === 'start') {
+    return (
+      <>
+        <Frame
+          code={null}
+          line=""
+          picker={{ value: ownTheme, onPick: handleOwnTheme, disabled: false }}
+          {...volumeProps}
+          banner={banner}
+          footer={footer}
+          chat={null}
+        >
           <StartScreen
             canPlayOpus={opusOk}
             error={state.startError}
             initialCode={initialCode}
-            theme={ownTheme}
-            onPickTheme={handleOwnTheme}
             onCreate={handleCreate}
             onJoin={handleJoin}
           />
-        )}
-        {state.screen === 'lobby' && (
-          <SeatsAsDivs.Provider value={true}>
-            <LobbyScreen
-              room={state.room}
-              players={state.players}
-              error={state.error}
-              notice={state.notice}
-              theme={roomTheme}
-              onPickTheme={handleRoomTheme}
-              selection={selection}
-              onSelectionChange={setSelection}
-              onStartGame={handleStartGame}
-              onLeave={handleLeave}
-            />
-          </SeatsAsDivs.Provider>
-        )}
-        {footer}
+        </Frame>
         {feedback}
-      </div>
-    </div>
+      </>
+    )
+  }
+
+  // The lobby (cycle 114): the header shows the room code and, for the
+  // host, the settings line of the lobby selection; the chat is open.
+  const room = state.room
+  const own = state.players.find((p) => p.name === room.me)
+  const isHost = own !== undefined && own.host
+  const online = state.players.filter((p) => p.connected !== false).length
+  return (
+    <>
+      <Frame
+        code={room.code}
+        line={isHost ? settingsLine(toFields(selection), t) : ''}
+        picker={{ value: roomTheme, onPick: handleRoomTheme, disabled: !isHost }}
+        {...volumeProps}
+        banner={banner}
+        footer={footer}
+        chat={{ lines: state.chat, me: room.me, online, onSend: handleChat }}
+      >
+        <LobbyScreen
+          room={room}
+          players={state.players}
+          error={state.error}
+          notice={state.notice}
+          theme={roomTheme}
+          selection={selection}
+          onSelectionChange={setSelection}
+          onStartGame={handleStartGame}
+          onLeave={handleLeave}
+        />
+      </Frame>
+      {feedback}
+    </>
   )
 }
 
