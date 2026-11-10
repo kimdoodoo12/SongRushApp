@@ -228,6 +228,12 @@ spread; run twice when in doubt.
 | 2026-11-09 | baseline-1 | index-BL8wr47a.js | 5/5 | 6759 | 5/5 | 6304 | 3.59 | 0.56 | 1469 | 367 (identity) | 2189–2888 |
 | 2026-11-09 | baseline-2 | index-BL8wr47a.js | 5/5 | 9162 | 5/5 | 7012 | 3.60 | 0.40 | 1760 | 367 (identity) | 1861–2066 |
 | 2026-11-09 | baseline-3 | index-BL8wr47a.js | 5/5 | 7426 | 5/5 | 4640 | 3.48 | 0.53 | 1835 | 367 (identity) | 1839–2050 |
+| 2026-11-10 | step1-off-1 | index-BL8wr47a.js | 5/5 | 7051 | 5/5 | 8732 | 3.58 | 0.43 | 1680 | 367 (identity) | 4956–5747 |
+| 2026-11-10 | step1-off-2 | index-BL8wr47a.js | 5/5 | 9946 | 5/5 | 7884 | 3.58 | 0.36 | 1393 | 367 (identity) | 5069–6253 |
+| 2026-11-10 | step1-off-3 | index-BL8wr47a.js | 4/5 | 12507 | 4/5 | 9396 | 3.66 | 0.39 | 1919 | 367 (identity) | 5212–5344 |
+| 2026-11-10 | step1-on-1 | index-BL8wr47a.js | 5/5 | 2483 | 5/5 | 2632 | 3.56 | 1.53 | 1764 | 367 (identity) | 4248–8158 |
+| 2026-11-10 | step1-on-2 | index-BL8wr47a.js | 5/5 | 2380 | 5/5 | 2775 | 3.62 | 1.66 | 1995 | 367 (identity) | 2235–5228 |
+| 2026-11-10 | step1-on-3 | index-BL8wr47a.js | 5/5 | 2309 | 5/5 | 2401 | 3.52 | 1.33 | 1751 | 367 (identity) | 5090–21109 |
 
 ## Annotated captures (for the report)
 `python -I perf/annotate.py --spec perf/annotations.json --out docs/perf/annotated` draws red boxes and labels on copies of the captures (coordinates in `perf/annotations.json`). The originals in `perf/results/shots/` are never changed. Needs Pillow (system Python; not in `data/.venv`). New captures need new coordinates.

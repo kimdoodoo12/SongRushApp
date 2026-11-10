@@ -36,6 +36,19 @@
       "boxes": [
         {"x": 404, "y": 278, "w": 468, "h": 536, "label": "음원 대기 중", "label_at": "top-right"}
       ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step1-on-devtools-choice-done.png",
+      "boxes": [
+        {"x": 3, "y": 487, "w": 850, "h": 38, "label": "음원 3.6 MB · 2.42초\n(CloudFront)", "label_at": "right"},
+        {"x": 3, "y": 529, "w": 850, "h": 240, "label": "표지 6장 · 0.9~1.4초", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step1-on-devtools-chat-done.png",
+      "boxes": [
+        {"x": 3, "y": 241, "w": 850, "h": 38, "label": "음원 3.6 MB · 4.86초\n(CloudFront)", "label_at": "right"}
+      ]
     }
   ]
 }
