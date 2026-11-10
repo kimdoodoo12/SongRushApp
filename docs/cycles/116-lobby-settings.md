@@ -73,3 +73,20 @@ The host's lobby selection (song count, filter, answer mode, game mode) is share
 ## Out of scope
 - Guests changing settings.
 - Persisting the selection.
+
+## Result
+- **Commits.**
+  - Spec: `6d22c59`, round 2 `8cfae41`.
+  - Tests: `68e1d3a` and `6ac0b38`, locked.
+  - Implementation: `9cc1300`.
+  - Declared test fix: `d31a8a7`. The `skipSong` helper did not ready late joiners, so the round-2 tests stuck in PREPARE. The implementer reported this without editing the test.
+  - Critic round fix: tests `d748488`, fix `2c3ff6f`.
+- **Verifier** (on `d31a8a7`):
+  - `gradlew cleanTest test`: BUILD SUCCESSFUL, 926 tests, 0 failures, 1 skipped. `LobbySettingsTest` 23/23, `LobbySettingsSocketTest` 12/12.
+  - `npm test` 674/674. Lint is clean and the build passes.
+  - `9cc1300` touched no test.
+  - `lobbySettings` is sent only per member (no `toAll`).
+- **Critic code review.**
+  - High: after the host's socket drops and the host rejoins, it never resends its selection. Fixed in `2c3ff6f`: a `lobbyRestores` counter, bumped on each restore into the lobby, is now a dependency of the send effect.
+  - Checked and fine: `start`'s behaviour and error order, the change-only map equality, the send points, and secrecy.
+- **Lead, after the fix:** `npm test` 678/678, lint clean. The backend is unchanged by the fix.
