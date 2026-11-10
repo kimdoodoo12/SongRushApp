@@ -131,6 +131,9 @@ export function startSession({
   let myName = null
   // The current song: { index, revealed, buffer, start, source, watching,
   // lateStart, provisional, choices, audioDone, imagesLeft, readySent }.
+  // held: a prepare with holdMs whose prepare, loaded and loadFailed are not
+  // dispatched yet (cycle 107); prepareAction is that prepare and outcome the
+  // load's result ('loaded' or 'failed'), dispatched when the hold ends.
   // lateStart is a watched song's { startAt, deadlineAt }, kept until a
   // clock estimate exists. provisional: the start used a drifted receipt and
   // fresh pongs may move it earlier (spec 051); a new round (prepare,
@@ -151,6 +154,10 @@ export function startSession({
   let skipsSent = 0
   let skipsRefused = 0
   let timer = null
+  // The hold of a prepare with holdMs during a reveal (cycle 107, D-119):
+  // the round loads at once but the screen keeps the reveal until the timer
+  // or the round's start ends it.
+  let holdTimer = null
   const sync = createClockSync({ now, send, schedule: scheduleTimeout })
   let resyncTimer = null
   // Reconnect state: the last token and the room code; whether a rejoin is
@@ -345,6 +352,9 @@ export function startSession({
       audioDone: false,
       imagesLeft: 0,
       readySent: false,
+      held: false,
+      prepareAction: null,
+      outcome: null,
     }
   }
 
@@ -394,7 +404,8 @@ export function startSession({
         if (!current()) return
         r.buffer = buffer
         r.audioDone = true
-        dispatch({ type: 'loaded' })
+        if (r.held) r.outcome = 'loaded'
+        else dispatch({ type: 'loaded' })
         maybeReady(r)
         schedule(r)
       },
@@ -402,7 +413,8 @@ export function startSession({
         if (!current()) return
         console.warn('audio load failed twice', err)
         r.audioDone = true
-        dispatch({ type: 'loadFailed' })
+        if (r.held) r.outcome = 'failed'
+        else dispatch({ type: 'loadFailed' })
         maybeReady(r)
       },
     )
@@ -414,7 +426,31 @@ export function startSession({
     return { picked: ownPick.choice, pickWrong: ownPick.wrong, pickLocked: true }
   }
 
+  function clearHold() {
+    if (holdTimer !== null) {
+      clearTimeout(holdTimer)
+      holdTimer = null
+    }
+  }
+
+  // The hold ends (its timer, or the round's start): the prepared round shows
+  // as a normal prepare shows it, then the load's result if it is known.
+  function endHold(r) {
+    clearHold()
+    if (!r.held) return
+    r.held = false
+    dispatch(r.prepareAction)
+    soundCheck()
+    if (r.outcome === 'loaded') dispatch({ type: 'loaded' })
+    else if (r.outcome === 'failed') dispatch({ type: 'loadFailed' })
+  }
+
   function onPrepare(msg) {
+    clearHold()
+    // A reveal is on screen: the last round was revealed, or is a held
+    // round whose hold keeps the reveal still.
+    const revealShown = round !== null && (round.revealed || round.held)
+    const hold = revealShown && Number.isFinite(msg.holdMs) && msg.holdMs > 0
     const r = newRound(msg.index, false, null, choiceUrls(msg.choices))
     round = r
     inGame = true
@@ -427,15 +463,25 @@ export function startSession({
     if (myName !== null && correctNames.includes(myName)) {
       ownPick = { index: msg.index, choice: ownPick === null ? null : ownPick.choice, wrong: false }
     }
-    dispatch({
+    const action = {
       type: 'prepare',
       index: msg.index,
       total: msg.total,
       choices: r.choices,
       correctNames,
       ...pickFields(msg.index),
-    })
-    soundCheck()
+    }
+    if (hold) {
+      r.held = true
+      r.prepareAction = action
+      holdTimer = setTimeout(() => {
+        holdTimer = null
+        if (active && round === r) endHold(r)
+      }, msg.holdMs)
+    } else {
+      dispatch(action)
+      soundCheck()
+    }
     load(r, msg.audioUrl)
   }
 
@@ -451,6 +497,7 @@ export function startSession({
 
   function onStart(msg) {
     if (round === null || msg.index !== round.index) return
+    if (round.held) endHold(round)
     const { offsetMs, provisional } = startOffset(msg.serverTime)
     round.provisional = provisional
     beginStart(round, { startAt: msg.startAt, deadlineAt: msg.deadlineAt, offsetMs })
@@ -482,6 +529,7 @@ export function startSession({
 
   // The current round ends: its source stops and late callbacks are ignored.
   function dropRound() {
+    clearHold()
     stopTimer()
     if (round !== null) {
       round.revealed = true
@@ -495,6 +543,7 @@ export function startSession({
   // PLAYING starts late once a clock estimate exists, PREPARE sends ready.
   function onRejoinSnapshot(msg) {
     awaitingSnapshot = false
+    clearHold()
     dropRound()
     resetSkips()
     const playing = msg.phase === 'playing'
@@ -574,6 +623,7 @@ export function startSession({
     inGame = false
     ownPick = null
     resetSkips()
+    clearHold()
     dropRound()
     dispatch({ type: 'abandoned' })
   }
@@ -644,6 +694,7 @@ export function startSession({
       case 'gameOver': {
         const row = ownRow(msg.ranking)
         stopTimer()
+        clearHold()
         inGame = false
         ownPick = null
         dispatch({
@@ -720,6 +771,7 @@ export function startSession({
   function shutdown() {
     active = false
     cancelReconnect()
+    clearHold()
     stopTimer()
     stopSync()
     stopSource()

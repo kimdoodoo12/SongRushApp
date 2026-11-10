@@ -1,11 +1,17 @@
 """Captures the Edge DevTools Network panel on a live SongRush site (cycle 104, D-115).
 
 Run 103's charts were redrawn from the measurements; this tool captures the
-measurement itself, the browser's own Network panel, for three views:
+measurement itself, the browser's own Network panel, for these views:
 
 - pageload: the home page loaded with "Disable cache" checked;
 - choice: one song of a choice room, while it loads and when its audio is done;
-- chat: the same two moments in a chat room.
+- chat: the same two moments in a chat room;
+- between (cycle 107, D-119): a chat room's gap between song 1 and song 2.
+  Once song 1 is audible the Network log is cleared and 스킵 clicked; about
+  2 s into the reveal DevTools is shot while still recording (with the
+  prefetch-on-reveal mode on, song 2's download shows during the reveal),
+  then the game; once song 2 is audible recording stops and DevTools is shot
+  again.
 
 How it works (docs/cycles/104-devtools-captures.md):
 1. Edge runs as a normal process with a fresh profile in the temp folder,
@@ -33,7 +39,9 @@ How it works (docs/cycles/104-devtools-captures.md):
 Writes perf/results/shots/<label>-devtools-<view>.png and, for the song views,
 <label>-game-<format>-<moment>.png, and prints each saved path (its KST time
 goes to stderr). The song views' "loading" shots are taken 1 s after the
-loading text appears, the "done" shots once the song's audio is done.
+loading text appears, the "done" shots once the song's audio is done. The
+between view writes <label>-devtools-between-reveal.png,
+<label>-game-between-reveal.png and <label>-devtools-between-done.png.
 
     python -X utf8 perf/devtools_shot.py --label baseline
 
@@ -62,7 +70,7 @@ REPO_DIR = PERF_DIR.parent
 SHOTS_DIR = PERF_DIR / "results" / "shots"
 
 DEFAULT_BASE = "https://animeopguessr.com/"
-VIEWS = ("pageload", "choice", "chat")
+VIEWS = ("pageload", "choice", "chat", "between")
 EDGE_CANDIDATES = (
     r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
     r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
@@ -88,6 +96,14 @@ DONE_TIMEOUT_MS = 90_000
 # Seconds after the loading text appears before the "loading" shot; short,
 # so the shot shows the downloads running even on a fast network.
 LOADING_SHOT_DELAY_S = 1.0
+# Seconds into the reveal before the between view's DevTools shot: late
+# enough for song 2's prepare (sent when the reveal starts, in the early
+# mode) to have started its download, early enough to be within the 5 s reveal.
+BETWEEN_SHOT_DELAY_S = 2.0
+REVEAL_TIMEOUT_MS = 30_000
+# Song 2 becomes audible at most about reveal 5 s + prepare timeout + lead later.
+BETWEEN_DONE_TIMEOUT_MS = 120_000
+SKIP_BUTTON = "스킵"
 # Seconds for DevTools' viewport-size overlay to fade before a game shot.
 OVERLAY_FADE_S = 1.5
 # Korean time for the shot log (fixed UTC+9, no DST).
@@ -232,6 +248,9 @@ def shot_paths(label):
         for moment in ("loading", "done"):
             paths[f"{fmt}-{moment}"] = SHOTS_DIR / f"{label}-devtools-{fmt}-{moment}.png"
             paths[f"game-{fmt}-{moment}"] = SHOTS_DIR / f"{label}-game-{fmt}-{moment}.png"
+    for moment in ("reveal", "done"):
+        paths[f"between-{moment}"] = SHOTS_DIR / f"{label}-devtools-between-{moment}.png"
+    paths["game-between-reveal"] = SHOTS_DIR / f"{label}-game-between-reveal.png"
     return paths
 
 
@@ -272,7 +291,7 @@ def view_list(text):
 def parse_args(argv):
     parser = argparse.ArgumentParser(
         description="Capture the Edge DevTools Network panel on a live SongRush site "
-                    "(page load, one choice song, one chat song).")
+                    "(page load, one choice song, one chat song, the gap between two songs).")
     parser.add_argument("--label", required=True, help="run label (goes into the file names)")
     parser.add_argument("--base", default=DEFAULT_BASE, help=f"site root (default {DEFAULT_BASE})")
     parser.add_argument("--views", type=view_list, default=list(VIEWS),
@@ -506,7 +525,8 @@ def capture_pageload(dt, site, base, paths):
     devtools_shot(dt, paths["pageload"])
 
 
-def capture_song(dt, site, fmt, paths):
+def start_game(dt, site, fmt):
+    """Creates a fresh room in the format, clears the Network log, starts the game."""
     open_network(dt, FONT_FILTER)
     site.evaluate("() => { try { localStorage.clear(); sessionStorage.clear(); } catch (e) {} }")
     site.reload()
@@ -523,6 +543,9 @@ def capture_song(dt, site, fmt, paths):
     time.sleep(0.5)
     site.get_by_role("button", name="게임 시작").click()
 
+
+def capture_song(dt, site, fmt, paths):
+    start_game(dt, site, fmt)
     site.get_by_text(LOADING_TEXT).first.wait_for(timeout=LOADING_TIMEOUT_MS)
     time.sleep(LOADING_SHOT_DELAY_S)
     devtools_shot(dt, paths[f"{fmt}-loading"])
@@ -534,6 +557,33 @@ def capture_song(dt, site, fmt, paths):
     time.sleep(1)
     devtools_shot(dt, paths[f"{fmt}-done"])
     game_shot(site, paths[f"game-{fmt}-done"])
+
+
+def capture_between(dt, site, paths):
+    """The gap between song 1 and song 2 of a chat game (cycle 107)."""
+    start_game(dt, site, "chat")
+    site.wait_for_selector(".stage-hint", timeout=DONE_TIMEOUT_MS)  # song 1 audible
+    time.sleep(1)
+    # Only the gap's requests should show: song 2's download, and the reveal cover.
+    dt.get_by_role("button", name="Clear network log").click()
+    time.sleep(0.5)
+    site.get_by_role("button", name=SKIP_BUTTON, exact=True).click()
+    site.wait_for_selector("section.reveal", timeout=REVEAL_TIMEOUT_MS)
+    # Start the overlay fade now, so the game shot below still lands in the reveal.
+    site.mouse.move(0, 0)
+    time.sleep(BETWEEN_SHOT_DELAY_S)
+    devtools_shot(dt, paths["between-reveal"])  # still recording
+    if not site.locator("section.reveal").first.is_visible():
+        log("the reveal card was gone before the game shot; "
+            f"{rel(paths['game-between-reveal'])} shows the screen after it")
+    game_shot(site, paths["game-between-reveal"])
+
+    # The hint is hidden during the reveal and shows again once song 2 is audible.
+    site.wait_for_selector(".stage-hint", timeout=BETWEEN_DONE_TIMEOUT_MS)
+    time.sleep(1)
+    dt.keyboard.press("Control+E")  # stop recording
+    time.sleep(1)
+    devtools_shot(dt, paths["between-done"])
 
 
 def safe_message(err):
@@ -563,6 +613,8 @@ def main(argv=None):
                 with edge_session(pw, args.edge, profile, args.base) as (dt, site):
                     if view == "pageload":
                         capture_pageload(dt, site, args.base, paths)
+                    elif view == "between":
+                        capture_between(dt, site, paths)
                     else:
                         capture_song(dt, site, view, paths)
     except Exception as err:  # reported, then the tool exits 1

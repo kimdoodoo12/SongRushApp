@@ -93,6 +93,25 @@ def summarize_group(results):
     return summary
 
 
+def between_summary(results):
+    """The between-songs wait of one group (cycle 107, D-119).
+
+    {"chat": {...}, "choice": {...}, "all": {...}}, each {"between_s": pooled
+    median of betweenSongs_ms over every song of every result of that format
+    (both formats for "all"), in seconds rounded to 1 decimal, or None}.
+    Kept apart from summarize_group, whose per-format dict is pinned exactly.
+    """
+    def pooled(formats):
+        values = [s.get("betweenSongs_ms")
+                  for result in results for s in result["songs"]
+                  if s.get("format") in formats]
+        return {"between_s": _seconds(median(values))}
+
+    summary = {fmt: pooled((fmt,)) for fmt in FORMATS}
+    summary["all"] = pooled(FORMATS)
+    return summary
+
+
 def ratio(numerator, denominator):
     """numerator / denominator rounded to 1 decimal ("약 N배"), or None when
     either is missing or the denominator is not positive."""

@@ -52,6 +52,22 @@ Per song (`songs` in the JSON):
   no query; times are ms since the song's `prepare` on the same clock as
   `prepareToAudioDone_ms`; `bytes` is the response body as transferred.
 
+- Between songs (cycle 107, D-119), for song 2 onward (none for song 1, or
+  when a needed frame is missing). All are measured from the previous song's
+  `reveal` receipt; the reveal card lasts 5 s:
+  - `betweenSongs_ms`: until this song is audible, the wait a player sees
+    between two songs. The audible moment is the `start` receipt plus
+    (`startAt` - `serverTime`) of that `start` frame (the lead the client
+    waits before playing). The main number for step 2 (곡 사이 대기).
+  - `prepareAfterReveal_ms`: until this song's `prepare`. About 0 when the
+    server prepares the next song as the reveal starts
+    (`SONGRUSH_GAME_PREFETCHONREVEAL=true`), about 5000 when it waits for
+    the reveal to end. It shows which mode a run measured.
+  - `prevRevealToReady_ms`: until this browser sent `ready`.
+
+  The round record keeps the first `start` frame's `startAt` and `serverTime`
+  for this.
+
 Requests are attributed to the song that was current when the page made them.
 Failed requests go to `failedRequests` (format, round, host, path, error), and
 requests still running at the end of a game to `uncountedRequests`.
@@ -68,7 +84,11 @@ only the checkout's).
 counts: `songs`, `readyBeforeStart`, `audio_missing` (songs whose audio
 download was not seen), and `prepareToReady_censored` (true when a song
 without a ready, counted at its start time, sits at the median, so the real
-median is higher).
+median is higher). Since cycle 107 also `betweenSongs_ms` (median), and
+`readyBeforeRevealEnd` of `readyBeforeRevealEnd_total`: of the songs from
+song 2 on, how many were ready within 5 s of the previous reveal, that is
+before the reveal card ended. Result files from before cycle 107 have none of
+the between values.
 
 Per run (`environment`): `client` (`os`, `browser`, `version` and `note`, the
 free text of `--env-note`), `server` (where the site runs, constants in the
@@ -159,7 +179,7 @@ python -X utf8 perf/devtools_shot.py --label baseline
 ```
 
 - `--base URL`: site root (default `https://animeopguessr.com/`).
-- `--views pageload,choice,chat`: which views to capture (default all three).
+- `--views pageload,choice,chat,between`: which views to capture (default all four).
 - `--edge PATH`: `msedge.exe` (default: under Program Files (x86), then Program Files).
 
 It writes to `perf/results/shots/` and prints each saved path (with its
@@ -173,6 +193,15 @@ Korean time, HH:MM KST, and the Network summary line on stderr):
 - `<label>-devtools-{choice,chat}-{loading,done}.png`: one song's requests,
   1 s after 음원을 불러오는 중 appears, and when the song's audio is done.
 - `<label>-game-{choice,chat}-{loading,done}.png`: the game page at the same moments.
+- The `between` view (cycle 107) plays a chat game. Once song 1 is audible it
+  clears the Network log and presses 스킵, then:
+  - `<label>-devtools-between-reveal.png`: about 2 s into the reveal, still
+    recording. With the prefetch-on-reveal mode on, song 2's audio download
+    shows here, during the reveal.
+  - `<label>-game-between-reveal.png`: the game page, showing the reveal card.
+    If the card is already gone (the mode off: it lasts 5 s), the log says so.
+  - `<label>-devtools-between-done.png`: once song 2 is audible, with
+    recording stopped.
 
 It opens a visible Edge window, with DevTools undocked, for about 3 minutes;
 leave it alone while it runs. The profile is a fresh temp folder, deleted at
@@ -187,6 +216,22 @@ nothing is written and the tool exits 1. The S3 bucket host (shown under each
 name with big rows; it holds the AWS account id) is replaced by
 `S3 (ap-southeast-2)` and checked the same way, and neither it nor a signature
 is ever printed in the log.
+
+## Comparison chart
+
+`perf/compare.py` draws the before/after chart of one improvement step from
+result JSONs (system Python, it needs matplotlib):
+
+```
+python -X utf8 perf/compare.py --before <json ...> --after <json ...> --before-label "..." --after-label "..." --title "..." --out docs/perf/stepN/compare-stepN.png
+```
+
+Two panels by default: audio download done per format, and the download
+speed. `--between` (cycle 107) adds a third panel, 곡 사이 대기 (초): the
+median of `betweenSongs_ms` over every song of every run, per format, before
+and after, and prints `before between_s: ...` / `after between_s: ...`. Older
+result files have no such values and show 없음. Without `--between` the chart
+and the printed lines are as before.
 
 ## Tests
 
