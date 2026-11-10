@@ -136,3 +136,7 @@
   - After 107 is deployed, re-measure off (env false) and on (env true) on the 107 build. Use those for the report.
   - The pre-107 runs stay as a cross-check.
 - **Reporting (M2).** `readyBeforeRevealEnd` is 0 by definition when off. The report leads with `betweenSongs_ms`.
+- **Spoiler guard edge case.**
+  - A chat that itself ends song N at its deadline also triggers N+1's early prepare.
+  - That line is broadcast even if it matches N+1, because its sender could not have heard N+1 yet.
+  - The locked deadline test requires this behaviour.
