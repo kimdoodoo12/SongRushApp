@@ -26,11 +26,40 @@ function nextFrame(callback) {
   else setTimeout(callback, 16)
 }
 
-// The mockup's play(): restarts .revealed, so its animation runs again.
-function play(deck) {
+// The mockup's flyIn (cycle 112): .cover flies from the correct choice
+// tile's frame to its own box. Nothing without Web Animations (jsdom) or
+// when either box has no width (the mockup's guard).
+function flyIn(tile, cov) {
+  if (typeof cov.animate !== 'function') return
+  nextFrame(() => {
+    const a = tile.getBoundingClientRect()
+    const b = cov.getBoundingClientRect()
+    if (!a.width || !b.width) return
+    const base = getComputedStyle(cov).transform
+    // jsdom reports '' where a browser reports 'none'.
+    const end = base === 'none' || base === '' ? 'translate(0,0) scale(1)' : base
+    const dx = a.left + a.width / 2 - (b.left + b.width / 2)
+    const dy = a.top + a.height / 2 - (b.top + b.height / 2)
+    const sc = a.width / b.width
+    cov.animate(
+      [
+        { transform: `translate(${dx}px,${dy}px) scale(${sc})`, opacity: 0.6 },
+        { transform: end, opacity: 1 },
+      ],
+      { duration: 750, easing: 'cubic-bezier(.2,.9,.3,1.1)' },
+    )
+  })
+}
+
+// The mockup's play(): restarts .revealed, so its animation runs again, and
+// in a choice game flies the cover in from the correct tile (the mockup's
+// flyTile, .tile.correct .tframe), unless motion is reduced.
+function play(deck, cover) {
   deck.classList.remove('revealed')
   void deck.offsetWidth
   deck.classList.add('revealed')
+  const tile = document.querySelector('.tile.correct .tframe')
+  if (tile !== null && !reducedMotion()) flyIn(tile, cover)
 }
 
 // The mockup's img.onload: --ar from the image's own proportions, clamped,
@@ -141,12 +170,12 @@ export default function Deck({ idle, revealed, reveal, title, outcome, number, m
     if (src === null) {
       cover.style.setProperty('--ar', NO_IMAGE_AR)
       deck.style.setProperty('--peek', NO_IMAGE_PEEK)
-      play(deck)
+      play(deck, cover)
       return
     }
     if (img.complete && img.naturalWidth) {
       fit(deck, cover, img)
-      play(deck)
+      play(deck, cover)
       if (mood === 'pixel') pixelate(img, pixRef.current, shotRef.current, pixJobs)
     }
   }, [revealed, reveal, src, mood])
@@ -155,7 +184,7 @@ export default function Deck({ idle, revealed, reveal, title, outcome, number, m
     const img = imgRef.current
     if (!revealed || src === null || !img.naturalWidth) return
     fit(deckRef.current, coverRef.current, img)
-    play(deckRef.current)
+    play(deckRef.current, coverRef.current)
     if (mood === 'pixel') pixelate(img, pixRef.current, shotRef.current, pixJobs)
   }
 

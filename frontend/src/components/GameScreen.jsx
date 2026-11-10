@@ -342,11 +342,12 @@ function GameScreen({
   // While the song is audible (isAudible) body.playing runs the disc and the
   // logo bars (the mockup's CSS).
   const audible = isAudible(state)
-  // A choice room's tiles (cycle 100), in the panel until cycle 112: shown
-  // from prepare to the next prepare, so also under the reveal card. They
-  // work while the song is audible (087 reached), for a player who has not
-  // picked, until the first correct answer. In ranked correct stays null
-  // (cycle 101, R4), so only the own pick locks them.
+  // A choice room's tiles (cycle 100), below the deck and the panel (cycle
+  // 112, the mockup's .choice-mode .now): shown from prepare to the next
+  // prepare, so also with the reveal card. They work while the song is
+  // audible (087 reached), for a player who has not picked, until the first
+  // correct answer. In ranked correct stays null (cycle 101, R4), so only
+  // the own pick locks them.
   const gridShown = screen === 'game' && choices !== null
   const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
   const seconds = timer === null ? null : Math.ceil(timer.remaining / 1000)
@@ -399,10 +400,16 @@ function GameScreen({
     let hint
     if (correct !== null) hint = t('chat.correctLine', { name: correct })
     else if (round === null) hint = waitingNext ? t('stage.waitingNext') : watching ? t('stage.watching') : t('stage.connecting')
+    else if (gridShown) hint = playing ? t('stage.choiceHint') : t('stage.choiceSoon')
     else hint = playing ? t('stage.hint') : t('stage.soon')
     const subs = []
     if (round !== null && loadText !== null) subs.push(loadText)
-    if (round !== null && correct === null) subs.push(playing ? t('stage.sub') : t('stage.soonSub'))
+    if (round !== null && correct === null) {
+      if (playing) subs.push(gridShown ? t('stage.choiceSub') : t('stage.sub'))
+      else subs.push(t('stage.soonSub'))
+    }
+    // The mockup's p.pickmsg after the own wrong pick, until the reveal.
+    const pickMsg = gridShown && round !== null && pickWrong && picked !== null
     panel = (
       <>
         <p className="hint">{hint}</p>
@@ -411,6 +418,7 @@ function GameScreen({
             {text}
           </p>
         ))}
+        {pickMsg && <p className="pickmsg">{t('stage.pickWrong', { n: picked + 1 })}</p>}
       </>
     )
   }
@@ -497,18 +505,19 @@ function GameScreen({
                       )}
                     </div>
                   )}
-                  {gridShown && (
-                    <ChoiceGrid
-                      choices={choices}
-                      picked={picked}
-                      pickWrong={pickWrong}
-                      correctChoice={correctChoice}
-                      enabled={canPick}
-                      onPick={onPick}
-                    />
-                  )}
                   {error !== null && <p className="warn">{messageText(t, error)}</p>}
                 </div>
+                {gridShown && (
+                  <ChoiceGrid
+                    choices={choices}
+                    revealed={reveal !== null}
+                    picked={picked}
+                    pickWrong={pickWrong}
+                    correctChoice={correctChoice}
+                    enabled={canPick}
+                    onPick={onPick}
+                  />
+                )}
               </div>
 
               <div className="seats">
