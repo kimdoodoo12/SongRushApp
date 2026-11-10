@@ -391,7 +391,9 @@ class RoomPrefetchOnRevealTest {
 		room.chat(MINA.id(), "just talking");
 		List<Sent> sent = outbox.since(mark);
 		assertThat(types(sent)).containsExactly("chat", "chat", "chat");
-		assertThat(sent).as("broadcast, not the too-early path").allMatch(Sent::toAll);
+		// cycle 107: declared change (D-120 spoiler guard)
+		assertThat(sent.get(0).to()).as("next song's title: the sender only").isEqualTo(JOON.id());
+		assertThat(sent.subList(1, 3)).as("broadcast, not the too-early path").allMatch(Sent::toAll);
 		assertThat(sent.get(0).message()).containsEntry("name", "Joon").containsEntry("text", song1Title);
 		assertThat(sent.get(1).message()).containsEntry("text", song0Title);
 		assertThat(room.scores()).isEqualTo(scores);
