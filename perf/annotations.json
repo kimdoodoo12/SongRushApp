@@ -66,6 +66,32 @@
       "boxes": [
         {"x": 470, "y": 282, "w": 334, "h": 222, "label": "음원 대기 중", "label_at": "left"}
       ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step2-off-devtools-between-done.png",
+      "boxes": [
+        {"x": 3, "y": 200, "w": 850, "h": 78, "label": "정답 표지만 받고\n약 4초 대기", "label_at": "right"},
+        {"x": 3, "y": 282, "w": 850, "h": 78, "label": "다음 곡 음원: 정답 공개가\n끝난 뒤(약 5.3초) 시작", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step2-on-devtools-between-done.png",
+      "boxes": [
+        {"x": 3, "y": 249, "w": 1063, "h": 47, "label": "정답 표지", "label_xy": [1222, 255]},
+        {"x": 3, "y": 352, "w": 1063, "h": 47, "label": "정답 표지", "label_xy": [1222, 358]},
+        {"x": 3, "y": 300, "w": 1063, "h": 47, "label": "",
+         "leader": [[1066, 323], [1100, 323], [1100, 426]]},
+        {"x": 3, "y": 403, "w": 1063, "h": 47, "label": "다음 곡 음원: 정답 공개 시작 직후(0.25초) 시작, 1.6초 만에 완료",
+         "label_xy": [820, 500], "leader": [[1066, 426], [1100, 426], [1100, 502]]}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step2-on-game-between-reveal.png",
+      "out": "2026-11-10-step2-on-game-reveal-stage-annotated.png",
+      "crop": {"x": 369, "y": 185, "w": 860, "h": 759},
+      "boxes": [
+        {"x": 529, "y": 354, "w": 540, "h": 586, "label": "정답 공개 중\n(다음 곡은 뒤에서 받는 중)", "label_at": "top-right"}
+      ]
     }
   ]
 }

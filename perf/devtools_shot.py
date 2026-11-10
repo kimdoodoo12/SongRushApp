@@ -121,6 +121,11 @@ FONT_FILTER = "-domain:fonts.gstatic.com -domain:fonts.googleapis.com"
 PAGELOAD_FILTER = "-domain:fonts.gstatic.com"
 PAGELOAD_GOTO_TIMEOUT_MS = 60_000
 GRID_SCROLL_SETTLE_S = 0.3
+# The Network filter box: a textbox in older DevTools, a contenteditable
+# combobox in current Edge. A toolbar button is also named "Filter", so the
+# CSS fallback names the two input roles only.
+FILTER_BOX_CSS = '[role=combobox][aria-label="Filter"], [role=textbox][aria-label="Filter"]'
+FILTER_LOOKUP_S = 10
 
 # DevTools settings for the one-time setup, through the frontend's own
 # Settings module: waterfall on, the noisy columns off, the Content-Encoding
@@ -487,10 +492,25 @@ def saved(path):
     print(rel(path), flush=True)
 
 
+def filter_box(dt):
+    """The Network filter input, whichever form this DevTools build uses."""
+    deadline = time.monotonic() + FILTER_LOOKUP_S
+    while True:
+        for box in (dt.get_by_role("textbox", name="Filter"),
+                    dt.get_by_role("combobox", name="Filter"),
+                    dt.locator(FILTER_BOX_CSS)):
+            if box.count() > 0:
+                return box.first
+        if time.monotonic() >= deadline:
+            raise ShotError(f"Network filter box not found in {FILTER_LOOKUP_S} s "
+                            "(neither textbox nor combobox named Filter)")
+        time.sleep(0.25)
+
+
 def open_network(dt, filter_text):
     dt.get_by_role("tab", name="Network").click()
     time.sleep(1)
-    box = dt.get_by_role("textbox", name="Filter").first
+    box = filter_box(dt)
     box.click()
     dt.keyboard.press("Control+A")
     dt.keyboard.press("Delete")
