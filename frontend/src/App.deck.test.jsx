@@ -332,13 +332,16 @@ describe('deck classes', () => {
     await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(2))
     expect(deckState().revealed).toBe(false)
 
-    const observer = new MutationObserver(() => {})
+    // Cycle 111 (declared fix): the records are collected in the callback;
+    // takeRecords() after the await is empty, as they were delivered already.
+    const seen = []
+    const observer = new MutationObserver((records) => seen.push(...records))
     observer.observe(deck(), { attributes: true, attributeFilter: ['class'], attributeOldValue: true })
     deliver(socket, revealMsg({ index: 1 }))
     await waitFor(() => expect(deckState()).toEqual({ idle: false, revealed: true }))
-    const records = observer.takeRecords()
+    seen.push(...observer.takeRecords())
     observer.disconnect()
-    expect(records.length, 'the class attribute changed on the second reveal').toBeGreaterThan(0)
+    expect(seen.length, 'the class attribute changed on the second reveal').toBeGreaterThan(0)
   })
 
   it('with a cover, revealed is added once the image loads', async () => {

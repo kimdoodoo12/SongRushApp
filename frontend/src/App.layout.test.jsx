@@ -155,7 +155,9 @@ describe('room game', () => {
     const env = setup()
     const socket = await roomSongStarted(env)
     deliver(socket, revealMsg({ winner: 'Mina' }))
-    expect(screen.getByText('진격의 거인')).toBeTruthy()
+    // Cycle 111 (declared): the title is also in the deck's .noimg and .cap,
+    // so the reveal card's Korean title line is read directly.
+    expect(document.querySelector('.reveal dl.titles dd.ko').textContent).toBe('진격의 거인')
   })
 })
 
