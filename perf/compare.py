@@ -17,7 +17,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from comparelib import load, summarize_group
+from comparelib import load, ratio, summarize_group
 from perflib import EN_DASH, FORMATS
 from report import FORMAT_NAMES, KST, plt, setup_font
 
@@ -64,7 +64,7 @@ def subtitle(before, after):
         runs = f"개선 전 {before['runs']}회, 개선 후 {after['runs']}회"
     counts = {g[fmt]["songs"] for g in (before, after) for fmt in FORMATS}
     if len(counts) == 1:
-        songs = f"형식별 {counts.pop()}곡"
+        songs = f"모드별 {counts.pop()}곡"
     else:
         songs = ", ".join(f"{FORMAT_NAMES[fmt]} {before[fmt]['songs']}/{after[fmt]['songs']}곡"
                           for fmt in FORMATS)
@@ -76,6 +76,14 @@ def subtitle(before, after):
 def _label(ax, x, y, text, colour):
     ax.annotate(text, (x, y), xytext=(0, 4), textcoords="offset points",
                 ha="center", va="bottom", fontsize=11, fontweight="bold", color=colour)
+
+
+def _ratio_label(ax, x, y, factor, lift=4):
+    """"약 N배" above a point; nothing when the ratio cannot be computed."""
+    if factor is None:
+        return
+    ax.annotate(f"약 {factor:.1f}배", (x, y), xytext=(0, lift), textcoords="offset points",
+                ha="center", va="bottom", fontsize=10, fontweight="bold", color="#0D47A1")
 
 
 def _inner_label(ax, x, value):
@@ -104,6 +112,10 @@ def time_panel(ax, before, after, labels):
                            zorder=3, label="회차별 중앙값" if i == 0 and group is before else None)
             top = max([top, value or 0] + runs)
             _inner_label(ax, x, value)
+            if group is after:
+                # How many times shorter the wait got, over the after bar and its dots.
+                _ratio_label(ax, x, max([value or 0] + runs),
+                             ratio(before[fmt]["audio_done_s"], value), lift=6)
     ax.set_xticks(range(len(FORMATS)), [FORMAT_NAMES[f] for f in FORMATS], fontsize=11)
     ax.set_ylim(0, top * 1.08 if top else 1)
     ax.set_ylabel("초")
@@ -118,10 +130,12 @@ def speed_panel(ax, before, after, labels):
     ax.bar([0, 1], [v or 0 for v in values], 0.55, color=colours)
     for x, v, c in zip((0, 1), values, ("#424242", AFTER_COLOUR)):
         _label(ax, x, v or 0, "없음" if v is None else f"{v:.2f} MB/s", c)
+    # How many times faster; sits above the after bar's MB/s label.
+    _ratio_label(ax, 1, values[1] or 0, ratio(values[1], values[0]), lift=22)
     ax.set_xticks([0, 1], [labels[0], labels[1]], fontsize=10)
     ax.set_xlim(-0.6, 1.6)
     top = max(v or 0 for v in values)
-    ax.set_ylim(0, top * 1.22 if top else 1)
+    ax.set_ylim(0, top * 1.3 if top else 1)
     ax.set_ylabel("MB/s")
     ax.set_title("음원 받는 속도 (MB/s)", fontsize=12, pad=10)
     ax.grid(axis="y", alpha=0.3)

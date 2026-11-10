@@ -96,3 +96,11 @@ def test_run_without_values_is_left_out(lib):
     choice = lib.summarize_group([empty])["choice"]
     assert choice == {"audio_done_s": None, "run_medians_s": [], "run_min_s": None,
                       "run_max_s": None, "mb_per_s": None, "ready": 0, "songs": 0}
+
+
+def test_ratio(lib):
+    assert lib.ratio(9.7, 2.4) == 4.0
+    assert lib.ratio(1.53, 0.38) == 4.0
+    assert lib.ratio(None, 2.4) is None
+    assert lib.ratio(9.7, None) is None
+    assert lib.ratio(9.7, 0) is None
