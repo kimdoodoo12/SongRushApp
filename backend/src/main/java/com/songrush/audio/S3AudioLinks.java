@@ -12,7 +12,8 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 // Presigned GetObject URLs for the served map's keys (cycle 074). Signing is local: no request is
 // sent. The presigner asks the provider for credentials on every presign, so rotated credentials are
-// picked up and a provider failure surfaces per request.
+// picked up and a provider failure surfaces per request. With a CDN host (cycle 106) the URL's scheme
+// and host are swapped for it; the path and query stay byte for byte.
 public class S3AudioLinks implements AutoCloseable {
 
 	static final Region REGION = Region.AP_SOUTHEAST_2;
@@ -25,8 +26,13 @@ public class S3AudioLinks implements AutoCloseable {
 
 	private final S3Presigner presigner;
 
-	public S3AudioLinks(String bucket, AwsCredentialsProvider credentials, Map<String, String> keyByBasename) {
+	// Null or blank: the S3 host.
+	private final String cdnHost;
+
+	public S3AudioLinks(String bucket, AwsCredentialsProvider credentials, Map<String, String> keyByBasename,
+			String cdnHost) {
 		this.bucket = bucket;
+		this.cdnHost = cdnHost;
 		this.keyByBasename = Map.copyOf(keyByBasename);
 		this.presigner = S3Presigner.builder()
 				.region(REGION)
@@ -45,7 +51,7 @@ public class S3AudioLinks implements AutoCloseable {
 				.signatureDuration(LIFETIME)
 				.getObjectRequest(object -> object.bucket(bucket).key(key))
 				.build();
-		return Optional.of(presigner.presignGetObject(request).url().toString());
+		return Optional.of(CdnUrls.rewrite(presigner.presignGetObject(request).url().toString(), cdnHost));
 	}
 
 	@Override

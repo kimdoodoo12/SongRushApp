@@ -39,9 +39,9 @@ public class S3AudioConfiguration {
 	}
 
 	@Bean
-	public S3AudioLinks s3AudioLinks(AudioProperties audio, AwsCredentialsProvider awsCredentialsProvider,
-			S3Catalog s3Catalog) {
-		return new S3AudioLinks(audio.bucket(), awsCredentialsProvider, s3Catalog.keyByBasename());
+	public S3AudioLinks s3AudioLinks(AudioProperties audio, CdnProperties cdn,
+			AwsCredentialsProvider awsCredentialsProvider, S3Catalog s3Catalog) {
+		return new S3AudioLinks(audio.bucket(), awsCredentialsProvider, s3Catalog.keyByBasename(), cdn.cdnHost());
 	}
 
 }

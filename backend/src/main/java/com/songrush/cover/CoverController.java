@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.songrush.AudioProperties;
+import com.songrush.audio.CdnProperties;
+import com.songrush.audio.CdnUrls;
 
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -31,7 +33,8 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 // AudioController: no Last-Modified, ETag, Content-Disposition or Range support, Cache-Control:
 // no-store, and every failure is a 404 raised before any body byte (JSON via JsonErrorController).
 // The file and key come from the CoverMap's stored id, never from the request string. Logs carry
-// only the id prefix. Covers share nothing with AudioTokens.
+// only the id prefix. Covers share nothing with AudioTokens. With songrush.audio.cdn-host set (cycle
+// 106) the presigned URL's scheme and host are swapped for the CDN host (CdnUrls).
 @RestController
 public class CoverController implements AutoCloseable {
 
@@ -50,13 +53,18 @@ public class CoverController implements AutoCloseable {
 
 	private final String bucket;
 
+	// Null or blank: the S3 host.
+	private final String cdnHost;
+
 	// Null in disk mode, or in S3 mode without a credentials provider.
 	private final S3Presigner presigner;
 
-	public CoverController(CoverMap covers, AudioProperties audio, ObjectProvider<AwsCredentialsProvider> credentials) {
+	public CoverController(CoverMap covers, AudioProperties audio, CdnProperties cdn,
+			ObjectProvider<AwsCredentialsProvider> credentials) {
 		this.covers = covers;
 		this.s3Mode = audio.s3Mode();
 		this.bucket = audio.bucket();
+		this.cdnHost = cdn.cdnHost();
 		AwsCredentialsProvider provider = s3Mode ? credentials.getIfAvailable() : null;
 		if (provider == null) {
 			if (s3Mode) {
@@ -131,7 +139,7 @@ public class CoverController implements AutoCloseable {
 					.signatureDuration(LIFETIME)
 					.getObjectRequest(object -> object.bucket(bucket).key(key))
 					.build();
-			url = presigner.presignGetObject(request).url().toString();
+			url = CdnUrls.rewrite(presigner.presignGetObject(request).url().toString(), cdnHost);
 		}
 		catch (RuntimeException e) {
 			// Only the type: a message could carry the bucket or the key.
