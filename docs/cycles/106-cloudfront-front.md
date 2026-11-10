@@ -118,6 +118,8 @@ song 3 CloudFront 3.65 MB in 2.74 s = 1.33 MB/s
   - The scrubber's fail-closed check worked as intended, and nothing was written.
   - Fix: test `7d3a82a` (locked), fix `eff1f1b`. perf now has 97 tests passing, then 103 with the compare tool.
 - **Measurement.** Both sets ran on the same day, on the same PC and line, with 3 runs each of 5 songs per format.
+  - The runs were **not alternated**. All three "off" runs came first and all three "on" runs about 30 minutes later, because each switch needs an owner restart.
+  - The same-file alternating download check above shows the same gap, which supports the result.
 
   | | Off (11:00–11:07 KST) | On (11:33–11:38 KST) |
   |---|---|---|
