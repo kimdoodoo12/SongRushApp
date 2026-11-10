@@ -61,3 +61,25 @@ Both are driven by one `requestAnimationFrame` loop, as in the mockup's `loop`.
 ## Out of scope
 - Real BPM detection.
 - Server changes.
+
+## Result
+- **Commits.** Spec `466eefe`. Tests `4914aaf` (locked). Implementation `22657dd`. Fix after review `43218c4`, with a new test `Deck.viz.test.jsx`.
+- **Verifier** (on `22657dd`):
+  - `npm test` 726/726. Lint is clean and the build passes.
+  - The locked-test diff is empty.
+  - `room.css`, `roomCss.test.js`, `indexCss.test.js` and `audio/playback.js` are unchanged.
+  - The analyser branch is `gain → compressor(-14, 4) → analyser(256, .78)`, with no connection to `destination`. The playback path is unchanged.
+- **Critic code review.** No Blocker or High.
+  - `sky.js` and `viz.js` were compared line by line with the mockup. The only deviations are the ones the implementer listed:
+    - bpm 120;
+    - frame `t` instead of `performance.now()`;
+    - dead code left out;
+    - `resetViz` on a mood change;
+    - no `drawViz` without `#viz`.
+  - Medium, fixed in `43218c4`: in a choice game `#viz` was sized before `body.choice-mode` applied, so it was several times too large. It is now re-measured after the choice layout.
+- **Lead, after the fix:** `npm test` 729/729. Lint is clean and the build passes.
+- **Lead browser check:** the mockup and the site, playing, in all 8 moods at 1280×800, three frames each. The site had real audio, audible in every mood.
+  - The sky scenes match the mockup: chalk dust and doodle words, sakura petals and moon, matsuri lanterns, neon city, and the rest.
+  - The visualizers match too: chalk's spinning staff with notes and the eraser, sakura's petal storm.
+  - Chalk notes sit at different heights than in the mockup, because the real songs' spectra differ from the mockup's synth.
+  - Captures: `docs/design/115/`.
