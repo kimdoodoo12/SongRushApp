@@ -674,13 +674,29 @@ public final class Room {
 		// A text of only punctuation or symbols normalizes to empty: an ordinary chat line that never matches (D-100).
 		String normalized = Normalize.normalize(text);
 		long now = clock.millis();
+		// Read before the deadline check below: a reveal that this very chat starts sends the next
+		// prepare only now, so the sender cannot have heard song N + 1 (no spoiler guard for it).
+		boolean revealedBefore = revealing;
 		if (phase == Phase.PLAYING && now >= deadlineAt) {
 			endSong(null);
 		}
 		Map<String, Object> chat = message("chat", "name", player.name(), "text", text);
 		// While revealing (early mode) chat is as in REVEAL: broadcast, never answer-checked, also when
-		// the endSong just above started the reveal (cycle 107 item 3, review M2).
-		if (revealing || (phase != Phase.PREPARE && phase != Phase.PLAYING)) {
+		// the endSong just above started the reveal (cycle 107 item 3, review M2). One exception (D-120):
+		// in a reveal already running when the chat arrived, the next song's audio is reachable, so a line
+		// matching song songIndex's (N + 1) accepted titles goes to its sender only. It never scores.
+		if (revealing) {
+			boolean spoiler = revealedBefore && !normalized.isEmpty()
+					&& catalog.accepted(songs.get(songIndex).anime().group()).contains(normalized);
+			if (spoiler) {
+				outbox.toPlayer(playerId, chat);
+			}
+			else {
+				outbox.toAll(chat);
+			}
+			return;
+		}
+		if (phase != Phase.PREPARE && phase != Phase.PLAYING) {
 			outbox.toAll(chat);
 			return;
 		}
