@@ -360,6 +360,11 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 
 - [x] **B-024 / F-025** Ranked game mode (순위전) with first-come (선착순) kept as today (from D-112; cycle 101, after cycle 100)
 
+- [x] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
+
+- [x] **I-014** Performance report with captures, charts and a 3-run baseline (from D-114, cycle 103)
+- [x] **I-015** DevTools Network-panel captures of the measurement (`perf/devtools_shot.py`) in the report (from D-115, cycle 104)
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -373,6 +378,8 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 
 ## Needs decision
 
+- [?] **D-116 (question)** Committed perf results from cycles 102/103 (`perf/results/*.json`, `*.har`, already pushed) contain the S3 bucket host, which includes the AWS account id. The repo is private. Should future runs (`run.py`, `strip_har`) also replace the host, and does the owner plan to make the repo public? Pushed history is not rewritten (rule).
+
 - [?] **I-007** *(superseded by the owner's hand-built deployment, D-087)* Deploy and smoke (from M-4, design 052): the owner follows `docs/deploy-guide.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's AWS and DuckDNS accounts (D-066, D-068) and I-009 first.
 
 - [?] **I-003** Real-device audio check (from S-002): the solo screen (F-002, cycle 039) is the test page. The owner runs the backend jar and `npm run dev -- --host` on the PC, opens `http://<PC LAN IP>:5173` on their iPhone (iOS 18.4+), plays a solo game, and reports whether the songs play and start on time; then joins one room from the PC browser and the iPhone and reports whether both start the song together (no echo between the two). The silent switch should not matter (cycle 047 sets the audio session to playback). Agents cannot run this.
@@ -380,6 +387,11 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **D-010** Hosting (settled by D-065: AWS EC2 free tier). It is decided before M-4. S-002 settled what the server needs: a JVM (Java 17) and about 5.5 GB of disk for the audio cache; no ffmpeg (D-053). Options are researched then.
 
 Decided:
+- **D-114** Performance report done properly (user, 2026-11-10). It follows problem → measurement → cause → improvement → re-measurement, with captures (HAR, screenshots), charts and tables, and serves as both record and portfolio. The report is `docs/performance.md`.
+- **D-115** The report must show the measurement itself (user, 2026-11-10: "내가 포트폴리오용으로 캡쳐하라고했음에도 불구하고 넌 성능측정을 캡쳐 안한거네?"). Real DevTools Network-panel captures (page load, a choice song, a chat song) go into `docs/performance.md`, made by `perf/devtools_shot.py` with signatures hidden.
+- **D-117** No extra 11 pm baselines (user, 2026-11-10: "그냥 밤 11시는 없애자. 그냥 현재 측정으로도 충분하지 않아?"). The 4-run baseline is the before value; the one slow run is reported as line-quality variance, not a time-of-day effect. Each improvement is measured at least 3 times, with the median, range and per-run throughput. The report is a portfolio piece: no internal terms, and improvements are recorded step by step as the owner picks causes.
+- **D-118** CloudFront as improvement step 1 (user, 2026-11-10: "CloudFront를 먼저 개선단계로서 써보고싶어"). Reverses D-110 without its problems: the server keeps signing 60-second S3 presigned URLs and only swaps the host for the CloudFront domain; the distribution has no OAC and forwards all query strings, so S3 still checks every signature. Switch: `songrush.audio.cdn-host` (blank = direct S3), so before/after can be measured alternately.
+- **D-113** Performance baseline (user, 2026-11-09: "성능체크를 기록하고 저장했으면 좋겠는데. 그래야 비교할거 아니야"). A measurement tool and dated results live in a new `perf/` folder (owner's choice). Each run plays 5 chat and 5 choice songs on the live site and records medians. Improvements come later and are compared against the baseline.
 - **D-112** Game modes (user, 2026-11-09). Two modes, picked by the host in the lobby next to the answer format: **선착순** (First Come / 早い者勝ち), today's rule, where the first correct answer scores 1 and ends the song; and **순위전** (Ranked / 順位戦), where every player can answer once per song, scored by server arrival order (1st 3, 2nd 2, any later correct 1). A ranked song ends when every connected player has answered (in a choice room, when everyone has picked), at the deadline, or by a passed skip. In ranked mode a correct chat is not echoed to others, and everyone sees only the name line (`✔ <name> 정답!`). Later chat, including spoilers, is the players' business and is not filtered. Answered players may still vote to skip (owner, same day).
 - **D-111** Multiple-choice answer format (user, 2026-11-09). The host picks 채팅 or 객관식 in the lobby; the game rule is unchanged (first correct by arrival wins). Choices are covers only, and their count follows the tier (easy 4; lead: normal 6, hard 8). One pick per player per song (owner). Picks are private until the reveal (lead). Owner, same day (final): in a choice room chat never scores (only a correct pick wins); there is no everyone-wrong ending; distractors may repeat series answered earlier in the game.
 - **D-110** Media delivery (user, 2026-11-09): CloudFront is dropped. The owner first chose CloudFront because audio from the Sydney bucket loads slowly in Korea (about 0.36 MB/s), then dropped it the same day after the investigation (signed URLs need a private key on the server and more console work; unsigned URLs never expire). Audio and covers stay on S3 presigned URLs (D-092). The slow loading is still open.
@@ -496,6 +508,8 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (106) Log one INFO line at S3-mode startup saying whether redirects go via the CDN host (and which) or direct to S3; a misspelt env var (`SONGRUSH_AUDIO_CDN_HOST`) silently leaves the switch off.
+- (104) In a choice room the stage hint still says to answer by chat (`GameScreen.jsx` uses `t('stage.hint')` for both formats). Add a choice-room hint in ko/en/ja; it is visible in the portfolio captures.
 
 - **098 M1** `GameScreen.jsx:122-126`: the reveal card still changes height when alternate titles, song or artists are missing; render those rows always (empty when absent) at their fixed heights if the owner wants the card fully fixed.
 - **098 M2** `App.revealcover.test.jsx:242-256`: the keyed-state test passes without the key because prepare unmounts the card each round; rename it or test a same-round reveal swap.
