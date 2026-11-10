@@ -5,6 +5,8 @@
 // Cycle 109 (F-025): the eight moods sunset rain sakura neon chalk pixel
 // matsuri manga, default sunset; an old stored or sent id (play, star,
 // arcade) maps to sunset, rain and pixel (docs/cycles/109-eight-moods.md).
+// Cycle 110 (D-124, declared): the applied mood is read from <html
+// data-mood> instead of the shell's data-room-theme; the behaviour is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -58,11 +60,11 @@ function setNickname(nickname) {
   fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
-// The applied theme id on the outer app-shell element.
+// The applied mood: <html data-mood> (cycle 110, D-124; it replaces the
+// app shell's data-room-theme, which no element carries any more).
 function rootTheme() {
-  const root = document.querySelector('[data-room-theme]')
-  expect(root).not.toBeNull()
-  return root.getAttribute('data-room-theme')
+  expect(document.querySelector('[data-room-theme]')).toBeNull()
+  return document.documentElement.dataset.mood
 }
 
 function picker() {
@@ -230,14 +232,12 @@ describe('lobby picker', () => {
     expect(pressedNames()).toEqual(['8비트 오락실'])
   })
 
-  it('a roomTheme frame sets data-room-theme on the shell for each of the eight ids', async () => {
+  it('a roomTheme frame sets <html data-mood> for each of the eight ids', async () => {
     const env = setup()
     const socket = await guestLobby(env)
     for (const id of THEME_IDS) {
       deliver(socket, { type: 'roomTheme', theme: id })
-      const shell = document.querySelector('.app-shell')
-      expect(shell, id).not.toBeNull()
-      expect(shell.getAttribute('data-room-theme'), id).toBe(id)
+      expect(document.documentElement.dataset.mood, id).toBe(id)
       expect(pressedNames(), id).toEqual([NAME_OF[id]])
     }
   })
