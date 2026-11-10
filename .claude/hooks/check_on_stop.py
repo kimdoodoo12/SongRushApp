@@ -1,18 +1,21 @@
-"""Stop / SubagentStop hook: run the tests of every area touched on this branch.
+"""Stop / SubagentStop hook: run the tests of the areas this session changed, during a cycle.
 
+- Runs only while lock.py has locked test paths. With no lock this is not an implementation phase:
+  it exits at once and runs nothing, so a session that only answers questions never waits on tests.
+- Sessions share one working folder, so `git status` also shows other sessions' work. Only areas
+  this session wrote are tested, read from its own transcript. A session that delegated to a writing
+  agent, or changed files from the shell, gets every changed area, because its files are unknown.
 - Exit 2 (block stopping, stderr goes to the agent) when tests fail, up to MAX_RETRIES per session.
 - After the cap, allow stopping and append a BLOCKED entry to .claude/state/blocked.log.
   blocked.log is the append-only machine trace: never edited or deleted. Each entry starts with
   a unique id (BLOCKED-<UTC time>-<session>); the lead copies entries whose id is not yet in
   PROGRESS.md, so nothing is imported twice.
 - Areas that are not bootstrapped yet are skipped with a notice (never counted as a pass in reports).
-- Failures are enforced only in the implementation phase, i.e. while lock.py has locked test paths.
-  Before that (tests-first / red phase) failing tests are expected, so they are reported as a notice
-  and neither block nor consume the retry counter.
 - Read-only agents (verifier, critic, explorer) are never blocked: they report failures, they cannot fix them.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -22,7 +25,13 @@ STATE = os.path.join(PROJECT, ".claude", "state")
 LOCK_FILE = os.path.join(STATE, "locked-paths.txt")
 MAX_RETRIES = 3
 WIN = os.name == "nt"
-READ_ONLY_AGENTS = {"verifier", "critic", "explorer", "Explore", "Plan"}
+READ_ONLY_AGENTS = {"verifier", "critic", "explorer", "Explore", "Plan", "web-fetch", "claude-code-guide"}
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+AGENT_TOOLS = {"Agent", "Task"}
+SHELL_TOOLS = {"Bash", "PowerShell"}
+# Shell commands that change files or mark this session as a cycle's lead.
+SHELL_WRITE = re.compile(r"lock\.py\s+lock\b|\bgit\s+(commit|merge|cherry-pick|apply)\b|\bsed\s+-i\b"
+                         r"|\b(Set-Content|Add-Content|Out-File)\b")
 
 
 def sh(args, cwd=PROJECT, timeout=900):
@@ -40,6 +49,48 @@ def changed_files():
         d = sh(["git", "diff", "--name-only", "dev...HEAD"])
         files.update(x for x in d.stdout.splitlines() if x)
     return files
+
+
+def top_folder(path):
+    """The top-level project folder of a path, or None when it is outside the project."""
+    try:
+        r = os.path.relpath(os.path.abspath(os.path.join(PROJECT, path)), PROJECT).replace(os.sep, "/")
+    except ValueError:
+        return None
+    if r.startswith("..") or "/" not in r:
+        return None
+    return r.split("/", 1)[0]
+
+
+def written_areas(data):
+    """Top-level folders this session wrote, or None when that cannot be known."""
+    if data.get("agent_type"):
+        return None  # a writing subagent: READ_ONLY_AGENTS already returned earlier
+    session = data.get("session_id")
+    written = set()
+    try:
+        with open(data["transcript_path"], encoding="utf-8", errors="replace") as f:
+            for line in f:
+                entry = json.loads(line)
+                # A forked transcript also holds the parent session's calls, under the parent's id.
+                if entry.get("type") != "assistant" or entry.get("sessionId") != session:
+                    continue
+                content = (entry.get("message") or {}).get("content")
+                for block in content if isinstance(content, list) else []:
+                    if not isinstance(block, dict) or block.get("type") != "tool_use":
+                        continue
+                    name, tool_input = block.get("name"), block.get("input") or {}
+                    if name in EDIT_TOOLS:
+                        top = top_folder(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+                        if top:
+                            written.add(top)
+                    elif name in AGENT_TOOLS and tool_input.get("subagent_type") not in READ_ONLY_AGENTS:
+                        return None
+                    elif name in SHELL_TOOLS and SHELL_WRITE.search(tool_input.get("command") or ""):
+                        return None
+    except (KeyError, OSError, ValueError):
+        return None
+    return written
 
 
 # A change under these top-level folders also runs these areas' tests
@@ -84,7 +135,12 @@ def main():
     # which arrive with an empty agent_type. They never touch code, so never test or block them.
     if data.get("hook_event_name") == "SubagentStop" and not agent:
         sys.exit(0)
+    if not os.path.exists(LOCK_FILE):
+        sys.exit(0)
     areas = {f.split("/", 1)[0] for f in changed_files() if "/" in f}
+    written = written_areas(data)
+    if written is not None:
+        areas &= written
     for top, extra in EXTRA_AREAS.items():
         if top in areas:
             areas |= extra
@@ -111,11 +167,6 @@ def main():
             os.remove(cp)
         if notices:
             print("[stop-check] " + "; ".join(notices), file=sys.stderr)
-        sys.exit(0)
-
-    if not os.path.exists(LOCK_FILE):
-        print("[stop-check] tests failing, but no tests are locked (red phase or outside a cycle) "
-              "-> not enforced. This is NOT a pass:\n\n" + "\n\n".join(failures), file=sys.stderr)
         sys.exit(0)
 
     n = int(open(cp).read()) if os.path.exists(cp) else 0
