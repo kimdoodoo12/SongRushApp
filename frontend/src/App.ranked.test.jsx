@@ -286,9 +286,14 @@ function settingsLines() {
 }
 
 // The chat log lines in order, whitespace collapsed. Cycle 110: each line
-// is a div.msg in the chat's .msgs (the mockup's markup).
+// is a div.msg in the chat's .msgs (the mockup's markup). Cycle 111 (D-124,
+// declared): a chat line is read from its .t, as the .tm time sits beside
+// it; the client-only system lines (.msg.sys without .correct: game start,
+// song start, game over) are left out here and tested in App.deck.test.jsx.
 function chatLines() {
-  return Array.from(document.querySelectorAll('aside.chat .msgs .msg')).map((el) => collapse(el.textContent))
+  return Array.from(document.querySelectorAll('aside.chat .msgs .msg:not(.sys), aside.chat .msgs .msg.sys.correct')).map(
+    (el) => collapse((el.querySelector(':scope > .t') ?? el).textContent),
+  )
 }
 
 const rankedLine = (name, rank, dict = ko) => `${CHECK} ${tr(dict, 'chat.correctRanked', { name, rank })}`

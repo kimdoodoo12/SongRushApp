@@ -391,7 +391,9 @@ describe('start', () => {
     deliver(socket, startMsg({ startDelta: 0 }))
     deliver(socket, revealMsg())
     expect(env.audio.last.startedSources()).toEqual([])
-    expect(screen.getByText('진격의 거인')).toBeTruthy()
+    // Cycle 111 (declared): the title is also in the deck's .noimg and .cap,
+    // so the reveal card's Korean title line is read directly.
+    expect(document.querySelector('.reveal dl.titles dd.ko').textContent).toBe('진격의 거인')
     expect(screen.getByText('정답자 없음')).toBeTruthy()
   })
 })
@@ -443,7 +445,9 @@ describe('reveal', () => {
     const lastStop = source.stop.mock.calls[source.stop.mock.calls.length - 1]
     // stop() or stop(t) with t no later than now: the song stops at once.
     if (lastStop.length > 0) expect(lastStop[0]).toBeLessThanOrEqual(ctx.currentTime)
-    expect(screen.getByText('진격의 거인')).toBeTruthy()
+    // Cycle 111 (declared): the title is also in the deck's .noimg and .cap,
+    // so the reveal card's Korean title line is read directly.
+    expect(document.querySelector('.reveal dl.titles dd.ko').textContent).toBe('진격의 거인')
     expect(screen.getByText(/OP1/)).toBeTruthy()
     expect(screen.queryByText(/OPOP1/)).toBeNull()
     expect(screen.getByText(/紅蓮の弓矢/)).toBeTruthy()

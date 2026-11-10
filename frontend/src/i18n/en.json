@@ -107,7 +107,9 @@
     "rankPoints": "+{{points}}",
     "stampHit": "Correct",
     "stampPass": "Pass",
-    "sfx": "BA-DUM!"
+    "sfx": "BA-DUM!",
+    "coverAlt": "{{title}} cover",
+    "coverAltIdle": "Anime cover"
   },
   "chat": {
     "label": "Chat",
@@ -116,7 +118,10 @@
     "send": "Send",
     "correctLine": "{{name}} got it!",
     "correctRanked": "{{name}} got it! (#{{rank}})",
-    "live": "{{n}} online"
+    "live": "{{n}} online",
+    "gameStart": "Game starting",
+    "songStart": "Song {{n}} started",
+    "gameOver": "Game over"
   },
   "score": {
     "board": "Scoreboard",

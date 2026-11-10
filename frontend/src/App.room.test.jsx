@@ -196,8 +196,17 @@ function seatOf(name) {
   return seat
 }
 
+// The chat lines and the correct line. Cycle 111 (D-124, declared): the
+// client-only system lines (.msg.sys without .correct: game start, song
+// start, game over) are left out here and tested in App.deck.test.jsx.
 function msgs() {
-  return qa('aside.chat .msgs .msg')
+  return qa('aside.chat .msgs .msg:not(.sys), aside.chat .msgs .msg.sys.correct')
+}
+
+// A line's text: its .t (cycle 111: the .tm time sits beside it), or the
+// whole line for a system line.
+function lineText(line) {
+  return collapse((line.querySelector(':scope > .t') ?? line).textContent)
 }
 
 function revealCard() {
@@ -418,7 +427,7 @@ describe('chat', () => {
     const sys = qa('.msgs .msg.sys.correct')
     expect(sys).toHaveLength(1)
     expect(collapse(sys[0].textContent)).toBe('✔ Mina 정답!')
-    expect(msgs().map((l) => collapse(l.textContent))).toEqual(['Mina: 진격의 거인', '✔ Mina 정답!'])
+    expect(msgs().map(lineText)).toEqual(['Mina: 진격의 거인', '✔ Mina 정답!'])
     expect(q('.panel .hint').textContent).toBe('Mina 정답!')
   })
 })

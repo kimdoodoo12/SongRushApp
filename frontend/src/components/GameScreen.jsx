@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { settingsLine } from '../game/filters.js'
+import { isAudible } from '../game/state.js'
 import { nameColour } from '../game/themes.js'
 import ChoiceGrid from './ChoiceGrid.jsx'
 import Deck from './Deck.jsx'
@@ -65,27 +66,18 @@ function lineTitle(reveal, lang) {
   return firstTitle(reveal.titles, lang)
 }
 
-// The anime's cover at the top of the reveal card (cycle 097), kept in the
-// card until cycle 111 moves it into the deck's frame. It is decorative (the
-// title is on the card), so alt is empty. With no cover, or after the image
-// fails, it is the empty placeholder. The caller keys this component by
-// coverUrl, so a failure is forgotten when the cover changes.
-function RevealCover({ coverUrl }) {
-  const [failed, setFailed] = useState(false)
-  const showing = coverUrl !== null && !failed
-  return (
-    <div className={`reveal-cover mx-auto mb-3 h-32 w-24${showing ? '' : ' reveal-cover-empty'}`}>
-      {showing && (
-        <img
-          src={coverUrl}
-          alt=""
-          draggable={false}
-          className="h-full w-full object-contain"
-          onError={() => setFailed(true)}
-        />
-      )}
-    </div>
-  )
+// The local HH:MM of a chat line's arrival (the mockup's .tm), or ''.
+function clockTime(at) {
+  if (typeof at !== 'number') return ''
+  const d = new Date(at)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// The names that solved a reveal's song: its ranking (ranked) or its winner.
+function solversOf(reveal) {
+  if (reveal === null) return []
+  if (Array.isArray(reveal.ranking)) return reveal.ranking.map((row) => row.name)
+  return reveal.winner === null || reveal.winner === undefined ? [] : [reveal.winner]
 }
 
 // The slug, then the song and the artists when the frame has them:
@@ -121,7 +113,6 @@ function RevealCard({ reveal, last }) {
   else who = reveal.winner === null || reveal.winner === undefined ? null : t('reveal.winner', { name: reveal.winner })
   return (
     <div className="reveal">
-      <RevealCover key={reveal.coverUrl ?? 'none'} coverUrl={reveal.coverUrl} />
       <h3>{t('reveal.heading')}</h3>
       {who === null ? <p className="who none">{t('reveal.noWinner')}</p> : <p className="who">{who}</p>}
       <dl className="titles">
@@ -214,14 +205,16 @@ function ChatForm({ onSend }) {
   )
 }
 
-// The chat log: one .msg per line, the name colour as its <i> and the line
-// as .t; the own lines are .mine. A system line (D-094) is .msg.sys.correct.
+// The chat log: one .msg per line, the name colour as its <i>, the arrival
+// time as .tm and the line as .t; the own lines are .mine. A correct line
+// (D-094) is .msg.sys.correct, a client-side notice (cycle 111) .msg.sys,
+// both in the language current when shown.
 function ChatLog({ chat, me }) {
   const { t } = useTranslation()
   const ref = useRef(null)
   const stickRef = useRef(true)
   const last = chat.length === 0 ? null : chat[chat.length - 1]
-  const lastMine = last !== null && last.kind !== 'system' && last.name === me
+  const lastMine = last !== null && last.kind === undefined && last.name === me
   useLayoutEffect(() => {
     const el = ref.current
     if (el !== null && (stickRef.current || lastMine)) el.scrollTop = el.scrollHeight
@@ -234,20 +227,31 @@ function ChatLog({ chat, me }) {
 
   return (
     <div ref={ref} className="msgs" role="log" aria-live="off" onScroll={handleScroll}>
-      {chat.map((line) =>
-        line.kind === 'system' ? (
-          <div key={line.id} className="msg sys correct">
-            {typeof line.rank === 'number'
-              ? `${CHECK} ${t('chat.correctRanked', { name: line.winner, rank: line.rank })}`
-              : `${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
-          </div>
-        ) : (
+      {chat.map((line) => {
+        if (line.kind === 'notice') {
+          return (
+            <div key={line.id} className="msg sys">
+              {t(line.key, line.values)}
+            </div>
+          )
+        }
+        if (line.kind === 'system') {
+          return (
+            <div key={line.id} className="msg sys correct">
+              {typeof line.rank === 'number'
+                ? `${CHECK} ${t('chat.correctRanked', { name: line.winner, rank: line.rank })}`
+                : `${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
+            </div>
+          )
+        }
+        return (
           <div key={line.id} className={line.name === me ? 'msg mine' : 'msg'}>
             <i style={{ background: typeof line.name === 'string' ? nameColour(line.name) : 'currentColor' }} />
+            <span className="tm">{clockTime(line.at)}</span>
             <span className="t">{line.text}</span>
           </div>
-        ),
-      )}
+        )
+      })}
     </div>
   )
 }
@@ -335,12 +339,9 @@ function GameScreen({
   const online = players.filter((p) => p.connected !== false).length
   const canSkip = room !== null && screen === 'game' && started && !watching
   const playing = screen === 'game' && started && reveal === null
-  // The song is audible (D-101, 087): a round is current and not revealed,
-  // started, the local clock past its startAt, loaded, and the sound not
-  // blocked. body.playing then runs the disc and the logo bars (the
-  // mockup's CSS).
-  const songCurrent = screen === 'game' && round !== null && reveal === null
-  const audible = songCurrent && started && reached && load !== 'loading' && load !== 'failed' && !soundBlocked
+  // While the song is audible (isAudible) body.playing runs the disc and the
+  // logo bars (the mockup's CSS).
+  const audible = isAudible(state)
   // A choice room's tiles (cycle 100), in the panel until cycle 112: shown
   // from prepare to the next prepare, so also under the reveal card. They
   // work while the song is audible (087 reached), for a player who has not
@@ -351,10 +352,16 @@ function GameScreen({
   const seconds = timer === null ? null : Math.ceil(timer.remaining / 1000)
   const loadText = load !== null && LOAD_KEY[load] !== undefined ? t(LOAD_KEY[load]) : null
   const last = round !== null && round.index + 1 >= round.total
-  // The reveal has no winner: the deck's stamp reads 통과 (shown from 111).
-  const missed =
-    reveal !== null &&
-    (Array.isArray(reveal.ranking) ? reveal.ranking.length === 0 : reveal.winner === null || reveal.winner === undefined)
+  // The deck (the mockup's startRound, reveal and finish): idle before the
+  // first song and after a game, revealed from the reveal to the next
+  // prepare. Its frame shows the reveal's cover and Korean title; the stamp
+  // reads 통과 when nobody solved the song.
+  const deckIdle = !(screen === 'game' && (round !== null || reveal !== null))
+  const solvers = solversOf(reveal)
+  const missed = reveal !== null && solvers.length === 0
+  let outcome = 'none'
+  if (solvers.length > 0) outcome = me !== null && solvers.includes(me) ? 'me' : 'other'
+  const coverTitle = reveal === null ? null : (lineTitle(reveal, 'ko') ?? reveal.title)
 
   useEffect(() => {
     document.body.classList.toggle('playing', audible)
@@ -458,7 +465,16 @@ function GameScreen({
               <TimeBar timer={timer} />
 
               <div className="now">
-                <Deck idle={!songCurrent && reveal === null} missed={missed} />
+                <Deck
+                  idle={deckIdle}
+                  revealed={screen === 'game' && reveal !== null}
+                  reveal={reveal}
+                  title={coverTitle}
+                  outcome={outcome}
+                  number={round === null ? 1 : round.index + 1}
+                  missed={missed}
+                  mood={theme}
+                />
                 <div className="panel">
                   {panel}
                   {/* A mid-song joiner watches until the next song, also

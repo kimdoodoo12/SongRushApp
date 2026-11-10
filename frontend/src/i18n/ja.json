@@ -107,7 +107,9 @@
     "rankPoints": "+{{points}}点",
     "stampHit": "正解",
     "stampPass": "パス",
-    "sfx": "ドドン！"
+    "sfx": "ドドン！",
+    "coverAlt": "{{title}} 表紙",
+    "coverAltIdle": "アニメの表紙"
   },
   "chat": {
     "label": "チャット",
@@ -116,7 +118,10 @@
     "send": "送信",
     "correctLine": "{{name}} 正解！",
     "correctRanked": "{{name}} 正解！（{{rank}}位）",
-    "live": "{{n}}人接続中"
+    "live": "{{n}}人接続中",
+    "gameStart": "ゲームを始めます",
+    "songStart": "{{n}}曲目スタート",
+    "gameOver": "ゲーム終了"
   },
   "score": {
     "board": "スコアボード",

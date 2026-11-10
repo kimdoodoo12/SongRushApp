@@ -107,7 +107,9 @@
     "rankPoints": "+{{points}}점",
     "stampHit": "정답",
     "stampPass": "통과",
-    "sfx": "두둥!"
+    "sfx": "두둥!",
+    "coverAlt": "{{title}} 표지",
+    "coverAltIdle": "애니 표지"
   },
   "chat": {
     "label": "채팅",
@@ -116,7 +118,10 @@
     "send": "보내기",
     "correctLine": "{{name}} 정답!",
     "correctRanked": "{{name}} 정답! ({{rank}}등)",
-    "live": "{{n}}명 접속 중"
+    "live": "{{n}}명 접속 중",
+    "gameStart": "게임을 시작해요",
+    "songStart": "{{n}}번째 곡 시작",
+    "gameOver": "게임 종료"
   },
   "score": {
     "board": "점수판",
