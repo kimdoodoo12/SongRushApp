@@ -18,8 +18,9 @@ EN_DASH = chr(0x2013)
 # matters: S3's lowercase x-amz-request-id response header is harmless.
 SECRET_MARKERS = ("X-Amz-", "Signature=", "Credential=")
 
-# Headers whose value can carry a presigned URL (compared lowercased).
-URL_HEADERS = ("location", "referer")
+# Headers whose value can carry a presigned URL (compared lowercased). The
+# HTTP/2 pseudo-header :path holds the request path with its query.
+URL_HEADERS = ("location", "referer", ":path")
 
 
 def median(values):
@@ -59,7 +60,8 @@ def strip_har(har):
     """Strips URL queries from a HAR dict in place and returns it.
 
     Covers request.url, request.queryString (emptied), response.redirectURL
-    and the Location and Referer headers; any other field stays as is.
+    and the Location, Referer and HTTP/2 :path headers; any other field stays
+    as is.
     """
     for entry in (har.get("log") or {}).get("entries") or []:
         request = entry.get("request")
