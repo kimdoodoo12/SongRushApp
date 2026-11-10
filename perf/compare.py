@@ -8,6 +8,11 @@ Left panel: prepare -> audio download done (pooled song median per format,
 each run's median as dots). Right panel: audio download speed (pooled
 per-song MB/s median, both formats). Prints the numbers it drew.
 
+With --between (cycle 107, D-119) a third panel, 곡 사이 대기 (초), shows the
+pooled median of betweenSongs_ms per format: the previous song's reveal ->
+this song audible. Result files older than cycle 107 have no such values and
+show "없음". Without --between the chart and the printed lines are unchanged.
+
 Needs matplotlib (the system Python). The numbers come from comparelib.py,
 which perf/test_compare.py covers.
 """
@@ -17,7 +22,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from comparelib import load, ratio, summarize_group
+from comparelib import between_summary, load, ratio, summarize_group
 from perflib import EN_DASH, FORMATS
 from report import FORMAT_NAMES, KST, plt, setup_font
 
@@ -25,6 +30,7 @@ BEFORE_COLOUR = "#9E9E9E"
 AFTER_COLOUR = "#1E88E5"
 DOT_COLOUR = "#212121"
 FIGSIZE = (10, 520 / 120)  # inches; 1200 x 520 px at DPI
+FIGSIZE_BETWEEN = (14, 520 / 120)  # 1680 x 520 px with the third panel
 DPI = 120
 BAR_WIDTH = 0.36
 
@@ -38,6 +44,8 @@ def parse_args(argv):
     parser.add_argument("--after-label", required=True)
     parser.add_argument("--title", required=True)
     parser.add_argument("--out", type=Path, required=True, help="PNG path to write")
+    parser.add_argument("--between", action="store_true",
+                        help="add the 곡 사이 대기 (초) panel (betweenSongs_ms, cycle 107)")
     # argparse already rejects bare positional arguments ("unrecognized arguments").
     return parser.parse_args(argv)
 
@@ -142,10 +150,37 @@ def speed_panel(ax, before, after, labels):
     ax.set_axisbelow(True)
 
 
-def draw(before, after, labels, title, out):
+def between_panel(ax, before, after, labels):
+    """곡 사이 대기: previous reveal -> this song audible, pooled median per format."""
+    top = 0
+    for i, fmt in enumerate(FORMATS):
+        for group, offset, colour in ((before, -BAR_WIDTH / 2, BEFORE_COLOUR),
+                                      (after, BAR_WIDTH / 2, AFTER_COLOUR)):
+            value = group[fmt]["between_s"]
+            x = i + offset
+            ax.bar(x, value or 0, BAR_WIDTH * 0.92, color=colour)
+            top = max(top, value or 0)
+            _inner_label(ax, x, value)
+            if group is after:
+                _ratio_label(ax, x, value or 0, ratio(before[fmt]["between_s"], value))
+    ax.set_xticks(range(len(FORMATS)), [FORMAT_NAMES[f] for f in FORMATS], fontsize=11)
+    ax.set_ylim(0, top * 1.15 if top else 1)
+    ax.set_ylabel("초")
+    ax.set_title("곡 사이 대기 (초)", fontsize=12, pad=10)
+    ax.grid(axis="y", alpha=0.3)
+    ax.set_axisbelow(True)
+
+
+def draw(before, after, labels, title, out, between=None):
+    """between: (before, after) between_summary dicts, or None for two panels."""
     setup_font()
-    fig, (left, right) = plt.subplots(1, 2, figsize=FIGSIZE, dpi=DPI,
-                                      gridspec_kw={"width_ratios": [1.5, 1]})
+    if between is None:
+        fig, (left, right) = plt.subplots(1, 2, figsize=FIGSIZE, dpi=DPI,
+                                          gridspec_kw={"width_ratios": [1.5, 1]})
+    else:
+        fig, (left, right, third) = plt.subplots(1, 3, figsize=FIGSIZE_BETWEEN, dpi=DPI,
+                                                 gridspec_kw={"width_ratios": [1.5, 1, 1.2]})
+        between_panel(third, between[0], between[1], labels)
     time_panel(left, before, after, labels)
     speed_panel(right, before, after, labels)
     fig.suptitle(title, fontsize=15, fontweight="bold", y=0.97)
@@ -171,13 +206,26 @@ def report(name, group):
     print(f"{name} runs={group['runs']} times={group['times']}")
 
 
+def report_between(name, group):
+    print(f"{name} between_s: " + " ".join(f"{key}={group[key]['between_s']}"
+                                           for key in (*FORMATS, "all")))
+
+
 def main(argv=None):
     args = parse_args(argv)
-    before = summarize_group(load(args.before))
-    after = summarize_group(load(args.after))
+    before_results = load(args.before)
+    after_results = load(args.after)
+    before = summarize_group(before_results)
+    after = summarize_group(after_results)
     report("before", before)
     report("after", after)
-    draw(before, after, (args.before_label, args.after_label), args.title, args.out)
+    between = None
+    if args.between:
+        between = (between_summary(before_results), between_summary(after_results))
+        report_between("before", between[0])
+        report_between("after", between[1])
+    draw(before, after, (args.before_label, args.after_label), args.title, args.out,
+         between=between)
     print(f"wrote {args.out}")
     return 0
 

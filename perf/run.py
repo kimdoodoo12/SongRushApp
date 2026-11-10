@@ -108,11 +108,20 @@ def url_parts(url):
     return parts.netloc, parts.path
 
 
+def server_number(value):
+    """A numeric frame field, or None (bool is not a number here)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
 class Recorder:
     """The WebSocket frames and the /audio/ and /cover/ requests of one game.
 
     Every request is tagged with the round (server index) current when the
-    page created it; a redirect's follow-up keeps its origin's tag.
+    page created it, except a /cover/ request whose path a known round
+    announced, which goes to that round; a redirect's follow-up keeps its
+    origin's tag.
     """
 
     def __init__(self):
@@ -181,6 +190,10 @@ class Recorder:
             r = self._round(msg)
             if r is not None and "start_t" not in r:
                 r["start_t"] = t
+                # The server's clock at send and the planned audible moment:
+                # their difference is the lead the client waits (cycle 107).
+                r["startAt"] = server_number(msg.get("startAt"))
+                r["serverTime"] = server_number(msg.get("serverTime"))
         elif kind == "reveal":
             r = self._round(msg)
             if r is not None and "reveal_t" not in r:
@@ -210,8 +223,27 @@ class Recorder:
         if not self._tracked(req):
             return
         origin = origin_of(req)
-        self.tags[req] = self.current if origin is req else self.tags.get(origin, self.current)
+        if origin is req:
+            self.tags[req] = self._tag_of(req.url)
+        else:
+            self.tags[req] = self.tags.get(origin, self.current)
         self.pending.add(req)
+
+    def _tag_of(self, url):
+        """The round a page-made request belongs to (cycle 107).
+
+        A /cover/ request goes to the most recent round that announced that
+        cover path (prepare choices or reveal): with prefetch-on-reveal the
+        reveal cover of round N is requested after prepare N+1 arrived.
+        Paths are compared without host and query. Anything else, or an
+        unknown cover, gets the latest prepare's round.
+        """
+        path = urlsplit(url).path
+        if path.startswith("/cover/"):
+            for index in reversed(self.order):
+                if any(urlsplit(c).path == path for c in self.rounds[index]["covers"]):
+                    return index
+        return self.current
 
     def _on_finished(self, req):
         self.pending.discard(req)
@@ -384,12 +416,40 @@ def request_timeline(rec, infos, index, prepare_wall):
     return rows
 
 
+def audible_t(r):
+    """Local time the song became audible: start receipt + (startAt - serverTime)."""
+    if "start_t" not in r or r.get("startAt") is None or r.get("serverTime") is None:
+        return None
+    return r["start_t"] + (r["startAt"] - r["serverTime"])
+
+
+def between_values(prev, r):
+    """Cycle 107: times measured from the previous song's reveal receipt.
+
+    betweenSongs_ms is the wait a player sees between songs (previous reveal
+    -> this song audible); prepareAfterReveal_ms shows whether the server
+    prepares during the reveal (about 0) or after it (about 5000);
+    prevRevealToReady_ms is when this song's audio was ready.
+    """
+    reveal = None if prev is None else prev.get("reveal_t")
+    if reveal is None:
+        return None, None, None
+    audible = audible_t(r)
+    between = None if audible is None else round(audible - reveal, 1)
+    after_reveal = round(r["prepare_t"] - reveal, 1)
+    to_ready = None if "ready_t" not in r else round(r["ready_t"] - reveal, 1)
+    return between, after_reveal, to_ready
+
+
 def song_rows(fmt, rec, base, songs):
     infos = response_infos(rec)
     fetches = fetches_by_round(rec, infos)
     rows = []
+    prev = None
     for n, index in enumerate(rec.order[:songs], start=1):
         r = rec.rounds[index]
+        between, after_reveal, to_ready = between_values(prev, r)
+        prev = r
 
         def since_prepare(key):
             return None if key not in r else round(r[key] - r["prepare_t"], 1)
@@ -413,6 +473,9 @@ def song_rows(fmt, rec, base, songs):
             "prepareToStart_ms": since_prepare("start_t"),
             "prepareToAudioDone_ms": audio_done,
             "prepareToReveal_ms": since_prepare("reveal_t"),
+            "betweenSongs_ms": between,
+            "prepareAfterReveal_ms": after_reveal,
+            "prevRevealToReady_ms": to_ready,
             "inflight_at_prepare": r["inflight_at_prepare"],
             "settledBeforeSkip": r.get("settledBeforeSkip"),
             "audio": audio,

@@ -27,6 +27,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.songrush.GameProperties;
 import com.songrush.audio.AudioTokens;
 import com.songrush.catalog.Catalog;
 import com.songrush.cover.CoverMap;
@@ -89,6 +90,9 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 
 	private final CoverMap covers;
 
+	// Passed to every Lobby (D-119, cycle 107).
+	private final boolean prefetchOnReveal;
+
 	// Thread-safe; draws every room code.
 	private final SecureRandom codes = new SecureRandom();
 
@@ -117,11 +121,13 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 	// Lobbies made and not yet closed, capped at MAX_LOBBIES.
 	private final AtomicInteger lobbies = new AtomicInteger();
 
-	public GameSocketHandler(Catalog catalog, AudioTokens tokens, Clock clock, CoverMap covers) {
+	public GameSocketHandler(Catalog catalog, AudioTokens tokens, Clock clock, CoverMap covers,
+			GameProperties game) {
 		this.catalog = catalog;
 		this.tokens = tokens;
 		this.clock = clock;
 		this.covers = covers;
+		this.prefetchOnReveal = game.prefetchOnReveal();
 	}
 
 	// One lobby: its thread, and the player map its outbox reads.
@@ -144,7 +150,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			this.code = code;
 			this.scheduler = new ExecutorGameScheduler("lobby " + code);
 			this.lobby = new Lobby(code, catalog, tokens, scheduler, clock, new SplittableRandom(),
-					new SocketOutbox(players), this::closed, covers);
+					new SocketOutbox(players), this::closed, covers, prefetchOnReveal);
 		}
 
 		// The lobby's onClosed (on its thread): frees the code, the sessions and the thread. Also
