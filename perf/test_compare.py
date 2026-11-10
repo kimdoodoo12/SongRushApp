@@ -104,3 +104,52 @@ def test_ratio(lib):
     assert lib.ratio(None, 2.4) is None
     assert lib.ratio(9.7, None) is None
     assert lib.ratio(9.7, 0) is None
+
+
+BETWEEN_RUN = {
+    "songs": [
+        {"format": "chat", "index": 1, "betweenSongs_ms": None},
+        {"format": "chat", "index": 2, "betweenSongs_ms": 8000.0},
+        {"format": "chat", "index": 3, "betweenSongs_ms": 8200.0},
+        {"format": "choice", "index": 2, "betweenSongs_ms": 11300.0},
+    ],
+    "medians": {"chat": {"readyBeforeRevealEnd": 2, "readyBeforeRevealEnd_total": 2},
+                "choice": {"readyBeforeRevealEnd": 0, "readyBeforeRevealEnd_total": 1}},
+}
+
+
+def test_between_summary_counts_values(lib):
+    out = lib.between_summary([BETWEEN_RUN])
+    assert out["chat"] == {"between_s": 8.1, "values": 2}
+    assert out["choice"] == {"between_s": 11.3, "values": 1}
+    assert out["all"]["values"] == 3
+
+
+def test_parse_panels(lib):
+    assert lib.parse_panels("download,speed") == ("download", "speed")
+    assert lib.parse_panels(" between ") == ("between",)
+    assert lib.parse_panels("download,speed", between=True) == ("download", "speed", "between")
+    assert lib.parse_panels("between,download,between", between=True) == ("between", "download")
+    with pytest.raises(ValueError):
+        lib.parse_panels("download,typo")
+    with pytest.raises(ValueError):
+        lib.parse_panels(" , ")
+
+
+def test_saving(lib):
+    assert lib.saving(11.3, 8.0) == 3.3
+    assert lib.saving(8.0, 8.5) == -0.5
+    assert lib.saving(None, 8.0) is None
+
+
+def test_ready_before_reveal_end_sums_runs(lib):
+    older = {"songs": [], "medians": {"chat": {"songs": 5}}}  # pre-107 result: skipped
+    assert lib.ready_before_reveal_end([BETWEEN_RUN, BETWEEN_RUN, older], "chat") == (4, 4)
+    assert lib.ready_before_reveal_end([BETWEEN_RUN], "choice") == (0, 1)
+    assert lib.ready_before_reveal_end([older], "chat") is None
+
+
+def test_wrap_label(lib):
+    assert lib.wrap_label("개선 전 (정답 공개 뒤 받기)") == "개선 전\n(정답 공개 뒤 받기)"
+    assert lib.wrap_label("개선 전") == "개선 전"
+    assert lib.wrap_label("아주아주아주아주긴이름없는괄호") == "아주아주아주아주긴이름없는괄호"

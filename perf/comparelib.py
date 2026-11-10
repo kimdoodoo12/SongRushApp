@@ -98,14 +98,16 @@ def between_summary(results):
 
     {"chat": {...}, "choice": {...}, "all": {...}}, each {"between_s": pooled
     median of betweenSongs_ms over every song of every result of that format
-    (both formats for "all"), in seconds rounded to 1 decimal, or None}.
+    (both formats for "all"), in seconds rounded to 1 decimal, or None;
+    "values": how many songs had a value (the first song of a game has none)}.
     Kept apart from summarize_group, whose per-format dict is pinned exactly.
     """
     def pooled(formats):
         values = [s.get("betweenSongs_ms")
                   for result in results for s in result["songs"]
                   if s.get("format") in formats]
-        return {"between_s": _seconds(median(values))}
+        return {"between_s": _seconds(median(values)),
+                "values": sum(1 for v in values if v is not None)}
 
     summary = {fmt: pooled((fmt,)) for fmt in FORMATS}
     summary["all"] = pooled(FORMATS)
@@ -118,3 +120,57 @@ def ratio(numerator, denominator):
     if numerator is None or denominator is None or denominator <= 0:
         return None
     return round(numerator / denominator, 1)
+
+
+PANELS = ("download", "speed", "between")
+DEFAULT_PANELS = ("download", "speed")
+
+
+def parse_panels(text, between=False):
+    """The --panels comma list as a tuple in the given order, duplicates dropped.
+
+    between=True (the --between alias) appends "between" when missing. Raises
+    ValueError on an empty list or an unknown name.
+    """
+    names = [n.strip() for n in text.split(",") if n.strip()]
+    if not names:
+        raise ValueError("--panels needs at least one of " + ", ".join(PANELS))
+    unknown = [n for n in names if n not in PANELS]
+    if unknown:
+        raise ValueError(f"unknown panel(s) {', '.join(unknown)}; choose from {', '.join(PANELS)}")
+    out = []
+    for n in names + (["between"] if between else []):
+        if n not in out:
+            out.append(n)
+    return tuple(out)
+
+
+def saving(before, after):
+    """before - after rounded to 1 decimal (seconds saved), or None if either is missing."""
+    if before is None or after is None:
+        return None
+    return round(before - after, 1)
+
+
+def ready_before_reveal_end(results, fmt):
+    """(ready, total) summed over the results' perflib summaries ("medians") for
+    fmt: songs 2..N whose audio was ready within the reveal card. None when no
+    result has the fields (recorded before cycle 107)."""
+    ready = total = 0
+    found = False
+    for result in results:
+        summary = (result.get("medians") or {}).get(fmt) or {}
+        if summary.get("readyBeforeRevealEnd") is None or summary.get("readyBeforeRevealEnd_total") is None:
+            continue
+        found = True
+        ready += summary["readyBeforeRevealEnd"]
+        total += summary["readyBeforeRevealEnd_total"]
+    return (ready, total) if found else None
+
+
+def wrap_label(text, width=12):
+    """A long "name (detail)" label on two lines, broken before the parenthesis."""
+    if len(text) <= width or " (" not in text:
+        return text
+    head, _, tail = text.partition(" (")
+    return f"{head}\n({tail}"
