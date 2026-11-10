@@ -144,13 +144,18 @@ class LobbySettingsTest {
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.PREPARE);
 	}
 
-	// Ends the current song with both Room players' ready and skip vote; the reveal pause then runs.
+	// Ends the current song with every connected Room player's ready and skip votes until the skip
+	// passes; the reveal pause then runs. A late joiner is a Room player from the next song, so all
+	// ids ready; the lobby ignores ids that are not members or are disconnected.
 	private void skipSong(int index) {
-		for (String id : List.of(P1, P2)) {
+		for (String id : List.of(P1, P2, P3, P4)) {
 			lobby.ready(id, index);
 		}
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.PLAYING);
-		for (String id : List.of(P1, P2)) {
+		for (String id : List.of(P1, P2, P3, P4)) {
+			if (lobby.phase() != Room.Phase.PLAYING) {
+				break;
+			}
 			lobby.skip(id, index);
 		}
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.REVEAL);
