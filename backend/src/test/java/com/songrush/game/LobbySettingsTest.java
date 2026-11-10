@@ -470,6 +470,49 @@ class LobbySettingsTest {
 		assertThat(outbox.since(mark)).isEmpty();
 	}
 
+	// Round 2: the return to the lobby sends the stored selection to every connected member, so a
+	// late joiner gets it although the host changed nothing.
+	@Test
+	void theReturnToTheLobbySendsTheStoredSelectionToEveryConnectedMemberIncludingALateJoiner() {
+		build();
+		joinThree();
+		setFull(P1, List.of(P1, P2, P3));
+		start();
+		lobby.disconnect(P3);
+		int lateMark = outbox.mark();
+		assertThat(lobby.join(P4, "Sora")).isEqualTo("Sora");
+		assertThat(lobbySettingsSince(lateMark)).as("nothing during the game").isEmpty();
+
+		for (int k = 0; k < 4; k++) {
+			skipSong(k);
+		}
+		int mark = outbox.mark();
+		skipSong(4);
+		assertThat(lobby.phase()).as("after gameOver").isEqualTo(Room.Phase.LOBBY);
+		for (String id : List.of(P1, P2, P4)) {
+			assertThat(toSince(mark, id)).as("to " + id).filteredOn(s -> "lobbySettings".equals(s.type()))
+					.extracting(Sent::message).containsExactly(full());
+		}
+		assertThat(toSince(mark, P3)).as("nothing to the member in grace").isEmpty();
+		assertThat(lobbySettingsSince(mark)).extracting(Sent::to).containsExactlyInAnyOrder(P1, P2, P4);
+
+		// The host's unchanged selection after the return is still silent.
+		mark = outbox.mark();
+		lobby.setLobbySettings(P1, 12, FILTER, AnswerMode.CHOICE, GameMode.RANKED);
+		assertThat(outbox.since(mark)).isEmpty();
+	}
+
+	@Test
+	void withoutAStoredSelectionTheReturnToTheLobbySendsNone() {
+		build();
+		joinTwo();
+		start();
+		assertThat(lobby.join(P3, "Hana")).isEqualTo("Hana");
+		int mark = outbox.mark();
+		playToTheEnd();
+		assertThat(lobbySettingsSince(mark)).isEmpty();
+	}
+
 	@Test
 	void aHostTransferKeepsTheSelectionAndTheNewHostMayChangeIt() {
 		build();
