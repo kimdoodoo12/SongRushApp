@@ -119,7 +119,9 @@ class Recorder:
     """The WebSocket frames and the /audio/ and /cover/ requests of one game.
 
     Every request is tagged with the round (server index) current when the
-    page created it; a redirect's follow-up keeps its origin's tag.
+    page created it, except a /cover/ request whose path a known round
+    announced, which goes to that round; a redirect's follow-up keeps its
+    origin's tag.
     """
 
     def __init__(self):
@@ -221,8 +223,27 @@ class Recorder:
         if not self._tracked(req):
             return
         origin = origin_of(req)
-        self.tags[req] = self.current if origin is req else self.tags.get(origin, self.current)
+        if origin is req:
+            self.tags[req] = self._tag_of(req.url)
+        else:
+            self.tags[req] = self.tags.get(origin, self.current)
         self.pending.add(req)
+
+    def _tag_of(self, url):
+        """The round a page-made request belongs to (cycle 107).
+
+        A /cover/ request goes to the most recent round that announced that
+        cover path (prepare choices or reveal): with prefetch-on-reveal the
+        reveal cover of round N is requested after prepare N+1 arrived.
+        Paths are compared without host and query. Anything else, or an
+        unknown cover, gets the latest prepare's round.
+        """
+        path = urlsplit(url).path
+        if path.startswith("/cover/"):
+            for index in reversed(self.order):
+                if any(urlsplit(c).path == path for c in self.rounds[index]["covers"]):
+                    return index
+        return self.current
 
     def _on_finished(self, req):
         self.pending.discard(req)
