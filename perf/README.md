@@ -228,3 +228,6 @@ spread; run twice when in doubt.
 | 2026-11-09 | baseline-1 | index-BL8wr47a.js | 5/5 | 6759 | 5/5 | 6304 | 3.59 | 0.56 | 1469 | 367 (identity) | 2189–2888 |
 | 2026-11-09 | baseline-2 | index-BL8wr47a.js | 5/5 | 9162 | 5/5 | 7012 | 3.60 | 0.40 | 1760 | 367 (identity) | 1861–2066 |
 | 2026-11-09 | baseline-3 | index-BL8wr47a.js | 5/5 | 7426 | 5/5 | 4640 | 3.48 | 0.53 | 1835 | 367 (identity) | 1839–2050 |
+
+## Annotated captures (for the report)
+`python -I perf/annotate.py --spec perf/annotations.json --out docs/perf/annotated` draws red boxes and labels on copies of the captures (coordinates in `perf/annotations.json`). The originals in `perf/results/shots/` are never changed. Needs Pillow (system Python; not in `data/.venv`). New captures need new coordinates.
