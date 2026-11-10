@@ -7,8 +7,11 @@ The `.deck` behaves as in the mockup (`docs/design/108-ui-design-reference.html`
 - the reveal frame is a port of `showCover()` and `pixelate()`, exactly as specified in "Reveal frame" of `docs/cycles/110-room-port.md`.
 
 ## Behaviour
-1. **Disc.** `drawPlayer()` is ported as a module, `src/components/drawPlayer.js`. It draws to the `.disc > canvas` for the current mood (`html[data-mood]`) at the mockup's canvas size and DPR handling. It redraws on a mood change.
-   - The mockup's demo inputs are not taken. Where `drawPlayer` reads demo song data (hue, seed or similar), it uses a fixed value per mood.
+1. **Disc.** `drawPlayer()` is ported as a module, `src/components/drawPlayer.js`, unchanged in what it draws. It reads only the mood and the canvas, as in the mockup: 520×520, no DPR scaling. It draws to the `.disc > canvas` for the current mood (`html[data-mood]`) and redraws on a mood change.
+   - **Environments without canvas or matchMedia.** jsdom has neither.
+     - When `getContext('2d')` returns null, nothing is drawn and nothing throws.
+     - When `window.matchMedia` is missing, reduced motion counts as off.
+     - Every existing test must pass unchanged with the real `drawPlayer`, not a mock.
 2. **Deck classes.**
    - Before the first round and after the game: `.deck.idle`.
    - While a song is prepared or playing: no class.
@@ -19,8 +22,11 @@ The `.deck` behaves as in the mockup (`docs/design/108-ui-design-reference.html`
 4. **The old reveal-cover slot is removed.** The `.reveal-cover` box inside the `.reveal` card (kept in 110 for the old test) goes away; the deck frame is now the cover. `App.revealcover.test.jsx` is rewritten as a declared change to test the deck frame instead:
    - the cover appears only after the reveal;
    - with a null or failed cover, `.missing` is set and the Korean title shows;
-   - the image `alt` is "<title> 표지", as in the mockup;
+   - the image `alt` is the i18n `reveal.coverAlt` with the title: "<title> 표지" in ko, "<title> cover" in en and "<title> 表紙" in ja;
    - the deck box keeps its size (D-109 intent).
+   - **Kept unchanged, against the deck frame (critic H2):**
+     - the existing `coverUrl` allow-list checks: only `^/cover/[A-Za-z0-9_-]{1,64}$` is used, while absolute URLs, `/cover/../x` and `/audio/...` are ignored;
+     - the cases where a `coverUrl` in `prepare`, `start` or the snapshot is ignored.
 5. **Chat line time (`.tm`).** Each `.msg` gets the mockup's `span.tm` with the local `HH:MM` of arrival, between `i` and `.t`. The CSS shows it only in rain.
    - Tests that compare a chat line's whole text are changed, as declared changes, to read `.t`. The `.t` text stays exactly `이름: 내용`.
 6. **System lines.** As in the mockup, the chat gets these system lines (`.msg.sys`), in the current language:
@@ -53,7 +59,16 @@ The `.deck` behaves as in the mockup (`docs/design/108-ui-design-reference.html`
 - **Test writer:** the new tests above and the declared changes.
 - **Implementer:** `src/components/Deck.jsx`, `src/components/drawPlayer.js` (new), `src/components/GameScreen.jsx`, `src/App.jsx`, `src/game/state.js` (only if a field is needed for system lines or `.tm`), and `src/i18n/{ko,en,ja}.json`. It does not touch `room.css` or `index.css`.
 
+## Spec review (critic, round 1)
+- **H1** (no canvas or matchMedia in jsdom): the behaviour is required, and the existing tests must pass with the real module.
+- **H2:** the allow-list and the ignore cases are kept.
+- **M3:** the stated premise was wrong. `drawPlayer` has no demo inputs and no DPR handling, so both requirements are removed.
+- **M4:** the lobby disc copy (`#lobbyDisc`) is moved to cycle 114, with the lobby.
+- **Nit:** the alt text is an i18n key.
+- **Suggested split** (`.tm` and the system lines): kept in this cycle. Both are small and touch the same chat component; the retry cap applies.
+
 ## Out of scope
+- The lobby disc copy (`#lobbyDisc`), in cycle 114.
 - `#viz` and `#sky` (cycle 115);
 - choice tiles and the fly-in (cycle 112);
 - server changes.
