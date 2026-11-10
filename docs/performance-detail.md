@@ -332,3 +332,19 @@ for f, ss in songs.items():
 - 측정 도구와 표: `perf/run.py`, `perf/report.py`, `perf/README.md`
 - 원본 결과, HAR, 캡처: `perf/results/`
 - 그래프: `docs/perf/`
+
+## 부록 C. 1단계: 같은 파일 번갈아 받기 확인
+CloudFront 적용 전, 실제 사이트의 다운로드 주소 하나를 받아 저장소(S3)에서 직접 받기와 CloudFront를 거쳐 받기를 번갈아 했습니다. 순서는 곡마다 바꿨습니다(2026-11-10 오전). 같은 파일을 몇 초 간격으로 받았으므로 회선 상태와 파일 크기의 영향이 거의 없습니다.
+
+```
+song 1 S3 direct  2.99 MB in 9.61 s = 0.31 MB/s
+song 1 CloudFront 2.99 MB in 2.10 s = 1.42 MB/s
+song 2 CloudFront 3.54 MB in 2.14 s = 1.65 MB/s
+song 2 S3 direct  3.54 MB in 13.91 s = 0.25 MB/s
+song 3 S3 direct  3.65 MB in 7.10 s = 0.51 MB/s
+song 3 CloudFront 3.65 MB in 2.74 s = 1.33 MB/s
+```
+
+같은 때의 보안 확인 결과도 있습니다. 정상 서명은 200이었고, 서명을 바꾼 요청, 서명이 없는 요청, 60초가 지나 만료된 요청은 모두 403이었습니다. 403 직후의 정상 요청도 200이어서, 오류 응답이 저장되지 않는 것도 확인했습니다.
+
+적용 후 음원 응답의 `x-amz-cf-pop` 헤더는 `ICN57-P4`였습니다. 인천 엣지에서 받았다는 뜻입니다.
