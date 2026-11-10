@@ -48,6 +48,9 @@
 //   reveal.rankLine     {{rank}}등 {{name}} +{{points}}점 / #{{rank}} {{name}} +{{points}} / {{rank}}位 {{name}} +{{points}}点
 //
 // declared fix (101): stop assertions ignore the scheduled deadline stop
+// declared (110, D-124): the chat log lines are div.msg in .msgs and the
+// reveal card is the .reveal element (the mockup's markup); the ranking list
+// is an ol.rank.
 //
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
@@ -282,12 +285,10 @@ function settingsLines() {
   return Array.from(document.querySelectorAll('.settings')).map((el) => el.textContent)
 }
 
-// The chat log lines in order, whitespace collapsed.
-function chatLines(dict = ko) {
-  const log = screen.getByRole('list', { name: tr(dict, 'chat.label') })
-  return within(log)
-    .queryAllByRole('listitem')
-    .map((li) => collapse(li.textContent))
+// The chat log lines in order, whitespace collapsed. Cycle 110: each line
+// is a div.msg in the chat's .msgs (the mockup's markup).
+function chatLines() {
+  return Array.from(document.querySelectorAll('aside.chat .msgs .msg')).map((el) => collapse(el.textContent))
 }
 
 const rankedLine = (name, rank, dict = ko) => `${CHECK} ${tr(dict, 'chat.correctRanked', { name, rank })}`
@@ -656,9 +657,11 @@ describe('the ranked reveal', () => {
     await waitFor(() => expect(screen.getByText(ko.reveal.heading)).toBeTruthy())
     expect(rankingRows()).toEqual(['1등 민수 +3점', '2등 하루 +2점', '3등 지수 +1점'])
     expect(rankingRows()).toEqual(ranking.map((r) => tr(ko, 'reveal.rankLine', r)))
-    const card = screen.getByText(ko.reveal.heading).closest('section')
+    const card = screen.getByText(ko.reveal.heading).closest('.reveal')
     expect(card).not.toBeNull()
-    expect(within(card).getByRole('list', { name: tr(ko, 'reveal.ranking') })).toBeTruthy()
+    const list = within(card).getByRole('list', { name: tr(ko, 'reveal.ranking') })
+    expect(list.tagName).toBe('OL')
+    expect(list.classList.contains('rank')).toBe(true)
     expect(screen.queryByText(tr(ko, 'reveal.winner', { name: '민수' }))).toBeNull()
   })
 
@@ -694,8 +697,10 @@ describe('first come is unchanged', () => {
     deliver(socket, revealMsg(0, { winner: '민수' }))
     await waitFor(() => expect(screen.getByText(tr(ko, 'reveal.winner', { name: '민수' }))).toBeTruthy())
     // No ranking list in a first-come reveal card (no new key needed here).
-    const card = screen.getByText(ko.reveal.heading).closest('section')
-    expect(within(card).queryAllByRole('list')).toEqual([])
+    const card = screen.getByText(ko.reveal.heading).closest('.reveal')
+    expect(card).not.toBeNull()
+    expect(card.querySelector('ol.rank')).toBeNull()
+    expect(screen.queryByRole('list', { name: tr(ko, 'reveal.ranking') })).toBeNull()
   })
 })
 

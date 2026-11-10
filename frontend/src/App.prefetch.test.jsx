@@ -252,9 +252,11 @@ function roundShown(label) {
   return screen.queryByText(label) !== null
 }
 
+// The load text: LOADING while it shows, '' otherwise. Cycle 110 (D-124,
+// declared): the load text is a .hint or .sub in the panel; the always-there
+// .load-line box is not in the mockup, so '' now means "not shown".
 function loadLineText() {
-  const line = document.querySelector('.load-line')
-  return line === null ? null : line.textContent
+  return screen.queryByText(LOADING) === null ? '' : LOADING
 }
 
 // Host 하루 of QWERT with token T1, in a choice room: song 0 prepared with

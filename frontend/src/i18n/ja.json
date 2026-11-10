@@ -83,7 +83,10 @@
     "hint": "流れている曲のアニメのタイトルをチャットで当てよう",
     "skip": "スキップ",
     "skipCancel": "取り消し",
-    "skipCount": "スキップ{{votes}}/{{needed}}"
+    "skipCount": "スキップ{{votes}}/{{needed}}",
+    "sub": "韓国語・英語・日本語・ローマ字のタイトル、どれでも正解です。スペースと記号は無視します。",
+    "soon": "曲が流れたら、アニメのタイトルをチャットで当てよう",
+    "soonSub": "全員が同じ瞬間に同じ曲を聴きます。"
   },
   "reveal": {
     "heading": "正解発表",
@@ -96,7 +99,15 @@
       "en": "EN",
       "ja": "JA",
       "romaji": "Romaji"
-    }
+    },
+    "solvers": "正解者: {{names}}",
+    "next": "まもなく次の曲が始まります",
+    "nextFinal": "まもなく最終順位を発表します",
+    "rankPlace": "{{rank}}位",
+    "rankPoints": "+{{points}}点",
+    "stampHit": "正解",
+    "stampPass": "パス",
+    "sfx": "ドドン！"
   },
   "chat": {
     "label": "チャット",
@@ -104,7 +115,8 @@
     "placeholder": "アニメのタイトルを入力",
     "send": "送信",
     "correctLine": "{{name}} 正解！",
-    "correctRanked": "{{name}} 正解！（{{rank}}位）"
+    "correctRanked": "{{name}} 正解！（{{rank}}位）",
+    "live": "{{n}}人接続中"
   },
   "score": {
     "board": "スコアボード",
@@ -169,5 +181,17 @@
   "volume": {
     "label": "音量",
     "mute": "ミュート"
+  },
+  "mood": {
+    "tag": {
+      "sunset": "レコード一枚、夕焼け一杯",
+      "rain": "窓辺で聴く夜明け",
+      "sakura": "推しカードを引く夜",
+      "neon": "Signal hunting",
+      "chalk": "放課後、音楽クイズの時間",
+      "pixel": "Insert coin",
+      "matsuri": "花火の下でイントロクイズ",
+      "manga": "次回、正解発表！"
+    }
   }
 }

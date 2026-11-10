@@ -16,6 +16,14 @@
 //   - loading: 'a pending fetch after start ...'
 //   - loading: 'a song loaded before start ...'
 //   - prepare, before start: 'audio loaded before start, then start ...'
+// Cycle 110 (D-124, declared): the mockup's markup. The disc is the .deck's
+// .player .disc canvas with its .mark, and the equalizer is the header
+// .logo .eq (three <i>). "Moving" is body.playing (the mockup's CSS runs the
+// disc and the bars only under .playing); "paused" is its absence, in place
+// of data-paused. The load text shows in the panel as a .hint or .sub; once
+// loaded it is gone (the empty .load-line box is not in the mockup). After
+// the reveal the disc stands still (no body.playing) and the .reveal card
+// shows. Between songs there is no playing disc: no .deck, or an .idle one.
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -114,25 +122,34 @@ function deliverStart(env, socket, { index = 0, startInMs = 0 } = {}) {
   deliver(socket, { type: 'start', index, startAt, deadlineAt: startAt + 90_000, serverTime })
 }
 
-function discArea() {
-  const area = document.querySelector('.disc-area')
+function deck() {
+  const area = document.querySelector('.deck')
   expect(area).not.toBeNull()
   return area
 }
 
-// The record and all seven equalizer bars are rendered inside the disc area.
+// The disc canvas and its mark in the deck, and the three equalizer bars in
+// the header logo.
 function expectDiscDrawn() {
-  const area = discArea()
-  expect(area.querySelector('.record')).not.toBeNull()
-  const eq = area.querySelector('.eq')
+  const area = deck()
+  expect(area.querySelector('.player .disc canvas')).not.toBeNull()
+  expect(area.querySelector('.mark')).not.toBeNull()
+  const eq = document.querySelector('header .logo .eq')
   expect(eq).not.toBeNull()
-  expect(eq.querySelectorAll('span')).toHaveLength(7)
+  expect(eq.querySelectorAll('i')).toHaveLength(3)
 }
 
-function loadLine() {
-  const line = document.querySelector('.load-line')
-  expect(line).not.toBeNull()
-  return line
+// The song is audible: body.playing moves the disc and the bars.
+function playing() {
+  return document.body.classList.contains('playing')
+}
+
+// The element showing the loading text, checked to be a .hint or .sub in the panel.
+function loadText() {
+  const el = screen.getByText(ko.stage.loading)
+  expect(el.classList.contains('hint') || el.classList.contains('sub'), 'the load text is a .hint or .sub').toBe(true)
+  expect(el.closest('.panel')).not.toBeNull()
+  return el
 }
 
 async function settle(ms = 50) {
@@ -145,30 +162,30 @@ async function settle(ms = 50) {
 // disc is no longer paused (the 250 ms tick re-renders).
 async function passStartAndExpectMoving(env, startClock) {
   env.clock.t = startClock + AHEAD + 100
-  await waitFor(() => expect(discArea().hasAttribute('data-paused')).toBe(false))
+  await waitFor(() => expect(playing()).toBe(true))
   expectDiscDrawn()
 }
 
 describe('loading', () => {
-  it('a pending decode after start: data-paused="true"; after the decode and the source start still paused before startAt; absent once the clock passes it', async () => {
+  it('a pending decode after start: paused (no body.playing); after the decode and the source start still paused before startAt; body.playing once the clock passes it', async () => {
     const env = setup({ ctxOptions: { deferDecode: true } })
     const socket = await gamePrepared(env)
     const ctx = env.audio.last
     await waitFor(() => expect(ctx.pendingDecodes).toHaveLength(1))
     const startClock = env.clock.t
     deliverStart(env, socket, { startInMs: AHEAD })
-    expect(screen.getByText(ko.stage.loading)).toBeTruthy()
+    expect(loadText()).toBeTruthy()
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await act(async () => ctx.resolveDecode())
     await waitFor(() => expect(ctx.startedSources()).toHaveLength(1))
     await settle(300)
     // Scheduled but not yet audible: still paused.
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await passStartAndExpectMoving(env, startClock)
   })
 
-  it('a pending fetch after start: data-paused="true"; after the fetch and the source start still paused before startAt; absent once the clock passes it', async () => {
+  it('a pending fetch after start: paused (no body.playing); after the fetch and the source start still paused before startAt; body.playing once the clock passes it', async () => {
     const fetch = createDeferredFetch()
     const env = setup({ fetch })
     const socket = await gamePrepared(env)
@@ -176,19 +193,19 @@ describe('loading', () => {
     const startClock = env.clock.t
     deliverStart(env, socket, { startInMs: AHEAD })
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await settle()
     // Still loading: still paused.
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await act(async () => fetch.release())
     const ctx = env.audio.last
     await waitFor(() => expect(ctx.startedSources()).toHaveLength(1))
     await settle(300)
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await passStartAndExpectMoving(env, startClock)
   })
 
-  it('a song loaded before start: paused after the source start until the clock passes startAt, then the attribute is absent', async () => {
+  it('a song loaded before start: paused after the source start until the clock passes startAt, then body.playing', async () => {
     const env = setup()
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
@@ -197,19 +214,19 @@ describe('loading', () => {
     await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
     await settle(300)
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await passStartAndExpectMoving(env, startClock)
   })
 })
 
 describe('failed load', () => {
-  it('decode rejected twice after start keeps data-paused="true"', async () => {
+  it('decode rejected twice after start stays paused (no body.playing)', async () => {
     const env = setup({ ctxOptions: { deferDecode: true } })
     const socket = await gamePrepared(env)
     const ctx = env.audio.last
     await waitFor(() => expect(ctx.pendingDecodes).toHaveLength(1))
     deliverStart(env, socket)
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await act(async () => ctx.rejectDecode())
     // The one retry decodes again.
     await waitFor(() => expect(ctx.pendingDecodes).toHaveLength(1))
@@ -218,10 +235,10 @@ describe('failed load', () => {
     await settle()
     expect(ctx.startedSources()).toEqual([])
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 
-  it('fetch rejected twice, then start: data-paused="true"', async () => {
+  it('fetch rejected twice, then start: paused (no body.playing)', async () => {
     const env = setup({ fetchOptions: { failures: 2, failWith: 'reject' } })
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
@@ -230,10 +247,10 @@ describe('failed load', () => {
     await settle()
     expect(env.audio.last.startedSources()).toEqual([])
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 
-  it('fetch answered 500 twice, then start: data-paused="true"', async () => {
+  it('fetch answered 500 twice, then start: paused (no body.playing)', async () => {
     const env = setup({ fetchOptions: { failures: 2, failWith: 'status' } })
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
@@ -241,7 +258,7 @@ describe('failed load', () => {
     await settle()
     expect(env.audio.last.startedSources()).toEqual([])
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 })
 
@@ -259,53 +276,53 @@ const revealMsg = {
 }
 
 describe('prepare, before start', () => {
-  it('audio loaded before start: the disc is drawn with data-paused="true"', async () => {
+  it('audio loaded before start: the disc is drawn, paused (no body.playing)', async () => {
     const env = setup()
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
     await settle()
     expect(env.audio.last.startedSources()).toEqual([])
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 
-  it('audio still loading before start (pending fetch): the disc is drawn with data-paused="true"', async () => {
+  it('audio still loading before start (pending fetch): the disc is drawn, paused (no body.playing)', async () => {
     const fetch = createDeferredFetch()
     const env = setup({ fetch })
     await gamePrepared(env)
     await waitFor(() => expect(fetch.pending).toHaveLength(1))
     expect(screen.getByText(ko.stage.loading)).toBeTruthy()
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 
-  it('audio still loading before start (pending decode): the disc is drawn with data-paused="true"', async () => {
+  it('audio still loading before start (pending decode): the disc is drawn, paused (no body.playing)', async () => {
     const env = setup({ ctxOptions: { deferDecode: true } })
     await gamePrepared(env)
     const ctx = env.audio.last
     await waitFor(() => expect(ctx.pendingDecodes).toHaveLength(1))
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 
-  it('audio loaded before start, then start: paused until the clock passes startAt, then the attribute is absent', async () => {
+  it('audio loaded before start, then start: paused until the clock passes startAt, then body.playing', async () => {
     const env = setup()
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     const startClock = env.clock.t
     deliverStart(env, socket, { startInMs: AHEAD })
     await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
     await settle(300)
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
     await passStartAndExpectMoving(env, startClock)
   })
 })
 
 describe('reveal', () => {
-  it('after the reveal the disc area is gone', async () => {
+  it('after the reveal the disc stands still and the reveal card shows', async () => {
     const env = setup()
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
@@ -313,8 +330,8 @@ describe('reveal', () => {
     await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
     expectDiscDrawn()
     deliver(socket, revealMsg)
-    await waitFor(() => expect(document.querySelector('.reveal')).not.toBeNull())
-    expect(document.querySelector('.disc-area')).toBeNull()
+    await waitFor(() => expect(document.querySelector('.panel .reveal')).not.toBeNull())
+    expect(playing()).toBe(false)
   })
 })
 
@@ -329,32 +346,32 @@ describe('sound blocked', () => {
     env.clock.t += 1000
     await settle(400)
     expect(ctx.state).toBe('suspended')
-    expect(document.querySelector('.sound-prompt')).not.toBeNull()
+    expect(screen.getByRole('button', { name: ko.stage.unlockSound })).toBeTruthy()
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
   })
 })
 
-// 087 attempt 2: the load-text line keeps its box while the disc is shown.
-describe('load line', () => {
-  it('loading before start: .load-line shows the loading text', async () => {
+// 087 attempt 2: the load text while the disc is shown (110: in the panel).
+describe('load text', () => {
+  it('loading before start: the panel shows the loading text', async () => {
     const fetch = createDeferredFetch()
     const env = setup({ fetch })
     await gamePrepared(env)
     await waitFor(() => expect(fetch.pending).toHaveLength(1))
     expectDiscDrawn()
-    expect(loadLine().textContent).toBe(ko.stage.loading)
+    expect(loadText().textContent).toBe(ko.stage.loading)
   })
 
-  it('loaded before start: .load-line exists with empty text', async () => {
+  it('loaded before start: no loading text', async () => {
     const env = setup()
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
     expectDiscDrawn()
-    expect(loadLine().textContent).toBe('')
+    expect(screen.queryByText(ko.stage.loading)).toBeNull()
   })
 
-  it('loaded and playing: .load-line exists with empty text', async () => {
+  it('loaded and playing: no loading text', async () => {
     const env = setup()
     const socket = await gamePrepared(env)
     await waitFor(() => expect(socket.sentOfType('ready')).toEqual([{ type: 'ready', index: 0 }]))
@@ -362,7 +379,7 @@ describe('load line', () => {
     deliverStart(env, socket, { startInMs: AHEAD })
     await waitFor(() => expect(env.audio.last.startedSources()).toHaveLength(1))
     await passStartAndExpectMoving(env, startClock)
-    expect(loadLine().textContent).toBe('')
+    expect(screen.queryByText(ko.stage.loading)).toBeNull()
   })
 })
 
@@ -393,14 +410,14 @@ describe('late join (watching)', () => {
     await settle()
     expect(ctx.startedSources()).toEqual([])
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
 
     await waitFor(() => expect(socket.sentOfType('ping').length).toBeGreaterThan(0))
     const ping = socket.sentOfType('ping')[0]
     env.clock.t = T0 + RTT
     deliver(socket, { type: 'pong', id: ping.id, serverTime: T0 + RTT / 2 + SYNC })
     await waitFor(() => expect(ctx.startedSources()).toHaveLength(1))
-    await waitFor(() => expect(discArea().hasAttribute('data-paused')).toBe(false))
+    await waitFor(() => expect(playing()).toBe(true))
     expectDiscDrawn()
   })
 })
@@ -468,7 +485,7 @@ describe('rejoin', () => {
     expect(ctx.decoded).toHaveLength(1)
     expect(ctx.startedSources()).toEqual([])
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
 
     const pings = attempt.sentOfType('ping')
     expect(pings.length).toBeGreaterThan(0)
@@ -480,19 +497,21 @@ describe('rejoin', () => {
     expect(ctx.startedSources()).toHaveLength(1)
     await advance(env, 300)
     expectDiscDrawn()
-    expect(discArea().getAttribute('data-paused')).toBe('true')
+    expect(playing()).toBe(false)
 
     await advance(env, AHEAD)
     expectDiscDrawn()
-    expect(discArea().hasAttribute('data-paused')).toBe(false)
+    expect(playing()).toBe(true)
   })
 
-  it('a song:null snapshot (waiting for the next song): no disc area', async () => {
+  it('a song:null snapshot (waiting for the next song): no playing disc', async () => {
     const env = setup()
     const attempt = await rejoined(env)
     deliver(attempt, { type: 'snapshot', phase: 'playing', players: PLAYERS, song: null, scores: [] })
     await flushUntil(() => false, 5)
     expect(screen.getByText(ko.stage.waitingNext)).toBeTruthy()
-    expect(document.querySelector('.disc-area')).toBeNull()
+    expect(playing()).toBe(false)
+    const area = document.querySelector('.deck')
+    expect(area === null || area.classList.contains('idle'), 'no .deck, or an .idle one').toBe(true)
   })
 })

@@ -13,6 +13,11 @@
 // - nothing else stores or requests a cover: coverUrl fields on prepare,
 //   start or snapshot frames are ignored;
 // - not-enough-songs with unit "series" uses error.availableSeries.
+// Cycle 110 (D-124, declared, card text only): the card is the .reveal
+// element around the reveal.heading text, and the Korean title is its
+// dl.titles dd.ko (the mockup's card has no big title heading). The cover
+// slot checks are unchanged: the slot stays in the card until cycle 111
+// moves the cover into the deck.
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -127,8 +132,8 @@ const revealMsg = (index, cover) => ({
 
 function revealCard() {
   const heading = screen.getByText(ko.reveal.heading)
-  const card = heading.closest('section')
-  expect(card, 'the reveal card should be a <section>').not.toBeNull()
+  const card = heading.closest('.reveal')
+  expect(card, 'the reveal card should be the .reveal element').not.toBeNull()
   return card
 }
 
@@ -223,7 +228,7 @@ describe('cover in the reveal card', () => {
     const socket = await songStarted(env)
     deliver(socket, revealMsg(0, cover))
     const card = revealCard()
-    expect(within(card).getByRole('heading', { name: '진격의 거인' })).toBeTruthy()
+    expect(card.querySelector('dl.titles dd.ko').textContent).toBe('진격의 거인')
     expectEmptySlot(card)
   })
 

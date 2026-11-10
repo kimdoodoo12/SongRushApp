@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { canPlayOggOpus } from './audio/playback.js'
 import { startSession } from './game/session.js'
 import { initialState, reducer } from './game/state.js'
@@ -9,6 +9,7 @@ import LobbyScreen from './components/LobbyScreen.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import FeedbackDialog from './components/FeedbackDialog.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
+import { SeatsAsDivs } from './components/seatList.js'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 import { gainOf, loadVolume, saveVolume, toggleMute, withLevel } from './game/volume.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
@@ -103,8 +104,8 @@ function App(props) {
   const [admin] = useState(isAdminPath)
   if (admin) {
     return (
-      <div className="app-shell min-h-screen">
-        <div className="relative z-[1] px-3 py-3 sm:px-5 md:py-6">
+      <div className="min-h-screen">
+        <div className="px-3 py-3 sm:px-5 md:py-6">
           <AdminScreen />
         </div>
       </div>
@@ -333,20 +334,73 @@ function GameApp({
   // The screen a feedback post reports; over and disconnected count as game.
   const page = state.screen === 'start' || state.screen === 'lobby' ? state.screen : 'game'
 
+  // The mood is <html data-mood> (D-124): the mockup's stylesheet reads it
+  // there. The own pick outside a room, the host's pick in one.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.mood = theme
+  }, [theme])
+
+  const banner = state.reconnecting && (
+    <p
+      className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
+      role="status"
+    >
+      {t('app.reconnecting')}
+    </p>
+  )
+  const footer = (
+    <footer className="mt-auto flex flex-col items-center gap-2 pt-8">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <LanguageSwitcher />
+        <button ref={feedbackButtonRef} type="button" className="btn" onClick={() => setFeedbackOpen(true)}>
+          {t('feedback.title')}
+        </button>
+      </div>
+      <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
+    </footer>
+  )
+  const feedback = feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />
+
+  if (state.screen !== 'start' && state.screen !== 'lobby') {
+    return (
+      <>
+        <GameScreen
+          state={state}
+          theme={roomTheme}
+          onPickTheme={handleRoomTheme}
+          onChat={handleChat}
+          onPick={handlePick}
+          onSkip={handleSkip}
+          onReset={handleReset}
+          onToLobby={handleToLobby}
+          onUnlockSound={handleUnlockSound}
+          volume={volume}
+          onVolumeLevel={handleVolumeLevel}
+          onToggleMute={handleToggleMute}
+          banner={banner}
+          footer={footer}
+        />
+        {feedback}
+      </>
+    )
+  }
+
+  // The start screen and the lobby keep their own layout until cycle 114,
+  // under the mockup's header and logo.
   return (
-    <div className="app-shell min-h-screen" data-room-theme={theme}>
-      <div className="app relative z-[1] mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
-        <header className="flex items-center justify-center md:justify-start">
-          <h1 className="brand w-56 text-center text-3xl whitespace-nowrap tracking-tight md:text-left md:text-4xl">SongRush</h1>
-        </header>
-        {state.reconnecting && (
-          <p
-            className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
-            role="status"
-          >
-            {t('app.reconnecting')}
-          </p>
-        )}
+    <div className="flex min-h-screen flex-col">
+      <header>
+        <h1 className="logo">
+          <span className="eq" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+          SongRush
+        </h1>
+      </header>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
+        {banner}
         {state.screen === 'start' && (
           <StartScreen
             canPlayOpus={opusOk}
@@ -359,48 +413,23 @@ function GameApp({
           />
         )}
         {state.screen === 'lobby' && (
-          <LobbyScreen
-            room={state.room}
-            players={state.players}
-            error={state.error}
-            notice={state.notice}
-            theme={roomTheme}
-            onPickTheme={handleRoomTheme}
-            selection={selection}
-            onSelectionChange={setSelection}
-            onStartGame={handleStartGame}
-            onLeave={handleLeave}
-          />
+          <SeatsAsDivs.Provider value={true}>
+            <LobbyScreen
+              room={state.room}
+              players={state.players}
+              error={state.error}
+              notice={state.notice}
+              theme={roomTheme}
+              onPickTheme={handleRoomTheme}
+              selection={selection}
+              onSelectionChange={setSelection}
+              onStartGame={handleStartGame}
+              onLeave={handleLeave}
+            />
+          </SeatsAsDivs.Provider>
         )}
-        {state.screen !== 'start' && state.screen !== 'lobby' && (
-          <GameScreen
-            state={state}
-            onChat={handleChat}
-            onPick={handlePick}
-            onSkip={handleSkip}
-            onReset={handleReset}
-            onToLobby={handleToLobby}
-            onUnlockSound={handleUnlockSound}
-            volume={volume}
-            onVolumeLevel={handleVolumeLevel}
-            onToggleMute={handleToggleMute}
-          />
-        )}
-        <footer className="mt-auto flex flex-col items-center gap-2 pt-4">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <LanguageSwitcher />
-            <button
-              ref={feedbackButtonRef}
-              type="button"
-              className="feedback-open h-7 w-24 truncate px-1 py-0 text-xs leading-4"
-              onClick={() => setFeedbackOpen(true)}
-            >
-              {t('feedback.title')}
-            </button>
-          </div>
-          <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
-        </footer>
-        {feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />}
+        {footer}
+        {feedback}
       </div>
     </div>
   )

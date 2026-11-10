@@ -4,7 +4,7 @@
 // chat line appends in arrival order. The stage banner '<name> 정답!' stays.
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
 
@@ -66,12 +66,10 @@ async function playing(env) {
 }
 
 // The chat log lines in order, whitespace collapsed (the check mark may sit
-// in its own aria-hidden span).
+// in its own aria-hidden span). Cycle 110 (D-124, declared): each line is a
+// div.msg in the chat's .msgs (the mockup's markup).
 function chatLines() {
-  const log = screen.getByRole('list', { name: '채팅' })
-  return within(log)
-    .queryAllByRole('listitem')
-    .map((li) => li.textContent.replace(/\s+/g, ' ').trim())
+  return Array.from(document.querySelectorAll('aside.chat .msgs .msg')).map((el) => el.textContent.replace(/\s+/g, ' ').trim())
 }
 
 describe('the correct frame in the chat log (D-094)', () => {
