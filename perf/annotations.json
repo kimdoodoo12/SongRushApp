@@ -1,0 +1,41 @@
+{
+  "images": [
+    {
+      "source": "perf/results/shots/2026-11-10-devtools-choice-loading.png",
+      "boxes": [
+        {"x": 3, "y": 200, "w": 850, "h": 283, "label": "서버 경유 302:\n요청마다 0.27~0.54초", "label_at": "right"},
+        {"x": 3, "y": 528, "w": 850, "h": 38, "label": "음원: 244 kB만 받음\n(전체 3.5 MB, 캡처 B)", "label_at": "right"},
+        {"x": 3, "y": 487, "w": 850, "h": 38, "label": ""},
+        {"x": 3, "y": 571, "w": 850, "h": 199, "label": "표지 6장 중 4장 받음", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-devtools-choice-done.png",
+      "boxes": [
+        {"x": 3, "y": 528, "w": 850, "h": 38, "label": "음원 3.5 MB · 9.24초\n(가장 늦게 끝남)", "label_at": "right"},
+        {"x": 3, "y": 487, "w": 850, "h": 38, "label": ""},
+        {"x": 3, "y": 571, "w": 850, "h": 199, "label": "표지 6장(위 1장 포함)\n1.4~5.5초", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-devtools-chat-done.png",
+      "boxes": [
+        {"x": 3, "y": 241, "w": 850, "h": 38, "label": "음원 3.7 MB · 10.05초", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-devtools-pageload.png",
+      "boxes": [
+        {"x": 3, "y": 241, "w": 964, "h": 38, "label": "JS 368 kB · 압축 없음", "label_at": "right"},
+        {"x": 621, "y": 323, "w": 346, "h": 38, "label": "비교: 글꼴 CSS는 gzip\n(737→173 kB)", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-game-choice-loading.png",
+      "crop": {"x": 70, "y": 72, "w": 1136, "h": 1069},
+      "boxes": [
+        {"x": 404, "y": 278, "w": 468, "h": 536, "label": "음원 대기 중", "label_at": "top-right"}
+      ]
+    }
+  ]
+}
