@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // Tests that read the file system through import.meta.url run in the node
 // environment: under jsdom, Vite's client transform rewrites
 // new URL('..', import.meta.url) into a location-based http URL.
-const NODE_TESTS = ['src/noTypeScript.test.js', 'src/i18n/keys.test.js', 'src/roomCss.test.js', 'src/indexCss.test.js']
+const NODE_TESTS = ['src/noTypeScript.test.js', 'src/i18n/keys.test.js', 'src/roomCss.test.js', 'src/indexCss.test.js', 'src/wideCss.test.js']
 
 // The dev server proxies to the Spring Boot backend on port 8080.
 // changeOrigin is deliberately left off: the browser's Origin header must
