@@ -373,15 +373,18 @@ function GameApp({
   // The own player is the host on the lobby view (cycle 116). While it is,
   // the lobby selection goes to the server: once on entering the lobby as
   // host or on a roster that makes it host, and again on each change, so the
-  // guests' card shows what the next start uses. A reversed year range is
-  // not sent (the server refuses it, and start is disabled meanwhile).
+  // guests' card shows what the next start uses. A rejoin into the lobby
+  // sends it again (lobbyRestores): host may have passed to another member
+  // and back while the socket was down, and changes made meanwhile were
+  // dropped. A reversed year range is not sent (the server refuses it, and
+  // start is disabled meanwhile).
   const ownRow = inRoom ? state.players.find((p) => p.name === state.room.me) : undefined
   const isHost = ownRow !== undefined && ownRow.host
   const hostInLobby = view === 'lobby' && isHost
   useEffect(() => {
     if (!hostInLobby || isReversed(selection) || sessionRef.current === null) return
     sessionRef.current.sendLobbySettings(Number(selection.songCount), toFields(selection))
-  }, [hostInLobby, selection])
+  }, [hostInLobby, selection, state.lobbyRestores])
 
   // A view switch starts at the top, as the mockup's showView does: the
   // stage (its own scroller on wide screens) and the page. Not on mount.

@@ -93,6 +93,10 @@ export const initialState = {
   // songCount, types, yearFrom, yearTo, tier, answerMode, gameMode }, a
   // missing field undefined; null before any. A guest's lobby card shows it.
   lobbySettings: null,
+  // Bumped by every rejoin snapshot into the lobby phase (cycle 116 round
+  // 3): the server may have handed host to another member meanwhile, so a
+  // host sends its selection again.
+  lobbyRestores: 0,
   // A choice room's song (cycle 100): the cover URL per position (null for
   // a cover the client refused), or null without choices. Kept from prepare
   // to the next prepare, so the grid stays under the reveal card.
@@ -282,7 +286,15 @@ function step(state, action) {
         ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
-        return { ...lobbyLog(common), screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
+        return {
+          ...lobbyLog(common),
+          screen: 'lobby',
+          round: null,
+          load: null,
+          waitingNext: false,
+          lobbyOpen: false,
+          lobbyRestores: state.lobbyRestores + 1,
+        }
       }
       return {
         ...common,
