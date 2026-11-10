@@ -91,7 +91,7 @@ No captured image may show a presigned-URL signature.
   3. **Edge restored the previous tab** after a forced kill, which gave two DevTools frontends. Session files are now cleared, and attaching needs exactly one site page and one DevTools page.
 - **Critic.**
   - **Round 1:** H1 and H2 fixed. M1–M5 fixed in the captions and README. M6, the choice-room stage hint, went to Follow-ups. N1, the viewport-size overlay in the game shots, remains.
-  - **Round 2:** see below.
+  - **Round 2:** 0 Blocker, 0 High. M-1 (the shot order in caption A) was fixed. N1 remains.
 - **Caveats.**
   - In capture D the document took 14.7 s in the browser, while `curl` at the same time took 0.83–0.90 s. The report does not use it as a load-time figure.
   - Captures A–C are single songs and are not part of the baseline table.
