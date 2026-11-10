@@ -18,8 +18,9 @@ EN_DASH = chr(0x2013)
 # matters: S3's lowercase x-amz-request-id response header is harmless.
 SECRET_MARKERS = ("X-Amz-", "Signature=", "Credential=")
 
-# Headers whose value can carry a presigned URL (compared lowercased).
-URL_HEADERS = ("location", "referer")
+# Headers whose value can carry a presigned URL (compared lowercased). The
+# HTTP/2 pseudo-header :path holds the request path with its query.
+URL_HEADERS = ("location", "referer", ":path")
 
 
 def median(values):
@@ -59,7 +60,8 @@ def strip_har(har):
     """Strips URL queries from a HAR dict in place and returns it.
 
     Covers request.url, request.queryString (emptied), response.redirectURL
-    and the Location and Referer headers; any other field stays as is.
+    and the Location, Referer and HTTP/2 :path headers; any other field stays
+    as is.
     """
     for entry in (har.get("log") or {}).get("entries") or []:
         request = entry.get("request")
@@ -111,11 +113,26 @@ def _ready_median(songs):
     return median(nums), censored
 
 
+# The reveal card's length (the server's REVEAL_PAUSE): a song whose audio was
+# ready within this time of the previous reveal could start at reveal end.
+REVEAL_MS = 5000
+
+
+def _ready_before_reveal_end(songs):
+    """(count, total) over songs 2..N: ready within REVEAL_MS of the previous reveal."""
+    later = [s for s in songs if (s.get("index") or 0) >= 2]
+    ready = sum(1 for s in later
+                if s.get("prevRevealToReady_ms") is not None
+                and s["prevRevealToReady_ms"] <= REVEAL_MS)
+    return ready, len(later)
+
+
 def _summary(songs):
     audios = [s["audio"] for s in songs if s.get("audio") is not None]
     covers = [s["covers"] for s in songs if s.get("covers") is not None]
     cover_kb = [None if c.get("total_bytes") is None else c["total_bytes"] / 1000 for c in covers]
     ready_ms, censored = _ready_median(songs)
+    before_end, before_end_total = _ready_before_reveal_end(songs)
     return {
         "songs": len(songs),
         "readyBeforeStart": sum(1 for s in songs if s.get("readyBeforeStart") is True),
@@ -128,6 +145,9 @@ def _summary(songs):
         "audio_total_ms": median(a.get("total_ms") for a in audios),
         "audio_mb_per_s": median(_audio_rate(a) for a in audios),
         "cover_bytes_median_kb": median(cover_kb),
+        "betweenSongs_ms": median(s.get("betweenSongs_ms") for s in songs),
+        "readyBeforeRevealEnd": before_end,
+        "readyBeforeRevealEnd_total": before_end_total,
     }
 
 

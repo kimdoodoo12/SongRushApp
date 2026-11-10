@@ -13,12 +13,17 @@ Box and crop coordinates are pixels of the source image; boxes are moved by
 the crop. "label" may hold "\\n" for a second line, or be empty for a box
 without a pill. "label_at" puts the pill outside the box: "right" (default),
 "left", "top-right", "top-left", "bottom-right" or "bottom-left"; the pill is
-kept inside the image.
+kept inside the image. Where no side is free, "label_xy": [x, y] puts the
+pill's top-left corner at a fixed point, and "leader": [[x, y], ...] draws a
+red line through those points to tie the pill to its box (both in source
+coordinates).
 
     python -I perf/annotate.py --spec perf/annotations.json --out docs/perf/annotated
 
-Writes <out>/<source stem>-annotated.png for each image and prints each path
-with its size. Needs Pillow and the Malgun Gothic font (Windows).
+Writes <out>/<source stem>-annotated.png for each image, or <out>/<"out"> when
+the entry names its own file (one source can then give several images), and
+prints each path with its size. Needs Pillow and the Malgun Gothic font
+(Windows).
 """
 
 import argparse
@@ -31,6 +36,7 @@ from PIL import Image, ImageDraw, ImageFont
 RED = (229, 57, 53)
 WHITE = (255, 255, 255)
 LINE = 4
+LEADER = 3
 RADIUS = 8
 FONT_SIZE = 20
 PAD_X = 12
@@ -96,17 +102,24 @@ def annotate(entry, font, out_dir):
         box = (spec["x"] - ox, spec["y"] - oy,
                spec["x"] - ox + spec["w"], spec["y"] - oy + spec["h"])
         draw.rounded_rectangle(box, radius=RADIUS, outline=RED, width=LINE)
+        leader = spec.get("leader")
+        if leader:
+            points = [(px - ox, py - oy) for px, py in leader]
+            draw.line(points, fill=RED, width=LEADER, joint="curve")
         label = spec.get("label", "")
         if not label:
             continue
         lines = label.split("\n")
         w, h, line_h = pill_size(draw, font, lines)
-        x, y = place(anchor, box, (w, h), image.size)
+        if "label_xy" in spec:
+            x, y = spec["label_xy"][0] - ox, spec["label_xy"][1] - oy
+        else:
+            x, y = place(anchor, box, (w, h), image.size)
         draw.rounded_rectangle((x, y, x + w, y + h), radius=min(h // 2, 16), fill=RED)
         for i, line in enumerate(lines):
             ty = y + PAD_Y + i * (line_h + LINE_GAP) + line_h // 2
             draw.text((x + PAD_X, ty), line, font=font, fill=WHITE, anchor="lm")
-    out = out_dir / f"{source.stem}-annotated.png"
+    out = out_dir / entry.get("out", f"{source.stem}-annotated.png")
     image.save(out, optimize=True)
     return out, image.size
 

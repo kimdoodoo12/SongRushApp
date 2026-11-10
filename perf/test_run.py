@@ -236,6 +236,10 @@ SUMMARY_KEYS = {
     "audio_total_ms",
     "audio_mb_per_s",
     "cover_bytes_median_kb",
+    # cycle 107: declared change (between metrics)
+    "betweenSongs_ms",
+    "readyBeforeRevealEnd",
+    "readyBeforeRevealEnd_total",
 }
 
 
@@ -439,8 +443,12 @@ def test_summarize_empty():
     assert allm["readyBeforeStart"] == 0
     assert allm["audio_missing"] == 0
     assert allm["prepareToReady_censored"] is False
+    # cycle 107: declared change (between metrics)
+    assert allm["readyBeforeRevealEnd"] == 0
+    assert allm["readyBeforeRevealEnd_total"] == 0
     for key in SUMMARY_KEYS - {"songs", "readyBeforeStart", "audio_missing",
-                               "prepareToReady_censored"}:
+                               "prepareToReady_censored",
+                               "readyBeforeRevealEnd", "readyBeforeRevealEnd_total"}:
         assert allm[key] is None, key
 
 

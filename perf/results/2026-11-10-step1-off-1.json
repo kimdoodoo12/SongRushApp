@@ -1,0 +1,1077 @@
+{
+  "label": "step1-off-1",
+  "timestamp": "2026-11-10T02:00:04Z",
+  "commit": "a4d2977",
+  "build": "index-BL8wr47a.js",
+  "base": "https://animeopguessr.com/",
+  "songsPerFormat": 5,
+  "environment": {
+    "client": {
+      "os": "Windows 11 (10.0.26200)",
+      "browser": "Microsoft Edge (Playwright channel msedge)",
+      "version": "156.0.4314.58",
+      "note": "Korea, home line; media direct from S3 (CloudFront off)"
+    },
+    "server": {
+      "app": "AWS EC2 ap-southeast-2 (Sydney)",
+      "storage": "S3 ap-southeast-2 (Sydney)"
+    },
+    "local_time": "2026-11-10T11:00:04+09:00"
+  },
+  "captures": {
+    "chat": {
+      "har": "perf/results/2026-11-10-step1-off-1-chat.har",
+      "shots": {
+        "loading": "perf/results/shots/2026-11-10-step1-off-1-chat-loading.png",
+        "playing": "perf/results/shots/2026-11-10-step1-off-1-chat-playing.png",
+        "reveal": "perf/results/shots/2026-11-10-step1-off-1-chat-reveal.png"
+      },
+      "loadingTextVisible": true,
+      "loadingShotAfterPrepare_ms": 59.0
+    },
+    "choice": {
+      "har": "perf/results/2026-11-10-step1-off-1-choice.har",
+      "shots": {
+        "loading": "perf/results/shots/2026-11-10-step1-off-1-choice-loading.png",
+        "playing": "perf/results/shots/2026-11-10-step1-off-1-choice-playing.png",
+        "reveal": "perf/results/shots/2026-11-10-step1-off-1-choice-reveal.png"
+      },
+      "loadingTextVisible": true,
+      "loadingShotAfterPrepare_ms": 70.9
+    }
+  },
+  "page": {
+    "load_ms": 5551.6,
+    "load_ms_min": 4955.6,
+    "load_ms_max": 5746.7,
+    "load_ms_runs": [
+      5551.6,
+      5746.7,
+      4955.6
+    ],
+    "js_bytes": 366957,
+    "js_encoding": null,
+    "css_bytes": 44654,
+    "css_encoding": null,
+    "assets": [
+      {
+        "kind": "js",
+        "url": "https://animeopguessr.com/assets/index-BL8wr47a.js",
+        "status": 200,
+        "bytes": 366957,
+        "encoding": null
+      },
+      {
+        "kind": "css",
+        "url": "https://animeopguessr.com/assets/index-CS0Jhwrc.css",
+        "status": 200,
+        "bytes": 44654,
+        "encoding": null
+      }
+    ],
+    "home_ttfb_ms": 822.8,
+    "home_ttfb_runs": [
+      829.8,
+      811.9,
+      822.8
+    ]
+  },
+  "leftRoom": {
+    "chat": true,
+    "choice": true
+  },
+  "failedRequests": [],
+  "uncountedRequests": [],
+  "songs": [
+    {
+      "format": "chat",
+      "index": 1,
+      "serverIndex": 0,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 9303.7,
+      "prepareToStart_ms": 9584.1,
+      "prepareToAudioDone_ms": 8659.8,
+      "prepareToReveal_ms": 10049.7,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 273.5,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3592331,
+        "ttfb_ms": 975.0,
+        "total_ms": 8386.3,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/EVrgnPdPkUPHZZUK-J-tjA",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 1,
+        "cached": 0,
+        "total_bytes": 85634,
+        "slowest_ms": 2093.5,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/qBpPG2jU7y-63dKnuqRTZg"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/HGPdBecA1SVyVr9Ul47Euw",
+          "start_ms": -0.1,
+          "end_ms": 273.4,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/EVrgnPdPkUPHZZUK-J-tjA",
+          "start_ms": 273.5,
+          "end_ms": 8659.8,
+          "bytes": 3592331
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/qBpPG2jU7y-63dKnuqRTZg",
+          "start_ms": 10052.4,
+          "end_ms": 10375.7,
+          "bytes": 0
+        },
+        {
+          "kind": "cover",
+          "path": "/c/qBpPG2jU7y-63dKnuqRTZg",
+          "start_ms": 10375.7,
+          "end_ms": 12146.0,
+          "bytes": 85634
+        }
+      ]
+    },
+    {
+      "format": "chat",
+      "index": 2,
+      "serverIndex": 1,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 7697.2,
+      "prepareToStart_ms": 7976.5,
+      "prepareToAudioDone_ms": 7050.8,
+      "prepareToReveal_ms": 8401.5,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 272.3,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3521042,
+        "ttfb_ms": 410.3,
+        "total_ms": 6779.1,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/76VVXJ-10m3mYn1anK04MA",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 1,
+        "cached": 0,
+        "total_bytes": 566336,
+        "slowest_ms": 4189.6,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/CbhwFxYFOr5FCs0WddNMbA"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/Kee45U3s2TYMjiO5_v3Z0Q",
+          "start_ms": -0.5,
+          "end_ms": 271.8,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/76VVXJ-10m3mYn1anK04MA",
+          "start_ms": 271.7,
+          "end_ms": 7050.8,
+          "bytes": 3521042
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/CbhwFxYFOr5FCs0WddNMbA",
+          "start_ms": 8404.4,
+          "end_ms": 8677.5,
+          "bytes": 0
+        },
+        {
+          "kind": "cover",
+          "path": "/c/CbhwFxYFOr5FCs0WddNMbA",
+          "start_ms": 8677.3,
+          "end_ms": 12594.0,
+          "bytes": 566336
+        }
+      ]
+    },
+    {
+      "format": "chat",
+      "index": 3,
+      "serverIndex": 2,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 7541.9,
+      "prepareToStart_ms": 7821.7,
+      "prepareToAudioDone_ms": 6858.8,
+      "prepareToReveal_ms": 8216.0,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 272.6,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3597797,
+        "ttfb_ms": 1003.5,
+        "total_ms": 6586.3,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/YeQJRJZPGuh9OCSnA0tEiw",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 1,
+        "cached": 0,
+        "total_bytes": 474650,
+        "slowest_ms": 2587.4,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/ljWVArK4IunSqUHSfE1a7w"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/iv7i-bBmQE0H1jwpYBkLAA",
+          "start_ms": 0.2,
+          "end_ms": 272.8,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/YeQJRJZPGuh9OCSnA0tEiw",
+          "start_ms": 272.5,
+          "end_ms": 6858.8,
+          "bytes": 3597797
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/ljWVArK4IunSqUHSfE1a7w",
+          "start_ms": 8219.3,
+          "end_ms": 8495.9,
+          "bytes": 0
+        },
+        {
+          "kind": "cover",
+          "path": "/c/ljWVArK4IunSqUHSfE1a7w",
+          "start_ms": 8495.6,
+          "end_ms": 10806.7,
+          "bytes": 474650
+        }
+      ]
+    },
+    {
+      "format": "chat",
+      "index": 4,
+      "serverIndex": 3,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 9234.3,
+      "prepareToStart_ms": 9514.6,
+      "prepareToAudioDone_ms": 8580.3,
+      "prepareToReveal_ms": 9848.3,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 272.6,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3574049,
+        "ttfb_ms": 449.9,
+        "total_ms": 8308.4,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/FDVCjLHnsQqdjbv0HGKwPg",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 0,
+        "cached": 1,
+        "total_bytes": null,
+        "slowest_ms": null,
+        "urls": []
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/GOU99Ye4Xr5cEooCUJTWLw",
+          "start_ms": -0.2,
+          "end_ms": 272.4,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/FDVCjLHnsQqdjbv0HGKwPg",
+          "start_ms": 271.9,
+          "end_ms": 8580.3,
+          "bytes": 3574049
+        }
+      ]
+    },
+    {
+      "format": "chat",
+      "index": 5,
+      "serverIndex": 4,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 5010.7,
+      "prepareToStart_ms": 5290.2,
+      "prepareToAudioDone_ms": 4423.4,
+      "prepareToReveal_ms": 5700.7,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 272.8,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 2241862,
+        "ttfb_ms": 896.1,
+        "total_ms": 4151.3,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/f-92PoTDsY6w89Bh32bA4g",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 1,
+        "cached": 0,
+        "total_bytes": 480919,
+        "slowest_ms": 2607.9,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/-gpa50u-8yLQJ6EKFByp0A"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/Ttam6R8i6z1TDelYI43ikw",
+          "start_ms": -0.1,
+          "end_ms": 272.7,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/f-92PoTDsY6w89Bh32bA4g",
+          "start_ms": 272.1,
+          "end_ms": 4423.4,
+          "bytes": 2241862
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/-gpa50u-8yLQJ6EKFByp0A",
+          "start_ms": 5702.4,
+          "end_ms": 5978.0,
+          "bytes": 0
+        },
+        {
+          "kind": "cover",
+          "path": "/c/-gpa50u-8yLQJ6EKFByp0A",
+          "start_ms": 5978.1,
+          "end_ms": 8310.3,
+          "bytes": 480919
+        }
+      ]
+    },
+    {
+      "format": "choice",
+      "index": 1,
+      "serverIndex": 0,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 12950.6,
+      "prepareToStart_ms": 13215.9,
+      "prepareToAudioDone_ms": 12190.9,
+      "prepareToReveal_ms": 13699.5,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 285.4,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3672425,
+        "ttfb_ms": 948.5,
+        "total_ms": 11906.2,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/jN23Ttrv-EHAbmu63l8HEw",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 6,
+        "cached": 0,
+        "total_bytes": 1799244,
+        "slowest_ms": 4063.9,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/9R03BJsTEs57nnaK0ujqJA",
+          "s3-bucket.ap-southeast-2.example/c/AFNMby6w-iZxIcvqyNtUtQ",
+          "s3-bucket.ap-southeast-2.example/c/GyVJ3N1m0alIMRu-AJOlGA",
+          "s3-bucket.ap-southeast-2.example/c/e6C_FNj5pq5W3R_E0xRYBQ",
+          "s3-bucket.ap-southeast-2.example/c/m72Px2MJkdB-Nm0-QvwK7A",
+          "s3-bucket.ap-southeast-2.example/c/pxiavcpbIbHxcjV7A4VaSg"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/F4wkJCDTq_dEfWhGd-lcVA",
+          "start_ms": -0.6,
+          "end_ms": 284.8,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/9R03BJsTEs57nnaK0ujqJA",
+          "start_ms": 0.4,
+          "end_ms": 285.1,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/e6C_FNj5pq5W3R_E0xRYBQ",
+          "start_ms": 0.6,
+          "end_ms": 285.4,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/AFNMby6w-iZxIcvqyNtUtQ",
+          "start_ms": 0.7,
+          "end_ms": 563.9,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/m72Px2MJkdB-Nm0-QvwK7A",
+          "start_ms": 1.3,
+          "end_ms": 288.8,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/GyVJ3N1m0alIMRu-AJOlGA",
+          "start_ms": 1.6,
+          "end_ms": 288.7,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/pxiavcpbIbHxcjV7A4VaSg",
+          "start_ms": 1.9,
+          "end_ms": 567.7,
+          "bytes": 0
+        },
+        {
+          "kind": "cover",
+          "path": "/c/9R03BJsTEs57nnaK0ujqJA",
+          "start_ms": 284.0,
+          "end_ms": 3239.0,
+          "bytes": 584620
+        },
+        {
+          "kind": "cover",
+          "path": "/c/e6C_FNj5pq5W3R_E0xRYBQ",
+          "start_ms": 284.5,
+          "end_ms": 3336.0,
+          "bytes": 508563
+        },
+        {
+          "kind": "audio",
+          "path": "/a/jN23Ttrv-EHAbmu63l8HEw",
+          "start_ms": 284.7,
+          "end_ms": 12190.9,
+          "bytes": 3672425
+        },
+        {
+          "kind": "cover",
+          "path": "/c/GyVJ3N1m0alIMRu-AJOlGA",
+          "start_ms": 286.5,
+          "end_ms": 1768.8,
+          "bytes": 110760
+        },
+        {
+          "kind": "cover",
+          "path": "/c/m72Px2MJkdB-Nm0-QvwK7A",
+          "start_ms": 286.6,
+          "end_ms": 1785.3,
+          "bytes": 123338
+        },
+        {
+          "kind": "cover",
+          "path": "/c/AFNMby6w-iZxIcvqyNtUtQ",
+          "start_ms": 562.4,
+          "end_ms": 1963.7,
+          "bytes": 88883
+        },
+        {
+          "kind": "cover",
+          "path": "/c/pxiavcpbIbHxcjV7A4VaSg",
+          "start_ms": 565.2,
+          "end_ms": 4065.8,
+          "bytes": 383080
+        }
+      ]
+    },
+    {
+      "format": "choice",
+      "index": 2,
+      "serverIndex": 1,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 8526.2,
+      "prepareToStart_ms": 8791.8,
+      "prepareToAudioDone_ms": 7782.1,
+      "prepareToReveal_ms": 9098.0,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 285.3,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3590578,
+        "ttfb_ms": 404.5,
+        "total_ms": 7498.3,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/Y1K3ApaDoyiE14b2mQ2QTg",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 5,
+        "cached": 1,
+        "total_bytes": 2151897,
+        "slowest_ms": 6570.5,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/-gpa50u-8yLQJ6EKFByp0A",
+          "s3-bucket.ap-southeast-2.example/c/CJmnntQd_eG35QmowdEKIA",
+          "s3-bucket.ap-southeast-2.example/c/CbhwFxYFOr5FCs0WddNMbA",
+          "s3-bucket.ap-southeast-2.example/c/TsxLHLCzSUD2Sh2cKX6Myw",
+          "s3-bucket.ap-southeast-2.example/c/pAs4Ulh5fqrYbcIr9Fd_iw"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/vpo5LEfWLtJWuB4tpyHHYg",
+          "start_ms": -1.2,
+          "end_ms": 284.1,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/-gpa50u-8yLQJ6EKFByp0A",
+          "start_ms": -0.2,
+          "end_ms": 289.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/TsxLHLCzSUD2Sh2cKX6Myw",
+          "start_ms": 0.1,
+          "end_ms": 285.5,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/CbhwFxYFOr5FCs0WddNMbA",
+          "start_ms": 0.2,
+          "end_ms": 562.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/pAs4Ulh5fqrYbcIr9Fd_iw",
+          "start_ms": 1.3,
+          "end_ms": 563.8,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/CJmnntQd_eG35QmowdEKIA",
+          "start_ms": 1.8,
+          "end_ms": 289.8,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/Y1K3ApaDoyiE14b2mQ2QTg",
+          "start_ms": 283.8,
+          "end_ms": 7782.1,
+          "bytes": 3590578
+        },
+        {
+          "kind": "cover",
+          "path": "/c/TsxLHLCzSUD2Sh2cKX6Myw",
+          "start_ms": 286.6,
+          "end_ms": 6547.8,
+          "bytes": 488755
+        },
+        {
+          "kind": "cover",
+          "path": "/c/CJmnntQd_eG35QmowdEKIA",
+          "start_ms": 287.8,
+          "end_ms": 2542.5,
+          "bytes": 151465
+        },
+        {
+          "kind": "cover",
+          "path": "/c/-gpa50u-8yLQJ6EKFByp0A",
+          "start_ms": 289.1,
+          "end_ms": 2866.8,
+          "bytes": 480919
+        },
+        {
+          "kind": "cover",
+          "path": "/c/CbhwFxYFOr5FCs0WddNMbA",
+          "start_ms": 561.0,
+          "end_ms": 3049.2,
+          "bytes": 566336
+        },
+        {
+          "kind": "cover",
+          "path": "/c/pAs4Ulh5fqrYbcIr9Fd_iw",
+          "start_ms": 561.7,
+          "end_ms": 6571.8,
+          "bytes": 464422
+        }
+      ]
+    },
+    {
+      "format": "choice",
+      "index": 3,
+      "serverIndex": 2,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 9283.9,
+      "prepareToStart_ms": 9548.9,
+      "prepareToAudioDone_ms": 8731.8,
+      "prepareToReveal_ms": 9865.1,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 566.7,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 2102108,
+        "ttfb_ms": 1036.5,
+        "total_ms": 8165.9,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/WFrA3heCUfbmdlvyw-15Kg",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 6,
+        "cached": 0,
+        "total_bytes": 1679922,
+        "slowest_ms": 5244.2,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/C8d336Q6mR6meV2VkmC0ig",
+          "s3-bucket.ap-southeast-2.example/c/GWlwv2KwN-H9eIHtVRBBtg",
+          "s3-bucket.ap-southeast-2.example/c/nMPdEd57XcT9tubMO1XVNg",
+          "s3-bucket.ap-southeast-2.example/c/otwNSWNuueZw_qm6vMENZg",
+          "s3-bucket.ap-southeast-2.example/c/pDB6rO1NFToYGwJLB9AR0g",
+          "s3-bucket.ap-southeast-2.example/c/t0R6EAijDzccqPzZlAHyeg"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/ws1lSMoNA-9I1lkvEpAP6A",
+          "start_ms": -0.8,
+          "end_ms": 565.9,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/otwNSWNuueZw_qm6vMENZg",
+          "start_ms": -0.0,
+          "end_ms": 565.8,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/C8d336Q6mR6meV2VkmC0ig",
+          "start_ms": 0.1,
+          "end_ms": 286.2,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/t0R6EAijDzccqPzZlAHyeg",
+          "start_ms": 0.2,
+          "end_ms": 567.2,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/GWlwv2KwN-H9eIHtVRBBtg",
+          "start_ms": 0.4,
+          "end_ms": 286.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/nMPdEd57XcT9tubMO1XVNg",
+          "start_ms": 0.6,
+          "end_ms": 288.9,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/pDB6rO1NFToYGwJLB9AR0g",
+          "start_ms": 0.7,
+          "end_ms": 289.1,
+          "bytes": 0
+        },
+        {
+          "kind": "cover",
+          "path": "/c/C8d336Q6mR6meV2VkmC0ig",
+          "start_ms": 285.3,
+          "end_ms": 1505.4,
+          "bytes": 171615
+        },
+        {
+          "kind": "cover",
+          "path": "/c/GWlwv2KwN-H9eIHtVRBBtg",
+          "start_ms": 286.2,
+          "end_ms": 1708.0,
+          "bytes": 74428
+        },
+        {
+          "kind": "cover",
+          "path": "/c/pDB6rO1NFToYGwJLB9AR0g",
+          "start_ms": 287.7,
+          "end_ms": 5244.9,
+          "bytes": 521658
+        },
+        {
+          "kind": "cover",
+          "path": "/c/nMPdEd57XcT9tubMO1XVNg",
+          "start_ms": 288.0,
+          "end_ms": 1768.8,
+          "bytes": 84936
+        },
+        {
+          "kind": "cover",
+          "path": "/c/otwNSWNuueZw_qm6vMENZg",
+          "start_ms": 565.3,
+          "end_ms": 1966.5,
+          "bytes": 113240
+        },
+        {
+          "kind": "audio",
+          "path": "/a/WFrA3heCUfbmdlvyw-15Kg",
+          "start_ms": 565.9,
+          "end_ms": 8731.8,
+          "bytes": 2102108
+        },
+        {
+          "kind": "cover",
+          "path": "/c/t0R6EAijDzccqPzZlAHyeg",
+          "start_ms": 566.3,
+          "end_ms": 3424.9,
+          "bytes": 714045
+        }
+      ]
+    },
+    {
+      "format": "choice",
+      "index": 4,
+      "serverIndex": 3,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 5706.4,
+      "prepareToStart_ms": 5972.1,
+      "prepareToAudioDone_ms": 5248.1,
+      "prepareToReveal_ms": 6331.6,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 286.0,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 1659785,
+        "ttfb_ms": 398.6,
+        "total_ms": 4962.7,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/fbtE7G5hmwcaXXkmTiQUOQ",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 6,
+        "cached": 0,
+        "total_bytes": 1392397,
+        "slowest_ms": 5262.9,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/4ncDZTlhDjogxskuGBRiAQ",
+          "s3-bucket.ap-southeast-2.example/c/6M9xbHe0GUK0FbFXhejbyw",
+          "s3-bucket.ap-southeast-2.example/c/F_2yRH94ST4-x6h4bF7SwQ",
+          "s3-bucket.ap-southeast-2.example/c/RlmdrBzjtY4S3UPVCpgPpQ",
+          "s3-bucket.ap-southeast-2.example/c/WcSSEbVIpZiDOfuhBQ-VQQ",
+          "s3-bucket.ap-southeast-2.example/c/b7jIi0C9DKminCmlNVEi_Q"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/LdYoX4MW9N24ilJ2yKCfyg",
+          "start_ms": -0.4,
+          "end_ms": 285.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/RlmdrBzjtY4S3UPVCpgPpQ",
+          "start_ms": 0.7,
+          "end_ms": 286.9,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/WcSSEbVIpZiDOfuhBQ-VQQ",
+          "start_ms": 1.0,
+          "end_ms": 287.0,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/4ncDZTlhDjogxskuGBRiAQ",
+          "start_ms": 1.2,
+          "end_ms": 289.5,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/F_2yRH94ST4-x6h4bF7SwQ",
+          "start_ms": 2.2,
+          "end_ms": 564.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/6M9xbHe0GUK0FbFXhejbyw",
+          "start_ms": 2.7,
+          "end_ms": 565.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/b7jIi0C9DKminCmlNVEi_Q",
+          "start_ms": 2.9,
+          "end_ms": 565.4,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/fbtE7G5hmwcaXXkmTiQUOQ",
+          "start_ms": 285.4,
+          "end_ms": 5248.1,
+          "bytes": 1659785
+        },
+        {
+          "kind": "cover",
+          "path": "/c/WcSSEbVIpZiDOfuhBQ-VQQ",
+          "start_ms": 288.0,
+          "end_ms": 4151.9,
+          "bytes": 367571
+        },
+        {
+          "kind": "cover",
+          "path": "/c/RlmdrBzjtY4S3UPVCpgPpQ",
+          "start_ms": 288.9,
+          "end_ms": 5263.6,
+          "bytes": 457807
+        },
+        {
+          "kind": "cover",
+          "path": "/c/4ncDZTlhDjogxskuGBRiAQ",
+          "start_ms": 289.5,
+          "end_ms": 2071.1,
+          "bytes": 157802
+        },
+        {
+          "kind": "cover",
+          "path": "/c/F_2yRH94ST4-x6h4bF7SwQ",
+          "start_ms": 562.3,
+          "end_ms": 4163.8,
+          "bytes": 103894
+        },
+        {
+          "kind": "cover",
+          "path": "/c/b7jIi0C9DKminCmlNVEi_Q",
+          "start_ms": 563.0,
+          "end_ms": 4185.3,
+          "bytes": 184070
+        },
+        {
+          "kind": "cover",
+          "path": "/c/6M9xbHe0GUK0FbFXhejbyw",
+          "start_ms": 563.7,
+          "end_ms": 2050.9,
+          "bytes": 121253
+        }
+      ]
+    },
+    {
+      "format": "choice",
+      "index": 5,
+      "serverIndex": 4,
+      "readyBeforeStart": true,
+      "prepareToReady_ms": 10286.1,
+      "prepareToStart_ms": 10551.9,
+      "prepareToAudioDone_ms": 9555.6,
+      "prepareToReveal_ms": 10945.9,
+      "inflight_at_prepare": 0,
+      "settledBeforeSkip": true,
+      "audio": {
+        "redirect_ms": 287.0,
+        "redirect_status": 302,
+        "status": 200,
+        "bytes": 3578019,
+        "ttfb_ms": 932.9,
+        "total_ms": 9269.3,
+        "host": "s3-bucket.ap-southeast-2.example",
+        "path": "/a/VbVNguO2ylsB1nIrHt10Cg",
+        "attempts": 1
+      },
+      "covers": {
+        "count": 5,
+        "cached": 1,
+        "total_bytes": 1257403,
+        "slowest_ms": 3934.5,
+        "urls": [
+          "s3-bucket.ap-southeast-2.example/c/1LLXVWZwB3jhIjY1o1T_kA",
+          "s3-bucket.ap-southeast-2.example/c/6kRuDfXgnuuWZzs-thUnHg",
+          "s3-bucket.ap-southeast-2.example/c/PaIKByXa6u3rMo9BNTsqYg",
+          "s3-bucket.ap-southeast-2.example/c/QEXPHQ_Xnc2mw8BnFTrX1w",
+          "s3-bucket.ap-southeast-2.example/c/s7T6prI2V60qK-87zA25fQ"
+        ]
+      },
+      "requests": [
+        {
+          "kind": "audio-redirect",
+          "path": "/audio/E07oy86vyIQNY6ZNg4VaDA",
+          "start_ms": -0.4,
+          "end_ms": 286.6,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/1LLXVWZwB3jhIjY1o1T_kA",
+          "start_ms": 0.7,
+          "end_ms": 567.3,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/s7T6prI2V60qK-87zA25fQ",
+          "start_ms": 0.8,
+          "end_ms": 288.1,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/QEXPHQ_Xnc2mw8BnFTrX1w",
+          "start_ms": 0.8,
+          "end_ms": 291.0,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/PaIKByXa6u3rMo9BNTsqYg",
+          "start_ms": 1.1,
+          "end_ms": 568.1,
+          "bytes": 0
+        },
+        {
+          "kind": "cover-redirect",
+          "path": "/cover/6kRuDfXgnuuWZzs-thUnHg",
+          "start_ms": 1.5,
+          "end_ms": 292.5,
+          "bytes": 0
+        },
+        {
+          "kind": "audio",
+          "path": "/a/VbVNguO2ylsB1nIrHt10Cg",
+          "start_ms": 286.3,
+          "end_ms": 9555.6,
+          "bytes": 3578019
+        },
+        {
+          "kind": "cover",
+          "path": "/c/s7T6prI2V60qK-87zA25fQ",
+          "start_ms": 289.1,
+          "end_ms": 1756.7,
+          "bytes": 128638
+        },
+        {
+          "kind": "cover",
+          "path": "/c/QEXPHQ_Xnc2mw8BnFTrX1w",
+          "start_ms": 289.9,
+          "end_ms": 3935.3,
+          "bytes": 128312
+        },
+        {
+          "kind": "cover",
+          "path": "/c/6kRuDfXgnuuWZzs-thUnHg",
+          "start_ms": 290.5,
+          "end_ms": 3160.1,
+          "bytes": 326395
+        },
+        {
+          "kind": "cover",
+          "path": "/c/1LLXVWZwB3jhIjY1o1T_kA",
+          "start_ms": 566.0,
+          "end_ms": 3325.0,
+          "bytes": 564711
+        },
+        {
+          "kind": "cover",
+          "path": "/c/PaIKByXa6u3rMo9BNTsqYg",
+          "start_ms": 566.4,
+          "end_ms": 1988.1,
+          "bytes": 109347
+        }
+      ]
+    }
+  ],
+  "medians": {
+    "chat": {
+      "songs": 5,
+      "readyBeforeStart": 5,
+      "audio_missing": 0,
+      "prepareToStart_ms": 7976.5,
+      "prepareToAudioDone_ms": 7050.8,
+      "prepareToReady_ms": 7697.2,
+      "prepareToReady_censored": false,
+      "audio_bytes": 3574049,
+      "audio_total_ms": 6779.1,
+      "audio_mb_per_s": 0.5193966750748624,
+      "cover_bytes_median_kb": 477.7845
+    },
+    "choice": {
+      "songs": 5,
+      "readyBeforeStart": 5,
+      "audio_missing": 0,
+      "prepareToStart_ms": 9548.9,
+      "prepareToAudioDone_ms": 8731.8,
+      "prepareToReady_ms": 9283.9,
+      "prepareToReady_censored": false,
+      "audio_bytes": 3578019,
+      "audio_total_ms": 8165.9,
+      "audio_mb_per_s": 0.33445201200959157,
+      "cover_bytes_median_kb": 1679.922
+    },
+    "all": {
+      "songs": 10,
+      "readyBeforeStart": 10,
+      "audio_missing": 0,
+      "prepareToStart_ms": 9153.2,
+      "prepareToAudioDone_ms": 8181.2,
+      "prepareToReady_ms": 8880.25,
+      "prepareToReady_censored": false,
+      "audio_bytes": 3576034.0,
+      "audio_total_ms": 7832.1,
+      "audio_mb_per_s": 0.42926501993658583,
+      "cover_bytes_median_kb": 1257.403
+    }
+  }
+}

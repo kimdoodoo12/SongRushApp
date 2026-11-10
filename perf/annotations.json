@@ -36,6 +36,36 @@
       "boxes": [
         {"x": 404, "y": 278, "w": 468, "h": 536, "label": "음원 대기 중", "label_at": "top-right"}
       ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step1-on-devtools-choice-done.png",
+      "boxes": [
+        {"x": 3, "y": 487, "w": 850, "h": 38, "label": "음원 3.6 MB · 2.42초\n(CloudFront)", "label_at": "right"},
+        {"x": 3, "y": 529, "w": 850, "h": 240, "label": "표지 6장 · 0.9~1.4초", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-step1-on-devtools-chat-done.png",
+      "boxes": [
+        {"x": 3, "y": 241, "w": 850, "h": 38, "label": "음원 3.6 MB · 4.86초\n(CloudFront)", "label_at": "right"}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-pageload2-devtools-pageload.png",
+      "boxes": [
+        {"x": 3, "y": 282, "w": 964, "h": 38, "label": "JS 368 kB · 압축 없음 · 4.33초",
+         "label_xy": [620, 380], "leader": [[900, 320], [900, 382]]},
+        {"x": 621, "y": 241, "w": 346, "h": 38, "label": "비교: 글꼴 CSS는 gzip\n(737→173 kB)",
+         "label_xy": [930, 440], "leader": [[967, 260], [1030, 260], [1030, 442]]}
+      ]
+    },
+    {
+      "source": "perf/results/shots/2026-11-10-game-choice-loading.png",
+      "out": "2026-11-10-game-choice-stage-annotated.png",
+      "crop": {"x": 292, "y": 146, "w": 692, "h": 692},
+      "boxes": [
+        {"x": 470, "y": 282, "w": 334, "h": 222, "label": "음원 대기 중", "label_at": "left"}
+      ]
     }
   ]
 }

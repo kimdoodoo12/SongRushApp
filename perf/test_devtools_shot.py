@@ -41,10 +41,13 @@ def test_edge_args_has_each_flag_once_and_url_last():
 
 # --- shot_paths --------------------------------------------------------------
 
+# cycle 107: declared change (between view)
 DEVTOOLS_KEYS = ["pageload", "choice-loading", "choice-done",
-                 "chat-loading", "chat-done"]
+                 "chat-loading", "chat-done",
+                 "between-reveal", "between-done"]
 GAME_KEYS = ["game-choice-loading", "game-choice-done",
-             "game-chat-loading", "game-chat-done"]
+             "game-chat-loading", "game-chat-done",
+             "game-between-reveal"]
 
 
 def test_shot_paths_names():
@@ -103,12 +106,20 @@ def test_parse_args_defaults():
     ns = ds.parse_args(["--label", "x"])
     assert ns.label == "x"
     assert ns.base == "https://animeopguessr.com/"
-    assert ns.views == ["pageload", "choice", "chat"]
+    # cycle 107: declared change (between view)
+    assert ns.views == ["pageload", "choice", "chat", "between"]
 
 
 def test_parse_args_views_subset():
     ns = ds.parse_args(["--label", "x", "--views", "choice,chat"])
     assert ns.views == ["choice", "chat"]
+
+
+# cycle 107: declared change (between view)
+def test_parse_args_accepts_between_view():
+    ns = ds.parse_args(["--label", "x", "--views", "between"])
+    assert ns.views == ["between"]
+    assert "between" in ds.VIEWS
 
 
 @pytest.mark.parametrize("argv", [
