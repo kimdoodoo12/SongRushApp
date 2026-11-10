@@ -388,3 +388,97 @@ describe('a guest before any lobbySettings', () => {
     expect(q('header .roominfo .settings')).toBeNull()
   })
 })
+
+// Round 3 (critic High): after any successful rejoin or restore into the
+// lobby phase, a client that is host sends its current selection once; a
+// guest sends nothing. The host's client may never see itself lose host
+// while its socket is down, and controls changed meanwhile went nowhere.
+describe('after a rejoin into the lobby', () => {
+  // Drops the socket after a token, waits for the reconnect attempt, opens
+  // it and checks it sent exactly rejoin{T1}.
+  async function dropAndRejoin(env, socket) {
+    deliver(socket, { type: 'token', token: 'T1' })
+    act(() => socket.serverClose(1006))
+    await waitFor(() => expect(env.sockets.sockets).toHaveLength(2), { timeout: 3000 })
+    const attempt = env.sockets.last
+    act(() => attempt.open())
+    await waitFor(() => expect(attempt.sent).toEqual([{ type: 'rejoin', token: 'T1' }]))
+    return attempt
+  }
+
+  // Exactly one lobbySettings on the socket, equal to expected, also after a
+  // short wait.
+  async function sentOnce(socket, expected) {
+    await waitFor(() => expect(sentSettings(socket).length).toBeGreaterThanOrEqual(1))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(sentSettings(socket)).toEqual([expected])
+  }
+
+  it('a host who rejoins sends its selection once, though it never saw itself lose host', async () => {
+    const env = setup()
+    const socket = await hostLobby(env)
+    setSongCount(14)
+    await waitFor(() => expect(lastSent(socket)).toEqual({ type: 'lobbySettings', songCount: 14 }))
+    const attempt = await dropAndRejoin(env, socket)
+    deliver(attempt, { type: 'joined', code: 'QWERT', name: '하루' })
+    deliver(attempt, { type: 'snapshot', phase: 'lobby', players: HOST_PLAYERS, song: null, scores: [] })
+    deliver(attempt, roster(HOST_PLAYERS))
+    await sentOnce(attempt, { type: 'lobbySettings', songCount: 14 })
+  })
+
+  it('a control changed while reconnecting is in the selection sent after the rejoin', async () => {
+    const env = setup()
+    const socket = await hostLobby(env)
+    await waitFor(() => expect(sentSettings(socket)).toHaveLength(1))
+    deliver(socket, { type: 'token', token: 'T1' })
+    act(() => socket.serverClose(1006))
+    setType('오프닝만')
+    await waitFor(() => expect(env.sockets.sockets).toHaveLength(2), { timeout: 3000 })
+    const attempt = env.sockets.last
+    act(() => attempt.open())
+    await waitFor(() => expect(attempt.sent).toEqual([{ type: 'rejoin', token: 'T1' }]))
+    deliver(attempt, { type: 'joined', code: 'QWERT', name: '하루' })
+    deliver(attempt, { type: 'snapshot', phase: 'lobby', players: HOST_PLAYERS, song: null, scores: [] })
+    deliver(attempt, roster(HOST_PLAYERS))
+    await sentOnce(attempt, { type: 'lobbySettings', songCount: 10, types: ['OP'] })
+  })
+
+  it('a host restored by a page reload sends its selection once', async () => {
+    window.sessionStorage.setItem('songrush.rejoin', JSON.stringify({ token: 'T1', code: 'QWERT' }))
+    const sockets = createSocketFactory()
+    const audio = createAudioContextFactory()
+    const fetch = createFakeFetch()
+    render(
+      <App
+        canPlayOpus={true}
+        socketFactory={sockets.factory}
+        audioContextFactory={audio.factory}
+        fetchFn={fetch.fetchFn}
+        now={() => T0}
+        navigationType="reload"
+      />,
+    )
+    await waitFor(() => expect(sockets.sockets).toHaveLength(1))
+    const socket = sockets.last
+    act(() => socket.open())
+    await waitFor(() => expect(socket.sent).toEqual([{ type: 'rejoin', token: 'T1' }]))
+    deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
+    deliver(socket, { type: 'snapshot', phase: 'lobby', players: HOST_PLAYERS, song: null, scores: [] })
+    deliver(socket, roster(HOST_PLAYERS))
+    await sentOnce(socket, { type: 'lobbySettings', songCount: 10 })
+  })
+
+  it('a guest who rejoins sends nothing', async () => {
+    const env = setup()
+    const socket = await guestLobby(env)
+    deliver(socket, FULL)
+    const attempt = await dropAndRejoin(env, socket)
+    deliver(attempt, { type: 'joined', code: 'ABCDE', name: 'Hana' })
+    deliver(attempt, { type: 'snapshot', phase: 'lobby', players: GUEST_PLAYERS, song: null, scores: [] })
+    deliver(attempt, roster(GUEST_PLAYERS))
+    deliver(attempt, FULL)
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(sentSettings(attempt)).toEqual([])
+    expect(sentSettings(socket)).toEqual([])
+  })
+})
