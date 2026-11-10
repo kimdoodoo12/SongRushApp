@@ -15,12 +15,14 @@
   "theme": {
     "label": "Theme",
     "labelGuest": "Theme (picked by the host)",
-    "play": "Playground",
-    "neon": "Stage",
-    "sakura": "Sakura",
-    "chalk": "Chalkboard",
-    "star": "Starry Night",
-    "arcade": "Arcade"
+    "sunset": "Sunset Rooftop",
+    "rain": "Rainy Night",
+    "sakura": "Cherry Blossom Night",
+    "neon": "Neon City",
+    "chalk": "Chalkboard Classroom",
+    "pixel": "8-bit Arcade",
+    "matsuri": "Summer Festival",
+    "manga": "Manga Manuscript"
   },
   "lobby": {
     "roomCode": "Code: ",

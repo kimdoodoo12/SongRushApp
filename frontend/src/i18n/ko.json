@@ -15,12 +15,14 @@
   "theme": {
     "label": "분위기",
     "labelGuest": "분위기 (방장이 고름)",
-    "play": "놀이터",
-    "neon": "무대",
-    "sakura": "벚꽃",
-    "chalk": "칠판",
-    "star": "별밤",
-    "arcade": "오락실"
+    "sunset": "노을 옥상",
+    "rain": "비 오는 밤",
+    "sakura": "벚꽃 밤",
+    "neon": "네온 시티",
+    "chalk": "칠판 교실",
+    "pixel": "8비트 오락실",
+    "matsuri": "여름 축제",
+    "manga": "만화 원고"
   },
   "lobby": {
     "roomCode": "방 코드: ",

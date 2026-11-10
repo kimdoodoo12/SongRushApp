@@ -15,12 +15,14 @@
   "theme": {
     "label": "テーマ",
     "labelGuest": "テーマ（ホストが選択）",
-    "play": "あそびば",
-    "neon": "ステージ",
-    "sakura": "さくら",
-    "chalk": "こくばん",
-    "star": "ほしぞら",
-    "arcade": "ゲーセン"
+    "sunset": "夕焼けの屋上",
+    "rain": "雨の夜",
+    "sakura": "夜桜",
+    "neon": "ネオンシティ",
+    "chalk": "黒板の教室",
+    "pixel": "8ビットゲーセン",
+    "matsuri": "夏祭り",
+    "manga": "漫画原稿"
   },
   "lobby": {
     "roomCode": "コード: ",
