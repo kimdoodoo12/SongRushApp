@@ -5,6 +5,9 @@
 // PLAYING, PREPARE, song:null, scores), frames before the snapshot,
 // rejoin-failed, the 4001 replaced close, no token, sends while not open,
 // and leaving or unmounting while reconnecting.
+// Cycle 114 (D-124, declared): the lobby is read through src/testing/lobby.js:
+// the room code from the ticket's .tk-code, the roster rows from the seats'
+// name lines, and the start button .start-row .go.
 // Timer rule: fake timers in every test (the backoff and the 5 s / 30 s
 // timers matter everywhere here), driven by flushUntil / advance, with the
 // injected now() moved together with the timers.
@@ -12,6 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { lobbyCode, seatNames, startButton } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -90,10 +94,6 @@ function listLines(name) {
   return within(list)
     .queryAllByRole('listitem')
     .map((li) => li.textContent)
-}
-
-function listRows() {
-  return Array.from(document.querySelectorAll('li')).map((li) => li.textContent)
 }
 
 // Started sources not stopped by hand: the scheduled stop(stopAt) has an
@@ -275,7 +275,7 @@ describe('reconnect into the lobby', () => {
     drop(env, socket)
     expect(screen.getByText(RECONNECTING)).toBeTruthy()
     // The screen keeps its content.
-    expect(pageText()).toContain('방 코드: QWERT')
+    expect(lobbyCode()).toBe('QWERT')
     expect(pageText()).not.toContain(DISCONNECTED)
 
     const attempt = await attemptAt(env, 500, 2)
@@ -286,9 +286,9 @@ describe('reconnect into the lobby', () => {
     deliver(attempt, joinedMsg)
     expect(pageText()).not.toContain(RECONNECTING)
     deliver(attempt, snapshot('lobby', null, { players: REJOIN_ROSTER }))
-    expect(pageText()).toContain('방 코드: QWERT')
-    expect(listRows()).toEqual(['하루 (방장) (나)', 'Mina'])
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(lobbyCode()).toBe('QWERT')
+    expect(seatNames()).toEqual(['하루 (방장) (나)', 'Mina'])
+    expect(startButton()).not.toBeNull()
     expect(pageText()).not.toContain(RECONNECTING)
     expect(pageText()).not.toContain(DISCONNECTED)
 
@@ -469,7 +469,7 @@ describe('reconnect into a song', () => {
     expect(pageText()).not.toContain(RECONNECTING)
     // The game screen, not the lobby.
     expect(screen.getByLabelText('정답 입력')).toBeTruthy()
-    expect(pageText()).not.toContain('방 코드:')
+    expect(lobbyCode()).toBeNull()
     expect(pageText()).not.toContain(WATCHING)
     await settle()
     expect(attempt.sentOfType('ready')).toEqual([])

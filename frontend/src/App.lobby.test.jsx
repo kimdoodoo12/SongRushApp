@@ -2,11 +2,17 @@
 // a room, a second game on the same socket, leaving and room errors. Cycle
 // 078 (D-093): the start screen has no solo controls; one player plays alone
 // by creating a room and starting it.
+// Cycle 114 (D-124, declared): the lobby is the mockup's #lobbyView, read
+// through src/testing/lobby.js: the room code from the ticket's .tk-code, the
+// roster rows from the seats' name lines (the lobby seats are li.seat now),
+// 곡 수 from the stepper (5-30, step 1) and the start button .start-row .go.
+// The behaviour checked is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { lobbyCode, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
 
 const DISCONNECTED = '서버와 연결이 끊어졌습니다.'
 const WAITING = '방장이 게임을 시작하기를 기다리는 중...'
@@ -84,11 +90,6 @@ async function joinLobby(env) {
   return socket
 }
 
-// The text of every <li> on the page, in document order.
-function listRows() {
-  return Array.from(document.querySelectorAll('li')).map((li) => li.textContent)
-}
-
 function pageText() {
   return document.body.textContent
 }
@@ -157,10 +158,10 @@ function expectStartScreen() {
 }
 
 function expectNoLobby() {
-  expect(screen.queryByRole('button', { name: '게임 시작' })).toBeNull()
+  expect(startButton()).toBeNull()
   expect(screen.queryByRole('button', { name: '나가기' })).toBeNull()
   expect(screen.queryByText(WAITING)).toBeNull()
-  expect(pageText()).not.toContain('방 코드:')
+  expect(lobbyCode()).toBeNull()
 }
 
 describe('start screen room controls', () => {
@@ -175,6 +176,7 @@ describe('start screen room controls', () => {
     setup()
     expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
     expect(screen.queryByLabelText('곡 수')).toBeNull()
+    expect(songCountOutput()).toBeNull()
     for (const label of ['곡 종류', '난이도', '연도 시작', '연도 끝']) {
       expect(screen.queryByLabelText(label), label).toBeNull()
     }
@@ -218,9 +220,9 @@ describe('create', () => {
     const socket = await openSocket(env)
     deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
     deliver(socket, roster([player('하루', { host: true })]))
-    expect(pageText()).toContain('방 코드: QWERT')
-    expect(listRows()).toEqual(['하루 (방장) (나)'])
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(lobbyCode()).toBe('QWERT')
+    expect(seatNames()).toEqual(['하루 (방장) (나)'])
+    expect(startButton()).not.toBeNull()
     expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
   })
 })
@@ -277,11 +279,11 @@ describe('lobby screen', () => {
   it('shows the code, the share link, the roster rows and, for a non-host, the waiting text', async () => {
     const env = setup()
     await joinLobby(env)
-    expect(pageText()).toContain('방 코드: ABCDE')
+    expect(lobbyCode()).toBe('ABCDE')
     expect(pageText()).toContain(`${window.location.origin}/r/ABCDE`)
-    expect(listRows()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
+    expect(seatNames()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
     expect(screen.getByText(WAITING)).toBeTruthy()
-    expect(screen.queryByRole('button', { name: '게임 시작' })).toBeNull()
+    expect(startButton()).toBeNull()
     expect(screen.getByRole('button', { name: '나가기' })).toBeTruthy()
     // The start screen is gone.
     expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
@@ -301,18 +303,20 @@ describe('lobby screen', () => {
     }
   })
 
-  it('a roster that makes the player host shows 곡 수 (default 10) and 게임 시작, which sends start{songCount:10}', async () => {
+  it('a roster that makes the player host shows 곡 수 (default 10, 5-30) and the start button, which sends start{songCount:10}', async () => {
     const env = setup()
     const socket = await joinLobby(env)
     deliver(socket, roster([player('Hana (2)', { host: true }), player('Joon')]))
-    expect(listRows()).toEqual(['Hana (2) (방장) (나)', 'Joon'])
+    expect(seatNames()).toEqual(['Hana (2) (방장) (나)', 'Joon'])
     expect(screen.queryByText(WAITING)).toBeNull()
-    const count = screen.getByLabelText('곡 수')
-    expect(count.tagName).toBe('SELECT')
-    expect(count.value).toBe('10')
-    const values = Array.from(count.options).map((o) => o.value)
-    expect(values).toEqual(Array.from({ length: 26 }, (_, i) => String(i + 5)))
-    fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+    expect(screen.getByLabelText('곡 수')).toBe(songCountOutput())
+    expect(songCount()).toBe(10)
+    setSongCount(5)
+    expect(stepperButtons()[0].disabled).toBe(true)
+    setSongCount(30)
+    expect(stepperButtons()[1].disabled).toBe(true)
+    setSongCount(10)
+    startGame()
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     expect(socket.sentOfType('start')[0]).toEqual({ type: 'start', songCount: 10 })
     expect(typeof socket.sentOfType('start')[0].songCount).toBe('number')
@@ -322,8 +326,8 @@ describe('lobby screen', () => {
     const env = setup()
     const socket = await joinLobby(env)
     deliver(socket, roster([player('Hana (2)', { host: true }), player('Joon')]))
-    fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '15' } })
-    fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+    setSongCount(15)
+    startGame()
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     expect(socket.sentOfType('start')[0]).toEqual({ type: 'start', songCount: 15 })
   })
@@ -332,10 +336,10 @@ describe('lobby screen', () => {
     const env = setup()
     const socket = await joinLobby(env)
     deliver(socket, roster([player('Hana (2)', { host: true }), player('Joon')]))
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(startButton()).not.toBeNull()
     deliver(socket, roster([player('Joon', { host: true }), player('Hana (2)')]))
-    expect(listRows()).toEqual(['Joon (방장)', 'Hana (2) (나)'])
-    expect(screen.queryByRole('button', { name: '게임 시작' })).toBeNull()
+    expect(seatNames()).toEqual(['Joon (방장)', 'Hana (2) (나)'])
+    expect(startButton()).toBeNull()
     expect(screen.getByText(WAITING)).toBeTruthy()
   })
 })
@@ -384,8 +388,8 @@ describe('game in a room', () => {
     expect(socket.closed).toBe(false)
 
     fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
-    expect(pageText()).toContain('방 코드: ABCDE')
-    expect(listRows()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
+    expect(lobbyCode()).toBe('ABCDE')
+    expect(seatNames()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
     expect(screen.getByText(WAITING)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '대기실로' })).toBeNull()
     expect(socket.closed).toBe(false)
@@ -468,7 +472,7 @@ describe('room errors', () => {
     const socket = await joinLobby(env)
     deliver(socket, { type: 'error', code: 'not-host' })
     expect(screen.getByText('방장만 시작할 수 있습니다.')).toBeTruthy()
-    expect(listRows()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
+    expect(seatNames()).toEqual(['Mina (방장)', 'Hana (2) (나)', 'Joon'])
     expect(screen.getByText(WAITING)).toBeTruthy()
     expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
     expect(socket.closed).toBe(false)

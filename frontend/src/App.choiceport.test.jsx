@@ -45,6 +45,10 @@
 //   centres and widths, keyframes[1] having opacity 1. Without
 //   Element.prototype.animate (jsdom) it does nothing.
 //
+// Cycle 114 (D-124, declared): the start button is .start-row .go in every
+// language, 곡 수 is the stepper and 곡 종류 a .seg group, all through
+// src/testing/lobby.js.
+//
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -53,6 +57,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { startButton, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const SYNC = 2500
@@ -238,8 +243,8 @@ async function guestJoin(env) {
   return socket
 }
 
-async function clickStartGame(socket, label = ko.lobby.startGame) {
-  fireEvent.click(screen.getByRole('button', { name: label }))
+async function clickStartGame(socket) {
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
 }
 
@@ -299,7 +304,7 @@ async function choiceRoomPrepared(env, urls = COVERS4, { dict = ko, players = AL
   if (dict === en) chooseLanguage('English')
   const picker = screen.getByRole('group', { name: tr(dict, 'answer.label') })
   fireEvent.click(within(picker).getByRole('button', { name: tr(dict, 'answer.choice') }))
-  await clickStartGame(socket, dict.lobby.startGame)
+  await clickStartGame(socket)
   deliver(socket, roster(players, 'playing'))
   deliver(socket, { type: 'settings', answerMode: 'choice' })
   deliver(socket, prepareMsg(0, choicesOf(urls)))
@@ -367,7 +372,7 @@ describe('body.choice-mode', () => {
     deliver(socket, { type: 'gameOver', ranking: [{ rank: 1, name: '하루', score: 0 }, { rank: 2, name: 'Joon', score: 0 }] })
     deliver(socket, roster(PAIR, 'lobby'))
     fireEvent.click(screen.getByRole('button', { name: ko.game.toLobby }))
-    await waitFor(() => expect(screen.getByRole('button', { name: ko.lobby.startGame })).toBeTruthy())
+    await waitFor(() => expect(startButton()).not.toBeNull())
     expect(choiceMode()).toBe(false)
   })
 

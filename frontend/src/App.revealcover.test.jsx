@@ -21,6 +21,8 @@
 // - the frame keeps its size (D-109 intent): .shot is there in every case,
 //   and with no image --ar is 0.714 on .cover and --peek 39% on .deck;
 // - before the reveal no img has a src and no /cover/ URL is requested.
+// Cycle 114 (D-124, declared): the start button is .start-row .go, clicked
+// through src/testing/lobby.js in every language.
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -30,6 +32,7 @@ import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import viteConfig from '../vite.config.js?raw'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const COVER = '/cover/AbC_12-x'
@@ -356,7 +359,7 @@ describe('shortage wording', () => {
     const env = setup()
     chooseLanguage(label)
     const socket = await hostLobby(env, dict)
-    fireEvent.click(screen.getByRole('button', { name: dict.lobby.startGame }))
+    startGame()
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'not-enough-songs', available: 4, unit: 'series' })
     expect(screen.getByText(SERIES[lang])).toBeTruthy()
@@ -367,7 +370,7 @@ describe('shortage wording', () => {
     const env = setup()
     chooseLanguage(label)
     const socket = await hostLobby(env, dict)
-    fireEvent.click(screen.getByRole('button', { name: dict.lobby.startGame }))
+    startGame()
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'not-enough-songs', available: 4 })
     expect(screen.getByText(SONGS[lang])).toBeTruthy()

@@ -4,6 +4,8 @@
 // close. Also: outputLatency, navigator.audioSession, the 탭하여 소리 켜기
 // prompt and resume() on 게임 시작 / 대기실로. Cycle 078 (D-093): no solo
 // form; the 'alone' cases play in a room of one started with 게임 시작.
+// Cycle 114 (D-124, declared): 곡 수 and the start button through
+// src/testing/lobby.js (the stepper and .start-row .go).
 // Timer rule (cycle 039): fake timers only where the pings' 150 ms spacing or
 // the 30 s interval matter, driven by flushUntil / advance; real timers and
 // waitFor everywhere else.
@@ -11,6 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { setSongCount, startButton, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -172,8 +175,8 @@ async function startAlone(env) {
   const alone = [player('하루', { host: true })]
   deliver(socket, joinedMsg)
   deliver(socket, roster(alone))
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+  setSongCount(5)
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 5 }]))
   deliver(socket, roster(alone, 'playing'))
   return socket
@@ -516,7 +519,7 @@ describe('resume on click', () => {
     const ctx = env.audio.last
     expect(ctx.state).toBe('suspended')
     const before = ctx.resume.mock.calls.length
-    fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+    startGame()
     expect(ctx.resume.mock.calls.length).toBe(before + 1)
     await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 10 }]))
   })
@@ -545,6 +548,6 @@ describe('resume on click', () => {
     const before = ctx.resume.mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
     expect(ctx.resume.mock.calls.length).toBe(before + 1)
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(startButton()).not.toBeNull()
   })
 })
