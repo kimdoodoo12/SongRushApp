@@ -75,6 +75,10 @@ public final class Lobby {
 	// The host-picked look, kept across games (docs/cycles/071-room-themes.md).
 	private String roomTheme = DEFAULT_THEME;
 
+	// The host's latest valid lobby selection as its message, or null before the first; kept across
+	// games and host transfers, display-only for guests (docs/cycles/116-lobby-settings.md).
+	private Map<String, Object> lobbySettings;
+
 	// The current game, or null in LOBBY, and the outbox only that Room may send through.
 	private Room room;
 
@@ -201,6 +205,7 @@ public final class Lobby {
 			outbox.toPlayer(playerId, message("joined", "code", code, "name", name));
 			sendRoster();
 			sendRoomThemeTo(m);
+			sendLobbySettingsTo(m);
 		}
 		else {
 			// A late joiner watches the current song and plays from the next one (D-059).
@@ -290,6 +295,7 @@ public final class Lobby {
 		if (m.connected) {
 			sendJoinedAndSnapshot(m);
 			sendRoomThemeTo(m);
+			sendLobbySettingsTo(m);
 			// The new socket starts with no vote, so a toggle never cancels a vote it cannot see.
 			if (isRoomPlayer(m.id)) {
 				room.clearSkipVote(m.id);
@@ -305,6 +311,7 @@ public final class Lobby {
 		sendJoinedAndSnapshot(m);
 		sendRoster();
 		sendRoomThemeTo(m);
+		sendLobbySettingsTo(m);
 		markRoomConnection(m.id, true);
 		if (isRoomPlayer(m.id)) {
 			room.clearSkipVote(m.id);
@@ -338,20 +345,7 @@ public final class Lobby {
 		Objects.requireNonNull(filter, "filter");
 		Objects.requireNonNull(mode, "mode");
 		Objects.requireNonNull(gameMode, "gameMode");
-		Member m = member(playerId);
-		if (closed || m == null || !m.connected) {
-			return;
-		}
-		if (room != null) {
-			error(playerId, "in-game");
-			return;
-		}
-		if (!playerId.equals(host())) {
-			error(playerId, "not-host");
-			return;
-		}
-		if (songCount < Room.MIN_SONGS || songCount > Room.MAX_SONGS) {
-			error(playerId, "bad-song-count");
+		if (!hostMayChoose(playerId, songCount)) {
 			return;
 		}
 		List<PlayerRef> players = new ArrayList<>();
@@ -373,6 +367,54 @@ public final class Lobby {
 			return;
 		}
 		sendRoster();
+	}
+
+	// The host's lobby selection (D-124): checked as start checks it, stored, and sent to every
+	// connected member only when it differs from the stored one. It has no effect on start.
+	public void setLobbySettings(String playerId, int songCount, DrawFilter filter, AnswerMode answerMode,
+			GameMode gameMode) {
+		Objects.requireNonNull(filter, "filter");
+		Objects.requireNonNull(answerMode, "answerMode");
+		Objects.requireNonNull(gameMode, "gameMode");
+		if (!hostMayChoose(playerId, songCount)) {
+			return;
+		}
+		Map<String, Object> next = message("lobbySettings", "songCount", songCount);
+		next.putAll(filter.toMessageFields());
+		if (answerMode == AnswerMode.CHOICE) {
+			next.put("answerMode", answerMode.wire());
+		}
+		if (gameMode == GameMode.RANKED) {
+			next.put("gameMode", gameMode.wire());
+		}
+		if (next.equals(lobbySettings)) {
+			return;
+		}
+		lobbySettings = next;
+		toConnected(lobbySettings);
+	}
+
+	// The lobby-side checks shared by start and setLobbySettings, in start's order: a connected
+	// member (else silence), then in-game, not-host and bad-song-count, each sent to that player.
+	// True when all pass.
+	private boolean hostMayChoose(String playerId, int songCount) {
+		Member m = member(playerId);
+		if (closed || m == null || !m.connected) {
+			return false;
+		}
+		if (room != null) {
+			error(playerId, "in-game");
+			return false;
+		}
+		if (!playerId.equals(host())) {
+			error(playerId, "not-host");
+			return false;
+		}
+		if (songCount < Room.MIN_SONGS || songCount > Room.MAX_SONGS) {
+			error(playerId, "bad-song-count");
+			return false;
+		}
+		return true;
 	}
 
 	// The host changes the room theme in any phase; every connected member gets roomTheme, also when
@@ -453,6 +495,10 @@ public final class Lobby {
 		roomOutbox = null;
 		armIdle();
 		sendRoster();
+		// So a late joiner of the game gets it although the host changes nothing (round 2).
+		if (lobbySettings != null) {
+			toConnected(lobbySettings);
+		}
 	}
 
 	private void close() {
@@ -643,6 +689,13 @@ public final class Lobby {
 	private void sendRoomThemeTo(Member m) {
 		if (!DEFAULT_THEME.equals(roomTheme)) {
 			outbox.toPlayer(m.id, roomThemeMessage());
+		}
+	}
+
+	// The stored lobby selection to that player only, in the lobby phase and once one exists.
+	private void sendLobbySettingsTo(Member m) {
+		if (room == null && lobbySettings != null) {
+			outbox.toPlayer(m.id, lobbySettings);
 		}
 	}
 

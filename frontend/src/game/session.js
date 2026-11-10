@@ -759,6 +759,19 @@ export function startSession({
         // The look the host picked for the room (F-012).
         dispatch({ type: 'roomTheme', theme: msg.theme })
         break
+      case 'lobbySettings':
+        // The host's lobby selection, shown on a guest's card (cycle 116).
+        dispatch({
+          type: 'lobbySettings',
+          songCount: msg.songCount,
+          types: msg.types,
+          yearFrom: msg.yearFrom,
+          yearTo: msg.yearTo,
+          tier: msg.tier,
+          answerMode: msg.answerMode,
+          gameMode: msg.gameMode,
+        })
+        break
       case 'error':
         onError(msg)
         break
@@ -921,6 +934,11 @@ export function startSession({
     },
     startGame(count, startFields = {}) {
       if (active) send({ type: 'start', songCount: count, ...startFields })
+    },
+    // The host's lobby selection, with the fields of start (cycle 116); the
+    // server shares it with every member.
+    sendLobbySettings(count, fields = {}) {
+      if (active) send({ type: 'lobbySettings', songCount: count, ...fields })
     },
     // Toggles the own skip vote for the current song, between its start and
     // its reveal. Watchers do not vote.

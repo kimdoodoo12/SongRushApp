@@ -370,6 +370,19 @@ function GameApp({
     return () => document.body.classList.remove('lobby-on')
   }, [view])
 
+  // The own player is the host on the lobby view (cycle 116). While it is,
+  // the lobby selection goes to the server: once on entering the lobby as
+  // host or on a roster that makes it host, and again on each change, so the
+  // guests' card shows what the next start uses. A reversed year range is
+  // not sent (the server refuses it, and start is disabled meanwhile).
+  const ownRow = inRoom ? state.players.find((p) => p.name === state.room.me) : undefined
+  const isHost = ownRow !== undefined && ownRow.host
+  const hostInLobby = view === 'lobby' && isHost
+  useEffect(() => {
+    if (!hostInLobby || isReversed(selection) || sessionRef.current === null) return
+    sessionRef.current.sendLobbySettings(Number(selection.songCount), toFields(selection))
+  }, [hostInLobby, selection])
+
   // A view switch starts at the top, as the mockup's showView does: the
   // stage (its own scroller on wide screens) and the page. Not on mount.
   const shownViewRef = useRef(view)
@@ -447,17 +460,19 @@ function GameApp({
     )
   }
 
-  // The lobby (cycle 114): the header shows the room code and, for the
-  // host, the settings line of the lobby selection; the chat is open.
+  // The lobby (cycle 114): the header shows the room code and the settings
+  // line of the lobby selection, the own one for the host and the received
+  // one for a guest (cycle 116); the chat is open.
   const room = state.room
-  const own = state.players.find((p) => p.name === room.me)
-  const isHost = own !== undefined && own.host
   const online = state.players.filter((p) => p.connected !== false).length
+  let line = ''
+  if (isHost) line = settingsLine(toFields(selection), t)
+  else if (state.lobbySettings !== null) line = settingsLine(state.lobbySettings, t)
   return (
     <>
       <Frame
         code={room.code}
-        line={isHost ? settingsLine(toFields(selection), t) : ''}
+        line={line}
         picker={{ value: roomTheme, onPick: handleRoomTheme, disabled: !isHost }}
         {...volumeProps}
         banner={banner}
@@ -471,6 +486,7 @@ function GameApp({
           notice={state.notice}
           theme={roomTheme}
           selection={selection}
+          lobbySettings={state.lobbySettings}
           onSelectionChange={setSelection}
           onStartGame={handleStartGame}
           onLeave={handleLeave}

@@ -24,12 +24,27 @@ function Seg({ label, options, value, disabled, onPick, hint = null }) {
   )
 }
 
+// The 정답 형식 hint, or null without an answer mode.
+function answerHint(t, { answerMode, tier }) {
+  if (answerMode === null) return null
+  if (answerMode === 'choice') return t('answer.hintChoice', { k: CHOICE_COVERS[tier] ?? CHOICE_COVERS.normal })
+  return t('answer.hintChat')
+}
+
+// The 게임 모드 hint, or null without a game mode.
+function modeHint(t, gameMode) {
+  if (gameMode === null) return null
+  return gameMode === 'ranked' ? t('mode.hintRanked') : t('mode.hintFirst')
+}
+
 // 곡 종류, 난이도 (F-009), 연도 (F-008), 정답 형식 (cycle 100) and 게임 모드
 // (cycle 101), the host's lobby controls, as the mockup's .opt cells (cycle
 // 114): .seg groups and the two .years selects. selection is the App-level
 // { songCount, type, from, to, tier, answerMode, gameMode }; onChange gets
-// the whole new selection. disabled (a guest) disables every control. The
-// parent shows the reversed-range warning and disables its start button.
+// the whole new selection. disabled (a guest) disables every control. A null
+// value (a guest before the host's lobbySettings, cycle 116) presses no
+// button and shows no hint. The parent shows the reversed-range warning and
+// disables its start button.
 function FilterControls({ selection, onChange, disabled = false }) {
   const { t } = useTranslation()
   function set(key, value) {
@@ -68,11 +83,7 @@ function FilterControls({ selection, onChange, disabled = false }) {
         value={selection.answerMode}
         disabled={disabled}
         onPick={(v) => set('answerMode', v)}
-        hint={
-          selection.answerMode === 'choice'
-            ? t('answer.hintChoice', { k: CHOICE_COVERS[selection.tier] ?? CHOICE_COVERS.normal })
-            : t('answer.hintChat')
-        }
+        hint={answerHint(t, selection)}
       />
       <Seg
         label={t('mode.label')}
@@ -80,7 +91,7 @@ function FilterControls({ selection, onChange, disabled = false }) {
         value={selection.gameMode}
         disabled={disabled}
         onPick={(v) => set('gameMode', v)}
-        hint={selection.gameMode === 'ranked' ? t('mode.hintRanked') : t('mode.hintFirst')}
+        hint={modeHint(t, selection.gameMode)}
       />
     </>
   )
