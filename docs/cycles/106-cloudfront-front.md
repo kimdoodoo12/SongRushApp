@@ -101,3 +101,32 @@ song 2 S3 direct  3.54 MB in 13.91 s = 0.25 MB/s
 song 3 S3 direct  3.65 MB in 7.10 s = 0.51 MB/s
 song 3 CloudFront 3.65 MB in 2.74 s = 1.33 MB/s
 ```
+
+## Result
+- **Commits.**
+  - Spec: `58f2954`.
+  - Tests: `9e76d1f`, locked.
+  - Implementation: `e3bdc8a`.
+  - Merged to dev as `1e0029f` through PR #27, after CI passed (backend, frontend).
+  - The owner merged dev→main in PR #26 at 2026-11-10 02:16Z. The Docker image workflow on main succeeded (`eae753f`).
+- **Verifier:** 835 tests, 0 failures, 1 skipped. The locked tests were unchanged. `build -x test` passed.
+- **Critic:**
+  - Spec review: H1–H3 on the owner's console steps were folded into the corrected steps (uncheck OAC, error caching TTL 0, Pay as you go, Customize cache settings).
+  - Code review: no Blocker or High. Medium: a startup log of the switch, recorded in Follow-ups.
+- **Live check after the deploy.** In a live choice game, the `/audio` and `/cover` redirects pointed to `dsxxd4m1cz9m6.cloudfront.net`, and songs played.
+- **The HAR scrubber missed HTTP/2 `:path`.** The first three "on" runs refused to save, because the HAR still held the signed query in the HTTP/2 `:path` pseudo-header. Direct S3 had used HTTP/1.1.
+  - The scrubber's fail-closed check worked as intended, and nothing was written.
+  - Fix: test `7d3a82a` (locked), fix `eff1f1b`. perf now has 97 tests passing, then 103 with the compare tool.
+- **Measurement.** Both sets ran on the same day, on the same PC and line, with 3 runs each of 5 songs per format.
+
+  | | Off (11:00–11:07 KST) | On (11:33–11:38 KST) |
+  |---|---|---|
+  | Audio done, pooled median (chat / choice) | 9.7 / 9.3 s | 2.4 / 2.7 s |
+  | Download speed, per-song median (all) | 0.38 MB/s | 1.53 MB/s |
+  | Ready before start | 28/30 | 30/30 |
+  | Missed opening | 1/30 | 0/30 |
+  | Wait between songs (per-run range) | 16.0–21.5 s | 11.3–11.9 s |
+
+  - Charts: `docs/perf/step1/`.
+  - Comparison chart: `perf/compare.py` → `docs/perf/step1/compare-step1.png`.
+  - The result files had the S3 bucket host replaced before commit. A grep finds no account id and no signature markers.
