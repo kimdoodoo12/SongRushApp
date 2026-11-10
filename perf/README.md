@@ -167,6 +167,9 @@ Korean time, HH:MM KST, and the Network summary line on stderr):
 
 - `<label>-devtools-pageload.png`: the home page loaded with Disable cache,
   with a Content-Encoding column and big rows (transferred and resource size).
+  Font files (fonts.gstatic.com) are filtered out; the Google Fonts css2
+  stylesheet stays, as a compressed (gzip/br) row next to the site's own JS
+  and CSS.
 - `<label>-devtools-{choice,chat}-{loading,done}.png`: one song's requests,
   1 s after 음원을 불러오는 중 appears, and when the song's audio is done.
 - `<label>-game-{choice,chat}-{loading,done}.png`: the game page at the same moments.

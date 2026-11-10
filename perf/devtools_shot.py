@@ -96,6 +96,12 @@ PAGELOAD_ATTEMPTS = 2
 
 # Hides the Google Fonts rows in the song views, so the song's own requests fit.
 FONT_FILTER = "-domain:fonts.gstatic.com -domain:fonts.googleapis.com"
+# The page-load view hides only the font files: the css2 stylesheet from
+# fonts.googleapis.com stays, its Content-Encoding (gzip/br) the contrast to
+# the site's own JS row.
+PAGELOAD_FILTER = "-domain:fonts.gstatic.com"
+PAGELOAD_GOTO_TIMEOUT_MS = 60_000
+GRID_SCROLL_SETTLE_S = 0.3
 
 # DevTools settings for the one-time setup, through the frontend's own
 # Settings module: waterfall on, the noisy columns off, the Content-Encoding
@@ -139,6 +145,27 @@ SANITIZE_JS = r"""() => {
 # Every text node of the page, shadow roots included, as a list of strings.
 # Text inside <style> and <script> is never drawn, so it is skipped (DevTools
 # stylesheets would otherwise flood the summary log).
+# Scrolls the Network grid to its first row. With big rows the log overflows,
+# auto-scrolls to the bottom and drops the top rows from the DOM (virtual
+# list), so the bundle row would be neither in the image nor in the deep
+# text. Finds every scrollable data-grid / data-container element, shadow
+# roots included. Returns how many it scrolled.
+SCROLL_TOP_JS = """() => {
+  let scrolled = 0;
+  const walk = (root) => {
+    root.querySelectorAll('*').forEach(e => {
+      const cls = e.getAttribute('class') || '';
+      if ((cls.includes('data-container') || cls.includes('data-grid'))
+          && e.scrollHeight > e.clientHeight && e.scrollTop !== 0) {
+        e.scrollTop = 0; scrolled++;
+      }
+      if (e.shadowRoot) walk(e.shadowRoot);
+    });
+  };
+  walk(document);
+  return scrolled;
+}"""
+
 DEEP_TEXT_JS = """() => {
   const out = [];
   const hidden = new Set(['STYLE', 'SCRIPT']);
@@ -372,9 +399,15 @@ def footer_text(texts):
     return " | ".join(parts) if parts else "(summary bar not found)"
 
 
+def scroll_grid_top(dt):
+    dt.evaluate(SCROLL_TOP_JS)
+    time.sleep(GRID_SCROLL_SETTLE_S)
+
+
 def devtools_shot(dt, path):
     """Screenshots DevTools with signatures hidden; retakes until the text is clean."""
     for attempt in range(SHOT_ATTEMPTS):
+        scroll_grid_top(dt)
         dt.evaluate(SANITIZE_JS)
         # Kept in memory: an image is written only after its check passes.
         png = dt.screenshot()
@@ -425,7 +458,7 @@ def open_network(dt, filter_text):
 def capture_pageload(dt, site, base, paths):
     # The panel is open and recording before the navigation, so the page
     # load's requests are logged.
-    open_network(dt, "")
+    open_network(dt, PAGELOAD_FILTER)
     dt.get_by_role("checkbox", name="Disable cache").check()
     log("Disable cache is checked; it stays checked in this profile for the later views")
     for attempt in range(1, PAGELOAD_ATTEMPTS + 1):
@@ -433,9 +466,10 @@ def capture_pageload(dt, site, base, paths):
         time.sleep(1)
         # goto, not reload: a reload of the start page can be restored
         # without the requests showing.
-        site.goto(base, wait_until="load")
+        site.goto(base, wait_until="load", timeout=PAGELOAD_GOTO_TIMEOUT_MS)
         site.wait_for_load_state("networkidle")
         time.sleep(2)
+        scroll_grid_top(dt)
         if any(BUNDLE_ROW in t for t in dt.evaluate(DEEP_TEXT_JS)):
             break
         log(f"page load attempt {attempt}: no {BUNDLE_ROW}* row in DevTools")
