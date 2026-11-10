@@ -123,3 +123,16 @@
   - frontend: `frontend/src/game/*.js` and `frontend/src/components/*.jsx`;
   - perf: `perf/run.py`, `perf/perflib.py`, `perf/compare.py`, `perf/comparelib.py`, `perf/devtools_shot.py` and `perf/README.md`.
 - **Lead:** docs.
+
+## Addendum after code review (D-120, critic H1/H2)
+- **Spoiler guard (H2, D-120).**
+  - While `revealing`, a chat line that matches song N+1's accepted titles goes to the sender only.
+  - All other lines are broadcast to everyone.
+  - Nothing scores.
+  - Tests are first, in a new backend test file.
+- **Perf request tagging (H1).** A `/cover/` request is attributed by URL: to the round whose prepare choices or reveal `coverUrl` contain that path, the most recent match first, falling back to the current round. Tests are first, in `perf/test_request_tagging.py`.
+- **Measurement (M1).**
+  - The "off" runs already taken used the pre-107 build. They show the default path, with `prepareAfterReveal` ≈ 5000.
+  - After 107 is deployed, re-measure off (env false) and on (env true) on the 107 build. Use those for the report.
+  - The pre-107 runs stay as a cross-check.
+- **Reporting (M2).** `readyBeforeRevealEnd` is 0 by definition when off. The report leads with `betweenSongs_ms`.
