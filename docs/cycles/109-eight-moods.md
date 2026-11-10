@@ -121,3 +121,31 @@ The room theme set becomes the eight moods `sunset rain sakura neon chalk pixel 
 
 ## Out of scope
 - Layout changes, disc, chat and frame skins, the lobby redesign and scenes (later items).
+
+## Result
+- **Commits.**
+  - Spec: `b3128aa`.
+  - Tests: `baff944`, locked. It also registers `themeTokens.test.js` in `vite.config.js` `NODE_TESTS`, as noted in the test commit.
+  - Implementation: `3b116c0`. Fix after the browser check: `ed713d6`.
+- **Verifier**, on `3b116c0`:
+  - `gradlew cleanTest test`: BUILD SUCCESSFUL, 881 tests, 0 failures, 0 errors, 1 skipped.
+  - `npm test`: 546 of 546 passed.
+  - lint clean, and the build passed.
+  - The locked-test diff is empty, and `themeLayout.test.js` is unchanged.
+- **Lead, after the fix** `ed713d6`: `npm test` 546 of 546, lint clean, and the locked-test diff is empty. The backend was not changed by the fix.
+- **Browser check (lead),** local jar plus vite, in Edge:
+  - Attempt 1 found two problems:
+    - In pixel, the `.clock` "88초" overflowed its box at 1280 and at 390, and the "English" button was cut to "Engl…". Press Start 2P is too wide for the shared boxes.
+    - The en/ja mood names were cut in the 8rem picker buttons (critic Medium).
+  - Fix:
+    - pixel's display font is Do Hyeon, and Press Start 2P is no longer loaded. It returns in F-030 with its own sizes, through the allow-list.
+    - The picker buttons size to their names, with `min-width: 8rem`, and wrap.
+  - Recheck:
+    - pixel at 1280 and 390: no overflow on the clock, code, round or chips.
+    - The picker in en and ja at 1280 and 390 has no cut name.
+  - Captures: `docs/design/109/`.
+- **Critic code review:** no Blocker or High.
+  - Medium: the picker cut, fixed above.
+  - Nits, both to Follow-ups:
+    - manga's `--good` and `--bad` are nearly the same red;
+    - chalk lost its wooden frame shadow.
