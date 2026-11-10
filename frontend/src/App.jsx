@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { canPlayOggOpus } from './audio/playback.js'
 import { startSession } from './game/session.js'
-import { initialState, reducer } from './game/state.js'
+import { initialState, isAudible, reducer } from './game/state.js'
 import { DEFAULT_SELECTION, isReversed, settingsLine, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
 import GameScreen, { Frame } from './components/GameScreen.jsx'
@@ -12,6 +12,16 @@ import AdminScreen from './components/AdminScreen.jsx'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 import { gainOf, loadVolume, saveVolume, toggleMute, withLevel } from './game/volume.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
+import {
+  canvasDpr,
+  createCanvasState,
+  drawSky,
+  drawViz,
+  fireworkAt,
+  initSky,
+  prefersReducedMotion,
+  resetViz,
+} from './canvas/index.js'
 
 const defaultSocketFactory = (url) => new WebSocket(url)
 const defaultAudioContextFactory = () => new (window.AudioContext || window.webkitAudioContext)()
@@ -35,6 +45,27 @@ function pageNavigationType() {
     return 'navigate'
   }
 }
+
+// One 2d context per canvas element, asked for once (null without one, as
+// in jsdom).
+const contexts = new WeakMap()
+function contextOf(canvas) {
+  if (canvas === null) return null
+  if (!contexts.has(canvas)) contexts.set(canvas, canvas.getContext('2d'))
+  return contexts.get(canvas)
+}
+
+// The deck's box in CSS px (manga's speed lines), or null without a deck.
+function deckBox() {
+  const deck = document.querySelector('.deck')
+  if (deck === null) return null
+  const b = deck.getBoundingClientRect()
+  return { left: b.left, top: b.top, width: b.width, height: b.height }
+}
+
+// The matsuri fireworks at a reveal (the mockup's showCover): three big
+// ones over the deck, 0, 250 and 520 ms after it.
+const REVEAL_FIREWORKS = [0, 250, 520]
 
 function removeRejoinEntry() {
   try {
@@ -161,6 +192,17 @@ function GameApp({
   // The 문의하기 dialog (cycle 082); focus returns to its footer button.
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const feedbackButtonRef = useRef(null)
+  // The mockup's canvases (cycle 115, D-124): #sky and the deck's #viz,
+  // drawn by one requestAnimationFrame loop. Their drawing state is one per
+  // mount; reduce and dpr are read once, as the mockup's constants are.
+  const skyRef = useRef(null)
+  const [canvasState] = useState(createCanvasState)
+  const [motion] = useState(() => ({ reduce: prefersReducedMotion(), dpr: canvasDpr() }))
+  // The visualizer's analyser, a side branch off the gain (made with it).
+  const analyserRef = useRef(null)
+  // What the loop reads each frame: the mood and whether a song is audible.
+  const frameRef = useRef({ mood: DEFAULT_THEME, playing: false })
+  const fireworkTimersRef = useRef(new Set())
 
   useEffect(() => {
     const sessions = sessionRef
@@ -223,8 +265,20 @@ function GameApp({
       const gain = created.createGain()
       gain.gain.value = gainOf(volumeRef.current)
       gain.connect(created.destination)
+      // The visualizer's tap (cycle 115): gain -> compressor (the mockup's
+      // level normalisation) -> analyser, which connects to nothing, so the
+      // playback path and what is heard stay as they are.
+      const comp = created.createDynamicsCompressor()
+      comp.threshold.value = -14
+      comp.ratio.value = 4
+      const analyser = created.createAnalyser()
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.78
+      gain.connect(comp)
+      comp.connect(analyser)
       ctxRef.current = created
       gainRef.current = gain
+      analyserRef.current = analyser
     }
     const ctx = ctxRef.current
     ctx.resume().catch((err) => {
@@ -350,6 +404,108 @@ function GameApp({
     document.documentElement.dataset.mood = theme
   }, [theme])
 
+  const audible = isAudible(state)
+  useLayoutEffect(() => {
+    frameRef.current = { mood: theme, playing: audible }
+  }, [theme, audible])
+
+  // The mockup's setMood and resize: initSky for the mood, a fresh
+  // visualizer state, and under reduced motion the still sky.
+  useLayoutEffect(() => {
+    const sky = skyRef.current
+    const redo = () => {
+      initSky(canvasState, sky, theme, motion.dpr)
+      if (motion.reduce) {
+        drawSky(canvasState, contextOf(sky), theme, performance.now(), false, {
+          playing: frameRef.current.playing,
+          reduce: true,
+          focus: null,
+        })
+      }
+    }
+    redo()
+    resetViz(canvasState)
+    window.addEventListener('resize', redo)
+    return () => window.removeEventListener('resize', redo)
+  }, [theme, canvasState, motion])
+
+  // The mockup's loop: drawViz each frame, drawSky(move) every other frame
+  // (every frame in rain), never under reduced motion; nothing while the
+  // tab is hidden. A frame callback that comes back at once (a synchronous
+  // requestAnimationFrame) is deferred to a timeout, so the loop never
+  // recurses.
+  useEffect(() => {
+    const levels = new Uint8Array(128)
+    let fr = 0
+    let pending = null
+    let deferred = null
+    let stopped = false
+
+    function frame(t) {
+      if (stopped) return
+      if (!document.hidden) {
+        const { mood, playing } = frameRef.current
+        const analyser = analyserRef.current
+        const live = playing && analyser !== null
+        if (live) analyser.getByteFrequencyData(levels)
+        const viz = document.getElementById('viz')
+        if (viz !== null) drawViz(canvasState, contextOf(viz), mood, t, { live, levels, reduce: motion.reduce })
+        if (!motion.reduce && (fr++ % 2 === 0 || mood === 'rain')) {
+          const focus = mood === 'manga' && playing ? deckBox() : null
+          drawSky(canvasState, contextOf(skyRef.current), mood, t, true, { playing, reduce: false, focus })
+        }
+      }
+      arm()
+    }
+
+    function arm() {
+      let inside = true
+      pending = window.requestAnimationFrame((t) => {
+        if (!inside) {
+          frame(t)
+          return
+        }
+        deferred = setTimeout(() => {
+          deferred = null
+          frame(t)
+        }, 0)
+      })
+      inside = false
+    }
+
+    arm()
+    return () => {
+      stopped = true
+      if (pending !== null) window.cancelAnimationFrame(pending)
+      if (deferred !== null) clearTimeout(deferred)
+    }
+  }, [canvasState, motion])
+
+  // matsuri's fireworks at the reveal (the mockup's showCover), not under
+  // reduced motion. Positions are in sky pixels.
+  const revealShown = state.screen === 'game' && state.reveal !== null ? state.reveal : null
+  useEffect(() => {
+    if (revealShown === null || theme !== 'matsuri' || motion.reduce) return
+    const box = deckBox()
+    if (box === null) return
+    const timers = fireworkTimersRef.current
+    REVEAL_FIREWORKS.forEach((delay, k) => {
+      const id = setTimeout(() => {
+        timers.delete(id)
+        fireworkAt(canvasState, (box.left + box.width * (0.3 + k * 0.25)) * motion.dpr, (box.top + box.height * 0.1) * motion.dpr, true)
+      }, delay)
+      timers.add(id)
+    })
+  }, [revealShown, theme, canvasState, motion])
+
+  useEffect(() => {
+    const timers = fireworkTimersRef.current
+    return () => {
+      for (const id of timers) clearTimeout(id)
+      timers.clear()
+    }
+  }, [])
+
   // body.choice-mode while the current game is a choice game (the mockup's
   // setMode, cycle 112): the room.css layout with the tiles below the deck
   // and the panel. Off in a chat game and once the game screen is left.
@@ -415,13 +571,18 @@ function GameApp({
   )
   const feedback = feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />
   const volumeProps = { volume, onVolumeLevel: handleVolumeLevel, onToggleMute: handleToggleMute }
+  // The first element of the root on every screen (before the frame's .scan
+  // and .app), so it stays the same element across them.
+  const sky = <canvas ref={skyRef} id="sky" aria-hidden="true" />
 
   if (view === 'game') {
     return (
       <>
+        {sky}
         <GameScreen
           state={state}
           theme={roomTheme}
+          choiceGame={choiceGame}
           onPickTheme={handleRoomTheme}
           onChat={handleChat}
           onPick={handlePick}
@@ -441,6 +602,7 @@ function GameApp({
   if (view === 'start') {
     return (
       <>
+        {sky}
         <Frame
           code={null}
           line=""
@@ -473,6 +635,7 @@ function GameApp({
   else if (state.lobbySettings !== null) line = settingsLine(state.lobbySettings, t)
   return (
     <>
+      {sky}
       <Frame
         code={room.code}
         line={line}
