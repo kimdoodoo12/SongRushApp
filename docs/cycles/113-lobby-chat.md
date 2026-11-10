@@ -54,3 +54,14 @@ While a lobby has no running room (before the first game, and after a game has r
 - The frontend (cycle 114).
 - Chat history for late joiners.
 - Moderation.
+
+## Result
+- **Commits.** Spec `89e6bb6`. Tests `a8aa082` (locked; includes the declared `LobbyAbandonTest` change). Implementation `916e592` (`ChatRules`, `Lobby`, `Room`).
+- **Verifier:**
+  - `gradlew cleanTest test`: BUILD SUCCESSFUL. 891 tests, 0 failures, 0 errors, 1 skipped (POSIX permissions on Windows, unrelated).
+  - Results by class: `LobbyChatTest` 9/9, `LobbyChatSocketTest` 1/1, `LobbyAbandonTest` 6/6.
+  - The test diff since `a8aa082` is empty.
+  - No `toAll` call is in the lobby chat path.
+- **Critic code review:** nothing at confidence 80 or more.
+  - The `Room` check order, the bucket maths, the constants and `skip`'s shared bucket are unchanged.
+  - Note (below the bar): leaving and joining again with the same id gives a fresh, full bucket. Each such join is visible to everyone through the roster.
