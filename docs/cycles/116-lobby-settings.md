@@ -24,7 +24,8 @@ The host's lobby selection (song count, filter, answer mode, game mode) is share
    - **When a selection exists, it is sent to:**
      - a member who joins or rejoins in the lobby phase, right after `sendRoomThemeTo` (that is, after joined → roster → roomTheme);
      - a member whose socket is replaced in the lobby phase, at the same point of that path;
-     - nobody during a game. A late joiner gets it when the lobby reopens, through the broadcast the host's client sends on re-entering the lobby.
+     - nobody during a game;
+     - **every connected member, when the room returns to the lobby** (`returnToLobby`), so that a late joiner who arrived during the game gets it even if the host changes nothing (round 2: the change-only rule would otherwise starve them).
    - The stored selection survives a game. After returning to the lobby it is the same until the host changes it.
    - A host transfer keeps it.
    - **The new host's client sends its own selection the moment its roster shows it became host** (false→true), so the guests' card always matches the selection the next `start` uses (critic H2).
@@ -59,8 +60,12 @@ The host's lobby selection (song count, filter, answer mode, game mode) is share
 - **M1:** the send point is fixed, and the replaced-socket and late-joiner cases are covered.
 - **M2:** an unchanged selection is not broadcast.
 
+## Test-writer findings (round 2)
+- **Late joiner and the change-only rule.** These conflicted, so the server now sends the stored selection on `returnToLobby`.
+- **`App.lobbyport.test.jsx:580`** expected a guest's `.opts-who` to read '방장이 정한 설정이에요' before any selection exists. That is now a declared test change: the test delivers a `lobbySettings` first, or expects '방장이 설정을 고르는 중이에요' before one.
+
 ## File ownership
-- **Test writer:** the three new test files.
+- **Test writer:** the three new test files, and the declared change in `App.lobbyport.test.jsx`.
 - **Implementer:**
   - backend: `ws/GameSocketHandler.java` (routing and shared parsing), `game/Lobby.java`;
   - frontend: `src/game/session.js`, `src/game/state.js`, `src/App.jsx`, `src/components/LobbyScreen.jsx`, `FilterControls.jsx`, `src/i18n/{ko,en,ja}.json`.
