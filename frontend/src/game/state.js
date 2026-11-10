@@ -140,6 +140,13 @@ function lobbyLog(state, key, values) {
   return key === undefined ? cleared : withNotice(cleared, key, values)
 }
 
+// The log without the join line (chat.lobbyJoined): joined adds it before
+// the snapshot says the phase, so a late joiner who goes to the game drops
+// it (critic M1 of 114).
+function withoutJoinLine(chat) {
+  return chat.filter((line) => !(line.kind === 'notice' && line.key === 'chat.lobbyJoined'))
+}
+
 // The mockup's startRound line: "<n>번째 곡 시작" once per song, when the
 // song becomes audible.
 export function reducer(state, action) {
@@ -260,6 +267,7 @@ function step(state, action) {
       }
       return {
         ...common,
+        chat: withoutJoinLine(state.chat),
         screen: 'game',
         round: action.round,
         load: action.round === null ? null : 'loading',
@@ -270,6 +278,7 @@ function step(state, action) {
       // round is null when the snapshot has no song (paused or revealing).
       return {
         ...state,
+        chat: withoutJoinLine(state.chat),
         screen: 'game',
         round: action.round,
         load: action.round === null ? null : 'loading',

@@ -62,12 +62,16 @@
     "label": "정답 형식",
     "chat": "채팅",
     "choice": "객관식",
-    "choiceN": "보기 {{n}}"
+    "choiceN": "보기 {{n}}",
+    "hintChat": "채팅으로 애니 제목을 맞혀요",
+    "hintChoice": "표지 {{k}}장 중에서 골라요 (난이도에 따라 4·6·8장)"
   },
   "mode": {
     "label": "게임 모드",
     "first": "선착순",
-    "ranked": "순위전"
+    "ranked": "순위전",
+    "hintFirst": "가장 먼저 맞힌 한 명만 점수를 받아요",
+    "hintRanked": "모두 맞히거나 고를 때까지 곡이 이어지고 순위대로 점수를 받아요"
   },
   "seat": {
     "list": "자리",

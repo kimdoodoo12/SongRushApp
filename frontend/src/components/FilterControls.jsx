@@ -1,9 +1,13 @@
 import { ANSWER_OPTIONS, GAME_MODE_OPTIONS, TIER_OPTIONS, TYPE_OPTIONS, YEAR_FROM_OPTIONS, YEAR_TO_OPTIONS } from '../game/filters.js'
 import { useTranslation } from '../i18n/index.js'
 
+// The 정답 형식 hint's cover count per 난이도 (the mockup's choiceK).
+const CHOICE_COVERS = { easy: 4, normal: 6, hard: 8 }
+
 // One .seg group of toggle buttons (the mockup's lobby control): the
-// group's name is its label, the current value is pressed.
-function Seg({ label, options, value, disabled, onPick }) {
+// group's name is its label, the current value is pressed. hint, when
+// given, is the mockup's .oh line under the group.
+function Seg({ label, options, value, disabled, onPick, hint = null }) {
   const { t } = useTranslation()
   return (
     <div className="opt">
@@ -15,6 +19,7 @@ function Seg({ label, options, value, disabled, onPick }) {
           </button>
         ))}
       </div>
+      {hint !== null && <span className="oh">{hint}</span>}
     </div>
   )
 }
@@ -63,6 +68,11 @@ function FilterControls({ selection, onChange, disabled = false }) {
         value={selection.answerMode}
         disabled={disabled}
         onPick={(v) => set('answerMode', v)}
+        hint={
+          selection.answerMode === 'choice'
+            ? t('answer.hintChoice', { k: CHOICE_COVERS[selection.tier] ?? CHOICE_COVERS.normal })
+            : t('answer.hintChat')
+        }
       />
       <Seg
         label={t('mode.label')}
@@ -70,6 +80,7 @@ function FilterControls({ selection, onChange, disabled = false }) {
         value={selection.gameMode}
         disabled={disabled}
         onPick={(v) => set('gameMode', v)}
+        hint={selection.gameMode === 'ranked' ? t('mode.hintRanked') : t('mode.hintFirst')}
       />
     </>
   )

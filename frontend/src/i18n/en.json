@@ -62,12 +62,16 @@
     "label": "Answer format",
     "chat": "Chat",
     "choice": "Multiple choice",
-    "choiceN": "Choice {{n}}"
+    "choiceN": "Choice {{n}}",
+    "hintChat": "Guess the anime title in the chat",
+    "hintChoice": "Pick from {{k}} covers (4, 6 or 8 by difficulty)"
   },
   "mode": {
     "label": "Game mode",
     "first": "First Come",
-    "ranked": "Ranked"
+    "ranked": "Ranked",
+    "hintFirst": "Only the first to get it right scores",
+    "hintRanked": "The song goes on until everyone answers or picks, and points follow the ranking"
   },
   "seat": {
     "list": "Seats",
