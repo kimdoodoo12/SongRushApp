@@ -67,9 +67,14 @@ async function playing(env) {
 
 // The chat log lines in order, whitespace collapsed (the check mark may sit
 // in its own aria-hidden span). Cycle 110 (D-124, declared): each line is a
-// div.msg in the chat's .msgs (the mockup's markup).
+// div.msg in the chat's .msgs (the mockup's markup). Cycle 111 (D-124,
+// declared): a chat line is read from its .t, as the .tm time sits beside
+// it; the client-only system lines (.msg.sys without .correct: game start,
+// song start, game over) are left out here and tested in App.deck.test.jsx.
 function chatLines() {
-  return Array.from(document.querySelectorAll('aside.chat .msgs .msg')).map((el) => el.textContent.replace(/\s+/g, ' ').trim())
+  return Array.from(document.querySelectorAll('aside.chat .msgs .msg:not(.sys), aside.chat .msgs .msg.sys.correct')).map(
+    (el) => (el.querySelector(':scope > .t') ?? el).textContent.replace(/\s+/g, ' ').trim(),
+  )
 }
 
 describe('the correct frame in the chat log (D-094)', () => {
