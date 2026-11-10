@@ -24,12 +24,14 @@
    - `ready` for the new index is accepted while `revealing`. `startIfAllReady()` does nothing while `revealing`.
    - **The last song** behaves as today: reveal, then after `REVEAL_PAUSE` `gameOver`. No early prepare.
 3. **Chat while `revealing`** is treated as in REVEAL today: broadcast to everyone, never answer-checked. It must not fall into the PREPARE "too early" path.
+   - This also covers a chat that arrives after the deadline and triggers `endSong` inside `chat()`.
+   - In `chat()`, check `revealing` right after that `endSong` call and before the watcher check and `songs.get(songIndex)`: `if (revealing || (phase != PREPARE && phase != PLAYING)) { toAll(chat); return; }` (review M2).
 4. **Skip votes** are ignored while `revealing`, as in REVEAL and PREPARE today.
 5. **Snapshot and reconnect while `revealing`.**
-   - `currentSong` returns the prepared next song, as in PREPARE: `{index,total,audioUrl,choices…}`.
-   - The snapshot also carries `holdMs` = the remaining reveal time, so the client keeps waiting and then shows the prepared round.
+   - `currentSong` returns the prepared next song, as in PREPARE: `{index,total,audioUrl,choices…}`. There is no `holdMs` in the snapshot (review M4).
+   - **A player who joins, or a watcher who reconnects, while `revealing`** is promoted at once. That player alone gets the current `prepare`, with `holdMs` set to the remaining reveal time. This keeps D-059: they play from the next song, as today (review M3a).
 6. **Pause and resume.**
-   - A pause while `revealing` cancels the reveal timer.
+   - A pause while `revealing` cancels the reveal timer, and `pause()` sets `revealing=false` (review M1).
    - Resume treats the reveal as over: re-send `prepare` for the same index without `holdMs` and run the normal PREPARE flow. This mirrors today's "resume from REVEAL prepares at once".
 7. **Audio token TTL** covers the extra reveal time: `TOKEN_TTL` gains `REVEAL_PAUSE`.
 8. **Secrecy is unchanged.**
@@ -45,6 +47,12 @@
    - the reveal cleared.
 
    If `start` for the new index arrives earlier, it ends the hold immediately.
+
+   **Dispatch order (review H1):**
+   - The session keeps one `holdTimer`.
+   - During the hold it does not dispatch `prepare`, `loaded` or `loadFailed`.
+   - When the hold ends (by the timer or by `start` for that index), it dispatches `prepare`, then `loaded` or `loadFailed` if the download has already finished, and only then `start`.
+   - `holdTimer` is cleared in `dropRound`, `onPrepare`, `onRejoinSnapshot`, `abandon`, `gameOver` and `shutdown`.
 10. **A `prepare` without `holdMs`** (default mode) behaves exactly as today.
 11. **Snapshot with `holdMs`** (reconnect during the reveal): there is no reveal card to keep. Load at once and show the loading state.
 
@@ -76,7 +84,11 @@
     - Chat during the reveal is broadcast and never scores.
     - Skip is ignored during the reveal.
     - The last song ends with `gameOver` and no prepare.
-    - A reconnect during the reveal gets the next song and `holdMs`.
+    - A reconnect during the reveal gets the next song, with no `holdMs`.
+    - A join during the reveal is promoted at once and gets its own `prepare` with the remaining `holdMs`.
+    - Pause and resume during the reveal, with everyone ready, start the song at once (not after 25 s).
+    - When the last unready player disconnects during the reveal, `start` still waits for the reveal to end.
+    - A chat arriving after the deadline is broadcast and never compared with song N+1.
     - Pause and resume during the reveal re-prepare without `holdMs`.
     - Choice room: the next `prepare` has `choices` with no correct mark, and the reveal of N still carries `correctChoice`.
     - Ranked: the ranking of N is in N's reveal, and the tags are cleared for N+1.
@@ -88,6 +100,9 @@
   - After `holdMs` the new round shows.
   - A `start` during the hold ends it.
   - Without `holdMs` the old behaviour holds. Existing tests pass unedited.
+  - When the load finishes before the hold ends, there is no loading line after the hold.
+  - When `start` arrives during the hold, the timer and the skip button show.
+  - After a reconnect during the hold, nothing overwrites the restored screen.
 - **Perf:**
   - The new metrics are computed from hand-made recorder data in tests.
   - The `between` view keys are added, as a declared change to `test_devtools_shot.py`'s key set.
