@@ -14,7 +14,7 @@ In S3 mode, when `songrush.audio.cdn-host` is set, the `Location` of `/audio/{to
 
 ## Backend
 1. **New pure helper `com.songrush.audio.CdnUrls`.**
-   - `String rewrite(String presignedUrl, String cdnHost)`: returns `"https://" + cdnHost + <raw path> + "?" + <raw query>` of the presigned URL. The raw (still-encoded) path and query are kept exactly; nothing is decoded or re-encoded.
+   - `static String rewrite(String presignedUrl, String cdnHost)`: returns `"https://" + cdnHost + <raw path> + "?" + <raw query>` of the presigned URL. The raw (still-encoded) path and query are kept exactly; nothing is decoded or re-encoded.
    - If `cdnHost` is null or blank, it returns the input unchanged.
    - `static boolean validHost(String)`: true only for a lowercase DNS hostname, labels `[a-z0-9-]` separated by dots, with at least one dot and no scheme, port, path or whitespace.
 2. **Property.** A new `@ConfigurationProperties("songrush.audio")` record holds `cdnHost`. Existing `AudioProperties(String bucket)` constructors used by tests must keep compiling, so it is either a separate record or an added component with the old constructor kept.
@@ -25,7 +25,7 @@ In S3 mode, when `songrush.audio.cdn-host` is set, the `Location` of `/audio/{to
 ## Acceptance (tests, offline)
 1. **`CdnUrlsTest`:**
    - The host is replaced and the scheme is https.
-   - The path and the query are identical (including `%2F`, `+` and `=` in `X-Amz-Credential` and `X-Amz-Signature`).
+   - The path and the query are identical (including `%2F` in `X-Amz-Credential` and `%2B`/`%2F`/`%3D` in `X-Amz-Security-Token`).
    - Blank or null host means no change.
    - `validHost` accepts `d1234abcd.cloudfront.net` and `media.example.com`. It rejects `https://x.cloudfront.net`, `x.cloudfront.net/`, `x.cloudfront.net:443`, `UPPER.cloudfront.net`, `localhost`, `a b.com` and the empty string.
 2. **Controller tests (S3 mode, fake credentials, like the existing S3 controller tests).**
@@ -34,19 +34,40 @@ In S3 mode, when `songrush.audio.cdn-host` is set, the `Location` of `/audio/{to
 3. **Startup with an invalid host fails.**
 4. **Commands.** `.\gradlew.bat test` passes. The existing tests are unchanged.
 
-## Owner steps (console)
-These are given to the owner in Korean in the conversation:
-- Create a distribution with the S3 origin and **origin access Public (no OAC; the bucket policy is not changed)**.
-- Settings: viewer protocol redirect-to-HTTPS, GET/HEAD, cache policy `CachingDisabled`, origin request policy `AllViewerExceptHostHeader`, no WAF.
-- Send the lead the distribution domain.
+## Owner steps (console, corrected after the spec review)
+1. **Pricing:** Pay as you go. The flat-rate plans bundle WAF, whose rules can block the long signed query.
+2. **Origin:**
+   - Amazon S3, the audio bucket.
+   - **Uncheck "Allow private S3 bucket access to CloudFront".** That checkbox creates an OAC and changes the bucket policy, which would make unsigned requests work.
+   - The origin domain is exactly `<bucket>.s3.ap-southeast-2.amazonaws.com`, and the origin path is empty.
+   - Afterwards, check that the bucket policy is unchanged and Block Public Access is all On.
+3. **Cache settings:**
+   - Customize: `CachingDisabled` + `AllViewerExceptHostHeader`.
+   - No response headers policy.
+   - Redirect HTTP to HTTPS, GET/HEAD.
+4. **Security:** do not enable protections.
+5. **After creation, Error pages:** a custom error response for 400, 403, 404, 500 and 503 with **error caching minimum TTL 0**.
+   - The cache key is the path only, so a cached 403 from one bad request could block another player's valid request for 10 s. That is a fairness issue.
+6. Send the lead the distribution domain.
 
-## Verification before deploy (lead)
-- Once the distribution is deployed, take a real `Location` from the live site's `/audio/{token}` during a game, swap its host with `CdnUrls`' rule, and fetch it. Expect 200, the audio content type, and the CORS header for the site origin.
-- A tampered signature through the CDN must give 403. This proves the bucket is not opened.
+## Verification before deploy (lead, `cdn_check.py` run within the URL's 60 s)
+1. **Valid signature through the CDN:**
+   - Send it with `Origin: https://animeopguessr.com`. Expect 200, the audio content type, and `Access-Control-Allow-Origin` = the site.
+   - Fetch one cover the same way.
+2. **Tampered signature:** expect 403.
+3. **No query at all:** expect 403. This catches an OAC-opened bucket.
+4. **Error caching:**
+   - Right after the 403 above, send a fresh valid URL for the same path. Expect 200, and `X-Cache` must not be `Error from cloudfront`.
+   - Wait 60 s and fetch the expired URL. Expect 403.
+
+## Alternative noted
+S3 Transfer Acceleration uses the same edge network without the host swap. It is a candidate for a later step if CloudFront shows little gain.
 
 ## Measurement after deploy
 - `perf/run.py` three times with the switch on, plus `perf/devtools_shot.py`, recorded as step 1 in `docs/performance.md`.
-- The improvement must be measured with the switch on and off in the same session, alternating.
+- **Switching** means changing `SONGRUSH_AUDIO_CDNHOST` and restarting the backend container. The owner does this, and it ends any open rooms.
+- Each run's results record the final media host (`*.cloudfront.net` or S3) as proof of on or off.
+- The improvement is measured on and off, alternating, in the same session.
 
 ## File ownership
 - **Test writer:** new tests under `backend/src/test/java/com/songrush/audio/` and `.../cover/`.
