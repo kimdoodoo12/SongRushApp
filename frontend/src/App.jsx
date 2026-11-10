@@ -6,7 +6,6 @@ import { DEFAULT_SELECTION, isReversed, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
 import GameScreen from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
-import ThemeDecor from './components/ThemeDecor.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import FeedbackDialog from './components/FeedbackDialog.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
@@ -336,7 +335,6 @@ function GameApp({
 
   return (
     <div className="app-shell min-h-screen" data-room-theme={theme}>
-      <ThemeDecor theme={theme} />
       <div className="app relative z-[1] mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
         <header className="flex items-center justify-center md:justify-start">
           <h1 className="brand w-56 text-center text-3xl whitespace-nowrap tracking-tight md:text-left md:text-4xl">SongRush</h1>

@@ -174,7 +174,7 @@ export function reducer(state, action) {
       return { ...state, reconnecting: true }
     case 'rejoined':
       // The server sends roomTheme after the join sequence only when it is
-      // not play, so a theme seen before the drop may be stale.
+      // not the default (sunset), so a theme seen before the drop may be stale.
       return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null, roomTheme: null }
     case 'restore': {
       // A rejoin snapshot: the lobby, or the game as a player (spec 049).

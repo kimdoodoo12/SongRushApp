@@ -35,10 +35,14 @@ public final class Lobby {
 
 	static final int MAX_NICKNAME = 16;
 
-	// The room theme ids (D-090, D-091), exact and case-sensitive; DEFAULT_THEME at creation.
-	static final Set<String> ROOM_THEMES = Set.of("play", "neon", "sakura", "chalk", "star", "arcade");
+	// The room theme ids, the eight moods (D-122), exact and case-sensitive; DEFAULT_THEME at creation.
+	static final Set<String> ROOM_THEMES = Set.of("sunset", "rain", "sakura", "neon", "chalk", "pixel", "matsuri",
+			"manga");
 
-	static final String DEFAULT_THEME = "play";
+	static final String DEFAULT_THEME = "sunset";
+
+	// The ids before cycle 109, still sent by tabs opened before the release; stored as the mapped id.
+	static final Map<String, String> OLD_THEMES = Map.of("play", "sunset", "star", "rain", "arcade", "pixel");
 
 	private final String code;
 
@@ -368,12 +372,14 @@ public final class Lobby {
 	}
 
 	// The host changes the room theme in any phase; every connected member gets roomTheme, also when
-	// the value is unchanged. A bad id is reported before the host check (cycle 071, review nits).
-	public void setRoomTheme(String playerId, String theme) {
+	// the value is unchanged. A bad id is reported before the host check (cycle 071, review nits). An
+	// old id is mapped first, so only a current id is stored and broadcast (cycle 109).
+	public void setRoomTheme(String playerId, String requested) {
 		Member m = member(playerId);
 		if (closed || m == null || !m.connected) {
 			return;
 		}
+		String theme = requested == null ? null : OLD_THEMES.getOrDefault(requested, requested);
 		if (theme == null || !ROOM_THEMES.contains(theme)) {
 			error(playerId, "bad-room-theme");
 			return;
