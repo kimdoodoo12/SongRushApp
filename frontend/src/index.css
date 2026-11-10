@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
 /* Cycle 110 (D-124): the look is room.css, the mockup's own stylesheet,
-   loaded after this file (main.jsx). This file keeps only Tailwind, the
-   interim aliases below and what the screens outside the mockup (start,
-   lobby, admin, feedback) still need until cycle 114. No rule here names a
-   class that room.css defines, so nothing here can override a mockup rule
-   (indexCss.test.js). */
+   loaded after this file (main.jsx). Since cycle 114 the start screen and
+   the lobby are in the mockup's frame too; this file keeps only Tailwind,
+   the aliases @theme inline reads, the start screen's inputs, and what the
+   screens outside the mockup (admin, feedback, the footer's language
+   switcher) need. No rule here names a class that room.css defines, so
+   nothing here can override a mockup rule (indexCss.test.js). */
 
 /* The Tailwind colours read the tokens directly (inline), so utilities such
    as text-muted or bg-bad/10 follow the mood. */
@@ -22,9 +23,9 @@
   --font-display: var(--font-d);
 }
 
-/* Interim aliases until cycle 114: the old token names that the start,
-   lobby, admin and feedback screens still read, as names for the mockup's
-   tokens (room.css sets those per mood on :root[data-mood]). */
+/* The aliases that @theme inline (and the admin and feedback screens) read,
+   as names for the mockup's tokens (room.css sets those per mood on
+   :root[data-mood]). */
 :root {
   --soft: var(--dim);
   --good: var(--ok);
@@ -40,15 +41,34 @@
   height: 100%;
 }
 
-/* ---- Interim until cycle 114: the screens outside the mockup ---- */
+/* The start screen's text inputs (cycle 114): the mockup has no start
+   screen, so they take the look of its .years select. */
+.start-input {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.start-input::placeholder {
+  color: var(--dim);
+}
+
+/* ---- The screens outside the mockup: admin, feedback, the footer's
+   language switcher ---- */
 
 @layer components {
-  :is(.start-screen, .room, .admin, .feedback, .lang-switch) button {
+  :is(.admin, .feedback, .lang-switch) button {
     padding: 0.5rem 1rem;
     border-radius: var(--r);
   }
 
-  :is(.start-screen, .room, .admin, .feedback) :is(input[type="text"], select, textarea) {
+  :is(.admin, .feedback) :is(input[type="text"], select, textarea) {
     width: 100%;
     min-width: 0;
     border-radius: calc(var(--r) / 2);
@@ -59,28 +79,25 @@
     font: inherit;
   }
 
-  :is(.start-screen, .room, .admin, .feedback) :is(input[type="text"], select) {
+  :is(.admin, .feedback) :is(input[type="text"], select) {
     height: 2.25rem;
   }
 
-  :is(.start-screen, .room, .admin, .feedback) textarea {
+  :is(.admin, .feedback) textarea {
     padding-block: 0.5rem;
     resize: vertical;
   }
 
-  :is(.start-screen, .room, .admin, .feedback) input[type="text"]::placeholder {
+  :is(.admin, .feedback) input[type="text"]::placeholder {
     color: var(--dim);
   }
 
-  :is(.start-screen, .room, .admin, .feedback) select option {
+  :is(.admin, .feedback) select option {
     background-color: var(--panel);
     color: var(--ink);
   }
 
-  /* The start card, the lobby sections, the dialog and the admin records:
-     a panel box in the mood's colours. */
-  .room-controls,
-  .room > section,
+  /* The dialog and the admin records: a panel box in the mood's colours. */
   .feedback,
   .admin article {
     background: var(--panel);
@@ -127,21 +144,20 @@
 }
 
 /* Unlayered, so they beat room.css's global button reset (border and
-   background) on these screens only; the mockup's own classes, such as
-   .moods buttons, keep their rules by specificity and order. */
-:is(.start-screen, .room, .admin, .feedback, .lang-switch) button {
+   background) on these screens only. */
+:is(.admin, .feedback, .lang-switch) button {
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel) 80%, transparent);
 }
 
-:is(.start-screen, .room, .admin, .feedback, .lang-switch) button[aria-pressed="true"],
+:is(.admin, .feedback, .lang-switch) button[aria-pressed="true"],
 .admin-tab[aria-selected="true"] {
   background: var(--a1);
   border-color: var(--a1);
   color: var(--bg);
 }
 
-:is(.start-screen, .room, .admin, .feedback, .lang-switch) button:disabled {
+:is(.admin, .feedback, .lang-switch) button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }

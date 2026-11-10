@@ -279,10 +279,77 @@ function ScoreLists({ score, scoreboard, me }) {
   )
 }
 
-// The game room in the mockup's markup (D-124, cycle 110): header, then
-// .main with the stage and the chat. banner is the reconnecting line and
-// footer the page footer, both from App. A room shows its code and the
-// mood picker (enabled for the host); before joined (room null) neither.
+// The room frame in the mockup's markup (D-124, cycle 110), shared by the
+// start screen, the lobby and the game (cycle 114): header (the logo,
+// .roominfo with the room code and the settings line, the volume, and the
+// .moodbar picker), then .main with the stage and the chat. picker is null
+// (no picker) or { value, onPick, disabled }; a disabled picker is labelled
+// as the host's pick. banner is the reconnecting line, the first child of
+// .stage .inner; footer the page footer, its last. chat is null (no chat
+// aside) or { lines, me, online, onSend }, onSend null without the form.
+export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute, banner, footer, chat, children }) {
+  const { t } = useTranslation()
+  return (
+    <>
+      <div className="scan" aria-hidden="true" />
+      <div className="app">
+        <header>
+          <div className="logo">
+            <span className="eq" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            SongRush
+          </div>
+          <div className="roominfo">
+            {code !== null && <span className="code">{code}</span>}
+            {line !== '' && <p className="settings">{line}</p>}
+          </div>
+          <div className="hd-right">
+            <VolumeControl volume={volume} onLevel={onVolumeLevel} onToggleMute={onToggleMute} />
+          </div>
+          {picker !== null && (
+            <div className="moodbar">
+              <span className="ml">{picker.disabled ? t('theme.labelGuest') : t('theme.label')}</span>
+              <ThemePicker value={picker.value} onPick={picker.onPick} disabled={picker.disabled} />
+            </div>
+          )}
+        </header>
+
+        <div className="main">
+          <section className="stage" aria-label={t('stage.label')}>
+            <div className="inner">
+              {banner}
+              {children}
+              {footer}
+            </div>
+          </section>
+
+          {chat !== null && (
+            <aside className="chat" aria-label={t('chat.label')}>
+              <div className="chat-hd">
+                <b>{t('chat.label')}</b>
+                <span className="live">
+                  <span className="dot" />
+                  {t('chat.live', { n: chat.online })}
+                </span>
+              </div>
+              <ChatLog chat={chat.lines} me={chat.me} />
+              {chat.onSend !== null && <ChatForm onSend={chat.onSend} />}
+            </aside>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// The game room inside the frame: the stage top, the time bar, the deck
+// with the panel (and a choice room's tiles), and the seats. banner is the
+// reconnecting line and footer the page footer, both from App. A room shows
+// its code and the mood picker (enabled for the host); before joined (room
+// null) neither.
 function GameScreen({
   state,
   theme,
@@ -424,130 +491,93 @@ function GameScreen({
   }
 
   return (
-    <>
-      <div className="scan" aria-hidden="true" />
-      <div className="app">
-        <header>
-          <div className="logo">
-            <span className="eq" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
-            SongRush
-          </div>
-          <div className="roominfo">
-            {room !== null && <span className="code">{room.code}</span>}
-            {line !== '' && <p className="settings">{line}</p>}
-          </div>
-          <div className="hd-right">
-            <VolumeControl volume={volume} onLevel={onVolumeLevel} onToggleMute={onToggleMute} />
-          </div>
-          {room !== null && (
-            <div className="moodbar">
-              <span className="ml">{isHost ? t('theme.label') : t('theme.labelGuest')}</span>
-              <ThemePicker value={theme} onPick={onPickTheme} disabled={!isHost} />
-            </div>
+    <Frame
+      code={room === null ? null : room.code}
+      line={line}
+      picker={room === null ? null : { value: theme, onPick: onPickTheme, disabled: !isHost }}
+      volume={volume}
+      onVolumeLevel={onVolumeLevel}
+      onToggleMute={onToggleMute}
+      banner={banner}
+      footer={footer}
+      chat={{ lines: chat, me, online, onSend: screen === 'game' ? onChat : null }}
+    >
+      <div className="stage-top">
+        <div className="round">
+          <span className="tag">{`${t(`theme.${theme}`)} · ${t(`mood.tag.${theme}`)}`}</span>
+          {round !== null && (
+            <Trans
+              i18nKey="stage.round"
+              values={{ index: round.index + 1, total: round.total }}
+              components={{ lead: <span />, num: <span className="num" /> }}
+            />
           )}
-        </header>
-
-        <div className="main">
-          <section className="stage" aria-label={t('stage.label')}>
-            <div className="inner">
-              {banner}
-              <div className="stage-top">
-                <div className="round">
-                  <span className="tag">{`${t(`theme.${theme}`)} · ${t(`mood.tag.${theme}`)}`}</span>
-                  {round !== null && (
-                    <Trans
-                      i18nKey="stage.round"
-                      values={{ index: round.index + 1, total: round.total }}
-                      components={{ lead: <span />, num: <span className="num" /> }}
-                    />
-                  )}
-                </div>
-                <div className={seconds !== null && seconds <= LOW_SECONDS ? 'clock low' : 'clock'}>
-                  {seconds === null ? '' : t('stage.seconds', { seconds })}
-                </div>
-              </div>
-              <TimeBar timer={timer} />
-
-              <div className="now">
-                <Deck
-                  idle={deckIdle}
-                  revealed={screen === 'game' && reveal !== null}
-                  reveal={reveal}
-                  title={coverTitle}
-                  outcome={outcome}
-                  number={round === null ? 1 : round.index + 1}
-                  missed={missed}
-                  mood={theme}
-                />
-                <div className="panel">
-                  {panel}
-                  {/* A mid-song joiner watches until the next song, also
-                      through its reveal; before a round it is the hint. */}
-                  {screen === 'game' && watching && (round !== null || waitingNext) && (
-                    <p className="sub">{t('stage.watching')}</p>
-                  )}
-                  {screen === 'game' && soundBlocked && (
-                    <button type="button" className="btn primary" onClick={onUnlockSound}>
-                      {t('stage.unlockSound')}
-                    </button>
-                  )}
-                  {canSkip && (
-                    <div className="row">
-                      <button type="button" className={skipVoted ? 'btn voted' : 'btn'} onClick={onSkip}>
-                        {skipVoted ? t('stage.skipCancel') : t('stage.skip')}
-                      </button>
-                      {skipCount !== null && (
-                        <span className="skipcount">{t('stage.skipCount', { votes: skipCount.votes, needed: skipCount.needed })}</span>
-                      )}
-                    </div>
-                  )}
-                  {error !== null && <p className="warn">{messageText(t, error)}</p>}
-                </div>
-                {gridShown && (
-                  <ChoiceGrid
-                    choices={choices}
-                    revealed={reveal !== null}
-                    picked={picked}
-                    pickWrong={pickWrong}
-                    correctChoice={correctChoice}
-                    enabled={canPick}
-                    onPick={onPick}
-                  />
-                )}
-              </div>
-
-              <div className="seats">
-                <h2>{t('seat.list')}</h2>
-                <Seats
-                  players={players}
-                  me={me}
-                  scoreboard={scoreboard}
-                  correct={correctNames.length > 0 ? correctNames : correct}
-                />
-              </div>
-              <ScoreLists score={score} scoreboard={scoreboard} me={me} />
-              {footer}
-            </div>
-          </section>
-
-          <aside className="chat" aria-label={t('chat.label')}>
-            <div className="chat-hd">
-              <b>{t('chat.label')}</b>
-              <span className="live">
-                <span className="dot" />
-                {t('chat.live', { n: online })}
-              </span>
-            </div>
-            <ChatLog chat={chat} me={me} />
-            {screen === 'game' && <ChatForm onSend={onChat} />}
-          </aside>
+        </div>
+        <div className={seconds !== null && seconds <= LOW_SECONDS ? 'clock low' : 'clock'}>
+          {seconds === null ? '' : t('stage.seconds', { seconds })}
         </div>
       </div>
-    </>
+      <TimeBar timer={timer} />
+
+      <div className="now">
+        <Deck
+          idle={deckIdle}
+          revealed={screen === 'game' && reveal !== null}
+          reveal={reveal}
+          title={coverTitle}
+          outcome={outcome}
+          number={round === null ? 1 : round.index + 1}
+          missed={missed}
+          mood={theme}
+        />
+        <div className="panel">
+          {panel}
+          {/* A mid-song joiner watches until the next song, also
+              through its reveal; before a round it is the hint. */}
+          {screen === 'game' && watching && (round !== null || waitingNext) && (
+            <p className="sub">{t('stage.watching')}</p>
+          )}
+          {screen === 'game' && soundBlocked && (
+            <button type="button" className="btn primary" onClick={onUnlockSound}>
+              {t('stage.unlockSound')}
+            </button>
+          )}
+          {canSkip && (
+            <div className="row">
+              <button type="button" className={skipVoted ? 'btn voted' : 'btn'} onClick={onSkip}>
+                {skipVoted ? t('stage.skipCancel') : t('stage.skip')}
+              </button>
+              {skipCount !== null && (
+                <span className="skipcount">{t('stage.skipCount', { votes: skipCount.votes, needed: skipCount.needed })}</span>
+              )}
+            </div>
+          )}
+          {error !== null && <p className="warn">{messageText(t, error)}</p>}
+        </div>
+        {gridShown && (
+          <ChoiceGrid
+            choices={choices}
+            revealed={reveal !== null}
+            picked={picked}
+            pickWrong={pickWrong}
+            correctChoice={correctChoice}
+            enabled={canPick}
+            onPick={onPick}
+          />
+        )}
+      </div>
+
+      <div className="seats">
+        <h2>{t('seat.list')}</h2>
+        <Seats
+          players={players}
+          me={me}
+          scoreboard={scoreboard}
+          correct={correctNames.length > 0 ? correctNames : correct}
+        />
+      </div>
+      <ScoreLists score={score} scoreboard={scoreboard} me={me} />
+    </Frame>
   )
 }
 
