@@ -288,6 +288,7 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-bloc
 
 
 /* ===== 칠판 교실 ===== */
+/* 칠판: 레코드는 돌고, 둘레의 분필 오선지도 함께 돌며 맨 위 분필이 박자마다 음표를 적음 */
 [data-mood="chalk"] body{font-size:17px}
 [data-mood="chalk"] .settings,[data-mood="chalk"] .sm small{font-size:.85rem}
 [data-mood="chalk"] .disc{box-shadow:none}
@@ -479,6 +480,8 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-bloc
 .cheat li canvas{width:18px;height:24px;vertical-align:middle;margin-right:6px;border-radius:2px}
 
 /* ===== 대기방 ===== */
+.backlobby{padding:6px 14px;font-size:.82rem}
+.lobby-on .backlobby{display:none}
 [hidden]{display:none!important}
 [data-mood="sunset"] .tk-tag{color:#c0653a}
 [data-mood="matsuri"] .tk-tag{color:#c8372d}
@@ -648,6 +651,7 @@ header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding-bloc
       <p class="settings">6곡 · 전체 · 보통 · 채팅 · 선착순</p>
     </div>
     <div class="hd-right">
+      <button type="button" class="btn backlobby" id="backLobby">대기방 설정으로</button>
       <label class="vol" for="vol"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="2" fill="none"/></svg><input id="vol" type="range" min="0" max="100" value="70" aria-label="음량"></label>
     </div>
     <div class="moodbar"><span class="ml" id="moodLabel">분위기</span><div class="moods" role="group" aria-label="분위기" id="moods"></div></div>
@@ -1149,7 +1153,7 @@ function settingsLine(){
   const yr=yFrom||yTo?` · ${yFrom||'처음부터'}~${yTo||'지금까지'}`:'';
   return `${songCount}곡 · ${TYPE[typeF]} · ${TIER[choiceK]}${yr} · ${answerMode==='choice'?`객관식(보기 ${choiceK})`:'채팅'} · ${gameMode==='ranked'?'순위전':'선착순'}`;
 }
-function showView(v){$('#lobbyView').hidden=v!=='lobby';$('#gameView').hidden=v!=='game';document.body.classList.toggle('lobby-on',v==='lobby')}
+function showView(v){$('#lobbyView').hidden=v!=='lobby';$('#gameView').hidden=v!=='game';document.body.classList.toggle('lobby-on',v==='lobby');const st=document.querySelector('.stage');if(st)st.scrollTop=0;window.scrollTo(0,0)}
 function renderLobby(){
   const host=viewAs==='host',rev=yFrom&&yTo&&+yFrom>+yTo;
   const press=(sel,val)=>document.querySelectorAll(sel+' button').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.v===String(val));b.disabled=!host});
@@ -1198,6 +1202,7 @@ function joinBots(){
   document.querySelectorAll('#gmSeg button').forEach(b=>b.addEventListener('click',()=>{gameMode=b.dataset.v;renderLobby()}));
   document.querySelectorAll('#viewSeg button').forEach(b=>b.addEventListener('click',()=>{viewAs=b.dataset.v;renderLobby()}));
   $('#goBtn').addEventListener('click',()=>{joined=[...PLAYERS];initAudio();ac.resume();sys('게임을 시작해요');newGame()});
+  $('#backLobby').addEventListener('click',toLobby);
   $('#leaveBtn').addEventListener('click',()=>{sys('시연에서는 나갈 수 없어요. 실제 앱에서는 처음 화면으로 돌아가요')});
   $('#copyBtn').addEventListener('click',()=>{
     const t='https://<서버 주소>/r/K7Q2',ok=()=>{$('#copyMsg').textContent='링크를 복사했어요';$('#copyMsg').classList.add('copied')},
@@ -1296,7 +1301,7 @@ function part(any){
 }
 function initSky(){
   const W=sky.width=innerWidth*dpr,H=sky.height=innerHeight*dpr,area=innerWidth*innerHeight/1e4,r=rng(5);
-  parts=Array.from({length:Math.min(220,Math.round(area*({rain:1.1,sakura:.3,sunset:.3,neon:.15,chalk:.12,pixel:.35,matsuri:0,manga:0}[mood])))},()=>part(true));
+  parts=Array.from({length:Math.min(220,Math.round(area*({rain:1.1,sakura:.3,sunset:.3,neon:.15,chalk:0,pixel:.35,matsuri:0,manga:0}[mood])))},()=>part(true));
   scene={};
   if(mood==='sunset'){const b=[];let x=0;while(x<W){const w=(30+r()*70)*dpr,h=(40+r()*150)*dpr,win=[];
       for(let k=0;k<6;k++)if(r()<.5)win.push([x+r()*(w-8*dpr),H-h+r()*(h-10*dpr)]);b.push({x,w,h,win});x+=w+2*dpr}scene.b=b}
@@ -1395,11 +1400,139 @@ function drawSky(move){
   }
 }
 function sizeViz(){const b=viz.getBoundingClientRect();viz.width=b.width*dpr;viz.height=b.height*dpr}
+let chalkNotes=[],chalkRot=0,chalkLast=0,chalkSpawn=0,cLo=99,cHi=0,chalkEnergy=0,chalkB=0,chalkKick=0,chalkCool=0,chalkDood=[],chalkBeat=0;
+/* 분필 낙서: 정규화 좌표(-1~1)의 선 묶음. 그릴 때 앞에서부터 길이만큼만 그려 '슥슥 쓰는' 느낌을 냄 */
+const DOODLES=(()=>{const star=[];for(let i=0;i<=10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?.42:1;star.push([Math.cos(a)*r,Math.sin(a)*r])}
+  const heart=[];for(let i=0;i<=40;i++){const t=i/40*6.2832;heart.push([16*Math.pow(Math.sin(t),3)/17,-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/17])}
+  const spiral=[];for(let i=0;i<=50;i++){const t=i/50*12,r=t/12;spiral.push([Math.cos(t)*r,Math.sin(t)*r])}
+  const note=[[[-.35,.55],[-.35,-.8],[.4,-.55],[.4,.35]]];
+  return[[star],[heart],[spiral],[[[0,-1],[0,.35]],[[0,.75],[0,.85]]],[[[-1,0],[1,0]],[[0,-1],[0,1]],[[-.6,-.6],[.6,.6]],[[-.6,.6],[.6,-.6]]],note,[[[-1,.2],[-.4,-.6],[.2,.2],[.8,-.6],[1,-.2]]]]})();
+function chalkPoly(polys,x,y,size,rot,frac,col,alpha,W){
+  let total=0;const segs=[];for(const pl of polys)for(let i=1;i<pl.length;i++){const l=Math.hypot(pl[i][0]-pl[i-1][0],pl[i][1]-pl[i-1][1]);segs.push([pl[i-1],pl[i],l]);total+=l}
+  let left=total*frac;vc.save();vc.translate(x,y);vc.rotate(rot);vc.strokeStyle=col;vc.globalAlpha=alpha;vc.lineWidth=W*.006;vc.lineCap='round';vc.lineJoin='round';
+  for(const [a,b,l] of segs){if(left<=0)break;const f=Math.min(1,left/l);vc.beginPath();vc.moveTo(a[0]*size,a[1]*size);vc.lineTo((a[0]+(b[0]-a[0])*f)*size,(a[1]+(b[1]-a[1])*f)*size);vc.stroke();left-=l}
+  vc.restore();vc.globalAlpha=1;
+}
+/* 칠판용 비주얼라이저: 레코드 둘레의 둥근 분필 오선지.
+   재생 중에는 오선지가 레코드처럼 돌고, 맨 위(12시)에 있는 분필이 8분음표 박자마다 음표를 적음.
+   음표 높이 = 지금 소리의 주된 음역, 크기는 소리 세기에 맞춰 통통 튀고, 오선 줄도 소리에 따라 떨림. 반 바퀴 넘게 돌면 지우개로 지운 듯 사라짐 */
+function chalkStaff(W,cx,cy,live,t,a1,a2){
+  const R0=W*.385,gap=W*.018,ink='243,241,231',dt=chalkLast?Math.min(.05,(t-chalkLast)/1000):0;chalkLast=t;
+  let e=0;if(live){for(let b=2;b<70;b++)e+=fd[b];e=e/68/255}
+  chalkEnergy+= (e-chalkEnergy)*.25;
+  let b=0;if(live){for(let i=1;i<7;i++)b+=fd[i];b/=6*255}
+  const kick=b-chalkB>.05&&b>.45;chalkB+=(b-chalkB)*.35;chalkKick=Math.max(chalkKick*.88,kick?1:0);
+  if(live&&kick&&t>chalkCool&&!reduce&&chalkDood.length<2){chalkCool=t+1600;
+    const corner=[[.11,.11],[.89,.11],[.11,.89],[.89,.89],[.2,.06],[.8,.94],[.06,.8],[.94,.2]][Math.floor(Math.random()*8)];
+    chalkDood.push({x:W*corner[0],y:W*corner[1],d:DOODLES[Math.floor(Math.random()*DOODLES.length)],born:t,rot:(Math.random()-.5)*.8,size:W*(.045+Math.random()*.03),col:pick([a1,a2,'#9ad7ff','#f3f1e7'])})}
+  if(live&&song)chalkBeat=((t-chalkSpawn)/(60000/song.bpm/2));
+  if(!reduce)chalkRot+=dt*(live?.45:.06);
+  const TOP=-Math.PI/2;
+  vc.lineCap='round';
+  for(let k=0;k<5;k++){const rr=(R0+k*gap)*(1+chalkKick*.006),amp=W*(.001+chalkEnergy*.005);vc.strokeStyle=`rgba(${ink},${.38+chalkEnergy*.3})`;vc.lineWidth=W*.0032;vc.beginPath();
+    for(let i=0;i<=140;i++){const a=i/140*6.2832,w=Math.sin(i*1.7+k*3.1+(reduce?0:t*.009))*amp,x=cx+Math.cos(a)*(rr+w),y=cy+Math.sin(a)*(rr+w);i?vc.lineTo(x,y):vc.moveTo(x,y)}vc.stroke()}
+  // 마디선은 오선지와 함께 돔
+  vc.strokeStyle=`rgba(${ink},.55)`;vc.lineWidth=W*.004;
+  for(let m=0;m<4;m++){const a=TOP+chalkRot+m*Math.PI/2;vc.beginPath();vc.moveTo(cx+Math.cos(a)*(R0-W*.004),cy+Math.sin(a)*(R0-W*.004));vc.lineTo(cx+Math.cos(a)*(R0+4*gap+W*.004),cy+Math.sin(a)*(R0+4*gap+W*.004));vc.stroke()}
+  if(live&&song){
+    const eighth=60000/song.bpm/2;
+    if(t-chalkSpawn>=eighth){chalkSpawn=t;
+      let sum=0,wsum=0;for(let b=2;b<70;b++){sum+=fd[b];wsum+=fd[b]*b}
+      if(sum/68>30){const c=wsum/sum;cLo=Math.min(cLo+.15,c);cHi=Math.max(cHi-.15,c);
+        const p=Math.max(0,Math.min(8,Math.round((c-cLo)/Math.max(2,cHi-cLo)*8)));
+        const col=chalkNotes.length%3===2?a2:a1;chalkNotes.push({a:-chalkRot,p,born:t,col,hop:chalkNotes.length%2});
+        if(chalkEnergy>.42&&p<=5){chalkNotes.push({a:-chalkRot,p:p+2,born:t,col,hop:chalkNotes.length%2,chord:1});if(chalkEnergy>.55&&p<=3)chalkNotes.push({a:-chalkRot,p:p+4,born:t,col,hop:0,chord:1})}}}
+  }
+  chalkNotes=chalkNotes.filter(n=>(chalkRot+n.a)<Math.PI*1.25);
+  for(const n of chalkNotes){
+    const trav=chalkRot+n.a,al=trav<Math.PI*.8?.95:.95*(1-(trav-Math.PI*.8)/(Math.PI*.45)),age=(t-n.born)/1000;
+    const a=TOP+trav,pop=age<.25?1+(1-age/.25)*.8:1,beat=1+chalkEnergy*.35;
+    const hop=reduce||!live?0:Math.max(0,Math.sin(((t/(song?60000/song.bpm:500))+n.hop*.5)*Math.PI*2))*W*.003*(.4+chalkEnergy*1.2);
+    const rr=R0+n.p*gap/2+hop,hx=cx+Math.cos(a)*rr,hy=cy+Math.sin(a)*rr,sc=pop*beat;
+    vc.globalAlpha=Math.max(0,al);vc.fillStyle=n.col;vc.strokeStyle=n.col;
+    vc.save();vc.translate(hx,hy);vc.rotate(a+Math.PI/2-.35);vc.beginPath();vc.ellipse(0,0,W*.0105*sc,W*.0075*sc,0,0,6.2832);vc.fill();vc.restore();
+    const ox=Math.cos(a),oy=Math.sin(a),tx=-oy,ty=ox,sx=hx+tx*W*.009*sc,sy=hy+ty*W*.009*sc,len=W*.038*Math.min(1,age/.18+.2);
+    vc.lineWidth=W*.0035;vc.beginPath();vc.moveTo(sx,sy);vc.lineTo(sx+ox*len,sy+oy*len);vc.stroke();
+    if(age>.15){vc.beginPath();vc.moveTo(sx+ox*len,sy+oy*len);vc.quadraticCurveTo(sx+ox*len*.85+tx*W*.02,sy+oy*len*.85+ty*W*.02,sx+ox*len*.55+tx*W*.014,sy+oy*len*.55+ty*W*.014);vc.stroke()}
+  }
+  vc.globalAlpha=1;
+  chalkDood=chalkDood.filter(d=>t-d.born<1900);
+  for(const d of chalkDood){const age=(t-d.born)/1000,frac=Math.min(1,age/.6),al=age<1.3?.85:.85*(1-(age-1.3)/.6);
+    chalkPoly(d.d,d.x,d.y,d.size,d.rot,frac,d.col,Math.max(0,al)*.8,W)}
+  // 맨 위에서 음표를 적는 분필 (박자에 맞춰 톡톡)
+  const bob=live&&song&&!reduce?Math.max(0,1-(t-chalkSpawn)/140)*W*.012:0,rr=R0+4*gap+W*.032-bob;
+  vc.save();vc.translate(cx,cy-rr);vc.rotate(-.5);vc.fillStyle='#f3f1e7';vc.fillRect(-W*.02,-W*.007,W*.04,W*.014);vc.fillStyle='rgba(0,0,0,.14)';vc.fillRect(W*.009,-W*.007,W*.011,W*.014);vc.restore();
+  if(bob>W*.006){vc.fillStyle=`rgba(${ink},.5)`;for(let k=0;k<4;k++)vc.fillRect(cx+(Math.random()-.5)*W*.05,cy-R0-4*gap-W*.005+(Math.random()-.5)*W*.02,W*.004,W*.004)}
+}
+/* 벚꽃용 비주얼라이저: 레코드를 감싼 벚나무 가지 화환.
+   가지에 달린 꽃봉오리 26개가 각자 맡은 음역의 소리 세기만큼 피었다 오므라들고, 소리가 갑자기 커지면 그 꽃에서 꽃잎이 떨어져 흩날림. 화환은 레코드와 함께 천천히 돎 */
+const sakSites=(()=>{const r=rng(31),n=26;return Array.from({length:n},(_,i)=>{const a=i/n*6.2832+(r()-.5)*.12;const k=i<n/2?i:n-1-i;return{a,off:(r()-.3)*.03,band:2+Math.floor(k/(n/2)*44),v:0,prev:0,cool:0,tw:(r()-.5)*.6}})})();
+let sakRot=0,sakLast=0,sakPetals=[];
+function sakFlower(x,y,size,rot,alpha){
+  if(size<0.5)return;
+  vc.save();vc.translate(x,y);vc.rotate(rot);vc.globalAlpha=alpha;
+  for(let k=0;k<5;k++){const pa=k/5*6.2832;vc.save();vc.rotate(pa);
+    const g=vc.createRadialGradient(0,-size*.55,0,0,-size*.55,size*.6);g.addColorStop(0,'#fff0f6');g.addColorStop(1,'#ff9ec4');
+    vc.fillStyle=g;vc.beginPath();vc.ellipse(0,-size*.55,size*.36,size*.55,0,0,6.2832);vc.fill();vc.restore()}
+  vc.fillStyle='#ffe08a';vc.beginPath();vc.arc(0,0,size*.2,0,6.2832);vc.fill();
+  vc.restore();vc.globalAlpha=1;
+}
+function sakuraWreath(W,cx,cy,live,t){
+  const dt=sakLast?Math.min(.05,(t-sakLast)/1000):0;sakLast=t;
+  if(!reduce)sakRot+=dt*(live?.32:.05);
+  const RB=W*.405;
+  // 가지
+  vc.strokeStyle='#7d5a68';vc.lineCap='round';vc.lineWidth=W*.011;vc.beginPath();
+  for(let i=0;i<=160;i++){const a=i/160*6.2832,w=Math.sin(i*.9)*W*.006+Math.sin(i*.23)*W*.004,x=cx+Math.cos(a+sakRot)*(RB+w),y=cy+Math.sin(a+sakRot)*(RB+w);i?vc.lineTo(x,y):vc.moveTo(x,y)}vc.stroke();
+  // 꽃
+  let total=0;
+  for(const st of sakSites){
+    let target=live?fd[st.band]/255:(reduce?.25:.22+.1*Math.sin(t/900+st.a*3));
+    if(live){st.peak=Math.max((st.peak||.3)*.996,target,.15);target=Math.pow(target/st.peak,1.6)}
+    if(live&&target-st.prev>.2&&target>.55&&t>st.cool&&!reduce&&sakPetals.length<80){st.cool=t+900;const n=1+Math.floor(Math.random()*2);
+      const a=st.a+sakRot,rr=RB+W*(.035+st.off);for(let k=0;k<n;k++)sakPetals.push({x:cx+Math.cos(a)*rr,y:cy+Math.sin(a)*rr,vx:Math.cos(a)*W*.0018+(Math.random()-.5)*W*.002,vy:Math.sin(a)*W*.0012-W*.0008,rot:Math.random()*6,vr:(Math.random()-.5)*.2,life:1,s:W*(.007+Math.random()*.004)})}
+    st.prev=target;st.v+=(target-st.v)*.28;total+=st.v;
+    const a=st.a+sakRot,rr=RB+W*(.035+st.off),x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr;
+    vc.strokeStyle='#7d5a68';vc.lineWidth=W*.005;vc.beginPath();vc.moveTo(cx+Math.cos(a)*RB,cy+Math.sin(a)*RB);vc.lineTo(x,y);vc.stroke();
+    const size=W*(.01+st.v*.032);
+    if(st.v<.18){vc.fillStyle='#ff7fae';vc.beginPath();vc.ellipse(x,y,W*.008,W*.011,a+Math.PI/2+st.tw,0,6.2832);vc.fill()}
+    else sakFlower(x,y,size,a+st.tw+(reduce?0:Math.sin(t/400+st.a)*.08),.95);
+  }
+  // 흩날리는 꽃잎
+  if(!live&&!reduce&&Math.random()<.02){const st=pick(sakSites),a=st.a+sakRot,rr=RB+W*.035;sakPetals.push({x:cx+Math.cos(a)*rr,y:cy+Math.sin(a)*rr,vx:(Math.random()-.5)*W*.0015,vy:-W*.0003,rot:0,vr:.05,life:1,s:W*.008})}
+  sakPetals=sakPetals.filter(pt=>pt.life>0);
+  for(const pt of sakPetals){pt.vx*=.99;pt.vy+=W*.00003;pt.x+=pt.vx+Math.sin(t/300+pt.rot)*W*.0006;pt.y+=pt.vy;pt.rot+=pt.vr;pt.life-=.006;
+    vc.save();vc.translate(pt.x,pt.y);vc.rotate(pt.rot);vc.globalAlpha=Math.max(0,pt.life);vc.fillStyle='#ffc2da';vc.beginPath();vc.ellipse(0,0,pt.s,pt.s*.55,0,0,6.2832);vc.fill();vc.restore()}
+  vc.globalAlpha=1;
+}
+/* 벚꽃용 비주얼라이저: 레코드 둘레를 꽃잎 수백 장이 소용돌이치며 도는 꽃보라.
+   잔상을 남겨 칼날처럼 흐르는 궤적을 만들고, 소리가 클수록 빨라지며 저음이 치면 바깥으로 확 퍼졌다가 다시 감김 */
+const SENB=(()=>{const r=rng(77),cols=['255,170,205','255,214,231','255,255,255','255,120,170','255,190,215'];
+  return Array.from({length:170},()=>({a:r()*6.2832,rb:.395+(r()+r()+r()-1.5)*.035,sp:.8+r()*.4,s:.006+r()*.006,ph:r()*6.2832,fl:1+r()*1.5,c:cols[Math.floor(r()*cols.length)],al:.45+r()*.4,out:r()<.12}))})();
+let senLast=0,senE=0,senB=0,senW=0;
+function senbon(W,cx,cy,live,t){
+  const dt=senLast?Math.min(.05,(t-senLast)/1000):0;senLast=t;
+  let e=0,b=0;if(live){for(let i=2;i<70;i++)e+=fd[i];e/=68*255;for(let i=1;i<7;i++)b+=fd[i];b/=6*255}
+  senE+=(e-senE)*.15;const kick=Math.max(0,b-senB-.04);senB+=(b-senB)*.3;senW=Math.max(senW*.94,kick*4);
+  // 잔상: 이전 프레임을 조금만 지움
+  vc.globalCompositeOperation='destination-out';vc.fillStyle=`rgba(0,0,0,${reduce?1:.55})`;vc.fillRect(0,0,W,W);vc.globalCompositeOperation='source-over';
+  const spd=reduce?0:(live?.42+senE*1.3:.15),tt=t/1000;vc.globalCompositeOperation='lighter';
+  for(const p of SENB){
+    p.a+=dt*p.sp*spd;if(p.out){p.rb+=dt*.025*spd;if(p.rb>.52)p.rb=.37}
+    const arm=Math.sin(p.a*2-tt*.8+p.rb*30)*.012,r=W*(p.rb+arm+senW*.025+senE*.012);
+    const x=cx+Math.cos(p.a)*r,y=cy+Math.sin(p.a)*r,flip=Math.abs(Math.sin(tt*p.fl+p.ph)),sz=W*p.s*(1+senE*.8);
+    vc.setTransform(1,0,0,1,x,y);vc.rotate(p.a+Math.PI/2+p.ph*.3);
+    vc.fillStyle=`rgba(${p.c},${p.al*(live?1:.7)})`;vc.beginPath();vc.ellipse(0,0,sz,sz*(.18+.42*flip),0,0,6.2832);vc.fill();
+  }
+  vc.setTransform(1,0,0,1,0,0);vc.globalCompositeOperation='source-over';
+}
 function drawViz(t){
   const W=viz.width,H=viz.height,cx=W/2,cy=H/2,R=W*.37,N=72,live=analyser&&phase==='play',kind=MOODS[mood].viz;
-  vc.clearRect(0,0,W,H);if(live)analyser.getByteFrequencyData(fd);
+  if(kind!=='dots')vc.clearRect(0,0,W,H);if(live)analyser.getByteFrequencyData(fd);
   const val=i=>{const k=i<N/2?i:N-1-i;return live?fd[2+Math.floor(k*1.6)]/255:(reduce?.08:.08+.05*Math.sin(t/600+i*.5))};
   const a1=css('--a1'),a2=css('--a2');
+  if(kind==='chalk'){chalkStaff(W,cx,cy,live,t,a1,a2);return}
+  if(kind==='dots'){senbon(W,cx,cy,live,t);return}
   if(kind==='wave'){
     vc.strokeStyle=a2;vc.lineWidth=W*.004;vc.globalAlpha=.8;vc.beginPath();
     for(let i=0;i<=N;i++){const a=i/N*Math.PI*2-Math.PI/2,rr=R+W*.01+val(i%N)*W*.08;const x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr;i?vc.lineTo(x,y):vc.moveTo(x,y)}
@@ -1411,7 +1544,7 @@ function drawViz(t){
     return}
   for(let i=0;i<N;i++){
     const v=val(i),a=i/N*Math.PI*2-Math.PI/2,f=(i<N/2?i:N-1-i)/(N/2);
-    if(kind==='chalk'){const len=W*.02+v*W*.1,j=()=>(Math.random()-.5)*W*.006;vc.globalAlpha=.75;vc.strokeStyle=i%2?a1:a2;vc.lineWidth=W*.008;vc.lineCap='round';
+    if(kind==='chalk'){let jk=0;const len=W*.02+v*W*.1,j=()=>Math.sin(i*12.9898+(jk++)*78.233)*W*.003;vc.globalAlpha=.75;vc.strokeStyle=i%2?a1:a2;vc.lineWidth=W*.008;vc.lineCap='round';
       vc.beginPath();vc.moveTo(cx+Math.cos(a)*R+j(),cy+Math.sin(a)*R+j());vc.lineTo(cx+Math.cos(a)*(R+len)+j(),cy+Math.sin(a)*(R+len)+j());vc.stroke();vc.globalAlpha=1;continue}
     if(kind==='spark'){const rr=R+W*.02+v*W*.1;vc.fillStyle=i%3?a2:a1;vc.globalAlpha=.4+v*.6;vc.beginPath();vc.arc(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,W*(.004+v*.008),0,7);vc.fill();
       vc.globalAlpha=.25;vc.strokeStyle=a2;vc.lineWidth=W*.003;vc.beginPath();vc.moveTo(cx+Math.cos(a)*(R+W*.01),cy+Math.sin(a)*(R+W*.01));vc.lineTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);vc.stroke();vc.globalAlpha=1;continue}
