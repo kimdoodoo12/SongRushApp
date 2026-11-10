@@ -80,6 +80,13 @@ function reloadPlan(navigationType) {
   return { rejoin: entry, drop: false }
 }
 
+// The session's dispatch, with each chat line stamped with its local arrival
+// time (the mockup's .tm, cycle 111). The stamp is taken here, not in the
+// reducer, so the reducer stays pure.
+function stampChat(dispatch) {
+  return (action) => dispatch(action.type === 'chat' ? { ...action, at: Date.now() } : action)
+}
+
 // A reload rejoin starts in the connecting state, with the banner, so the
 // start screen never flashes.
 function initState(plan) {
@@ -234,7 +241,7 @@ function GameApp({
       output: gainRef.current,
       fetchFn,
       now,
-      dispatch,
+      dispatch: stampChat(dispatch),
       ...options,
     })
   }
@@ -330,12 +337,16 @@ function GameApp({
 
   const inRoom = state.room !== null
   const roomTheme = themeId(state.roomTheme ?? DEFAULT_THEME)
-  const theme = inRoom ? roomTheme : ownTheme
   // The screen a feedback post reports; over and disconnected count as game.
   const page = state.screen === 'start' || state.screen === 'lobby' ? state.screen : 'game'
+  // The game screen always shows the room theme, sunset until its frame, also
+  // while connecting and rejoining (cycle 111, critic M1 of 110), so it never
+  // flips between the own pick and the room's.
+  const theme = page === 'game' || inRoom ? roomTheme : ownTheme
 
   // The mood is <html data-mood> (D-124): the mockup's stylesheet reads it
-  // there. The own pick outside a room, the host's pick in one.
+  // there. The own pick outside a room, the room's pick in one and on the
+  // game screen.
   useLayoutEffect(() => {
     document.documentElement.dataset.mood = theme
   }, [theme])

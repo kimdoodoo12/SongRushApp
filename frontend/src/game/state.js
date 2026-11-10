@@ -56,10 +56,15 @@ export const initialState = {
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  // { id, name, body, text }, or a system line { id, kind: 'system', winner,
-  // rank, placed }; rank is a number only in a ranked game (cycle 101).
+  // { id, name, body, text, at? }, or a system line { id, kind: 'system',
+  // winner, rank, placed }; rank is a number only in a ranked game (cycle
+  // 101). at is the local arrival time in ms (the .tm, cycle 111), when the
+  // dispatcher stamped one. A client-side notice (cycle 111, the mockup's
+  // sys lines) is { id, kind: 'notice', key, values }, translated when shown.
   chat: [],
   chatSeq: 0,
+  // The round index whose "<n>번째 곡 시작" notice is in the log, or null.
+  announced: null,
   correct: null, // the first-come winner's name this song, or null
   // Ranked (cycle 101, R4): every name with a correct answer this song, in
   // rank order. correct stays null in a ranked game, so another player's
@@ -107,7 +112,36 @@ function choiceFields(action) {
   }
 }
 
+// The song is audible (D-101, 087): a round is current and not revealed,
+// started, the local clock past its startAt, loaded, and the sound not
+// blocked.
+export function isAudible(state) {
+  return (
+    state.screen === 'game' &&
+    state.round !== null &&
+    state.reveal === null &&
+    state.started &&
+    state.reached &&
+    state.load !== 'loading' &&
+    state.load !== 'failed' &&
+    !state.soundBlocked
+  )
+}
+
+// Appends a client-side notice line (cycle 111) to the log.
+function withNotice(state, key, values) {
+  return { ...state, chat: [...state.chat, { id: state.chatSeq, kind: 'notice', key, values }], chatSeq: state.chatSeq + 1 }
+}
+
+// The mockup's startRound line: "<n>번째 곡 시작" once per song, when the
+// song becomes audible.
 export function reducer(state, action) {
+  const next = step(state, action)
+  if (next === state || !isAudible(next) || next.announced === next.round.index) return next
+  return { ...withNotice(next, 'chat.songStart', { n: next.round.index + 1 }), announced: next.round.index }
+}
+
+function step(state, action) {
   switch (action.type) {
     case 'connecting':
       // A reload rejoin (cycle 079) shows the reconnecting banner meanwhile.
@@ -143,10 +177,20 @@ export function reducer(state, action) {
         },
       }
     case 'prepare': {
-      // A new game (index 0) starts from a clean slate (D-062).
+      // A new game (index 0) starts from a clean slate (D-062), with the
+      // mockup's "게임을 시작해요" line as its first.
       const fresh =
         action.index === 0
-          ? { chat: [], score: null, finalScore: null, lobbyOpen: false, scoreboard: null, ranking: null }
+          ? {
+              chat: [{ id: state.chatSeq, kind: 'notice', key: 'chat.gameStart' }],
+              chatSeq: state.chatSeq + 1,
+              announced: null,
+              score: null,
+              finalScore: null,
+              lobbyOpen: false,
+              scoreboard: null,
+              ranking: null,
+            }
           : {}
       return {
         ...state,
@@ -278,7 +322,13 @@ export function reducer(state, action) {
       if (state.timer === null) return state
       return { ...state, reached: action.reached === true, timer: { ...state.timer, remaining: action.remaining } }
     case 'chat': {
-      const line = { id: state.chatSeq, name: action.name, body: action.text, text: `${action.name}: ${action.text}` }
+      const line = {
+        id: state.chatSeq,
+        name: action.name,
+        body: action.text,
+        text: `${action.name}: ${action.text}`,
+        ...(typeof action.at === 'number' ? { at: action.at } : {}),
+      }
       // The winner's first chat after correct (D-094) goes just above the
       // system line, which is re-numbered so ids keep the log order.
       const last = state.chat[state.chat.length - 1]
@@ -350,7 +400,7 @@ export function reducer(state, action) {
       return { ...state, error: action.text }
     case 'gameOver':
       return {
-        ...state,
+        ...withNotice(state, 'chat.gameOver'),
         screen: 'over',
         timer: null,
         started: false,
