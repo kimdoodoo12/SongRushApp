@@ -79,3 +79,25 @@ S3 Transfer Acceleration uses the same edge network without the host swap. It is
 - Caching.
 - Changing the bucket policy.
 - Frontend changes.
+
+## Pre-deploy check (lead, 2026-11-10, distribution `dsxxd4m1cz9m6.cloudfront.net`)
+`cdn_check.py`, kept in the job tmp: a live choice game, with the `/audio` and `/cover` `Location` hosts swapped by hand. Output:
+```
+audio origin was S3: True | signed: True
+1 audio via CDN, valid: 200 | audio/ogg | CORS=https://animeopguessr.com | X-Cache=Miss from cloudfront
+1b cover via CDN, valid: 200 | image/jpeg | CORS=None | X-Cache=Miss from cloudfront
+2 tampered signature: 403 | X-Cache=Error from cloudfront
+3 no query: 403 | X-Cache=Error from cloudfront
+4 valid right after the 403s: 200 | audio/ogg | CORS=https://animeopguessr.com | X-Cache=Miss from cloudfront
+5 expired: 403 | X-Cache=Error from cloudfront
+RESULT: PASS
+```
+Same-file speed. Each song was downloaded both ways, alternating which went first:
+```
+song 1 S3 direct  2.99 MB in 9.61 s = 0.31 MB/s
+song 1 CloudFront 2.99 MB in 2.10 s = 1.42 MB/s
+song 2 CloudFront 3.54 MB in 2.14 s = 1.65 MB/s
+song 2 S3 direct  3.54 MB in 13.91 s = 0.25 MB/s
+song 3 S3 direct  3.65 MB in 7.10 s = 0.51 MB/s
+song 3 CloudFront 3.65 MB in 2.74 s = 1.33 MB/s
+```
