@@ -129,7 +129,8 @@ function Caption({ mood, title, outcome, number }) {
 // revealed: the reveal is showing; reveal is the reveal frame whose cover
 // fills the frame (null: the frame is empty). title is its Korean title,
 // outcome 'me', 'other' or 'none' (who solved it), number the song number.
-export default function Deck({ idle, revealed, reveal, title, outcome, number, missed, mood }) {
+// choice is App's choiceGame (body.choice-mode); #viz is re-measured on it.
+export default function Deck({ idle, revealed, reveal, title, outcome, number, missed, mood, choice = false }) {
   const { t } = useTranslation()
   const deckRef = useRef(null)
   const coverRef = useRef(null)
@@ -147,13 +148,17 @@ export default function Deck({ idle, revealed, reveal, title, outcome, number, m
     drawPlayer(discRef.current, mood)
   }, [mood])
 
-  useLayoutEffect(() => {
+  // #viz at its real size (the mockup's sizeViz, on a new game and on
+  // resize). A passive effect, so it measures after App's layout effect has
+  // applied body.choice-mode, and again whenever that changes: a choice game
+  // shrinks the deck (cycle 115, critic M of attempt 1).
+  useEffect(() => {
     const viz = vizRef.current
     const size = () => sizeViz(viz, canvasDpr())
     size()
     window.addEventListener('resize', size)
     return () => window.removeEventListener('resize', size)
-  }, [])
+  }, [choice])
 
   useEffect(() => {
     const jobs = pixJobs

@@ -349,10 +349,11 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
 // with the panel (and a choice room's tiles), and the seats. banner is the
 // reconnecting line and footer the page footer, both from App. A room shows
 // its code and the mood picker (enabled for the host); before joined (room
-// null) neither.
+// null) neither. choiceGame is App's body.choice-mode flag, for the deck.
 function GameScreen({
   state,
   theme,
+  choiceGame = false,
   onPickTheme,
   onChat,
   onPick,
@@ -529,6 +530,7 @@ function GameScreen({
           number={round === null ? 1 : round.index + 1}
           missed={missed}
           mood={theme}
+          choice={choiceGame}
         />
         <div className="panel">
           {panel}

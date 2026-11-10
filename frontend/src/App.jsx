@@ -582,6 +582,7 @@ function GameApp({
         <GameScreen
           state={state}
           theme={roomTheme}
+          choiceGame={choiceGame}
           onPickTheme={handleRoomTheme}
           onChat={handleChat}
           onPick={handlePick}
