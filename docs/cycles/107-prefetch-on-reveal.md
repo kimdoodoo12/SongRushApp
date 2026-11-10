@@ -140,3 +140,33 @@
   - A chat that itself ends song N at its deadline also triggers N+1's early prepare.
   - That line is broadcast even if it matches N+1, because its sender could not have heard N+1 yet.
   - The locked deadline test requires this behaviour.
+
+## Result
+- **Commits.**
+  - Spec: `3d60336`, revised in `61618da`.
+  - Tests: `f07a71c`, locked. Declared fixes: `1daf82c` (token expiry) and `38d4a6f` (D-120 test and the declared change).
+  - Implementation: `1cec753` (frontend and perf) and `817bf67` (backend). Fixes: `20ec715` (spoiler guard) and `18b8f64` (perf cover tagging).
+  - PR #28 merged to dev after CI passed. The owner merged dev→main in PR #29 at 13:19Z, and the auto-deploy job (SSM) succeeded.
+  - The owner then set `SONGRUSH_GAME_PREFETCHONREVEAL=true` and restarted the app.
+- **Verifier.**
+  - Backend 870 tests, then 874 after D-120, with 0 failures.
+  - Frontend 514 tests; lint and build clean.
+  - Perf 123 tests, then 130 and 135.
+  - The locked diffs were empty, except the two declared changes.
+- **Critic.**
+  - Spec review: H1 (dispatch order) and M1–M4 fixed in the spec.
+  - Code review: H1 (perf cover tagging) fixed. H2 (spoiler path) became D-120, approved by the owner. M1 (off measured on the pre-107 build) is disclosed in the report. M2 (`readyBeforeRevealEnd` is 0 by definition when off) is reported from the on side only.
+  - Re-review of the two fixes: none.
+- **Measurement** (3 runs each, 5 songs per mode; between-songs measured directly, songs 2–5).
+
+  | | Off (pre-107 build, 19:25–19:30 KST) | On (107 build, 22:47–22:50 KST) |
+  |---|---|---|
+  | Between songs, pooled median | 11.29 s (10.6–12.39) | 8.01 s (7.96–9.37) |
+  | Per run (chat / choice) | 11.3/11.6, 11.1/11.3, 11.3/11.5 | 8.0/8.0, 8.0/8.0, 8.0/8.1 |
+  | Prepare after reveal start | ≈5000 ms | 7 ms |
+  | Ready before the reveal ends | 0/24 | 23/24 |
+  | Download speed | 1.52–1.66 MB/s | 2.0–2.14 MB/s |
+
+- **Incidents.**
+  - The first "on" attempt failed because the PC's network was degraded (github.com took 19 s). The owner switched networks.
+  - Edge DevTools now exposes the Network filter as `role=combobox`, so the capture tool's locator was widened to accept it.
