@@ -104,3 +104,14 @@ The start screen, which the mockup does not have, is built from the mockup's own
 - `#sky` and `#viz` (cycle 115).
 - The admin page and the feedback dialog layout.
 - Server changes beyond 113.
+
+## Result
+- **Commits.** Spec `981eb8a`. Tests `745da60` (locked, 17 files with the shared helper `src/testing/lobby.js`). Implementation `25b1e77`. Fix after review `6e6a5c6`.
+- **Verifier** (on `25b1e77`): `npm test` 664/664, lint clean, build passes. The locked-test diff is empty. `room.css`, `roomCss.test.js` and `indexCss.test.js` are unchanged. Every `@theme inline` variable resolves.
+- **Lead,** after the fix: `npm test` 664/664.
+- **Critic code review.**
+  - **High:** a guest's locked settings card shows the guest's own local defaults, because the server never sends lobby settings to guests (`Room.java:392-395` sends `settings` only at game start). This was confirmed in code. It is fixed by cycle 116 (a server broadcast of the host's lobby selection), before any release.
+  - **Medium, fixed in `6e6a5c6`:** the lobby join line stayed in a late joiner's game chat.
+  - **Medium, footer placement:** the footer is the last child of `.stage .inner` on all three screens, the same frame the game used since 110. The spec line "after .app" is superseded by this.
+  - **Added in the fix:** the mockup's mode hints under 정답 형식 and 게임 모드, without the mockup's demo sentence.
+- **Lead browser check** (the mockup's lobby against the site's, host view, all 8 moods at 1280×800, sakura, pixel and manga at 390×844): computed styles of `.marquee`, `.ticket`, `.tk-code`, `.opts`, `.seg button`, `.stepper output`, `.go`, `.seat`, `.tk-stub` and `.share` are equal. The only differences are `border-top-style` (solid vs none) at zero width from Tailwind preflight, which is invisible. Captures: `docs/design/114/`.
