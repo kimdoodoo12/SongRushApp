@@ -508,6 +508,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (106) Log one INFO line at S3-mode startup saying whether redirects go via the CDN host (and which) or direct to S3; a misspelt env var (`SONGRUSH_AUDIO_CDN_HOST`) silently leaves the switch off.
 - (104) In a choice room the stage hint still says to answer by chat (`GameScreen.jsx` uses `t('stage.hint')` for both formats). Add a choice-room hint in ko/en/ja; it is visible in the portfolio captures.
 
 - **098 M1** `GameScreen.jsx:122-126`: the reveal card still changes height when alternate titles, song or artists are missing; render those rows always (empty when absent) at their fixed heights if the owner wants the card fully fixed.
