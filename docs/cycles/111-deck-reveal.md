@@ -72,3 +72,29 @@ The `.deck` behaves as in the mockup (`docs/design/108-ui-design-reference.html`
 - `#viz` and `#sky` (cycle 115);
 - choice tiles and the fly-in (cycle 112);
 - server changes.
+
+## Result
+- **Commits.**
+  - Spec: `534d3ad`.
+  - Tests: `50cfe1f`, locked.
+  - Implementation: `060bf68`.
+  - **Declared test fix after the implementation:** `aa04b54`. The lead unlocked the tests for it and relocked them afterwards.
+- **What `aa04b54` fixed.** The implementer found two test defects and did not edit them.
+  - `App.deck.test.jsx`: the second-reveal check read `takeRecords()` after the observer callback had already drained the records, so it was always 0.
+  - `App.flow.test.jsx` (2 places) and `App.layout.test.jsx` (1 place): they used `getByText('<title>')`. The title now also appears in the deck's `.noimg` and `.cap`, as the mockup has it, so the query matched several elements. These queries now read `.reveal dl.titles dd.ko`, which checks the same thing.
+  - These files were not in the declared list. The critic noted this (Medium), and it is recorded here.
+- **Verifier**, at `aa04b54`:
+  - `npm test` 607/607. Lint is clean and the build passes.
+  - The locked-test diff is empty, and `060bf68` touched no test.
+  - `room.css`, `roomCss.test.js` and `indexCss.test.js` are unchanged.
+  - The cover src, alt, `.noimg` and `.cap` are filled only from `state.reveal`.
+- **Critic code review:** no Blocker or High.
+  - `drawPlayer.js` was compared line by line with the mockup: same numbers and colours in all 8 moods.
+  - `showCover` and `pixelate` use the same formulas.
+- **Lead browser check:** the reveal scene in the mockup (driven by its own `reveal()`) and on the site (a real room, skip), for all 8 moods at 1280×800, and pixel and manga at 390×844.
+  - The frames, the tape, pins and stamp, the speed lines with "두둥!", the captions and the disc are the same.
+  - Remaining differences:
+    - the background (`#sky`), cycle 115;
+    - the clock during the reveal: the mockup keeps a number, the site clears it, as today;
+    - the mockup's demo chat lines.
+  - Captures: `docs/design/111/`.
