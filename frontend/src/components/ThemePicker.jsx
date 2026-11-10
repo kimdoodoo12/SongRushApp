@@ -3,8 +3,7 @@ import { useTranslation } from '../i18n/index.js'
 
 // The room-look picker: one toggle button per room look, the current one
 // pressed. disabled (a non-host in the lobby) disables every button. A
-// name too long for the fixed button is cut with an ellipsis; the full
-// name stays in the DOM.
+// button grows to its whole name, and the row wraps.
 export default function ThemePicker({ value, onPick, disabled = false }) {
   const { t } = useTranslation()
   return (

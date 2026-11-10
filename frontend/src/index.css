@@ -134,7 +134,7 @@
 /* ---------- 6. 8비트 오락실: 8-bit arcade ---------- */
 [data-room-theme="pixel"] {
   --scheme: dark;
-  --ring: 0px; --r: 0px; --font-d: "Press Start 2P", "Do Hyeon", monospace; --font-b: "Do Hyeon", "IBM Plex Sans KR", sans-serif;
+  --ring: 0px; --r: 0px; --font-d: "Do Hyeon", "IBM Plex Sans KR", sans-serif; --font-b: "Do Hyeon", "IBM Plex Sans KR", sans-serif;
   --bg: radial-gradient(ellipse at 50% -10%, #3fe0ff2e 0, transparent 60%), #0f0a24;
   --solid-bg: #0f0a24;
   --solid: #1a1238;
@@ -375,14 +375,13 @@
     font-family: var(--font-d);
   }
 
-  /* The 분위기 picker: fixed-size buttons, so the row wraps the same way in
-     every look. Wide enough for the English and Japanese names (D-095);
-     three still fit a row of the start card. */
+  /* The 분위기 picker: buttons at least 8rem wide that grow to the whole
+     name, so no mood name is cut in ko, en or ja (D-095); the row wraps. */
   .pick {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    width: 8rem;
+    min-width: 8rem;
     height: 36px;
     padding: 0 6px 0 5px;
     border-radius: 999px;
@@ -395,12 +394,9 @@
     white-space: nowrap;
   }
 
-  /* 13px in every look; a longer name is cut with an ellipsis. */
+  /* 13px in every look; the whole name, never cut. */
   .pick-name {
-    min-width: 0;
     font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .pick[aria-pressed="true"] {
