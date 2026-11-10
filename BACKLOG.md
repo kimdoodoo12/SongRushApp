@@ -363,7 +363,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **I-013** Performance baseline tool and first recorded run (from D-113, cycle 102)
 
 - [x] **I-014** Performance report with captures, charts and a 3-run baseline (from D-114, cycle 103)
-- [~] **I-015** DevTools Network-panel captures of the measurement (`perf/devtools_shot.py`) in the report (from D-115, cycle 104)
+- [x] **I-015** DevTools Network-panel captures of the measurement (`perf/devtools_shot.py`) in the report (from D-115, cycle 104)
 
 ## Roadmap
 
@@ -377,6 +377,8 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
 
 ## Needs decision
+
+- [?] **D-116 (question)** Committed perf results from cycles 102/103 (`perf/results/*.json`, `*.har`, already pushed) contain the S3 bucket host, which includes the AWS account id. The repo is private. Should future runs (`run.py`, `strip_har`) also replace the host, and does the owner plan to make the repo public? Pushed history is not rewritten (rule).
 
 - [?] **I-007** *(superseded by the owner's hand-built deployment, D-087)* Deploy and smoke (from M-4, design 052): the owner follows `docs/deploy-guide.md` with their AWS account; an agent then runs `deploy/smoke.py` against the public URL and records service memory. The smoke script's wss/TLS branch first runs here (cycle 056 review); if the first real smoke fails, suspect it first. Needs the owner's AWS and DuckDNS accounts (D-066, D-068) and I-009 first.
 

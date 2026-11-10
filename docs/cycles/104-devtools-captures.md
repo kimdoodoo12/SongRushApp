@@ -64,3 +64,34 @@ No captured image may show a presigned-URL signature.
 ## Out of scope
 - Changing `run.py` metrics.
 - Any site change.
+
+## Result
+- **Commits.**
+  - Tests: `e081862`, locked.
+  - Tool: `649cf64`.
+  - Fixes from the live runs:
+    - `6d4773c`: wait for Edge before attaching.
+    - `cffb3ab`: record the page load, earlier loading shot, game shots scrolled to the top.
+    - `6227575`: stop the restored second tab.
+    - `ebaedf2`: log noise.
+    - The H1/H2 fix.
+    - Grid scroll and font filter.
+    - Bucket host hidden.
+  - Report: `64de74d` and the recapture commit.
+- **Verifier.**
+  - `pytest perf`: 95 passed.
+  - The locked test diff is empty.
+  - CLI rejects bad input.
+  - Byte grep finds no signature in any image. The verifier also read every image and found none visible.
+  - All 10 image links resolve.
+- **What the live runs found.**
+  1. **Signature leak (probe).** A row that appeared between the clean-up and the screenshot left an `X-Amz-Security-Token` fragment in one probe image. That image was deleted at once. This is why the post-check exists, and why images are now written only after it passes (critic H1).
+  2. **The S3 bucket host includes the AWS account id.** It became visible once the two-line rows were turned on. It is now replaced on screen with `S3 (ap-southeast-2)` and post-checked.
+     - The cycle 102/103 result files that are already pushed contain the host. The repo is private and pushed history is not rewritten, so this is recorded as an owner question (BACKLOG Needs decision).
+  3. **Edge restored the previous tab** after a forced kill, which gave two DevTools frontends. Session files are now cleared, and attaching needs exactly one site page and one DevTools page.
+- **Critic.**
+  - **Round 1:** H1 and H2 fixed. M1–M5 fixed in the captions and README. M6, the choice-room stage hint, went to Follow-ups. N1, the viewport-size overlay in the game shots, remains.
+  - **Round 2:** see below.
+- **Caveats.**
+  - In capture D the document took 14.7 s in the browser, while `curl` at the same time took 0.83–0.90 s. The report does not use it as a load-time figure.
+  - Captures A–C are single songs and are not part of the baseline table.
