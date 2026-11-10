@@ -47,12 +47,43 @@ const CONTRACT_KO = {
   'theme.label': '분위기',
 }
 
-// Spec 4: the theme names in all three languages.
+// Cycle 109 (F-025): the eight mood names in all three languages.
 const THEME_NAMES = {
-  ko: { play: '놀이터', neon: '무대', sakura: '벚꽃', chalk: '칠판', star: '별밤', arcade: '오락실' },
-  en: { play: 'Playground', neon: 'Stage', sakura: 'Sakura', chalk: 'Chalkboard', star: 'Starry Night', arcade: 'Arcade' },
-  ja: { play: 'あそびば', neon: 'ステージ', sakura: 'さくら', chalk: 'こくばん', star: 'ほしぞら', arcade: 'ゲーセン' },
+  ko: {
+    sunset: '노을 옥상',
+    rain: '비 오는 밤',
+    sakura: '벚꽃 밤',
+    neon: '네온 시티',
+    chalk: '칠판 교실',
+    pixel: '8비트 오락실',
+    matsuri: '여름 축제',
+    manga: '만화 원고',
+  },
+  en: {
+    sunset: 'Sunset Rooftop',
+    rain: 'Rainy Night',
+    sakura: 'Cherry Blossom Night',
+    neon: 'Neon City',
+    chalk: 'Chalkboard Classroom',
+    pixel: '8-bit Arcade',
+    matsuri: 'Summer Festival',
+    manga: 'Manga Manuscript',
+  },
+  ja: {
+    sunset: '夕焼けの屋上',
+    rain: '雨の夜',
+    sakura: '夜桜',
+    neon: 'ネオンシティ',
+    chalk: '黒板の教室',
+    pixel: '8ビットゲーセン',
+    matsuri: '夏祭り',
+    manga: '漫画原稿',
+  },
 }
+
+// The keys of the old six looks that cycle 109 removed (only these three ids
+// are gone; neon, sakura and chalk carry new names).
+const OLD_THEME_KEYS = ['theme.play', 'theme.star', 'theme.arcade']
 
 // Every key App.i18n.test.jsx reads.
 const CONTRACT_KEYS = [
@@ -113,5 +144,10 @@ describe('i18n dictionaries', () => {
     for (const [id, name] of Object.entries(THEME_NAMES[lang])) {
       expect(flat[`theme.${id}`], `theme.${id}`).toBe(name)
     }
+  })
+
+  it.each(LANGS)('%s no longer has the old theme name keys', (lang) => {
+    const flat = flatten(readDict(lang))
+    expect(OLD_THEME_KEYS.filter((key) => key in flat)).toEqual([])
   })
 })

@@ -10,8 +10,8 @@
 //   start.createRoom, start.nickname, stage.hint, stage.skip,
 //   stage.skipCount ({{votes}}, {{needed}}), chat.correctLine ({{name}}),
 //   reveal.heading, reveal.label.ko, reveal.label.en, reveal.label.ja,
-//   reveal.label.romaji, theme.label, theme.play, theme.neon, theme.sakura,
-//   theme.chalk, theme.star, theme.arcade.
+//   reveal.label.romaji, theme.label, and theme.<id> for the eight moods
+//   sunset, rain, sakura, neon, chalk, pixel, matsuri, manga (cycle 109).
 // Markup contract: the system chat line reads '✔ ' + chat.correctLine; each
 // reveal title line is one element holding its label (an element of its own
 // with exactly the label text) and its title; the card is the nearest
@@ -30,7 +30,7 @@ const T0 = 1_000_000
 const LANG_KEY = 'songrush.lang'
 const THEME_KEY = 'songrush.roomTheme'
 const HANGUL = /[ㄱ-ㅣ가-힣]/
-const THEME_IDS = ['play', 'neon', 'sakura', 'chalk', 'star', 'arcade']
+const THEME_IDS = ['sunset', 'rain', 'sakura', 'neon', 'chalk', 'pixel', 'matsuri', 'manga']
 
 // The value of a dotted key with {{variables}} filled in.
 function tr(dict, key, vars = {}) {
@@ -345,26 +345,36 @@ describe('language and room theme', () => {
     chooseLanguage('English')
     expect(rootTheme()).toBe('chalk')
     expect(pickerNames(en)).toEqual(THEME_IDS.map((id) => tr(en, `theme.${id}`)))
-    expect(pressedThemes(en)).toEqual(['Chalkboard'])
+    expect(pressedThemes(en)).toEqual(['Chalkboard Classroom'])
     expect(window.localStorage.getItem(THEME_KEY)).toBe('chalk')
   })
 
   it('in a room the room theme stays across switches and the names follow the language', async () => {
     const env = setup()
     const socket = await hostLobby(env, ko)
-    deliver(socket, { type: 'roomTheme', theme: 'star' })
-    expect(rootTheme()).toBe('star')
-    expect(pressedThemes(ko)).toEqual(['별밤'])
+    deliver(socket, { type: 'roomTheme', theme: 'rain' })
+    expect(rootTheme()).toBe('rain')
+    expect(pickerNames(ko)).toEqual(['노을 옥상', '비 오는 밤', '벚꽃 밤', '네온 시티', '칠판 교실', '8비트 오락실', '여름 축제', '만화 원고'])
+    expect(pressedThemes(ko)).toEqual(['비 오는 밤'])
 
     chooseLanguage('English')
-    expect(rootTheme()).toBe('star')
-    expect(pickerNames(en)).toEqual(['Playground', 'Stage', 'Sakura', 'Chalkboard', 'Starry Night', 'Arcade'])
-    expect(pressedThemes(en)).toEqual(['Starry Night'])
+    expect(rootTheme()).toBe('rain')
+    expect(pickerNames(en)).toEqual([
+      'Sunset Rooftop',
+      'Rainy Night',
+      'Cherry Blossom Night',
+      'Neon City',
+      'Chalkboard Classroom',
+      '8-bit Arcade',
+      'Summer Festival',
+      'Manga Manuscript',
+    ])
+    expect(pressedThemes(en)).toEqual(['Rainy Night'])
 
     chooseLanguage('日本語')
-    expect(rootTheme()).toBe('star')
-    expect(pickerNames(ja)).toEqual(['あそびば', 'ステージ', 'さくら', 'こくばん', 'ほしぞら', 'ゲーセン'])
-    expect(pressedThemes(ja)).toEqual(['ほしぞら'])
+    expect(rootTheme()).toBe('rain')
+    expect(pickerNames(ja)).toEqual(['夕焼けの屋上', '雨の夜', '夜桜', 'ネオンシティ', '黒板の教室', '8ビットゲーセン', '夏祭り', '漫画原稿'])
+    expect(pressedThemes(ja)).toEqual(['雨の夜'])
 
     // A language switch sends nothing to the server and leaves the own pick.
     expect(socket.sentOfType('roomTheme')).toEqual([])

@@ -20,8 +20,10 @@ import tools.jackson.databind.JsonNode;
 // Cycle 071 (F-012) criterion 2: the room theme over the raw WebSocket at /ws on a real server, with
 // songrush.data-dir pointing at a temp folder written before the context loads (as LobbySocketTest
 // does). The client message is {type:"roomTheme", theme}; a change reaches every member as
-// {type:"roomTheme", theme}, and a theme that is not one of the six id strings is bad-room-theme
+// {type:"roomTheme", theme}, and a theme that is not one of the id strings is bad-room-theme
 // (docs/cycles/071-room-themes.md, revision M2).
+// Cycle 109 (B-031): the ids are the eight moods; the old ids play, star and arcade arrive at every
+// member as sunset, rain and pixel (docs/cycles/109-eight-moods.md).
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ThemeSocketTest {
 
@@ -64,6 +66,29 @@ class ThemeSocketTest {
 		return fail("no roster with " + players + " players within " + TestClient.WAIT_MS + " ms");
 	}
 
+	// The theme of every roomTheme frame received so far, in order.
+	private static List<String> themesOf(TestClient client) {
+		List<String> out = new ArrayList<>();
+		for (String frame : client.received()) {
+			JsonNode node = TestClient.MAPPER.readTree(frame);
+			if ("roomTheme".equals(node.path("type").asString(null))) {
+				out.add(node.path("theme").asString(null));
+			}
+		}
+		return out;
+	}
+
+	private static void awaitThemeCount(TestClient client, int count) throws InterruptedException {
+		long deadline = System.currentTimeMillis() + TestClient.WAIT_MS;
+		while (System.currentTimeMillis() < deadline) {
+			if (themesOf(client).size() >= count) {
+				return;
+			}
+			Thread.sleep(10);
+		}
+		fail("fewer than " + count + " roomTheme frames within " + TestClient.WAIT_MS + " ms: " + themesOf(client));
+	}
+
 	private static List<String> frameTypes(TestClient client) {
 		List<String> out = new ArrayList<>();
 		for (String frame : client.received()) {
@@ -99,6 +124,47 @@ class ThemeSocketTest {
 	}
 
 	@Test
+	void eachMoodRoundTripsToBothClients() throws Exception {
+		List<TestClient> pair = hostAndGuest();
+		TestClient host = pair.get(0);
+		for (String mood : List.of("sunset", "rain", "sakura", "neon", "chalk", "pixel", "matsuri", "manga")) {
+			int[] seen = new int[pair.size()];
+			for (int i = 0; i < pair.size(); i++) {
+				seen[i] = themesOf(pair.get(i)).size();
+			}
+			host.send("roomTheme", "theme", mood);
+			for (int i = 0; i < pair.size(); i++) {
+				TestClient client = pair.get(i);
+				int before = seen[i];
+				awaitThemeCount(client, before + 1);
+				assertThat(themesOf(client).get(before)).as(mood).isEqualTo(mood);
+			}
+		}
+	}
+
+	@Test
+	void theOldIdsArriveAsTheirMoods() throws Exception {
+		List<TestClient> pair = hostAndGuest();
+		TestClient host = pair.get(0);
+		host.send("roomTheme", "theme", "star");
+		host.send("roomTheme", "theme", "arcade");
+		host.send("roomTheme", "theme", "play");
+		for (TestClient client : pair) {
+			awaitThemeCount(client, 3);
+			assertThat(themesOf(client)).containsExactly("rain", "pixel", "sunset");
+		}
+	}
+
+	@Test
+	void aFreshLobbySendsNoRoomTheme() throws Exception {
+		List<TestClient> pair = hostAndGuest();
+		for (TestClient client : pair) {
+			client.assertPingWorks();
+			assertThat(frameTypes(client)).doesNotContain("roomTheme");
+		}
+	}
+
+	@Test
 	void aNonStringThemeIsBadRoomTheme() throws Exception {
 		List<TestClient> pair = hostAndGuest();
 		TestClient host = pair.get(0);
@@ -108,6 +174,8 @@ class ThemeSocketTest {
 		host.sendRaw("{\"type\":\"roomTheme\"}");
 		host.awaitError("bad-room-theme");
 		host.send("roomTheme", "theme", "lava");
+		host.awaitError("bad-room-theme");
+		host.send("roomTheme", "theme", "bogus");
 		host.awaitError("bad-room-theme");
 		host.assertPingWorks();
 		guest.assertPingWorks();
