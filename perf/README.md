@@ -148,7 +148,50 @@ Times in the charts are Korean time (KST, UTC+9), converted from the UTC
 `--out` defaults to `docs/perf`. Charts use Malgun Gothic for the Korean
 text when it is installed. The chart data comes from `reportlib.py`.
 
-The unit tests of the pure helpers (`perflib.py`, `reportlib.py`) run offline:
+## DevTools captures
+
+`perf/devtools_shot.py` (cycle 104, D-115) captures the browser's own
+DevTools Network panel on the live site. It needs Playwright, so run it with
+the system Python (the data venv does not have it):
+
+```
+python -X utf8 perf/devtools_shot.py --label baseline
+```
+
+- `--base URL`: site root (default `https://animeopguessr.com/`).
+- `--views pageload,choice,chat`: which views to capture (default all three).
+- `--edge PATH`: `msedge.exe` (default: under Program Files (x86), then Program Files).
+
+It writes to `perf/results/shots/` and prints each saved path (with its
+Korean time, HH:MM KST, and the Network summary line on stderr):
+
+- `<label>-devtools-pageload.png`: the home page loaded with Disable cache,
+  with a Content-Encoding column and big rows (transferred and resource size).
+  Font files (fonts.gstatic.com) are filtered out; the Google Fonts css2
+  stylesheet stays, as a compressed (gzip/br) row next to the site's own JS
+  and CSS.
+- `<label>-devtools-{choice,chat}-{loading,done}.png`: one song's requests,
+  1 s after 음원을 불러오는 중 appears, and when the song's audio is done.
+- `<label>-game-{choice,chat}-{loading,done}.png`: the game page at the same moments.
+
+It opens a visible Edge window, with DevTools undocked, for about 3 minutes;
+leave it alone while it runs. The profile is a fresh temp folder, deleted at
+the end. Disable cache, checked for the page load, stays checked for the song
+views of the same run.
+
+Presigned-URL signatures are hidden before every DevTools screenshot, and the
+panel's text is checked again after it, before the image is written: an image
+taken while the panel still holds `X-Amz-`, `Signature=` or `Credential=` is
+never written, and is retaken, up to 30 times. If no clean image results,
+nothing is written and the tool exits 1. The S3 bucket host (shown under each
+name with big rows; it holds the AWS account id) is replaced by
+`S3 (ap-southeast-2)` and checked the same way, and neither it nor a signature
+is ever printed in the log.
+
+## Tests
+
+The unit tests of the pure helpers (`perflib.py`, `reportlib.py`,
+`devtools_shot.py`) run offline:
 
 ```
 data/.venv/Scripts/python.exe -m pytest perf
