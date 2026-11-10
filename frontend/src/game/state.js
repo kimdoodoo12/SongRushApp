@@ -56,10 +56,15 @@ export const initialState = {
   round: null, // { index, total }
   load: null, // 'loading' | 'loaded' | 'failed'
   timer: null, // { max, remaining }
-  // { id, name, body, text }, or a system line { id, kind: 'system', winner,
-  // rank, placed }; rank is a number only in a ranked game (cycle 101).
+  // { id, name, body, text, at? }, or a system line { id, kind: 'system',
+  // winner, rank, placed }; rank is a number only in a ranked game (cycle
+  // 101). at is the local arrival time in ms (the .tm, cycle 111), when the
+  // dispatcher stamped one. A client-side notice (cycle 111, the mockup's
+  // sys lines) is { id, kind: 'notice', key, values }, translated when shown.
   chat: [],
   chatSeq: 0,
+  // The round index whose "<n>번째 곡 시작" notice is in the log, or null.
+  announced: null,
   correct: null, // the first-come winner's name this song, or null
   // Ranked (cycle 101, R4): every name with a correct answer this song, in
   // rank order. correct stays null in a ranked game, so another player's
@@ -84,6 +89,14 @@ export const initialState = {
   replaced: false, // the 'disconnected' screen: replaced by another tab
   settings: null, // the applied filters { types, yearFrom, yearTo, tier, answerMode, gameMode } of this game
   roomTheme: null, // the room's look id from the server; null: none received
+  // The host's lobby selection from the last lobbySettings (cycle 116): {
+  // songCount, types, yearFrom, yearTo, tier, answerMode, gameMode }, a
+  // missing field undefined; null before any. A guest's lobby card shows it.
+  lobbySettings: null,
+  // Bumped by every rejoin snapshot into the lobby phase (cycle 116 round
+  // 3): the server may have handed host to another member meanwhile, so a
+  // host sends its selection again.
+  lobbyRestores: 0,
   // A choice room's song (cycle 100): the cover URL per position (null for
   // a cover the client refused), or null without choices. Kept from prepare
   // to the next prepare, so the grid stays under the reveal card.
@@ -107,7 +120,50 @@ function choiceFields(action) {
   }
 }
 
+// The song is audible (D-101, 087): a round is current and not revealed,
+// started, the local clock past its startAt, loaded, and the sound not
+// blocked.
+export function isAudible(state) {
+  return (
+    state.screen === 'game' &&
+    state.round !== null &&
+    state.reveal === null &&
+    state.started &&
+    state.reached &&
+    state.load !== 'loading' &&
+    state.load !== 'failed' &&
+    !state.soundBlocked
+  )
+}
+
+// Appends a client-side notice line (cycle 111) to the log.
+function withNotice(state, key, values) {
+  return { ...state, chat: [...state.chat, { id: state.chatSeq, kind: 'notice', key, values }], chatSeq: state.chatSeq + 1 }
+}
+
+// The log on a way into the lobby (cycle 114): cleared, then the mockup's
+// lobby line for that way, if it has one. ids keep counting up.
+function lobbyLog(state, key, values) {
+  const cleared = { ...state, chat: [], announced: null }
+  return key === undefined ? cleared : withNotice(cleared, key, values)
+}
+
+// The log without the join line (chat.lobbyJoined): joined adds it before
+// the snapshot says the phase, so a late joiner who goes to the game drops
+// it (critic M1 of 114).
+function withoutJoinLine(chat) {
+  return chat.filter((line) => !(line.kind === 'notice' && line.key === 'chat.lobbyJoined'))
+}
+
+// The mockup's startRound line: "<n>번째 곡 시작" once per song, when the
+// song becomes audible.
 export function reducer(state, action) {
+  const next = step(state, action)
+  if (next === state || !isAudible(next) || next.announced === next.round.index) return next
+  return { ...withNotice(next, 'chat.songStart', { n: next.round.index + 1 }), announced: next.round.index }
+}
+
+function step(state, action) {
   switch (action.type) {
     case 'connecting':
       // A reload rejoin (cycle 079) shows the reconnecting banner meanwhile.
@@ -117,7 +173,13 @@ export function reducer(state, action) {
     case 'reset':
       return initialState
     case 'joined':
-      return { ...state, screen: 'lobby', room: { code: action.code, me: action.name }, error: null, notice: null }
+      return {
+        ...lobbyLog(state, 'chat.lobbyJoined', { code: action.code }),
+        screen: 'lobby',
+        room: { code: action.code, me: action.name },
+        error: null,
+        notice: null,
+      }
     case 'roster':
       return {
         ...state,
@@ -126,8 +188,23 @@ export function reducer(state, action) {
       }
     case 'roomTheme':
       return { ...state, roomTheme: action.theme }
+    case 'lobbySettings':
+      // Kept across a game and a rejoin: the server keeps the selection and
+      // sends any change; only leaving the room (reset, connecting) clears it.
+      return {
+        ...state,
+        lobbySettings: {
+          songCount: action.songCount,
+          types: action.types,
+          yearFrom: action.yearFrom,
+          yearTo: action.yearTo,
+          tier: action.tier,
+          answerMode: action.answerMode,
+          gameMode: action.gameMode,
+        },
+      }
     case 'toLobby':
-      return { ...state, screen: 'lobby', error: null, settings: null }
+      return { ...lobbyLog(state, 'chat.lobbyBack'), screen: 'lobby', error: null, settings: null }
     case 'settings':
       // Sent before the first prepare, so prepare never clears it; the
       // actions that end or replace a game do (spec 061 review B1).
@@ -143,10 +220,20 @@ export function reducer(state, action) {
         },
       }
     case 'prepare': {
-      // A new game (index 0) starts from a clean slate (D-062).
+      // A new game (index 0) starts from a clean slate (D-062), with the
+      // mockup's "게임을 시작해요" line as its first.
       const fresh =
         action.index === 0
-          ? { chat: [], score: null, finalScore: null, lobbyOpen: false, scoreboard: null, ranking: null }
+          ? {
+              chat: [{ id: state.chatSeq, kind: 'notice', key: 'chat.gameStart' }],
+              chatSeq: state.chatSeq + 1,
+              announced: null,
+              score: null,
+              finalScore: null,
+              lobbyOpen: false,
+              scoreboard: null,
+              ranking: null,
+            }
           : {}
       return {
         ...state,
@@ -174,7 +261,7 @@ export function reducer(state, action) {
       return { ...state, reconnecting: true }
     case 'rejoined':
       // The server sends roomTheme after the join sequence only when it is
-      // not play, so a theme seen before the drop may be stale.
+      // not the default (sunset), so a theme seen before the drop may be stale.
       return { ...state, reconnecting: false, room: { code: action.code, me: action.name }, error: null, roomTheme: null }
     case 'restore': {
       // A rejoin snapshot: the lobby, or the game as a player (spec 049).
@@ -199,10 +286,19 @@ export function reducer(state, action) {
         ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
-        return { ...common, screen: 'lobby', round: null, load: null, waitingNext: false, lobbyOpen: false }
+        return {
+          ...lobbyLog(common),
+          screen: 'lobby',
+          round: null,
+          load: null,
+          waitingNext: false,
+          lobbyOpen: false,
+          lobbyRestores: state.lobbyRestores + 1,
+        }
       }
       return {
         ...common,
+        chat: withoutJoinLine(state.chat),
         screen: 'game',
         round: action.round,
         load: action.round === null ? null : 'loading',
@@ -213,6 +309,7 @@ export function reducer(state, action) {
       // round is null when the snapshot has no song (paused or revealing).
       return {
         ...state,
+        chat: withoutJoinLine(state.chat),
         screen: 'game',
         round: action.round,
         load: action.round === null ? null : 'loading',
@@ -231,7 +328,7 @@ export function reducer(state, action) {
       }
     case 'abandoned':
       return {
-        ...state,
+        ...lobbyLog(state),
         screen: 'lobby',
         timer: null,
         error: null,
@@ -278,7 +375,13 @@ export function reducer(state, action) {
       if (state.timer === null) return state
       return { ...state, reached: action.reached === true, timer: { ...state.timer, remaining: action.remaining } }
     case 'chat': {
-      const line = { id: state.chatSeq, name: action.name, body: action.text, text: `${action.name}: ${action.text}` }
+      const line = {
+        id: state.chatSeq,
+        name: action.name,
+        body: action.text,
+        text: `${action.name}: ${action.text}`,
+        ...(typeof action.at === 'number' ? { at: action.at } : {}),
+      }
       // The winner's first chat after correct (D-094) goes just above the
       // system line, which is re-numbered so ids keep the log order.
       const last = state.chat[state.chat.length - 1]
@@ -350,7 +453,7 @@ export function reducer(state, action) {
       return { ...state, error: action.text }
     case 'gameOver':
       return {
-        ...state,
+        ...withNotice(state, 'chat.gameOver'),
         screen: 'over',
         timer: null,
         started: false,

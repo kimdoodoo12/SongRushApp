@@ -279,6 +279,15 @@ spread; run twice when in doubt.
 | 2026-11-10 | step1-on-1 | index-BL8wr47a.js | 5/5 | 2483 | 5/5 | 2632 | 3.56 | 1.53 | 1764 | 367 (identity) | 4248–8158 |
 | 2026-11-10 | step1-on-2 | index-BL8wr47a.js | 5/5 | 2380 | 5/5 | 2775 | 3.62 | 1.66 | 1995 | 367 (identity) | 2235–5228 |
 | 2026-11-10 | step1-on-3 | index-BL8wr47a.js | 5/5 | 2309 | 5/5 | 2401 | 3.52 | 1.33 | 1751 | 367 (identity) | 5090–21109 |
+| 2026-11-10 | step2-off-1 | index-BL8wr47a.js | 5/5 | 2318 | 5/5 | 2637 | 3.60 | 1.57 | 1117 | 367 (identity) | 4920–5318 |
+| 2026-11-10 | step2-off-2 | index-BL8wr47a.js | 5/5 | 2292 | 5/5 | 2500 | 3.21 | 1.52 | 2090 | 367 (identity) | 4781–5511 |
+| 2026-11-10 | step2-off-3 | index-BL8wr47a.js | 5/5 | 2283 | 5/5 | 2574 | 3.61 | 1.66 | 1617 | 367 (identity) | 5194–5515 |
+| 2026-11-10 | step2-on-1 | index-D06XTYIU.js | 5/5 | 1922 | 5/5 | 2042 | 3.62 | 2.09 | 1223 | 367 (identity) | 2109–4143 |
+| 2026-11-10 | step2-on-2 | index-D06XTYIU.js | 5/5 | 1777 | 5/5 | 1980 | 3.54 | 2.14 | 2044 | 367 (identity) | 2173–3476 |
+| 2026-11-10 | step2-on-3 | index-D06XTYIU.js | 5/5 | 1753 | 5/5 | 1984 | 3.47 | 2.00 | 1282 | 367 (identity) | 2996–3700 |
 
 ## Annotated captures (for the report)
 `python -I perf/annotate.py --spec perf/annotations.json --out docs/perf/annotated` draws red boxes and labels on copies of the captures (coordinates in `perf/annotations.json`). The originals in `perf/results/shots/` are never changed. Needs Pillow (system Python; not in `data/.venv`). New captures need new coordinates.
+
+### Choosing chart panels
+`perf/compare.py --panels between` draws only the "곡 사이 대기 (초)" panel. It shows the saving in seconds, the 8 s rule minimum, and "정답 공개 안에 준비 N/M". `--panels download,speed` is the default, step 1's chart. `--between` is kept as an alias that adds the between-songs panel.

@@ -15,22 +15,33 @@
   "theme": {
     "label": "テーマ",
     "labelGuest": "テーマ（ホストが選択）",
-    "play": "あそびば",
-    "neon": "ステージ",
-    "sakura": "さくら",
-    "chalk": "こくばん",
-    "star": "ほしぞら",
-    "arcade": "ゲーセン"
+    "sunset": "夕焼けの屋上",
+    "rain": "雨の夜",
+    "sakura": "夜桜",
+    "neon": "ネオンシティ",
+    "chalk": "黒板の教室",
+    "pixel": "8ビットゲーセン",
+    "matsuri": "夏祭り",
+    "manga": "漫画原稿"
   },
   "lobby": {
-    "roomCode": "コード: ",
     "copy": "コピー",
-    "players": "参加者 {{n}} / 8",
     "waiting": "ホストがゲームを始めるのを待っています...",
     "songCount": "曲数",
-    "startGame": "ゲーム開始",
     "leave": "退出",
-    "abandoned": "ゲームが中断されたため、ロビーに戻りました。"
+    "abandoned": "ゲームが中断されたため、ロビーに戻りました。",
+    "seats": "{{seats}} · 参加者 {{n}} / 8",
+    "hostSeat": "ホスト",
+    "of": "/ {{n}}人",
+    "settingsTitle": "ゲーム設定",
+    "whoHost": "ホストだけが変更できます",
+    "whoGuest": "ホストが決めた設定です",
+    "whoPending": "ホストが設定を選んでいます",
+    "shareHint": "リンクを送れば、友だちはニックネームを入れるだけで入れます",
+    "copied": "リンクをコピーしました",
+    "copyFailed": "コピーできませんでした。アドレスを長押ししてコピーしてください",
+    "songCountDown": "曲数を減らす",
+    "songCountUp": "曲数を増やす"
   },
   "filter": {
     "type": "曲の種類",
@@ -45,18 +56,23 @@
     "ed": "EDのみ",
     "easy": "かんたん",
     "normal": "ふつう",
-    "hard": "むずかしい"
+    "hard": "むずかしい",
+    "years": "年代"
   },
   "answer": {
     "label": "回答形式",
     "chat": "チャット",
     "choice": "選択式",
-    "choiceN": "選択肢{{n}}"
+    "choiceN": "選択肢{{n}}",
+    "hintChat": "チャットでアニメのタイトルを当てます",
+    "hintChoice": "表紙{{k}}枚の中から選びます（難易度により4・6・8枚）"
   },
   "mode": {
     "label": "ゲームモード",
     "first": "早い者勝ち",
-    "ranked": "順位戦"
+    "ranked": "順位戦",
+    "hintFirst": "最初に正解した1人だけが得点します",
+    "hintRanked": "全員が答えるか選ぶまで曲が続き、順位どおりに得点します"
   },
   "seat": {
     "list": "席",
@@ -81,7 +97,14 @@
     "hint": "流れている曲のアニメのタイトルをチャットで当てよう",
     "skip": "スキップ",
     "skipCancel": "取り消し",
-    "skipCount": "スキップ{{votes}}/{{needed}}"
+    "skipCount": "スキップ{{votes}}/{{needed}}",
+    "sub": "韓国語・英語・日本語・ローマ字のタイトル、どれでも正解です。スペースと記号は無視します。",
+    "soon": "曲が流れたら、アニメのタイトルをチャットで当てよう",
+    "soonSub": "全員が同じ瞬間に同じ曲を聴きます。",
+    "choiceSoon": "曲が流れたら、表紙の中からそのアニメを選ぼう",
+    "choiceHint": "流れている曲のアニメを下の表紙から選ぼう",
+    "choiceSub": "選べるのは一度だけです。外れたらこの曲は最後まで見学です。自分が選んだ表紙は他の人には見えず、チャットは会話用です。",
+    "pickWrong": "{{n}}番は不正解です。正解発表を待ってください。"
   },
   "reveal": {
     "heading": "正解発表",
@@ -94,7 +117,17 @@
       "en": "EN",
       "ja": "JA",
       "romaji": "Romaji"
-    }
+    },
+    "solvers": "正解者: {{names}}",
+    "next": "まもなく次の曲が始まります",
+    "nextFinal": "まもなく最終順位を発表します",
+    "rankPlace": "{{rank}}位",
+    "rankPoints": "+{{points}}点",
+    "stampHit": "正解",
+    "stampPass": "パス",
+    "sfx": "ドドン！",
+    "coverAlt": "{{title}} 表紙",
+    "coverAltIdle": "アニメの表紙"
   },
   "chat": {
     "label": "チャット",
@@ -102,7 +135,13 @@
     "placeholder": "アニメのタイトルを入力",
     "send": "送信",
     "correctLine": "{{name}} 正解！",
-    "correctRanked": "{{name}} 正解！（{{rank}}位）"
+    "correctRanked": "{{name}} 正解！（{{rank}}位）",
+    "live": "{{n}}人接続中",
+    "gameStart": "ゲームを始めます",
+    "songStart": "{{n}}曲目スタート",
+    "gameOver": "ゲーム終了",
+    "lobbyJoined": "ルーム {{code}} に入りました。ホストが設定を選んでいます",
+    "lobbyBack": "ロビーに戻りました"
   },
   "score": {
     "board": "スコアボード",
@@ -167,5 +206,91 @@
   "volume": {
     "label": "音量",
     "mute": "ミュート"
+  },
+  "mood": {
+    "tag": {
+      "sunset": "レコード一枚、夕焼け一杯",
+      "rain": "窓辺で聴く夜明け",
+      "sakura": "推しカードを引く夜",
+      "neon": "Signal hunting",
+      "chalk": "放課後、音楽クイズの時間",
+      "pixel": "Insert coin",
+      "matsuri": "花火の下でイントロクイズ",
+      "manga": "次回、正解発表！"
+    }
+  },
+  "skin": {
+    "sunset": {
+      "title": "屋上レコードバー",
+      "label": "今夜のルーム番号",
+      "admit": "ADMIT ONE",
+      "start": "レコードを載せる",
+      "seats": "今夜のお客さん",
+      "ready": "入場",
+      "empty": "空席"
+    },
+    "rain": {
+      "title": "夜明けの窓辺、雨の日のリクエスト",
+      "label": "予約席番号",
+      "admit": "RESERVED",
+      "start": "最初の曲をかける",
+      "seats": "窓辺に座る人",
+      "ready": "着席",
+      "empty": "空いた椅子"
+    },
+    "sakura": {
+      "title": "推しカードガチャ待合室",
+      "label": "ルームコード",
+      "admit": "CARD PACK",
+      "start": "ガチャスタート！",
+      "seats": "集まった友だち",
+      "ready": "カード準備完了",
+      "empty": "空きスロット"
+    },
+    "neon": {
+      "title": "Club SongRush",
+      "label": "ENTRY CODE",
+      "admit": "VIP",
+      "start": "START SIGNAL",
+      "seats": "GUEST LIST",
+      "ready": "ON LIST",
+      "empty": "—"
+    },
+    "chalk": {
+      "title": "今日の音楽クイズ",
+      "label": "うちのクラス",
+      "admit": "出席",
+      "start": "授業開始",
+      "seats": "出席簿",
+      "ready": "出席 ✓",
+      "empty": "空席"
+    },
+    "pixel": {
+      "title": "PLAYER SELECT",
+      "label": "ROOM",
+      "admit": "CREDIT",
+      "start": "PRESS START",
+      "seats": "PLAYERS",
+      "ready": "READY",
+      "empty": "INSERT COIN"
+    },
+    "matsuri": {
+      "title": "夏祭り 歌当てブース",
+      "label": "番号札",
+      "admit": "入場券",
+      "start": "祭り開始！",
+      "seats": "集まった人たち",
+      "ready": "提灯点灯",
+      "empty": "空き"
+    },
+    "manga": {
+      "title": "第1話「待機中」",
+      "label": "連載コード",
+      "admit": "VOL.1",
+      "start": "第1話スタート！",
+      "seats": "登場人物",
+      "ready": "登場！",
+      "empty": "???"
+    }
   }
 }

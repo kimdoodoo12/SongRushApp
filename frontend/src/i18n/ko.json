@@ -15,22 +15,33 @@
   "theme": {
     "label": "분위기",
     "labelGuest": "분위기 (방장이 고름)",
-    "play": "놀이터",
-    "neon": "무대",
-    "sakura": "벚꽃",
-    "chalk": "칠판",
-    "star": "별밤",
-    "arcade": "오락실"
+    "sunset": "노을 옥상",
+    "rain": "비 오는 밤",
+    "sakura": "벚꽃 밤",
+    "neon": "네온 시티",
+    "chalk": "칠판 교실",
+    "pixel": "8비트 오락실",
+    "matsuri": "여름 축제",
+    "manga": "만화 원고"
   },
   "lobby": {
-    "roomCode": "방 코드: ",
     "copy": "복사",
-    "players": "참가자 {{n}} / 8",
     "waiting": "방장이 게임을 시작하기를 기다리는 중...",
     "songCount": "곡 수",
-    "startGame": "게임 시작",
     "leave": "나가기",
-    "abandoned": "게임이 중단되어 대기실로 돌아왔습니다."
+    "abandoned": "게임이 중단되어 대기실로 돌아왔습니다.",
+    "seats": "{{seats}} · 참가자 {{n}} / 8",
+    "hostSeat": "방장",
+    "of": "/ {{n}}명",
+    "settingsTitle": "게임 설정",
+    "whoHost": "방장만 바꿀 수 있어요",
+    "whoGuest": "방장이 정한 설정이에요",
+    "whoPending": "방장이 설정을 고르는 중이에요",
+    "shareHint": "링크를 보내면 친구가 닉네임만 넣고 바로 들어와요",
+    "copied": "링크를 복사했어요",
+    "copyFailed": "복사하지 못했어요. 주소를 길게 눌러 복사해 주세요",
+    "songCountDown": "곡 수 줄이기",
+    "songCountUp": "곡 수 늘리기"
   },
   "filter": {
     "type": "곡 종류",
@@ -45,18 +56,23 @@
     "ed": "엔딩만",
     "easy": "쉬움",
     "normal": "보통",
-    "hard": "어려움"
+    "hard": "어려움",
+    "years": "연도"
   },
   "answer": {
     "label": "정답 형식",
     "chat": "채팅",
     "choice": "객관식",
-    "choiceN": "보기 {{n}}"
+    "choiceN": "보기 {{n}}",
+    "hintChat": "채팅으로 애니 제목을 맞혀요",
+    "hintChoice": "표지 {{k}}장 중에서 골라요 (난이도에 따라 4·6·8장)"
   },
   "mode": {
     "label": "게임 모드",
     "first": "선착순",
-    "ranked": "순위전"
+    "ranked": "순위전",
+    "hintFirst": "가장 먼저 맞힌 한 명만 점수를 받아요",
+    "hintRanked": "모두 맞히거나 고를 때까지 곡이 이어지고 순위대로 점수를 받아요"
   },
   "seat": {
     "list": "자리",
@@ -81,7 +97,14 @@
     "hint": "들리는 곡의 애니 제목을 채팅으로 맞혀 보세요",
     "skip": "스킵",
     "skipCancel": "스킵 취소",
-    "skipCount": "스킵 {{votes}}/{{needed}}"
+    "skipCount": "스킵 {{votes}}/{{needed}}",
+    "sub": "한국어, 영어, 일본어, 로마자 제목 모두 정답이에요. 띄어쓰기와 문장부호는 무시해요.",
+    "soon": "곡이 나오면 애니 제목을 채팅으로 맞혀 보세요",
+    "soonSub": "모두가 같은 순간에 같은 곡을 들어요.",
+    "choiceSoon": "곡이 나오면 표지 중에서 그 애니를 골라 보세요",
+    "choiceHint": "들리는 곡의 애니를 아래 표지에서 골라 보세요",
+    "choiceSub": "한 번만 고를 수 있어요. 틀리면 이번 곡은 끝까지 구경해요. 내가 고른 표지는 다른 사람에게 보이지 않고, 채팅은 대화용이에요.",
+    "pickWrong": "{{n}}번은 오답이에요. 정답 공개를 기다려 주세요."
   },
   "reveal": {
     "heading": "정답 공개",
@@ -94,7 +117,17 @@
       "en": "EN",
       "ja": "JA",
       "romaji": "Romaji"
-    }
+    },
+    "solvers": "정답자: {{names}}",
+    "next": "잠시 후 다음 곡이 시작돼요",
+    "nextFinal": "잠시 후 최종 순위를 보여 줘요",
+    "rankPlace": "{{rank}}등",
+    "rankPoints": "+{{points}}점",
+    "stampHit": "정답",
+    "stampPass": "통과",
+    "sfx": "두둥!",
+    "coverAlt": "{{title}} 표지",
+    "coverAltIdle": "애니 표지"
   },
   "chat": {
     "label": "채팅",
@@ -102,7 +135,13 @@
     "placeholder": "애니 제목을 입력하세요",
     "send": "보내기",
     "correctLine": "{{name}} 정답!",
-    "correctRanked": "{{name}} 정답! ({{rank}}등)"
+    "correctRanked": "{{name}} 정답! ({{rank}}등)",
+    "live": "{{n}}명 접속 중",
+    "gameStart": "게임을 시작해요",
+    "songStart": "{{n}}번째 곡 시작",
+    "gameOver": "게임 종료",
+    "lobbyJoined": "{{code}} 방에 들어왔어요. 방장이 설정을 고르는 중이에요",
+    "lobbyBack": "대기실로 돌아왔어요"
   },
   "score": {
     "board": "점수판",
@@ -167,5 +206,91 @@
   "volume": {
     "label": "음량",
     "mute": "음소거"
+  },
+  "mood": {
+    "tag": {
+      "sunset": "레코드 한 장, 노을 한 잔",
+      "rain": "창가에 앉아 듣는 새벽",
+      "sakura": "최애 카드 뽑는 밤",
+      "neon": "Signal hunting",
+      "chalk": "방과후, 음악 퀴즈 시간",
+      "pixel": "Insert coin",
+      "matsuri": "불꽃놀이 아래 노래 맞히기",
+      "manga": "다음 화, 정답 공개!"
+    }
+  },
+  "skin": {
+    "sunset": {
+      "title": "옥상 레코드 바",
+      "label": "오늘의 방 번호",
+      "admit": "ADMIT ONE",
+      "start": "레코드 올리기",
+      "seats": "오늘의 손님",
+      "ready": "입장",
+      "empty": "빈 자리"
+    },
+    "rain": {
+      "title": "새벽 창가, 비 오는 날의 리퀘스트",
+      "label": "예약석 번호",
+      "admit": "RESERVED",
+      "start": "첫 곡 틀기",
+      "seats": "창가에 앉은 사람",
+      "ready": "착석",
+      "empty": "빈 의자"
+    },
+    "sakura": {
+      "title": "최애 카드 뽑기 대기실",
+      "label": "방 코드",
+      "admit": "CARD PACK",
+      "start": "카드 뽑기 시작!",
+      "seats": "모인 친구들",
+      "ready": "카드 준비 완료",
+      "empty": "빈 슬롯"
+    },
+    "neon": {
+      "title": "Club SongRush",
+      "label": "ENTRY CODE",
+      "admit": "VIP",
+      "start": "START SIGNAL",
+      "seats": "GUEST LIST",
+      "ready": "ON LIST",
+      "empty": "—"
+    },
+    "chalk": {
+      "title": "오늘의 음악 퀴즈",
+      "label": "우리 반",
+      "admit": "출석",
+      "start": "수업 시작",
+      "seats": "출석부",
+      "ready": "출석 ✓",
+      "empty": "빈 자리"
+    },
+    "pixel": {
+      "title": "PLAYER SELECT",
+      "label": "ROOM",
+      "admit": "CREDIT",
+      "start": "PRESS START",
+      "seats": "PLAYERS",
+      "ready": "READY",
+      "empty": "INSERT COIN"
+    },
+    "matsuri": {
+      "title": "여름 축제 노래 맞히기 부스",
+      "label": "번호표",
+      "admit": "입장권",
+      "start": "축제 시작!",
+      "seats": "모인 사람들",
+      "ready": "등불 켜짐",
+      "empty": "빈 자리"
+    },
+    "manga": {
+      "title": "제1화 「대기 중」",
+      "label": "연재 코드",
+      "admit": "VOL.1",
+      "start": "제1화 시작!",
+      "seats": "등장인물",
+      "ready": "등장!",
+      "empty": "???"
+    }
   }
 }

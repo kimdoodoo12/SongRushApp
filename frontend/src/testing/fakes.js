@@ -80,6 +80,39 @@ export class FakeGain {
   }
 }
 
+// An AnalyserNode-like object (cycle 115). getByteFrequencyData fills the
+// array with `level` (default 0); tests set it to feed the visualizer.
+export class FakeAnalyser {
+  constructor() {
+    this.fftSize = 2048
+    this.smoothingTimeConstant = 0.8
+    this.level = 0
+    this.connect = vi.fn()
+    this.disconnect = vi.fn()
+    this.getByteFrequencyData = vi.fn((array) => {
+      array.fill(this.level)
+    })
+  }
+
+  get frequencyBinCount() {
+    return this.fftSize / 2
+  }
+}
+
+// A DynamicsCompressorNode-like object (cycle 115): AudioParam-like fields
+// with a plain settable value.
+export class FakeCompressor {
+  constructor() {
+    this.threshold = { value: -24 }
+    this.knee = { value: 30 }
+    this.ratio = { value: 12 }
+    this.attack = { value: 0.003 }
+    this.release = { value: 0.25 }
+    this.connect = vi.fn()
+    this.disconnect = vi.fn()
+  }
+}
+
 export class FakeAudioBuffer {
   constructor(id) {
     this.id = id
@@ -103,6 +136,8 @@ export class FakeAudioContext {
     this.destination = { kind: 'destination' }
     this.sources = []
     this.gains = []
+    this.analysers = []
+    this.compressors = []
     this.decodeCalls = []
     this.decoded = []
     this.pendingDecodes = []
@@ -164,6 +199,18 @@ export class FakeAudioContext {
     return gain
   }
 
+  createAnalyser() {
+    const analyser = new FakeAnalyser()
+    this.analysers.push(analyser)
+    return analyser
+  }
+
+  createDynamicsCompressor() {
+    const compressor = new FakeCompressor()
+    this.compressors.push(compressor)
+    return compressor
+  }
+
   // Sources on which start() was called.
   startedSources() {
     return this.sources.filter((s) => s.start.mock.calls.length > 0)
@@ -206,4 +253,67 @@ export function createFakeFetch({ failures = 0, failWith = 'reject' } = {}) {
     return { ok: true, status: 200, arrayBuffer: async () => buffer }
   })
   return { fetchFn, urls, buffers }
+}
+
+const CONTEXT_METHODS = new Set([
+  'arc', 'arcTo', 'beginPath', 'bezierCurveTo', 'clearRect', 'clip', 'closePath', 'createConicGradient',
+  'createImageData', 'createLinearGradient', 'createPattern', 'createRadialGradient', 'drawFocusIfNeeded',
+  'drawImage', 'ellipse', 'fill', 'fillRect', 'fillText', 'getImageData', 'getLineDash', 'getTransform',
+  'isPointInPath', 'isPointInStroke', 'lineTo', 'measureText', 'moveTo', 'putImageData', 'quadraticCurveTo',
+  'rect', 'reset', 'resetTransform', 'restore', 'rotate', 'roundRect', 'save', 'scale', 'setLineDash',
+  'setTransform', 'stroke', 'strokeRect', 'strokeText', 'transform', 'translate',
+])
+
+// A recording CanvasRenderingContext2D stand-in (cycle 115). Every method
+// call is pushed to ctx.calls as [name, args] and every property set to
+// ctx.sets as [name, value]; reads return the last value set. Every 2d
+// method is recorded; most return undefined, the ones whose result drawing
+// code uses (gradients, patterns, measureText, getImageData) return a
+// stand-in. Other names read as undefined. ctx.canvas is the canvas passed in.
+export function createRecordingContext(canvas = { width: 300, height: 150 }) {
+  const calls = []
+  const sets = []
+  const values = {
+    canvas,
+    calls,
+    sets,
+    fillStyle: '#000000',
+    strokeStyle: '#000000',
+    globalAlpha: 1,
+    globalCompositeOperation: 'source-over',
+    lineWidth: 1,
+    font: '10px sans-serif',
+  }
+  const gradient = () => ({ addColorStop: () => {} })
+  const results = {
+    createLinearGradient: gradient,
+    createRadialGradient: gradient,
+    createConicGradient: gradient,
+    createPattern: () => ({}),
+    measureText: (text) => ({ width: String(text).length * 8 }),
+    getImageData: (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(0, w * h * 4)) }),
+    createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(0, w * h * 4)) }),
+    isPointInPath: () => false,
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+  }
+  const methods = {}
+  const proxy = new Proxy(values, {
+    get(target, prop) {
+      if (prop in target) return target[prop]
+      if (typeof prop !== 'string' || !CONTEXT_METHODS.has(prop)) return undefined
+      if (!methods[prop]) {
+        methods[prop] = (...args) => {
+          calls.push([prop, args])
+          return results[prop] ? results[prop](...args) : undefined
+        }
+      }
+      return methods[prop]
+    },
+    set(target, prop, value) {
+      sets.push([prop, value])
+      target[prop] = value
+      return true
+    },
+  })
+  return proxy
 }

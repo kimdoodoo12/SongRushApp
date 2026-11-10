@@ -1,18 +1,27 @@
-import { useEffect, useReducer, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { canPlayOggOpus } from './audio/playback.js'
 import { startSession } from './game/session.js'
-import { initialState, reducer } from './game/state.js'
-import { DEFAULT_SELECTION, isReversed, toFields } from './game/filters.js'
+import { initialState, isAudible, reducer } from './game/state.js'
+import { DEFAULT_SELECTION, isReversed, settingsLine, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
-import GameScreen from './components/GameScreen.jsx'
+import GameScreen, { Frame } from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
-import ThemeDecor from './components/ThemeDecor.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
 import FeedbackDialog from './components/FeedbackDialog.jsx'
 import AdminScreen from './components/AdminScreen.jsx'
 import { DEFAULT_THEME, loadOwnTheme, saveOwnTheme, themeId } from './game/themes.js'
 import { gainOf, loadVolume, saveVolume, toggleMute, withLevel } from './game/volume.js'
 import { applyStoredLanguage, useTranslation } from './i18n/index.js'
+import {
+  canvasDpr,
+  createCanvasState,
+  drawSky,
+  drawViz,
+  fireworkAt,
+  initSky,
+  prefersReducedMotion,
+  resetViz,
+} from './canvas/index.js'
 
 const defaultSocketFactory = (url) => new WebSocket(url)
 const defaultAudioContextFactory = () => new (window.AudioContext || window.webkitAudioContext)()
@@ -36,6 +45,27 @@ function pageNavigationType() {
     return 'navigate'
   }
 }
+
+// One 2d context per canvas element, asked for once (null without one, as
+// in jsdom).
+const contexts = new WeakMap()
+function contextOf(canvas) {
+  if (canvas === null) return null
+  if (!contexts.has(canvas)) contexts.set(canvas, canvas.getContext('2d'))
+  return contexts.get(canvas)
+}
+
+// The deck's box in CSS px (manga's speed lines), or null without a deck.
+function deckBox() {
+  const deck = document.querySelector('.deck')
+  if (deck === null) return null
+  const b = deck.getBoundingClientRect()
+  return { left: b.left, top: b.top, width: b.width, height: b.height }
+}
+
+// The matsuri fireworks at a reveal (the mockup's showCover): three big
+// ones over the deck, 0, 250 and 520 ms after it.
+const REVEAL_FIREWORKS = [0, 250, 520]
 
 function removeRejoinEntry() {
   try {
@@ -80,6 +110,13 @@ function reloadPlan(navigationType) {
   return { rejoin: entry, drop: false }
 }
 
+// The session's dispatch, with each chat line stamped with its local arrival
+// time (the mockup's .tm, cycle 111). The stamp is taken here, not in the
+// reducer, so the reducer stays pure.
+function stampChat(dispatch) {
+  return (action) => dispatch(action.type === 'chat' ? { ...action, at: Date.now() } : action)
+}
+
 // A reload rejoin starts in the connecting state, with the banner, so the
 // start screen never flashes.
 function initState(plan) {
@@ -104,8 +141,8 @@ function App(props) {
   const [admin] = useState(isAdminPath)
   if (admin) {
     return (
-      <div className="app-shell min-h-screen">
-        <div className="relative z-[1] px-3 py-3 sm:px-5 md:py-6">
+      <div className="min-h-screen">
+        <div className="px-3 py-3 sm:px-5 md:py-6">
           <AdminScreen />
         </div>
       </div>
@@ -155,6 +192,17 @@ function GameApp({
   // The 문의하기 dialog (cycle 082); focus returns to its footer button.
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const feedbackButtonRef = useRef(null)
+  // The mockup's canvases (cycle 115, D-124): #sky and the deck's #viz,
+  // drawn by one requestAnimationFrame loop. Their drawing state is one per
+  // mount; reduce and dpr are read once, as the mockup's constants are.
+  const skyRef = useRef(null)
+  const [canvasState] = useState(createCanvasState)
+  const [motion] = useState(() => ({ reduce: prefersReducedMotion(), dpr: canvasDpr() }))
+  // The visualizer's analyser, a side branch off the gain (made with it).
+  const analyserRef = useRef(null)
+  // What the loop reads each frame: the mood and whether a song is audible.
+  const frameRef = useRef({ mood: DEFAULT_THEME, playing: false })
+  const fireworkTimersRef = useRef(new Set())
 
   useEffect(() => {
     const sessions = sessionRef
@@ -217,8 +265,20 @@ function GameApp({
       const gain = created.createGain()
       gain.gain.value = gainOf(volumeRef.current)
       gain.connect(created.destination)
+      // The visualizer's tap (cycle 115): gain -> compressor (the mockup's
+      // level normalisation) -> analyser, which connects to nothing, so the
+      // playback path and what is heard stay as they are.
+      const comp = created.createDynamicsCompressor()
+      comp.threshold.value = -14
+      comp.ratio.value = 4
+      const analyser = created.createAnalyser()
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.78
+      gain.connect(comp)
+      comp.connect(analyser)
       ctxRef.current = created
       gainRef.current = gain
+      analyserRef.current = analyser
     }
     const ctx = ctxRef.current
     ctx.resume().catch((err) => {
@@ -234,7 +294,7 @@ function GameApp({
       output: gainRef.current,
       fetchFn,
       now,
-      dispatch,
+      dispatch: stampChat(dispatch),
       ...options,
     })
   }
@@ -330,81 +390,276 @@ function GameApp({
 
   const inRoom = state.room !== null
   const roomTheme = themeId(state.roomTheme ?? DEFAULT_THEME)
-  const theme = inRoom ? roomTheme : ownTheme
   // The screen a feedback post reports; over and disconnected count as game.
   const page = state.screen === 'start' || state.screen === 'lobby' ? state.screen : 'game'
+  // The game screen always shows the room theme, sunset until its frame, also
+  // while connecting and rejoining (cycle 111, critic M1 of 110), so it never
+  // flips between the own pick and the room's.
+  const theme = page === 'game' || inRoom ? roomTheme : ownTheme
 
-  return (
-    <div className="app-shell min-h-screen" data-room-theme={theme}>
-      <ThemeDecor theme={theme} />
-      <div className="app relative z-[1] mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-3 px-3 py-3 sm:px-5 md:gap-5 md:py-6">
-        <header className="flex items-center justify-center md:justify-start">
-          <h1 className="brand w-56 text-center text-3xl whitespace-nowrap tracking-tight md:text-left md:text-4xl">SongRush</h1>
-        </header>
-        {state.reconnecting && (
-          <p
-            className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"
-            role="status"
-          >
-            {t('app.reconnecting')}
-          </p>
-        )}
-        {state.screen === 'start' && (
+  // The mood is <html data-mood> (D-124): the mockup's stylesheet reads it
+  // there. The own pick outside a room, the room's pick in one and on the
+  // game screen.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.mood = theme
+  }, [theme])
+
+  const audible = isAudible(state)
+  useLayoutEffect(() => {
+    frameRef.current = { mood: theme, playing: audible }
+  }, [theme, audible])
+
+  // The mockup's setMood and resize: initSky for the mood, a fresh
+  // visualizer state, and under reduced motion the still sky.
+  useLayoutEffect(() => {
+    const sky = skyRef.current
+    const redo = () => {
+      initSky(canvasState, sky, theme, motion.dpr)
+      if (motion.reduce) {
+        drawSky(canvasState, contextOf(sky), theme, performance.now(), false, {
+          playing: frameRef.current.playing,
+          reduce: true,
+          focus: null,
+        })
+      }
+    }
+    redo()
+    resetViz(canvasState)
+    window.addEventListener('resize', redo)
+    return () => window.removeEventListener('resize', redo)
+  }, [theme, canvasState, motion])
+
+  // The mockup's loop: drawViz each frame, drawSky(move) every other frame
+  // (every frame in rain), never under reduced motion; nothing while the
+  // tab is hidden. A frame callback that comes back at once (a synchronous
+  // requestAnimationFrame) is deferred to a timeout, so the loop never
+  // recurses.
+  useEffect(() => {
+    const levels = new Uint8Array(128)
+    let fr = 0
+    let pending = null
+    let deferred = null
+    let stopped = false
+
+    function frame(t) {
+      if (stopped) return
+      if (!document.hidden) {
+        const { mood, playing } = frameRef.current
+        const analyser = analyserRef.current
+        const live = playing && analyser !== null
+        if (live) analyser.getByteFrequencyData(levels)
+        const viz = document.getElementById('viz')
+        if (viz !== null) drawViz(canvasState, contextOf(viz), mood, t, { live, levels, reduce: motion.reduce })
+        if (!motion.reduce && (fr++ % 2 === 0 || mood === 'rain')) {
+          const focus = mood === 'manga' && playing ? deckBox() : null
+          drawSky(canvasState, contextOf(skyRef.current), mood, t, true, { playing, reduce: false, focus })
+        }
+      }
+      arm()
+    }
+
+    function arm() {
+      let inside = true
+      pending = window.requestAnimationFrame((t) => {
+        if (!inside) {
+          frame(t)
+          return
+        }
+        deferred = setTimeout(() => {
+          deferred = null
+          frame(t)
+        }, 0)
+      })
+      inside = false
+    }
+
+    arm()
+    return () => {
+      stopped = true
+      if (pending !== null) window.cancelAnimationFrame(pending)
+      if (deferred !== null) clearTimeout(deferred)
+    }
+  }, [canvasState, motion])
+
+  // matsuri's fireworks at the reveal (the mockup's showCover), not under
+  // reduced motion. Positions are in sky pixels.
+  const revealShown = state.screen === 'game' && state.reveal !== null ? state.reveal : null
+  useEffect(() => {
+    if (revealShown === null || theme !== 'matsuri' || motion.reduce) return
+    const box = deckBox()
+    if (box === null) return
+    const timers = fireworkTimersRef.current
+    REVEAL_FIREWORKS.forEach((delay, k) => {
+      const id = setTimeout(() => {
+        timers.delete(id)
+        fireworkAt(canvasState, (box.left + box.width * (0.3 + k * 0.25)) * motion.dpr, (box.top + box.height * 0.1) * motion.dpr, true)
+      }, delay)
+      timers.add(id)
+    })
+  }, [revealShown, theme, canvasState, motion])
+
+  useEffect(() => {
+    const timers = fireworkTimersRef.current
+    return () => {
+      for (const id of timers) clearTimeout(id)
+      timers.clear()
+    }
+  }, [])
+
+  // body.choice-mode while the current game is a choice game (the mockup's
+  // setMode, cycle 112): the room.css layout with the tiles below the deck
+  // and the panel. Off in a chat game and once the game screen is left.
+  const choiceGame =
+    (state.screen === 'game' || state.screen === 'over') &&
+    (state.choices !== null || (state.settings !== null && state.settings.answerMode === 'choice'))
+  useLayoutEffect(() => {
+    document.body.classList.toggle('choice-mode', choiceGame)
+    return () => document.body.classList.remove('choice-mode')
+  }, [choiceGame])
+
+  // The view the frame shows: 'start', 'lobby', or 'game' (also over and
+  // disconnected). body.lobby-on is the lobby's (the mockup's showView), for
+  // room.css's per-mood lobby seats.
+  const view = page
+  useLayoutEffect(() => {
+    document.body.classList.toggle('lobby-on', view === 'lobby')
+    return () => document.body.classList.remove('lobby-on')
+  }, [view])
+
+  // The own player is the host on the lobby view (cycle 116). While it is,
+  // the lobby selection goes to the server: once on entering the lobby as
+  // host or on a roster that makes it host, and again on each change, so the
+  // guests' card shows what the next start uses. A rejoin into the lobby
+  // sends it again (lobbyRestores): host may have passed to another member
+  // and back while the socket was down, and changes made meanwhile were
+  // dropped. A reversed year range is not sent (the server refuses it, and
+  // start is disabled meanwhile).
+  const ownRow = inRoom ? state.players.find((p) => p.name === state.room.me) : undefined
+  const isHost = ownRow !== undefined && ownRow.host
+  const hostInLobby = view === 'lobby' && isHost
+  useEffect(() => {
+    if (!hostInLobby || isReversed(selection) || sessionRef.current === null) return
+    sessionRef.current.sendLobbySettings(Number(selection.songCount), toFields(selection))
+  }, [hostInLobby, selection, state.lobbyRestores])
+
+  // A view switch starts at the top, as the mockup's showView does: the
+  // stage (its own scroller on wide screens) and the page. Not on mount.
+  const shownViewRef = useRef(view)
+  useLayoutEffect(() => {
+    if (shownViewRef.current === view) return
+    shownViewRef.current = view
+    const stage = document.querySelector('.stage')
+    if (stage !== null) stage.scrollTop = 0
+    window.scrollTo(0, 0)
+  }, [view])
+
+  const banner = state.reconnecting && (
+    <p className="warn" role="status">
+      {t('app.reconnecting')}
+    </p>
+  )
+  const footer = (
+    <footer className="mt-auto flex flex-col items-center gap-2 pt-8">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <LanguageSwitcher />
+        <button ref={feedbackButtonRef} type="button" className="btn" onClick={() => setFeedbackOpen(true)}>
+          {t('feedback.title')}
+        </button>
+      </div>
+      <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
+    </footer>
+  )
+  const feedback = feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />
+  const volumeProps = { volume, onVolumeLevel: handleVolumeLevel, onToggleMute: handleToggleMute }
+  // The first element of the root on every screen (before the frame's .scan
+  // and .app), so it stays the same element across them.
+  const sky = <canvas ref={skyRef} id="sky" aria-hidden="true" />
+
+  if (view === 'game') {
+    return (
+      <>
+        {sky}
+        <GameScreen
+          state={state}
+          theme={roomTheme}
+          choiceGame={choiceGame}
+          onPickTheme={handleRoomTheme}
+          onChat={handleChat}
+          onPick={handlePick}
+          onSkip={handleSkip}
+          onReset={handleReset}
+          onToLobby={handleToLobby}
+          onUnlockSound={handleUnlockSound}
+          {...volumeProps}
+          banner={banner}
+          footer={footer}
+        />
+        {feedback}
+      </>
+    )
+  }
+
+  if (view === 'start') {
+    return (
+      <>
+        {sky}
+        <Frame
+          code={null}
+          line=""
+          picker={{ value: ownTheme, onPick: handleOwnTheme, disabled: false }}
+          {...volumeProps}
+          banner={banner}
+          footer={footer}
+          chat={null}
+        >
           <StartScreen
             canPlayOpus={opusOk}
             error={state.startError}
             initialCode={initialCode}
-            theme={ownTheme}
-            onPickTheme={handleOwnTheme}
             onCreate={handleCreate}
             onJoin={handleJoin}
           />
-        )}
-        {state.screen === 'lobby' && (
-          <LobbyScreen
-            room={state.room}
-            players={state.players}
-            error={state.error}
-            notice={state.notice}
-            theme={roomTheme}
-            onPickTheme={handleRoomTheme}
-            selection={selection}
-            onSelectionChange={setSelection}
-            onStartGame={handleStartGame}
-            onLeave={handleLeave}
-          />
-        )}
-        {state.screen !== 'start' && state.screen !== 'lobby' && (
-          <GameScreen
-            state={state}
-            onChat={handleChat}
-            onPick={handlePick}
-            onSkip={handleSkip}
-            onReset={handleReset}
-            onToLobby={handleToLobby}
-            onUnlockSound={handleUnlockSound}
-            volume={volume}
-            onVolumeLevel={handleVolumeLevel}
-            onToggleMute={handleToggleMute}
-          />
-        )}
-        <footer className="mt-auto flex flex-col items-center gap-2 pt-4">
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <LanguageSwitcher />
-            <button
-              ref={feedbackButtonRef}
-              type="button"
-              className="feedback-open h-7 w-24 truncate px-1 py-0 text-xs leading-4"
-              onClick={() => setFeedbackOpen(true)}
-            >
-              {t('feedback.title')}
-            </button>
-          </div>
-          <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
-        </footer>
-        {feedbackOpen && <FeedbackDialog page={page} onClose={handleCloseFeedback} />}
-      </div>
-    </div>
+        </Frame>
+        {feedback}
+      </>
+    )
+  }
+
+  // The lobby (cycle 114): the header shows the room code and the settings
+  // line of the lobby selection, the own one for the host and the received
+  // one for a guest (cycle 116); the chat is open.
+  const room = state.room
+  const online = state.players.filter((p) => p.connected !== false).length
+  let line = ''
+  if (isHost) line = settingsLine(toFields(selection), t)
+  else if (state.lobbySettings !== null) line = settingsLine(state.lobbySettings, t)
+  return (
+    <>
+      {sky}
+      <Frame
+        code={room.code}
+        line={line}
+        picker={{ value: roomTheme, onPick: handleRoomTheme, disabled: !isHost }}
+        {...volumeProps}
+        banner={banner}
+        footer={footer}
+        chat={{ lines: state.chat, me: room.me, online, onSend: handleChat }}
+      >
+        <LobbyScreen
+          room={room}
+          players={state.players}
+          error={state.error}
+          notice={state.notice}
+          theme={roomTheme}
+          selection={selection}
+          lobbySettings={state.lobbySettings}
+          onSelectionChange={setSelection}
+          onStartGame={handleStartGame}
+          onLeave={handleLeave}
+        />
+      </Frame>
+      {feedback}
+    </>
   )
 }
 

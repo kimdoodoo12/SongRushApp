@@ -33,8 +33,9 @@
 //   ranking list.
 // - Rejoin snapshot in ranked (R5): song.answered (bool) and song.correct
 //   ([{name, rank}]). The seats get the 정답! tag for every name in correct.
-//   In a choice room a held song.picked is shown as data-choice="wrong" only
-//   when answered is false; with answered true it is never "wrong". Either
+//   In a choice room a held song.picked is shown as .wrong only when
+//   answered is false; with answered true it is never .wrong (cycle 112,
+//   declared: the mark is the tile's class, no longer data-choice). Either
 //   way every tile is disabled.
 // - First come is unchanged (one regression test here; the rest is covered
 //   by App.chatcorrect.test.jsx and App.choice.test.jsx).
@@ -48,6 +49,13 @@
 //   reveal.rankLine     {{rank}}등 {{name}} +{{points}}점 / #{{rank}} {{name}} +{{points}} / {{rank}}位 {{name}} +{{points}}点
 //
 // declared fix (101): stop assertions ignore the scheduled deadline stop
+// declared (110, D-124): the chat log lines are div.msg in .msgs and the
+// reveal card is the .reveal element (the mockup's markup); the ranking list
+// is an ol.rank.
+//
+// Cycle 114 (D-124, declared): the start button is .start-row .go in every
+// language, 곡 수 is the stepper and 곡 종류 a .seg group, all through
+// src/testing/lobby.js.
 //
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
@@ -58,6 +66,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { pickSeg, setSongCount, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -262,8 +271,8 @@ function pressedIn(group) {
     .map((b) => b.textContent.trim())
 }
 
-async function clickStartGame(socket, total = 1, label = ko.lobby.startGame) {
-  fireEvent.click(screen.getByRole('button', { name: label }))
+async function clickStartGame(socket, total = 1) {
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(total))
   return socket.sentOfType('start')[total - 1]
 }
@@ -282,12 +291,15 @@ function settingsLines() {
   return Array.from(document.querySelectorAll('.settings')).map((el) => el.textContent)
 }
 
-// The chat log lines in order, whitespace collapsed.
-function chatLines(dict = ko) {
-  const log = screen.getByRole('list', { name: tr(dict, 'chat.label') })
-  return within(log)
-    .queryAllByRole('listitem')
-    .map((li) => collapse(li.textContent))
+// The chat log lines in order, whitespace collapsed. Cycle 110: each line
+// is a div.msg in the chat's .msgs (the mockup's markup). Cycle 111 (D-124,
+// declared): a chat line is read from its .t, as the .tm time sits beside
+// it; the client-only system lines (.msg.sys without .correct: game start,
+// song start, game over) are left out here and tested in App.deck.test.jsx.
+function chatLines() {
+  return Array.from(document.querySelectorAll('aside.chat .msgs .msg:not(.sys), aside.chat .msgs .msg.sys.correct')).map(
+    (el) => collapse((el.querySelector(':scope > .t') ?? el).textContent),
+  )
 }
 
 const rankedLine = (name, rank, dict = ko) => `${CHECK} ${tr(dict, 'chat.correctRanked', { name, rank })}`
@@ -313,8 +325,15 @@ function disabledStates(list) {
   return list.map((b) => b.disabled)
 }
 
+// Cycle 112 (declared): the mark is the tile's class (correct, wrong, dim or
+// locked; the mockup's renderChoices), no longer data-choice. null with none.
+const MARKS = ['correct', 'wrong', 'dim', 'locked']
+
 function marks(list) {
-  return list.map((b) => b.getAttribute('data-choice'))
+  return list.map((b) => {
+    const found = MARKS.filter((m) => b.classList.contains(m))
+    return found.length === 0 ? null : found.join(' ')
+  })
 }
 
 const revealMsg = (index, extra = {}) => ({
@@ -337,7 +356,7 @@ async function chatRoomPlaying(env, mode = KO.ranked) {
   const socket = await hostLobby(env, { players: TRIO })
   // 선착순 is the default; the first-come path does not touch the new picker.
   if (mode !== KO.first) fireEvent.click(within(modePicker()).getByRole('button', { name: mode }))
-  fireEvent.change(screen.getByLabelText(ko.lobby.songCount), { target: { value: '5' } })
+  setSongCount(5)
   await clickStartGame(socket)
   deliver(socket, roster(TRIO, 'playing'))
   if (mode === KO.ranked) deliver(socket, { type: 'settings', gameMode: 'ranked' })
@@ -429,7 +448,7 @@ describe('lobby picker', () => {
   it('순위전 with 객관식 and 오프닝만: all go into start', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    fireEvent.change(screen.getByLabelText(ko.filter.type), { target: { value: 'OP' } })
+    pickSeg(ko.filter.type, ko.filter.op)
     fireEvent.click(within(answerPicker()).getByRole('button', { name: ko.answer.choice }))
     fireEvent.click(within(modePicker()).getByRole('button', { name: KO.ranked }))
     expect(await clickStartGame(socket)).toEqual({
@@ -656,9 +675,11 @@ describe('the ranked reveal', () => {
     await waitFor(() => expect(screen.getByText(ko.reveal.heading)).toBeTruthy())
     expect(rankingRows()).toEqual(['1등 민수 +3점', '2등 하루 +2점', '3등 지수 +1점'])
     expect(rankingRows()).toEqual(ranking.map((r) => tr(ko, 'reveal.rankLine', r)))
-    const card = screen.getByText(ko.reveal.heading).closest('section')
+    const card = screen.getByText(ko.reveal.heading).closest('.reveal')
     expect(card).not.toBeNull()
-    expect(within(card).getByRole('list', { name: tr(ko, 'reveal.ranking') })).toBeTruthy()
+    const list = within(card).getByRole('list', { name: tr(ko, 'reveal.ranking') })
+    expect(list.tagName).toBe('OL')
+    expect(list.classList.contains('rank')).toBe(true)
     expect(screen.queryByText(tr(ko, 'reveal.winner', { name: '민수' }))).toBeNull()
   })
 
@@ -694,8 +715,10 @@ describe('first come is unchanged', () => {
     deliver(socket, revealMsg(0, { winner: '민수' }))
     await waitFor(() => expect(screen.getByText(tr(ko, 'reveal.winner', { name: '민수' }))).toBeTruthy())
     // No ranking list in a first-come reveal card (no new key needed here).
-    const card = screen.getByText(ko.reveal.heading).closest('section')
-    expect(within(card).queryAllByRole('list')).toEqual([])
+    const card = screen.getByText(ko.reveal.heading).closest('.reveal')
+    expect(card).not.toBeNull()
+    expect(card.querySelector('ol.rank')).toBeNull()
+    expect(screen.queryByRole('list', { name: tr(ko, 'reveal.ranking') })).toBeNull()
   })
 })
 
@@ -812,7 +835,7 @@ describe('rejoin (R5)', () => {
       { choices: choicesOf(COVERS4), picked: 2, answered: false, correct: [{ name: 'Joon', rank: 1 }] },
       { answerMode: 'choice' },
     )
-    expect(marks(koTiles(4))).toEqual([null, null, 'wrong', null])
+    expect(marks(koTiles(4))).toEqual(['locked', 'locked', 'wrong', 'locked'])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
     expect(taggedSeats(['하루', 'Joon'])).toEqual(['Joon'])
   })
@@ -841,7 +864,7 @@ describe('other languages', () => {
       tr(en, 'mode.ranked'),
     ])
     fireEvent.click(within(group).getByRole('button', { name: tr(en, 'mode.ranked') }))
-    expect(await clickStartGame(socket, 1, en.lobby.startGame)).toEqual({ type: 'start', songCount: 10, gameMode: 'ranked' })
+    expect(await clickStartGame(socket, 1)).toEqual({ type: 'start', songCount: 10, gameMode: 'ranked' })
     deliver(socket, roster(TRIO, 'playing'))
     deliver(socket, { type: 'settings', gameMode: 'ranked' })
     deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0' })
@@ -869,7 +892,7 @@ describe('other languages', () => {
       tr(ja, 'mode.ranked'),
     ])
     fireEvent.click(within(group).getByRole('button', { name: tr(ja, 'mode.ranked') }))
-    await clickStartGame(socket, 1, ja.lobby.startGame)
+    await clickStartGame(socket, 1)
     deliver(socket, roster(TRIO, 'playing'))
     deliver(socket, { type: 'settings', gameMode: 'ranked' })
     deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0' })

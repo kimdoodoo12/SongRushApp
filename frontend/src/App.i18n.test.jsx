@@ -10,13 +10,19 @@
 //   start.createRoom, start.nickname, stage.hint, stage.skip,
 //   stage.skipCount ({{votes}}, {{needed}}), chat.correctLine ({{name}}),
 //   reveal.heading, reveal.label.ko, reveal.label.en, reveal.label.ja,
-//   reveal.label.romaji, theme.label, theme.play, theme.neon, theme.sakura,
-//   theme.chalk, theme.star, theme.arcade.
+//   reveal.label.romaji, theme.label, and theme.<id> for the eight moods
+//   sunset, rain, sakura, neon, chalk, pixel, matsuri, manga (cycle 109).
 // Markup contract: the system chat line reads '✔ ' + chat.correctLine; each
 // reveal title line is one element holding its label (an element of its own
 // with exactly the label text) and its title; the card is the nearest
 // <section> around the reveal.heading text; the big title is a heading whose
 // accessible name is exactly the title.
+// Cycle 110 (D-124, declared): the mockup's markup replaces that contract.
+// The chat lines are div.msg in .msgs. The card is the .reveal element
+// around the reveal.heading text; each title line is a <dt> with exactly the
+// label text followed by its <dd> with the title, in dl.titles; the Korean
+// title is dd.ko. The card has no big title heading (the mockup has none);
+// the slug, song and artist are on the .theme-line.
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -30,7 +36,7 @@ const T0 = 1_000_000
 const LANG_KEY = 'songrush.lang'
 const THEME_KEY = 'songrush.roomTheme'
 const HANGUL = /[ㄱ-ㅣ가-힣]/
-const THEME_IDS = ['play', 'neon', 'sakura', 'chalk', 'star', 'arcade']
+const THEME_IDS = ['sunset', 'rain', 'sakura', 'neon', 'chalk', 'pixel', 'matsuri', 'manga']
 
 // The value of a dotted key with {{variables}} filled in.
 function tr(dict, key, vars = {}) {
@@ -102,10 +108,10 @@ function pageTextWithoutSwitcher() {
   return document.body.textContent.replace(switcherText, '')
 }
 
+// The applied mood: <html data-mood> (cycle 110, D-124).
 function rootTheme() {
-  const root = document.querySelector('[data-room-theme]')
-  expect(root).not.toBeNull()
-  return root.getAttribute('data-room-theme')
+  expect(document.querySelector('[data-room-theme]')).toBeNull()
+  return document.documentElement.dataset.mood
 }
 
 function picker(dict) {
@@ -172,15 +178,25 @@ const revealMsg = (overrides = {}) => ({
 
 function revealCard(dict) {
   const heading = screen.getByText(tr(dict, 'reveal.heading'))
-  const card = heading.closest('section')
-  expect(card, 'the reveal card should be a <section>').not.toBeNull()
+  const card = heading.closest('.reveal')
+  expect(card, 'the reveal card should be the .reveal element').not.toBeNull()
   return card
 }
 
-// The element holding the title line labelled with reveal.label.<lang>.
+// The <dd> after the <dt> labelled with reveal.label.<lang>.
 function titleLine(card, dict, lang) {
   const label = within(card).getByText(tr(dict, `reveal.label.${lang}`))
-  return label.parentElement
+  expect(label.tagName).toBe('DT')
+  expect(label.closest('dl.titles')).not.toBeNull()
+  const title = label.nextElementSibling
+  expect(title).not.toBeNull()
+  expect(title.tagName).toBe('DD')
+  return title
+}
+
+// How many times `part` occurs in `text`.
+function occurrences(text, part) {
+  return text.split(part).length - 1
 }
 
 function collapse(text) {
@@ -267,7 +283,7 @@ describe('English game', () => {
     deliver(socket, { type: 'correct', index: 0, name: 'Mina' })
     const line = `✔ ${tr(en, 'chat.correctLine', { name: 'Mina' })}`
     expect(tr(en, 'chat.correctLine', { name: 'Mina' })).not.toBe(tr(ko, 'chat.correctLine', { name: 'Mina' }))
-    const items = screen.getAllByRole('listitem').map((li) => collapse(li.textContent))
+    const items = Array.from(document.querySelectorAll('aside.chat .msgs .msg')).map((el) => collapse(el.textContent))
     expect(items).toContain(collapse(line))
 
     // Before the reveal (whose KO line is Korean on purpose) no Korean is left.
@@ -295,12 +311,15 @@ describe('reveal titles', () => {
       }
       expect(within(card).getAllByText(title), title).toHaveLength(1)
     }
-    // The big title is the Korean line in the Korean UI.
-    expect(within(card).getByRole('heading', { name: '진격의 거인' })).toBeTruthy()
-    // The other reveal texts stay once each.
-    expect(within(card).getAllByText('OP1')).toHaveLength(1)
-    expect(within(card).getAllByText('紅蓮の弓矢')).toHaveLength(1)
-    expect(within(card).getAllByText('Revo')).toHaveLength(1)
+    // The Korean title is dd.ko.
+    expect(card.querySelector('dl.titles dd.ko').textContent).toBe('진격의 거인')
+    // The other reveal texts stay once each, on the theme line.
+    const themeLine = card.querySelector('.theme-line')
+    expect(themeLine).not.toBeNull()
+    for (const part of ['OP1', '紅蓮の弓矢', 'Revo']) {
+      expect(occurrences(themeLine.textContent, part), part).toBe(1)
+      expect(occurrences(card.textContent, part), part).toBe(1)
+    }
   })
 
   it('a missing language (empty or absent) has no line', async () => {
@@ -314,24 +333,30 @@ describe('reveal titles', () => {
     expect(within(card).queryByText(tr(ko, 'reveal.label.romaji'))).toBeNull()
   })
 
-  it('in English the big title is the EN line', async () => {
+  it('in English the card keeps the four lines, in KO EN JA Romaji order', async () => {
     const env = setup()
     chooseLanguage('English')
     const socket = await songStarted(env, en)
     deliver(socket, revealMsg())
     const card = revealCard(en)
-    expect(within(card).getByRole('heading', { name: 'Attack on Titan' })).toBeTruthy()
+    expect(Array.from(card.querySelectorAll('dl.titles dd'), (dd) => dd.textContent)).toEqual([
+      '진격의 거인',
+      'Attack on Titan',
+      '進撃の巨人',
+      'Shingeki no Kyojin',
+    ])
+    expect(titleLine(card, en, 'en').textContent).toBe('Attack on Titan')
     expect(titleLine(card, en, 'ko').textContent).toContain('진격의 거인')
     expect(titleLine(card, en, 'romaji').textContent).toContain('Shingeki no Kyojin')
   })
 
-  it('in Japanese with no JA title the big title is the frame reveal text', async () => {
+  it('in Japanese with no JA title the card has only the EN and Romaji lines', async () => {
     const env = setup()
     chooseLanguage('日本語')
     const socket = await songStarted(env, ja)
     deliver(socket, revealMsg({ reveal: 'Shingeki no Kyojin', titles: { en: ['Attack on Titan'], romaji: ['Shingeki no Kyojin'] } }))
     const card = revealCard(ja)
-    expect(within(card).getByRole('heading', { name: 'Shingeki no Kyojin' })).toBeTruthy()
+    expect(Array.from(card.querySelectorAll('dl.titles dd'), (dd) => dd.textContent)).toEqual(['Attack on Titan', 'Shingeki no Kyojin'])
     expect(within(card).queryByText(tr(ja, 'reveal.label.ja'))).toBeNull()
     expect(within(card).queryByText(tr(ja, 'reveal.label.ko'))).toBeNull()
   })
@@ -345,26 +370,36 @@ describe('language and room theme', () => {
     chooseLanguage('English')
     expect(rootTheme()).toBe('chalk')
     expect(pickerNames(en)).toEqual(THEME_IDS.map((id) => tr(en, `theme.${id}`)))
-    expect(pressedThemes(en)).toEqual(['Chalkboard'])
+    expect(pressedThemes(en)).toEqual(['Chalkboard Classroom'])
     expect(window.localStorage.getItem(THEME_KEY)).toBe('chalk')
   })
 
   it('in a room the room theme stays across switches and the names follow the language', async () => {
     const env = setup()
     const socket = await hostLobby(env, ko)
-    deliver(socket, { type: 'roomTheme', theme: 'star' })
-    expect(rootTheme()).toBe('star')
-    expect(pressedThemes(ko)).toEqual(['별밤'])
+    deliver(socket, { type: 'roomTheme', theme: 'rain' })
+    expect(rootTheme()).toBe('rain')
+    expect(pickerNames(ko)).toEqual(['노을 옥상', '비 오는 밤', '벚꽃 밤', '네온 시티', '칠판 교실', '8비트 오락실', '여름 축제', '만화 원고'])
+    expect(pressedThemes(ko)).toEqual(['비 오는 밤'])
 
     chooseLanguage('English')
-    expect(rootTheme()).toBe('star')
-    expect(pickerNames(en)).toEqual(['Playground', 'Stage', 'Sakura', 'Chalkboard', 'Starry Night', 'Arcade'])
-    expect(pressedThemes(en)).toEqual(['Starry Night'])
+    expect(rootTheme()).toBe('rain')
+    expect(pickerNames(en)).toEqual([
+      'Sunset Rooftop',
+      'Rainy Night',
+      'Cherry Blossom Night',
+      'Neon City',
+      'Chalkboard Classroom',
+      '8-bit Arcade',
+      'Summer Festival',
+      'Manga Manuscript',
+    ])
+    expect(pressedThemes(en)).toEqual(['Rainy Night'])
 
     chooseLanguage('日本語')
-    expect(rootTheme()).toBe('star')
-    expect(pickerNames(ja)).toEqual(['あそびば', 'ステージ', 'さくら', 'こくばん', 'ほしぞら', 'ゲーセン'])
-    expect(pressedThemes(ja)).toEqual(['ほしぞら'])
+    expect(rootTheme()).toBe('rain')
+    expect(pickerNames(ja)).toEqual(['夕焼けの屋上', '雨の夜', '夜桜', 'ネオンシティ', '黒板の教室', '8ビットゲーセン', '夏祭り', '漫画原稿'])
+    expect(pressedThemes(ja)).toEqual(['雨の夜'])
 
     // A language switch sends nothing to the server and leaves the own pick.
     expect(socket.sentOfType('roomTheme')).toEqual([])

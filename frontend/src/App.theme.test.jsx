@@ -2,16 +2,27 @@
 // in localStorage, the host's lobby picker and the server's roomTheme frame,
 // the room theme over the own pick, the game stage's hint and clock, and the
 // reducer's roomTheme field.
+// Cycle 109 (F-025): the eight moods sunset rain sakura neon chalk pixel
+// matsuri manga, default sunset; an old stored or sent id (play, star,
+// arcade) maps to sunset, rain and pixel (docs/cycles/109-eight-moods.md).
+// Cycle 110 (D-124, declared): the applied mood is read from <html
+// data-mood> instead of the shell's data-room-theme; the behaviour is kept.
+// Cycle 114 (D-124, declared): the picker is the header's .moodbar on the
+// start screen and in the lobby too, the only 분위기 group on the page; its
+// .ml label reads 분위기 (방장이 고름) for a guest. The behaviour is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { initialState, reducer } from './game/state.js'
+import { THEMES, DEFAULT_THEME, themeId } from './game/themes.js'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
 
 const T0 = 1_000_000
 const STORAGE_KEY = 'songrush.roomTheme'
-const THEME_NAMES = ['놀이터', '무대', '벚꽃', '칠판', '별밤', '오락실']
+const THEME_IDS = ['sunset', 'rain', 'sakura', 'neon', 'chalk', 'pixel', 'matsuri', 'manga']
+const THEME_NAMES = ['노을 옥상', '비 오는 밤', '벚꽃 밤', '네온 시티', '칠판 교실', '8비트 오락실', '여름 축제', '만화 원고']
+const NAME_OF = Object.fromEntries(THEME_IDS.map((id, i) => [id, THEME_NAMES[i]]))
 const HINT = '들리는 곡의 애니 제목을 채팅으로 맞혀 보세요'
 
 beforeEach(() => {
@@ -52,15 +63,26 @@ function setNickname(nickname) {
   fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
-// The applied theme id on the outer app-shell element.
+// The applied mood: <html data-mood> (cycle 110, D-124; it replaces the
+// app shell's data-room-theme, which no element carries any more).
 function rootTheme() {
-  const root = document.querySelector('[data-room-theme]')
-  expect(root).not.toBeNull()
-  return root.getAttribute('data-room-theme')
+  expect(document.querySelector('[data-room-theme]')).toBeNull()
+  return document.documentElement.dataset.mood
 }
 
+// The one mood picker: the header's .moodbar (cycle 114).
 function picker() {
-  return screen.getByRole('group', { name: '분위기' })
+  const groups = screen.getAllByRole('group', { name: '분위기' })
+  expect(groups).toHaveLength(1)
+  expect(groups[0].closest('header .moodbar')).not.toBeNull()
+  return groups[0]
+}
+
+// The header picker's label (.moodbar .ml).
+function pickerLabel() {
+  const label = document.querySelector('header .moodbar .ml')
+  expect(label).not.toBeNull()
+  return label.textContent.trim()
 }
 
 function themeButton(name) {
@@ -116,7 +138,7 @@ function startMsg({ index = 0, startDelta = 0, length = 90_000 } = {}) {
 }
 
 describe('start screen picker', () => {
-  it('shows the 분위기 group with six buttons in order, 놀이터 pressed by default', () => {
+  it('shows the 분위기 group with eight buttons in order, 노을 옥상 pressed by default', () => {
     setup()
     const names = within(picker())
       .getAllByRole('button')
@@ -127,33 +149,53 @@ describe('start screen picker', () => {
       expect(button.getAttribute('type')).toBe('button')
       expect(button.disabled).toBe(false)
     }
-    expect(pressedNames()).toEqual(['놀이터'])
-    expect(rootTheme()).toBe('play')
+    expect(pressedNames()).toEqual(['노을 옥상'])
+    expect(rootTheme()).toBe('sunset')
+    expect(pickerLabel()).toBe('분위기')
   })
 
-  it('clicking 칠판 applies chalk to the root and stores it', () => {
+  it('clicking 칠판 교실 applies chalk to the root and stores it', () => {
     setup()
-    fireEvent.click(themeButton('칠판'))
+    fireEvent.click(themeButton('칠판 교실'))
     expect(rootTheme()).toBe('chalk')
-    expect(pressedNames()).toEqual(['칠판'])
+    expect(pressedNames()).toEqual(['칠판 교실'])
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('chalk')
   })
 
-  it('a stored star is applied on mount', () => {
-    window.localStorage.setItem(STORAGE_KEY, 'star')
+  it.each(THEME_IDS)('clicking the %s button applies it and stores it', (id) => {
     setup()
-    expect(rootTheme()).toBe('star')
-    expect(pressedNames()).toEqual(['별밤'])
+    fireEvent.click(themeButton(NAME_OF[id]))
+    expect(rootTheme()).toBe(id)
+    expect(pressedNames()).toEqual([NAME_OF[id]])
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe(id)
   })
 
-  it('a stored unknown id falls back to play', () => {
+  it('a stored rain is applied on mount', () => {
+    window.localStorage.setItem(STORAGE_KEY, 'rain')
+    setup()
+    expect(rootTheme()).toBe('rain')
+    expect(pressedNames()).toEqual(['비 오는 밤'])
+  })
+
+  it.each([
+    ['arcade', 'pixel'],
+    ['star', 'rain'],
+    ['play', 'sunset'],
+  ])('a stored old %s loads as %s', (stored, mood) => {
+    window.localStorage.setItem(STORAGE_KEY, stored)
+    setup()
+    expect(rootTheme()).toBe(mood)
+    expect(pressedNames()).toEqual([NAME_OF[mood]])
+  })
+
+  it('a stored unknown id falls back to sunset', () => {
     window.localStorage.setItem(STORAGE_KEY, 'lava')
     setup()
-    expect(rootTheme()).toBe('play')
-    expect(pressedNames()).toEqual(['놀이터'])
+    expect(rootTheme()).toBe('sunset')
+    expect(pressedNames()).toEqual(['노을 옥상'])
   })
 
-  it('a throwing localStorage still renders with play, and a pick still applies', () => {
+  it('a throwing localStorage still renders with sunset, and a pick still applies', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('storage blocked')
     })
@@ -161,76 +203,88 @@ describe('start screen picker', () => {
       throw new Error('storage blocked')
     })
     setup()
-    expect(rootTheme()).toBe('play')
+    expect(rootTheme()).toBe('sunset')
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
-    fireEvent.click(themeButton('칠판'))
+    fireEvent.click(themeButton('칠판 교실'))
     expect(rootTheme()).toBe('chalk')
   })
 })
 
 describe('lobby picker', () => {
-  it('the host clicking 무대 sends exactly roomTheme neon; pressed changes only on the server frame', async () => {
+  it('the host clicking 네온 시티 sends exactly roomTheme neon; pressed changes only on the server frame', async () => {
     const env = setup()
     const socket = await hostLobby(env)
-    expect(rootTheme()).toBe('play')
-    expect(pressedNames()).toEqual(['놀이터'])
+    expect(rootTheme()).toBe('sunset')
+    expect(pressedNames()).toEqual(['노을 옥상'])
+    expect(pickerLabel()).toBe('분위기')
     for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(false)
 
-    fireEvent.click(themeButton('무대'))
+    fireEvent.click(themeButton('네온 시티'))
     await waitFor(() => expect(socket.sentOfType('roomTheme')).toHaveLength(1))
     expect(socket.sentOfType('roomTheme')).toEqual([{ type: 'roomTheme', theme: 'neon' }])
     expect(Object.keys(socket.sentOfType('roomTheme')[0]).sort()).toEqual(['theme', 'type'])
     // Not yet confirmed by the server.
-    expect(pressedNames()).toEqual(['놀이터'])
-    expect(rootTheme()).toBe('play')
+    expect(pressedNames()).toEqual(['노을 옥상'])
+    expect(rootTheme()).toBe('sunset')
 
     deliver(socket, { type: 'roomTheme', theme: 'neon' })
-    expect(pressedNames()).toEqual(['무대'])
+    expect(pressedNames()).toEqual(['네온 시티'])
     expect(rootTheme()).toBe('neon')
     // The host's lobby pick never touches the own pick.
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 
-  it('a non-host sees every button disabled; a server arcade frame applies and presses 오락실', async () => {
+  it('a non-host sees every button disabled under 분위기 (방장이 고름); a server pixel frame applies and presses 8비트 오락실', async () => {
     const env = setup()
     const socket = await guestLobby(env)
+    expect(pickerLabel()).toBe('분위기 (방장이 고름)')
     for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(true)
-    expect(pressedNames()).toEqual(['놀이터'])
+    expect(pressedNames()).toEqual(['노을 옥상'])
 
-    fireEvent.click(themeButton('별밤'))
+    fireEvent.click(themeButton('비 오는 밤'))
     expect(socket.sentOfType('roomTheme')).toEqual([])
 
-    deliver(socket, { type: 'roomTheme', theme: 'arcade' })
-    expect(rootTheme()).toBe('arcade')
-    expect(pressedNames()).toEqual(['오락실'])
+    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
+    expect(rootTheme()).toBe('pixel')
+    expect(pressedNames()).toEqual(['8비트 오락실'])
+  })
+
+  it('a roomTheme frame sets <html data-mood> for each of the eight ids', async () => {
+    const env = setup()
+    const socket = await guestLobby(env)
+    for (const id of THEME_IDS) {
+      deliver(socket, { type: 'roomTheme', theme: id })
+      expect(document.documentElement.dataset.mood, id).toBe(id)
+      expect(pressedNames(), id).toEqual([NAME_OF[id]])
+    }
   })
 })
 
 describe('room theme over the own pick', () => {
-  it('a room shows play before any frame and the room theme after, whatever the own pick', async () => {
+  it('a room shows sunset before any frame and the room theme after, whatever the own pick', async () => {
     window.localStorage.setItem(STORAGE_KEY, 'sakura')
     const env = setup()
     expect(rootTheme()).toBe('sakura')
     const socket = await guestLobby(env)
-    expect(rootTheme()).toBe('play')
-    deliver(socket, { type: 'roomTheme', theme: 'star' })
-    expect(rootTheme()).toBe('star')
+    expect(rootTheme()).toBe('sunset')
+    deliver(socket, { type: 'roomTheme', theme: 'rain' })
+    expect(rootTheme()).toBe('rain')
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('sakura')
   })
 
   it('leaving the room shows the own pick again', async () => {
     const env = setup()
-    fireEvent.click(themeButton('칠판'))
+    fireEvent.click(themeButton('칠판 교실'))
     expect(rootTheme()).toBe('chalk')
     const socket = await guestLobby(env)
-    expect(rootTheme()).toBe('play')
-    deliver(socket, { type: 'roomTheme', theme: 'star' })
-    expect(rootTheme()).toBe('star')
+    expect(rootTheme()).toBe('sunset')
+    deliver(socket, { type: 'roomTheme', theme: 'rain' })
+    expect(rootTheme()).toBe('rain')
 
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
     expect(rootTheme()).toBe('chalk')
-    expect(pressedNames()).toEqual(['칠판'])
+    expect(pressedNames()).toEqual(['칠판 교실'])
   })
 })
 
@@ -254,8 +308,29 @@ describe('room game stage', () => {
 describe('reducer roomTheme', () => {
   it('starts null, a roomTheme action sets it and reset clears it', () => {
     expect(initialState.roomTheme).toBeNull()
-    const themed = reducer(initialState, { type: 'roomTheme', theme: 'star' })
-    expect(themed.roomTheme).toBe('star')
+    const themed = reducer(initialState, { type: 'roomTheme', theme: 'rain' })
+    expect(themed.roomTheme).toBe('rain')
     expect(reducer(themed, { type: 'reset' }).roomTheme).toBeNull()
+  })
+})
+
+describe('themes module', () => {
+  it('lists the eight moods in picker order, with sunset the default', () => {
+    expect(THEMES.map((t) => t.id)).toEqual(THEME_IDS)
+    expect(DEFAULT_THEME).toBe('sunset')
+    for (const theme of THEMES) {
+      expect(typeof theme.swatch, theme.id).toBe('string')
+      expect(theme.swatch.trim(), theme.id).not.toBe('')
+    }
+  })
+
+  it('themeId maps the old ids, keeps a known id and sends anything else to sunset', () => {
+    expect(themeId('play')).toBe('sunset')
+    expect(themeId('star')).toBe('rain')
+    expect(themeId('arcade')).toBe('pixel')
+    for (const id of THEME_IDS) expect(themeId(id)).toBe(id)
+    for (const other of ['lava', '', null, undefined, 'NEON', ' rain', 'Play', 5, {}]) {
+      expect(themeId(other)).toBe('sunset')
+    }
   })
 })

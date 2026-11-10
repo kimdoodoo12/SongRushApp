@@ -216,6 +216,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 				case "skipVote" -> skipVote(sessionId, node);
 				case "pick" -> pick(sessionId, node);
 				case "roomTheme" -> roomTheme(sessionId, node);
+				case "lobbySettings" -> lobbySettings(sessionId, node);
 				case "leave" -> leave(sessionId);
 				case "rejoin" -> rejoin(sessionId, node);
 				default -> sendError(sessionId, "bad-message");
@@ -419,32 +420,54 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 	}
 
 	private void start(String sessionId, JsonNode node) {
+		Selection s = selection(sessionId, node);
+		if (s != null) {
+			onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), s.songCount(), s.filter(), s.mode(),
+					s.gameMode()));
+		}
+	}
+
+	// The host's lobby selection, parsed exactly as start; the lobby does the rest (cycle 116).
+	private void lobbySettings(String sessionId, JsonNode node) {
+		Selection s = selection(sessionId, node);
+		if (s != null) {
+			onLobby(sessionId, seat -> seat.hosted().lobby.setLobbySettings(seat.playerId(), s.songCount(),
+					s.filter(), s.mode(), s.gameMode()));
+		}
+	}
+
+	private record Selection(int songCount, DrawFilter filter, AnswerMode mode, GameMode gameMode) {
+	}
+
+	// The fields of start and lobbySettings, or null after sending the first error: bad-message for a
+	// non-integer songCount, then bad-filter, bad-answer-mode and bad-game-mode, all before the
+	// lobby's no-room, in-game, not-host and bad-song-count.
+	private Selection selection(String sessionId, JsonNode node) {
 		JsonNode songCount = node.path("songCount");
 		if (!songCount.isInt()) {
 			sendError(sessionId, "bad-message");
-			return;
+			return null;
 		}
 		// Checked here, so bad-filter comes before the lobby's not-host and in-game and before no-room.
 		DrawFilter filter = filter(node);
 		if (filter == null) {
 			sendError(sessionId, "bad-filter");
-			return;
+			return null;
 		}
 		// Like the filter, so bad-answer-mode also comes before not-host, in-game and no-room (cycle 100 A8).
 		AnswerMode mode = answerMode(node);
 		if (mode == null) {
 			sendError(sessionId, "bad-answer-mode");
-			return;
+			return null;
 		}
 		// Right after the answer mode, so bad-game-mode also comes before not-host, in-game and no-room
 		// (cycle 101 item 1).
 		GameMode gameMode = gameMode(node);
 		if (gameMode == null) {
 			sendError(sessionId, "bad-game-mode");
-			return;
+			return null;
 		}
-		int count = songCount.intValue();
-		onLobby(sessionId, seat -> seat.hosted().lobby.start(seat.playerId(), count, filter, mode, gameMode));
+		return new Selection(songCount.intValue(), filter, mode, gameMode);
 	}
 
 	// The start request's optional gameMode: FIRST when absent, else the exact string "first" or

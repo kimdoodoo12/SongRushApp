@@ -1,10 +1,13 @@
 // The game flow of one player. Cycle 078 (D-093): there is no solo form;
 // the player plays alone by creating a room (방 만들기), choosing 곡 수 in
 // the lobby and clicking 게임 시작.
+// Cycle 114 (D-124, declared): 곡 수 is the lobby stepper and the start
+// button is .start-row .go, both through src/testing/lobby.js.
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import * as lobby from './testing/lobby.js'
 
 const CREDIT = '데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata'
 const NO_OPUS =
@@ -68,10 +71,10 @@ async function aloneLobby(env, count = 1) {
   return socket
 }
 
-// Sets 곡 수 in the host controls and clicks 게임 시작.
+// Sets 곡 수 with the lobby stepper and clicks the start button.
 function clickStartGame(songCount = '5') {
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: songCount } })
-  fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+  lobby.setSongCount(Number(songCount))
+  lobby.startGame()
 }
 
 // Alone in a room, 게임 시작 with 곡 수 5 sent and roster{playing}
@@ -155,7 +158,7 @@ async function tick(env) {
 }
 
 describe('start screen', () => {
-  it('shows the nickname input, 방 만들기 and the credit line; the host lobby has the song count select defaulting to 10', async () => {
+  it('shows the nickname input, 방 만들기 and the credit line; the host lobby has the song count stepper at 10 within 5-30', async () => {
     const env = setup()
     expect(screen.getByRole('heading', { level: 1, name: 'SongRush' })).toBeTruthy()
     const nickname = screen.getByLabelText('닉네임')
@@ -164,11 +167,12 @@ describe('start screen', () => {
     expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(false)
     expect(screen.getByText(CREDIT)).toBeTruthy()
     await aloneLobby(env)
-    const count = screen.getByLabelText('곡 수')
-    expect(count.tagName).toBe('SELECT')
-    expect(count.value).toBe('10')
-    const values = Array.from(count.options).map((o) => o.value)
-    expect(values).toEqual(Array.from({ length: 26 }, (_, i) => String(i + 5)))
+    expect(screen.getByLabelText('곡 수')).toBe(lobby.songCountOutput())
+    expect(lobby.songCount()).toBe(10)
+    lobby.setSongCount(5)
+    expect(lobby.stepperButtons()[0].disabled).toBe(true)
+    lobby.setSongCount(30)
+    expect(lobby.stepperButtons()[1].disabled).toBe(true)
     expect(screen.getByText(CREDIT)).toBeTruthy()
   })
 
@@ -391,7 +395,9 @@ describe('start', () => {
     deliver(socket, startMsg({ startDelta: 0 }))
     deliver(socket, revealMsg())
     expect(env.audio.last.startedSources()).toEqual([])
-    expect(screen.getByText('진격의 거인')).toBeTruthy()
+    // Cycle 111 (declared): the title is also in the deck's .noimg and .cap,
+    // so the reveal card's Korean title line is read directly.
+    expect(document.querySelector('.reveal dl.titles dd.ko').textContent).toBe('진격의 거인')
     expect(screen.getByText('정답자 없음')).toBeTruthy()
   })
 })
@@ -443,7 +449,9 @@ describe('reveal', () => {
     const lastStop = source.stop.mock.calls[source.stop.mock.calls.length - 1]
     // stop() or stop(t) with t no later than now: the song stops at once.
     if (lastStop.length > 0) expect(lastStop[0]).toBeLessThanOrEqual(ctx.currentTime)
-    expect(screen.getByText('진격의 거인')).toBeTruthy()
+    // Cycle 111 (declared): the title is also in the deck's .noimg and .cap,
+    // so the reveal card's Korean title line is read directly.
+    expect(document.querySelector('.reveal dl.titles dd.ko').textContent).toBe('진격의 거인')
     expect(screen.getByText(/OP1/)).toBeTruthy()
     expect(screen.queryByText(/OPOP1/)).toBeNull()
     expect(screen.getByText(/紅蓮の弓矢/)).toBeTruthy()
@@ -489,7 +497,7 @@ describe('game over and errors', () => {
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'not-enough-songs' })
     expect(screen.getByText('출제할 곡이 부족합니다.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(lobby.startButton()).not.toBeNull()
     expect(socket.closed).toBe(false)
   })
 
@@ -514,7 +522,7 @@ describe('game over and errors', () => {
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'bad-song-count' })
     expect(screen.getByText('곡 수는 5~30곡입니다.')).toBeTruthy()
-    expect(screen.getByRole('button', { name: '게임 시작' })).toBeTruthy()
+    expect(lobby.startButton()).not.toBeNull()
     expect(socket.closed).toBe(false)
   })
 

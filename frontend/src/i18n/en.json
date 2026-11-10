@@ -15,22 +15,33 @@
   "theme": {
     "label": "Theme",
     "labelGuest": "Theme (picked by the host)",
-    "play": "Playground",
-    "neon": "Stage",
-    "sakura": "Sakura",
-    "chalk": "Chalkboard",
-    "star": "Starry Night",
-    "arcade": "Arcade"
+    "sunset": "Sunset Rooftop",
+    "rain": "Rainy Night",
+    "sakura": "Cherry Blossom Night",
+    "neon": "Neon City",
+    "chalk": "Chalkboard Classroom",
+    "pixel": "8-bit Arcade",
+    "matsuri": "Summer Festival",
+    "manga": "Manga Manuscript"
   },
   "lobby": {
-    "roomCode": "Code: ",
     "copy": "Copy",
-    "players": "Players {{n}} / 8",
     "waiting": "Waiting for the host to start the game...",
     "songCount": "Songs",
-    "startGame": "Start game",
     "leave": "Leave",
-    "abandoned": "The game was stopped, so you are back in the lobby."
+    "abandoned": "The game was stopped, so you are back in the lobby.",
+    "seats": "{{seats}} · Players {{n}} / 8",
+    "hostSeat": "Host",
+    "of": "/ {{n}}",
+    "settingsTitle": "Game settings",
+    "whoHost": "Only the host can change these",
+    "whoGuest": "Set by the host",
+    "whoPending": "The host is choosing the settings",
+    "shareHint": "Send the link: a friend only enters a nickname to join",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy. Press and hold the address to copy it",
+    "songCountDown": "Fewer songs",
+    "songCountUp": "More songs"
   },
   "filter": {
     "type": "Song type",
@@ -45,18 +56,23 @@
     "ed": "ED only",
     "easy": "Easy",
     "normal": "Normal",
-    "hard": "Hard"
+    "hard": "Hard",
+    "years": "Years"
   },
   "answer": {
     "label": "Answer format",
     "chat": "Chat",
     "choice": "Multiple choice",
-    "choiceN": "Choice {{n}}"
+    "choiceN": "Choice {{n}}",
+    "hintChat": "Guess the anime title in the chat",
+    "hintChoice": "Pick from {{k}} covers (4, 6 or 8 by difficulty)"
   },
   "mode": {
     "label": "Game mode",
     "first": "First Come",
-    "ranked": "Ranked"
+    "ranked": "Ranked",
+    "hintFirst": "Only the first to get it right scores",
+    "hintRanked": "The song goes on until everyone answers or picks, and points follow the ranking"
   },
   "seat": {
     "list": "Seats",
@@ -81,7 +97,14 @@
     "hint": "Type the anime title in the chat to guess the song",
     "skip": "Skip",
     "skipCancel": "Unskip",
-    "skipCount": "Skip {{votes}}/{{needed}}"
+    "skipCount": "Skip {{votes}}/{{needed}}",
+    "sub": "Korean, English, Japanese and romaji titles all count. Spaces and punctuation are ignored.",
+    "soon": "When the song plays, type the anime title in the chat",
+    "soonSub": "Everyone hears the same song at the same moment.",
+    "choiceSoon": "When the song plays, pick its anime from the covers",
+    "choiceHint": "Pick the anime of the song you hear from the covers below",
+    "choiceSub": "You can pick only once. If you miss, watch the rest of this song. Nobody else sees your pick, and the chat is just for talking.",
+    "pickWrong": "No. {{n}} is wrong. Wait for the answer."
   },
   "reveal": {
     "heading": "Answer",
@@ -94,7 +117,17 @@
       "en": "EN",
       "ja": "JA",
       "romaji": "Romaji"
-    }
+    },
+    "solvers": "Solved: {{names}}",
+    "next": "The next song starts in a moment",
+    "nextFinal": "The final ranking is up in a moment",
+    "rankPlace": "#{{rank}}",
+    "rankPoints": "+{{points}}",
+    "stampHit": "Correct",
+    "stampPass": "Pass",
+    "sfx": "BA-DUM!",
+    "coverAlt": "{{title}} cover",
+    "coverAltIdle": "Anime cover"
   },
   "chat": {
     "label": "Chat",
@@ -102,7 +135,13 @@
     "placeholder": "Type the anime title",
     "send": "Send",
     "correctLine": "{{name}} got it!",
-    "correctRanked": "{{name}} got it! (#{{rank}})"
+    "correctRanked": "{{name}} got it! (#{{rank}})",
+    "live": "{{n}} online",
+    "gameStart": "Game starting",
+    "songStart": "Song {{n}} started",
+    "gameOver": "Game over",
+    "lobbyJoined": "You joined room {{code}}. The host is choosing the settings",
+    "lobbyBack": "Back in the lobby"
   },
   "score": {
     "board": "Scoreboard",
@@ -167,5 +206,91 @@
   "volume": {
     "label": "Volume",
     "mute": "Mute"
+  },
+  "mood": {
+    "tag": {
+      "sunset": "One record, one glass of sunset",
+      "rain": "Dawn by the window, listening",
+      "sakura": "A night of pulling your favourite card",
+      "neon": "Signal hunting",
+      "chalk": "After school: music quiz time",
+      "pixel": "Insert coin",
+      "matsuri": "Guess the song under the fireworks",
+      "manga": "Next chapter: the answer revealed!"
+    }
+  },
+  "skin": {
+    "sunset": {
+      "title": "Rooftop Record Bar",
+      "label": "Tonight's room no.",
+      "admit": "ADMIT ONE",
+      "start": "Drop the needle",
+      "seats": "Tonight's guests",
+      "ready": "In",
+      "empty": "Empty seat"
+    },
+    "rain": {
+      "title": "Dawn by the window: rainy-day requests",
+      "label": "Reserved seat no.",
+      "admit": "RESERVED",
+      "start": "Play the first song",
+      "seats": "By the window",
+      "ready": "Seated",
+      "empty": "Empty chair"
+    },
+    "sakura": {
+      "title": "Bias card pull lounge",
+      "label": "Room code",
+      "admit": "CARD PACK",
+      "start": "Start pulling!",
+      "seats": "Friends gathered",
+      "ready": "Card ready",
+      "empty": "Empty slot"
+    },
+    "neon": {
+      "title": "Club SongRush",
+      "label": "ENTRY CODE",
+      "admit": "VIP",
+      "start": "START SIGNAL",
+      "seats": "GUEST LIST",
+      "ready": "ON LIST",
+      "empty": "—"
+    },
+    "chalk": {
+      "title": "Today's music quiz",
+      "label": "Our class",
+      "admit": "Present",
+      "start": "Class begins",
+      "seats": "Roll call",
+      "ready": "Present ✓",
+      "empty": "Empty seat"
+    },
+    "pixel": {
+      "title": "PLAYER SELECT",
+      "label": "ROOM",
+      "admit": "CREDIT",
+      "start": "PRESS START",
+      "seats": "PLAYERS",
+      "ready": "READY",
+      "empty": "INSERT COIN"
+    },
+    "matsuri": {
+      "title": "Summer festival song quiz booth",
+      "label": "Number tag",
+      "admit": "Entry ticket",
+      "start": "Festival on!",
+      "seats": "Gathered here",
+      "ready": "Lantern lit",
+      "empty": "Empty spot"
+    },
+    "manga": {
+      "title": "Chapter 1: \"Waiting\"",
+      "label": "Serial code",
+      "admit": "VOL.1",
+      "start": "Chapter 1, start!",
+      "seats": "Characters",
+      "ready": "Enter!",
+      "empty": "???"
+    }
   }
 }

@@ -35,10 +35,14 @@ public final class Lobby {
 
 	static final int MAX_NICKNAME = 16;
 
-	// The room theme ids (D-090, D-091), exact and case-sensitive; DEFAULT_THEME at creation.
-	static final Set<String> ROOM_THEMES = Set.of("play", "neon", "sakura", "chalk", "star", "arcade");
+	// The room theme ids, the eight moods (D-122), exact and case-sensitive; DEFAULT_THEME at creation.
+	static final Set<String> ROOM_THEMES = Set.of("sunset", "rain", "sakura", "neon", "chalk", "pixel", "matsuri",
+			"manga");
 
-	static final String DEFAULT_THEME = "play";
+	static final String DEFAULT_THEME = "sunset";
+
+	// The ids before cycle 109, still sent by tabs opened before the release; stored as the mapped id.
+	static final Map<String, String> OLD_THEMES = Map.of("play", "sunset", "star", "rain", "arcade", "pixel");
 
 	private final String code;
 
@@ -70,6 +74,10 @@ public final class Lobby {
 
 	// The host-picked look, kept across games (docs/cycles/071-room-themes.md).
 	private String roomTheme = DEFAULT_THEME;
+
+	// The host's latest valid lobby selection as its message, or null before the first; kept across
+	// games and host transfers, display-only for guests (docs/cycles/116-lobby-settings.md).
+	private Map<String, Object> lobbySettings;
 
 	// The current game, or null in LOBBY, and the outbox only that Room may send through.
 	private Room room;
@@ -129,9 +137,13 @@ public final class Lobby {
 		// The score of the last finished game (0 before the first).
 		int score;
 
-		Member(String id, String name) {
+		// The lobby chat's token bucket (ChatRules), created full at join; a Room keeps its own.
+		final ChatRules.Bucket chatBucket;
+
+		Member(String id, String name, long nowMs) {
 			this.id = id;
 			this.name = name;
+			this.chatBucket = new ChatRules.Bucket(nowMs);
 		}
 
 	}
@@ -185,7 +197,7 @@ public final class Lobby {
 			return null;
 		}
 		String name = freeName(trimmed);
-		members.add(new Member(playerId, name));
+		members.add(new Member(playerId, name, clock.millis()));
 		cancelEmpty();
 		armIdle();
 		Member m = members.get(members.size() - 1);
@@ -193,6 +205,7 @@ public final class Lobby {
 			outbox.toPlayer(playerId, message("joined", "code", code, "name", name));
 			sendRoster();
 			sendRoomThemeTo(m);
+			sendLobbySettingsTo(m);
 		}
 		else {
 			// A late joiner watches the current song and plays from the next one (D-059).
@@ -282,6 +295,7 @@ public final class Lobby {
 		if (m.connected) {
 			sendJoinedAndSnapshot(m);
 			sendRoomThemeTo(m);
+			sendLobbySettingsTo(m);
 			// The new socket starts with no vote, so a toggle never cancels a vote it cannot see.
 			if (isRoomPlayer(m.id)) {
 				room.clearSkipVote(m.id);
@@ -297,6 +311,7 @@ public final class Lobby {
 		sendJoinedAndSnapshot(m);
 		sendRoster();
 		sendRoomThemeTo(m);
+		sendLobbySettingsTo(m);
 		markRoomConnection(m.id, true);
 		if (isRoomPlayer(m.id)) {
 			room.clearSkipVote(m.id);
@@ -330,20 +345,7 @@ public final class Lobby {
 		Objects.requireNonNull(filter, "filter");
 		Objects.requireNonNull(mode, "mode");
 		Objects.requireNonNull(gameMode, "gameMode");
-		Member m = member(playerId);
-		if (closed || m == null || !m.connected) {
-			return;
-		}
-		if (room != null) {
-			error(playerId, "in-game");
-			return;
-		}
-		if (!playerId.equals(host())) {
-			error(playerId, "not-host");
-			return;
-		}
-		if (songCount < Room.MIN_SONGS || songCount > Room.MAX_SONGS) {
-			error(playerId, "bad-song-count");
+		if (!hostMayChoose(playerId, songCount)) {
 			return;
 		}
 		List<PlayerRef> players = new ArrayList<>();
@@ -367,13 +369,63 @@ public final class Lobby {
 		sendRoster();
 	}
 
+	// The host's lobby selection (D-124): checked as start checks it, stored, and sent to every
+	// connected member only when it differs from the stored one. It has no effect on start.
+	public void setLobbySettings(String playerId, int songCount, DrawFilter filter, AnswerMode answerMode,
+			GameMode gameMode) {
+		Objects.requireNonNull(filter, "filter");
+		Objects.requireNonNull(answerMode, "answerMode");
+		Objects.requireNonNull(gameMode, "gameMode");
+		if (!hostMayChoose(playerId, songCount)) {
+			return;
+		}
+		Map<String, Object> next = message("lobbySettings", "songCount", songCount);
+		next.putAll(filter.toMessageFields());
+		if (answerMode == AnswerMode.CHOICE) {
+			next.put("answerMode", answerMode.wire());
+		}
+		if (gameMode == GameMode.RANKED) {
+			next.put("gameMode", gameMode.wire());
+		}
+		if (next.equals(lobbySettings)) {
+			return;
+		}
+		lobbySettings = next;
+		toConnected(lobbySettings);
+	}
+
+	// The lobby-side checks shared by start and setLobbySettings, in start's order: a connected
+	// member (else silence), then in-game, not-host and bad-song-count, each sent to that player.
+	// True when all pass.
+	private boolean hostMayChoose(String playerId, int songCount) {
+		Member m = member(playerId);
+		if (closed || m == null || !m.connected) {
+			return false;
+		}
+		if (room != null) {
+			error(playerId, "in-game");
+			return false;
+		}
+		if (!playerId.equals(host())) {
+			error(playerId, "not-host");
+			return false;
+		}
+		if (songCount < Room.MIN_SONGS || songCount > Room.MAX_SONGS) {
+			error(playerId, "bad-song-count");
+			return false;
+		}
+		return true;
+	}
+
 	// The host changes the room theme in any phase; every connected member gets roomTheme, also when
-	// the value is unchanged. A bad id is reported before the host check (cycle 071, review nits).
-	public void setRoomTheme(String playerId, String theme) {
+	// the value is unchanged. A bad id is reported before the host check (cycle 071, review nits). An
+	// old id is mapped first, so only a current id is stored and broadcast (cycle 109).
+	public void setRoomTheme(String playerId, String requested) {
 		Member m = member(playerId);
 		if (closed || m == null || !m.connected) {
 			return;
 		}
+		String theme = requested == null ? null : OLD_THEMES.getOrDefault(requested, requested);
 		if (theme == null || !ROOM_THEMES.contains(theme)) {
 			error(playerId, "bad-room-theme");
 			return;
@@ -392,10 +444,26 @@ public final class Lobby {
 		}
 	}
 
+	// During a game the Room handles chat. Between games a connected member's line, under the shared
+	// ChatRules, goes to every connected member, sender included, and is never answer-checked
+	// (docs/cycles/113-lobby-chat.md).
 	public void chat(String playerId, String text) {
 		if (forwards(playerId)) {
 			room.chat(playerId, text);
+			return;
 		}
+		Member m = member(playerId);
+		if (closed || room != null || m == null || !m.connected) {
+			return;
+		}
+		ChatRules.Verdict verdict = ChatRules.check(m.chatBucket, clock.millis(), text);
+		if (verdict != ChatRules.Verdict.PASS) {
+			if (verdict.errorCode() != null) {
+				error(playerId, verdict.errorCode());
+			}
+			return;
+		}
+		toConnected(message("chat", "name", m.name, "text", text));
 	}
 
 	public void skip(String playerId, int index) {
@@ -427,6 +495,10 @@ public final class Lobby {
 		roomOutbox = null;
 		armIdle();
 		sendRoster();
+		// So a late joiner of the game gets it although the host changes nothing (round 2).
+		if (lobbySettings != null) {
+			toConnected(lobbySettings);
+		}
 	}
 
 	private void close() {
@@ -617,6 +689,13 @@ public final class Lobby {
 	private void sendRoomThemeTo(Member m) {
 		if (!DEFAULT_THEME.equals(roomTheme)) {
 			outbox.toPlayer(m.id, roomThemeMessage());
+		}
+	}
+
+	// The stored lobby selection to that player only, in the lobby phase and once one exists.
+	private void sendLobbySettingsTo(Member m) {
+		if (room == null && lobbySettings != null) {
+			outbox.toPlayer(m.id, lobbySettings);
 		}
 	}
 

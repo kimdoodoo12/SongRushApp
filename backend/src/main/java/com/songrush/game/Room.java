@@ -49,7 +49,7 @@ public final class Room {
 
 	static final int MAX_SONGS = 30;
 
-	static final int MAX_CHAT = 200;
+	static final int MAX_CHAT = ChatRules.MAX_CHAT;
 
 	// A choice game needs this many covered series groups in its pool (cycle 100 A5).
 	static final int MIN_CHOICE_GROUPS = 4;
@@ -70,13 +70,6 @@ public final class Room {
 	static final int SECOND_RANK_POINTS = 2;
 
 	static final int LATER_RANK_POINTS = 1;
-
-	// Chat token bucket (D-024), in thousandths of a token so the refill fraction carries over exactly.
-	static final long ONE_TOKEN = 1000;
-
-	static final long BUCKET_CAPACITY = 5 * ONE_TOKEN;
-
-	static final long REFILL_PER_MS = 2;
 
 	// Covers an early prepare's reveal pause too (cycle 107 item 7).
 	private static final Duration TOKEN_TTL = REVEAL_PAUSE.plus(PREPARE_TIMEOUT).plus(LEAD).plus(MAX_PLAY)
@@ -120,7 +113,8 @@ public final class Room {
 	// Skip votes for the current song; cleared on every prepare and reveal.
 	private final Set<String> votes = new HashSet<>();
 
-	private final Map<String, Bucket> buckets = new HashMap<>();
+	// Chat token buckets (ChatRules), shared by chat and skip.
+	private final Map<String, ChatRules.Bucket> buckets = new HashMap<>();
 
 	private Phase phase = Phase.LOBBY;
 
@@ -207,7 +201,7 @@ public final class Room {
 				throw new IllegalArgumentException("duplicate player id: " + p.id());
 			}
 			scores.put(p.id(), 0);
-			buckets.put(p.id(), new Bucket(clock.millis()));
+			buckets.put(p.id(), new ChatRules.Bucket(clock.millis()));
 		}
 	}
 
@@ -224,7 +218,7 @@ public final class Room {
 		if (phase == Phase.LOBBY || byId.containsKey(player.id()) || watchers.containsKey(player.id())) {
 			return;
 		}
-		buckets.put(player.id(), new Bucket(clock.millis()));
+		buckets.put(player.id(), new ChatRules.Bucket(clock.millis()));
 		if (revealing) {
 			promote(player);
 			Map<String, Object> prepare = prepareMessage(songIndex);
@@ -657,18 +651,14 @@ public final class Room {
 
 	public void chat(String playerId, String text) {
 		PlayerRef player = byId.containsKey(playerId) ? byId.get(playerId) : watchers.get(playerId);
-		if (paused || player == null || text == null) {
+		if (paused || player == null) {
 			return;
 		}
-		if (!takeToken(playerId)) {
-			outbox.toPlayer(playerId, message("error", "code", "rate-limited"));
-			return;
-		}
-		if (text.length() > MAX_CHAT) {
-			outbox.toPlayer(playerId, message("error", "code", "too-long"));
-			return;
-		}
-		if (isInvisible(text)) {
+		ChatRules.Verdict verdict = ChatRules.check(buckets.get(playerId), clock.millis(), text);
+		if (verdict != ChatRules.Verdict.PASS) {
+			if (verdict.errorCode() != null) {
+				outbox.toPlayer(playerId, message("error", "code", verdict.errorCode()));
+			}
 			return;
 		}
 		// A text of only punctuation or symbols normalizes to empty: an ordinary chat line that never matches (D-100).
@@ -732,15 +722,6 @@ public final class Room {
 			outbox.toAll(chat);
 			endSong(player);
 		}
-	}
-
-	// True when the text shows nothing: empty, or only spaces, format/control characters,
-	// Hangul fillers or variation selectors (such a chat would be broadcast as an empty line).
-	private static boolean isInvisible(String text) {
-		return text.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c)
-				|| Character.getType(c) == Character.FORMAT || Character.getType(c) == Character.CONTROL
-				|| c == 0x115F || c == 0x1160 || c == 0x3164 || c == 0xFFA0
-				|| (c >= 0xFE00 && c <= 0xFE0F) || (c >= 0xE0100 && c <= 0xE01EF));
 	}
 
 	private boolean isConnected(String playerId) {
@@ -817,15 +798,7 @@ public final class Room {
 	// Spends one token of the player's bucket after the refill; false without one (the caller
 	// tells the sender).
 	private boolean takeToken(String playerId) {
-		Bucket bucket = buckets.get(playerId);
-		long now = clock.millis();
-		bucket.tokens = Math.min(BUCKET_CAPACITY, bucket.tokens + Math.max(0, now - bucket.lastMs) * REFILL_PER_MS);
-		bucket.lastMs = now;
-		if (bucket.tokens < ONE_TOKEN) {
-			return false;
-		}
-		bucket.tokens -= ONE_TOKEN;
-		return true;
+		return buckets.get(playerId).take(clock.millis());
 	}
 
 	private void prepare(int index) {
@@ -1001,19 +974,6 @@ public final class Room {
 			m.put((String) keysAndValues[i], keysAndValues[i + 1]);
 		}
 		return m;
-	}
-
-	// Thousandths of a token, and when it was last refilled.
-	private static final class Bucket {
-
-		long tokens = BUCKET_CAPACITY;
-
-		long lastMs;
-
-		Bucket(long lastMs) {
-			this.lastMs = lastMs;
-		}
-
 	}
 
 	// One song's choices: the {coverUrl} rows by position, as sent, and the correct position.

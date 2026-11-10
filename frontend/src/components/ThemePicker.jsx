@@ -1,25 +1,25 @@
 import { THEMES } from '../game/themes.js'
 import { useTranslation } from '../i18n/index.js'
 
-// The room-look picker: one toggle button per room look, the current one
-// pressed. disabled (a non-host in the lobby) disables every button. A
-// name too long for the fixed button is cut with an ellipsis; the full
-// name stays in the DOM.
+// The mood picker in the mockup's markup (D-124, cycle 110): .moods, one
+// toggle button per mood with its .sw swatch and name, the current one
+// pressed. disabled (a guest) disables every button. Only the header's
+// .moodbar shows it, on the start screen, in the lobby and in a game (cycle
+// 114).
 export default function ThemePicker({ value, onPick, disabled = false }) {
   const { t } = useTranslation()
   return (
-    <div role="group" aria-label={t('theme.label')} className="theme-picker flex flex-wrap items-center gap-2">
+    <div role="group" aria-label={t('theme.label')} className="moods">
       {THEMES.map((theme) => (
         <button
           key={theme.id}
           type="button"
-          className="pick"
           aria-pressed={theme.id === value}
           disabled={disabled}
           onClick={() => onPick(theme.id)}
         >
-          <span aria-hidden="true" className="pick-swatch" style={{ background: theme.swatch }} />
-          <span className="pick-name">{t(`theme.${theme.id}`)}</span>
+          <span aria-hidden="true" className="sw" style={{ background: theme.swatch }} />
+          {t(`theme.${theme.id}`)}
         </button>
       ))}
     </div>

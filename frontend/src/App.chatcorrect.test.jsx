@@ -2,11 +2,14 @@
 // frame adds a system line '✔ <name> 정답!'; the winner's chat, which the
 // server sends right after correct, goes just above that line. Every other
 // chat line appends in arrival order. The stage banner '<name> 정답!' stays.
+// Cycle 114 (D-124, declared): 곡 수 and the start button through
+// src/testing/lobby.js (the stepper and .start-row .go).
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { setSongCount, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 
@@ -55,8 +58,8 @@ async function playing(env) {
   await waitFor(() => expect(socket.sentOfType('create')).toHaveLength(1))
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster('lobby'))
-  fireEvent.change(screen.getByLabelText('곡 수'), { target: { value: '5' } })
-  fireEvent.click(screen.getByRole('button', { name: '게임 시작' }))
+  setSongCount(5)
+  startGame()
   await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 5 }]))
   deliver(socket, roster('playing'))
   deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/abc' })
@@ -66,12 +69,15 @@ async function playing(env) {
 }
 
 // The chat log lines in order, whitespace collapsed (the check mark may sit
-// in its own aria-hidden span).
+// in its own aria-hidden span). Cycle 110 (D-124, declared): each line is a
+// div.msg in the chat's .msgs (the mockup's markup). Cycle 111 (D-124,
+// declared): a chat line is read from its .t, as the .tm time sits beside
+// it; the client-only system lines (.msg.sys without .correct: game start,
+// song start, game over) are left out here and tested in App.deck.test.jsx.
 function chatLines() {
-  const log = screen.getByRole('list', { name: '채팅' })
-  return within(log)
-    .queryAllByRole('listitem')
-    .map((li) => li.textContent.replace(/\s+/g, ' ').trim())
+  return Array.from(document.querySelectorAll('aside.chat .msgs .msg:not(.sys), aside.chat .msgs .msg.sys.correct')).map(
+    (el) => (el.querySelector(':scope > .t') ?? el).textContent.replace(/\s+/g, ' ').trim(),
+  )
 }
 
 describe('the correct frame in the chat log (D-094)', () => {

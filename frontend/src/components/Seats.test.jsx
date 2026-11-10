@@ -1,13 +1,12 @@
 // Cycle 070 (F-011): the room seats. Eight seats in roster order, the
-// newest chat body of each player as a speech bubble (40 characters plus
-// the ellipsis, gone after 6 s or when the round index changes), the 정답!
-// mark, the score as N점 and the disconnected marker.
-// Timer rule: fake timers for the bubble timeout tests, advanced in act().
+// 정답! mark, the score as N점 and the disconnected marker.
+// Cycle 110 (D-124, declared): the mockup's markup (ol.seat-grid named 자리,
+// li.seat with .av and .sm, .seat.empty, .win and .ok). Chat no longer shows
+// in seat bubbles: the bubble tests are replaced by 'no chat in the seats'
+// here and by the chat log test in App.layout.test.jsx and App.room.test.jsx.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, act, cleanup, within } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
 import Seats from './Seats.jsx'
-
-const ELLIPSIS = String.fromCharCode(0x2026)
 
 afterEach(() => {
   cleanup()
@@ -74,121 +73,67 @@ describe('seat count and order', () => {
   })
 })
 
-describe('speech bubble', () => {
-  it("each seat shows only its own player's newest body, without the name prefix", () => {
+describe('no chat in the seats (110)', () => {
+  it('chat lines never show in a seat, before or after a round change', () => {
+    const chat = [line(0, '민수', '첫째말'), line(1, '철수', '둘째말')]
     const { rerender } = render(<Seats {...props()} />)
-    const chat = [line(0, '민수', '첫째말'), line(1, '철수', '둘째말'), line(2, '민수', '셋째말')]
     rerender(<Seats {...props({ chat })} />)
-    expect(seatText('민수')).toContain('셋째말')
-    expect(seatText('민수')).not.toContain('첫째말')
-    expect(seatText('민수')).not.toContain('둘째말')
-    expect(seatText('민수')).not.toContain('민수:')
-    expect(seatText('철수')).toContain('둘째말')
-    expect(seatText('철수')).not.toContain('셋째말')
-    expect(seatText('철수')).not.toContain('철수:')
-    expect(seatText('영희')).not.toContain('말')
-  })
-
-  it('a 45-character body shows its first 40 characters plus the ellipsis', () => {
-    const body = '가'.repeat(40) + '나'.repeat(5)
-    expect(body).toHaveLength(45)
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat: [line(0, '민수', body)] })} />)
-    const text = seatText('민수')
-    expect(text).toContain('가'.repeat(40) + ELLIPSIS)
-    expect(text).not.toContain('가'.repeat(41))
-    expect(text).not.toContain('나')
-  })
-
-  it('a 40-character body is shown whole, without the ellipsis', () => {
-    const body = '다'.repeat(40)
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat: [line(0, '민수', body)] })} />)
-    expect(seatText('민수')).toContain(body)
-    expect(seatText('민수')).not.toContain(ELLIPSIS)
+    for (const seat of seats()) {
+      expect(seat.textContent).not.toContain('첫째말')
+      expect(seat.textContent).not.toContain('둘째말')
+    }
+    rerender(<Seats {...props({ chat: [...chat, line(2, '영희', '셋째말')], roundIndex: 1 })} />)
+    for (const seat of seats()) expect(seat.textContent).not.toContain('셋째말')
   })
 })
 
-describe('bubble timeout', () => {
-  it('a bubble is gone 6 s after it appeared', () => {
-    vi.useFakeTimers()
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat: [line(0, '민수', '안녕')] })} />)
-    expect(seatText('민수')).toContain('안녕')
-    act(() => {
-      vi.advanceTimersByTime(5900)
-    })
-    expect(seatText('민수')).toContain('안녕')
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-    expect(seatText('민수')).not.toContain('안녕')
+describe('mockup markup (110)', () => {
+  it('the list is ol.seat-grid with eight li.seat', () => {
+    render(<Seats {...props()} />)
+    const list = screen.getByRole('list', { name: '자리' })
+    expect(list.tagName).toBe('OL')
+    expect(list.classList.contains('seat-grid')).toBe(true)
+    const all = seats()
+    expect(all).toHaveLength(8)
+    for (const li of all) {
+      expect(li.tagName).toBe('LI')
+      expect(li.classList.contains('seat')).toBe(true)
+    }
   })
 
-  it('a newer line from the same player restarts the timer', () => {
-    vi.useFakeTimers()
-    const first = line(0, '민수', '처음')
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat: [first] })} />)
-    act(() => {
-      vi.advanceTimersByTime(4000)
-    })
-    rerender(<Seats {...props({ chat: [first, line(1, '민수', '다음')] })} />)
-    expect(seatText('민수')).toContain('다음')
-    // 9 s from the start, 5 s after the newer line: still shown.
-    act(() => {
-      vi.advanceTimersByTime(5000)
-    })
-    expect(seatText('민수')).toContain('다음')
-    expect(seatText('민수')).not.toContain('처음')
-    // 10.5 s from the start, 6.5 s after the newer line: gone.
-    act(() => {
-      vi.advanceTimersByTime(1500)
-    })
-    expect(seatText('민수')).not.toContain('다음')
-    expect(seatText('민수')).not.toContain('처음')
+  it('a filled seat has .av with the initial and .sm with b (name and tags) and small (points)', () => {
+    render(<Seats {...props()} />)
+    const seat = seatOf('민수')
+    const av = seat.querySelector('.av')
+    expect(av).not.toBeNull()
+    expect(av.textContent).toContain('민')
+    expect(seat.querySelector('.sm b').textContent).toContain('민수 (방장)')
+    expect(seat.querySelector('.sm small').textContent).toContain('1점')
+    expect(seatOf('철수').querySelector('.sm b').textContent).toContain('철수 (나)')
   })
 
-  it("one player's timer does not hide another player's newer bubble", () => {
-    vi.useFakeTimers()
-    const first = line(0, '민수', '처음')
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat: [first] })} />)
-    act(() => {
-      vi.advanceTimersByTime(4000)
-    })
-    rerender(<Seats {...props({ chat: [first, line(1, '영희', '반가워')] })} />)
-    act(() => {
-      vi.advanceTimersByTime(2500)
-    })
-    expect(seatText('민수')).not.toContain('처음')
-    expect(seatText('영희')).toContain('반가워')
-  })
-})
-
-describe('bubble cleared on prepare', () => {
-  it('a change of the round index clears every bubble; old lines are not shown again', () => {
-    const chat = [line(0, '민수', '하나'), line(1, '철수', '둘')]
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat })} />)
-    expect(seatText('민수')).toContain('하나')
-    expect(seatText('철수')).toContain('둘')
-    rerender(<Seats {...props({ chat, roundIndex: 1 })} />)
-    expect(seatText('민수')).not.toContain('하나')
-    expect(seatText('철수')).not.toContain('둘')
-    // A line after the change shows; the old ones stay hidden.
-    rerender(<Seats {...props({ chat: [...chat, line(2, '영희', '셋')], roundIndex: 1 })} />)
-    expect(seatText('영희')).toContain('셋')
-    expect(seatText('민수')).not.toContain('하나')
-    expect(seatText('철수')).not.toContain('둘')
+  it('empty seats are .seat.empty reading 빈 자리', () => {
+    render(<Seats {...props()} />)
+    const empty = seats().slice(3)
+    expect(empty).toHaveLength(5)
+    for (const li of empty) {
+      expect(li.classList.contains('empty')).toBe(true)
+      expect(li.textContent).toBe('빈 자리')
+    }
+    for (const li of seats().slice(0, 3)) expect(li.classList.contains('empty')).toBe(false)
   })
 
-  it('a rerender with the same round index keeps the bubbles', () => {
-    const chat = [line(0, '민수', '하나')]
-    const { rerender } = render(<Seats {...props()} />)
-    rerender(<Seats {...props({ chat })} />)
-    rerender(<Seats {...props({ chat, correct: '철수' })} />)
-    expect(seatText('민수')).toContain('하나')
+  it("the winner's seat is .win with .ok 정답!; a list of names marks each", () => {
+    const { rerender } = render(<Seats {...props({ correct: '민수' })} />)
+    expect(seatOf('민수').classList.contains('win')).toBe(true)
+    expect(seatOf('민수').querySelector('.sm .ok').textContent).toBe('정답!')
+    expect(seatOf('철수').classList.contains('win')).toBe(false)
+    expect(seatOf('철수').querySelector('.ok')).toBeNull()
+    rerender(<Seats {...props({ correct: ['민수', '영희'] })} />)
+    expect(seats().filter((li) => li.classList.contains('win')).map((li) => li.querySelector('.sm b').textContent)).toEqual([
+      '민수 (방장)',
+      '영희',
+    ])
   })
 })
 

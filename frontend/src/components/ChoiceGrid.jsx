@@ -1,46 +1,63 @@
 import { useState } from 'react'
 import { useTranslation } from '../i18n/index.js'
 
-// One choice's cover, decorative (the tile's name is 보기 N), so alt is
-// empty. With no URL, or after the image fails, it is the empty placeholder
-// of cycle 098. The caller keys this component by URL, so a failure is
+// One choice's cover in its .tframe, decorative (the tile's name is 보기 N),
+// so alt is empty. With no URL, or after the image fails, the frame stays
+// empty (cycle 098). The caller keys this component by URL, so a failure is
 // forgotten when the cover changes.
 function ChoiceCover({ url }) {
   const [failed, setFailed] = useState(false)
-  if (url === null || failed) return <span className="reveal-cover-empty block h-full w-full" />
-  return <img src={url} alt="" draggable={false} className="h-full w-full object-contain" onError={() => setFailed(true)} />
-}
-
-// The tile's mark: the reveal's correct tile, then the own pick, sent
-// (picked) or known wrong (a pick-result, or a reveal naming another tile).
-function markOf(position, picked, pickWrong, correctChoice) {
-  if (correctChoice === position) return 'correct'
-  if (picked !== position) return undefined
-  return pickWrong || correctChoice !== null ? 'wrong' : 'picked'
-}
-
-// The cover tiles of a choice room's song (cycle 100, D-111): 4 columns of
-// 3:4 tiles at every width and for every count, so every tile has the same
-// fixed box and the grid one height from prepare to the next prepare.
-// enabled is the caller's rule (audible, not watching, no pick, no answer
-// yet); onPick gets the 0-based position.
-export default function ChoiceGrid({ choices, picked, pickWrong, correctChoice, enabled, onPick }) {
-  const { t } = useTranslation()
   return (
-    <div className="choice-grid mx-auto grid w-full max-w-md shrink-0 grid-cols-4 gap-2">
-      {choices.map((url, i) => (
-        <button
-          key={i}
-          type="button"
-          className="choice-tile aspect-[3/4] w-full min-w-0 overflow-hidden p-0"
-          aria-label={t('answer.choiceN', { n: i + 1 })}
-          data-choice={markOf(i, picked, pickWrong, correctChoice)}
-          disabled={!enabled}
-          onClick={() => onPick(i)}
-        >
-          <ChoiceCover key={url ?? 'none'} url={url} />
-        </button>
-      ))}
+    <span className="tframe">
+      {url !== null && !failed && <img src={url} alt="" draggable={false} onError={() => setFailed(true)} />}
+    </span>
+  )
+}
+
+// The tile's mark and whether it is disabled, as the mockup's renderChoices.
+// The first matching case applies: the reveal, then the own pick (wrong or
+// awaiting its pick-result), then picking not allowed.
+function tileState(position, { revealed, picked, pickWrong, correctChoice, enabled }) {
+  if (revealed) {
+    if (position === correctChoice) return { mark: 'correct', disabled: true }
+    return { mark: position === picked ? 'wrong' : 'dim', disabled: true }
+  }
+  if (picked !== null) {
+    if (position !== picked) return { mark: 'locked', disabled: true }
+    return { mark: pickWrong ? 'wrong' : null, disabled: true }
+  }
+  return { mark: null, disabled: !enabled }
+}
+
+// The cover tiles of a choice room's song (cycle 100, D-111) in the mockup's
+// markup (cycle 112, D-124): div.choices.k<k>, each button.tile holding
+// .tframe, the number badge .tno and the .tmark (its text comes from
+// room.css). Shown from prepare to the next prepare. enabled is the caller's
+// rule (audible, not watching, no pick, no answer yet); revealed is the
+// reveal; onPick gets the 0-based position. Before the reveal nothing marks
+// the correct tile (A9).
+export default function ChoiceGrid({ choices, revealed, picked, pickWrong, correctChoice, enabled, onPick }) {
+  const { t } = useTranslation()
+  const marks = { revealed, picked, pickWrong, correctChoice, enabled }
+  return (
+    <div className={`choices k${choices.length}`}>
+      {choices.map((url, i) => {
+        const { mark, disabled } = tileState(i, marks)
+        return (
+          <button
+            key={i}
+            type="button"
+            className={mark === null ? 'tile' : `tile ${mark}`}
+            aria-label={t('answer.choiceN', { n: i + 1 })}
+            disabled={disabled}
+            onClick={() => onPick(i)}
+          >
+            <ChoiceCover key={url ?? 'none'} url={url} />
+            <span className="tno">{i + 1}</span>
+            <span className="tmark" />
+          </button>
+        )
+      })}
     </div>
   )
 }
