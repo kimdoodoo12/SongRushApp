@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from '../i18n/index.js'
 import { drawPlayer } from './drawPlayer.js'
+import { canvasDpr, sizeViz } from '../canvas/index.js'
 
 // The mockup's deck (D-124): #viz, the player (.disc with its canvas, and
 // the .mark), the tone arm and the .cover frame. Cycle 111 ports the mockup's
 // drawPlayer (the disc, redrawn on a mood change), showCover and pixelate
 // (the frame), and the deck classes of startRound, reveal and finish. #viz is
-// drawn in cycle 115. The CSS spins the disc only under body.playing (set by
+// drawn by App's frame loop (cycle 115); the deck sizes it, as the mockup's
+// sizeViz does on a new game and on resize. The CSS spins the disc only under body.playing (set by
 // the game screen).
 
 // The frame's size with no image (the mockup's showCover).
@@ -135,6 +137,7 @@ export default function Deck({ idle, revealed, reveal, title, outcome, number, m
   const imgRef = useRef(null)
   const pixRef = useRef(null)
   const discRef = useRef(null)
+  const vizRef = useRef(null)
   const pixJobs = useRef(0)
   // The reveal whose image failed: it then counts as no image.
   const [failedFor, setFailedFor] = useState(null)
@@ -143,6 +146,14 @@ export default function Deck({ idle, revealed, reveal, title, outcome, number, m
   useEffect(() => {
     drawPlayer(discRef.current, mood)
   }, [mood])
+
+  useLayoutEffect(() => {
+    const viz = vizRef.current
+    const size = () => sizeViz(viz, canvasDpr())
+    size()
+    window.addEventListener('resize', size)
+    return () => window.removeEventListener('resize', size)
+  }, [])
 
   useEffect(() => {
     const jobs = pixJobs
@@ -191,7 +202,7 @@ export default function Deck({ idle, revealed, reveal, title, outcome, number, m
   const shown = reveal !== null
   return (
     <div ref={deckRef} className="deck">
-      <canvas id="viz" aria-hidden="true" />
+      <canvas ref={vizRef} id="viz" aria-hidden="true" />
       <div className="player">
         <div className="disc">
           <canvas ref={discRef} width="520" height="520" aria-hidden="true" />
