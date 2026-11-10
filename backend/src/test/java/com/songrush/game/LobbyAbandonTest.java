@@ -250,7 +250,11 @@ class LobbyAbandonTest {
 		lobby.ready(P3, 0);
 		lobby.ready(P3, 1);
 		scheduler.advance(Duration.ofMinutes(1));
-		assertThat(outbox.since(mark)).as("nothing from the dropped Room").isEmpty();
+		// Cycle 113: in LOBBY Hana's own line is lobby chat, broadcast to her; that is the only frame.
+		List<Sent> since = outbox.since(mark);
+		assertThat(since).extracting(Sent::to).as("only Hana's own lobby chat").containsExactly(P3);
+		assertThat(since.get(0).message()).as("nothing from the dropped Room").containsEntry("type", "chat")
+				.containsEntry("name", "Hana").containsEntry("text", "hello");
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.LOBBY);
 		assertThat(lobby.closed()).isFalse();
 	}

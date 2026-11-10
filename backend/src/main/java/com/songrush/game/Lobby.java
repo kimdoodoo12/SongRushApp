@@ -133,9 +133,13 @@ public final class Lobby {
 		// The score of the last finished game (0 before the first).
 		int score;
 
-		Member(String id, String name) {
+		// The lobby chat's token bucket (ChatRules), created full at join; a Room keeps its own.
+		final ChatRules.Bucket chatBucket;
+
+		Member(String id, String name, long nowMs) {
 			this.id = id;
 			this.name = name;
+			this.chatBucket = new ChatRules.Bucket(nowMs);
 		}
 
 	}
@@ -189,7 +193,7 @@ public final class Lobby {
 			return null;
 		}
 		String name = freeName(trimmed);
-		members.add(new Member(playerId, name));
+		members.add(new Member(playerId, name, clock.millis()));
 		cancelEmpty();
 		armIdle();
 		Member m = members.get(members.size() - 1);
@@ -398,10 +402,26 @@ public final class Lobby {
 		}
 	}
 
+	// During a game the Room handles chat. Between games a connected member's line, under the shared
+	// ChatRules, goes to every connected member, sender included, and is never answer-checked
+	// (docs/cycles/113-lobby-chat.md).
 	public void chat(String playerId, String text) {
 		if (forwards(playerId)) {
 			room.chat(playerId, text);
+			return;
 		}
+		Member m = member(playerId);
+		if (closed || room != null || m == null || !m.connected) {
+			return;
+		}
+		ChatRules.Verdict verdict = ChatRules.check(m.chatBucket, clock.millis(), text);
+		if (verdict != ChatRules.Verdict.PASS) {
+			if (verdict.errorCode() != null) {
+				error(playerId, verdict.errorCode());
+			}
+			return;
+		}
+		toConnected(message("chat", "name", m.name, "text", text));
 	}
 
 	public void skip(String playerId, int index) {
