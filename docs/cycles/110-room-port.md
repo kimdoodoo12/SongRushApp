@@ -179,3 +179,24 @@ The structure and class names follow the mockup's `#gameView` exactly. Its parts
 ## Out of scope
 - The deck drawing and reveal frames (111), choice-room markup (112), lobby chat (113), the lobby and start screen (114), and the canvases `#sky` and `#viz` (115).
 - Any server change.
+
+## Result
+- **Commits.**
+  - Spec: `2c2616b`.
+  - Tests: `888e0a2`, locked (12 files). They delete `themeLayout.test.js` and `themeTokens.test.js`.
+  - Implementation: `2cb55ee`.
+- **Verifier** (on `2cb55ee`):
+  - `npm test`: 551/551. Lint is clean and the build passes.
+  - The locked-test diff is empty. No backend file or owner file is in the branch diff.
+  - An independent script diffed the mockup CSS (demo rules excluded) against `room.css`: 545 vs 545 normalized lines, diff 0.
+- **Lead browser check.** Edge, local jar plus vite. The mockup was driven by its own lobby start; the site by a real room. Moods: sunset, chalk, pixel and manga, at 1280×800 and 390×844. Computed styles of 16 selectors were compared.
+  - Fonts, sizes, colours, radii and shadows are equal everywhere.
+  - `border-top-style` is `solid` on the site and `none` in the mockup for unbordered elements. Tailwind preflight sets `border: 0 solid`, the width stays 0, and nothing is visible.
+  - `.btn` font size differs only because the first `.btn` in the mockup is its demo-only header button.
+  - **`.settings` is missing on the site** for a game with no filters. The site keeps today's rule: the line lists only the applied filters, which existing tests pin. That is game content, not CSS.
+  - **The skip count** appears after the first vote, as today, also game content.
+  - Both were tried in attempt 2 and reverted: they conflict with existing behaviour tests. Kept as they were.
+  - The disc drawing, the reveal frames and the background are cycles 111 and 115.
+  - Captures: `docs/design/110/` (`ref-*` is the mockup, `site-*` is the site).
+- **Critic code review.** No Blocker and no High.
+  - Medium: the mood flips between the own pick and the room's while connecting or rejoining. Moved into cycle 111, item 7.
