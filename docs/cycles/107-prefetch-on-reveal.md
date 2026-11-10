@@ -170,3 +170,10 @@
 - **Incidents.**
   - The first "on" attempt failed because the PC's network was degraded (github.com took 19 s). The owner switched networks.
   - Edge DevTools now exposes the Network filter as `role=combobox`, so the capture tool's locator was widened to accept it.
+- **Not done as planned.**
+  - The report uses the pre-107 off runs, and says so.
+  - The on runs were taken on a different network after the PC's line degraded. This is also disclosed.
+  - The owner judged the off runs sufficient: the speed was similar, and the wait is bounded by the 8 s rule.
+- **Fairness exposure, corrected.**
+  - A modified client can hear the next song from the reveal start until its start: 5 s + LEAD 3 s, about 8 s typically, and up to 5 + 25 + 3 = 33 s when the room waits for a slow player.
+  - That is 5 s more than before. D-119's "a few seconds" was an understatement.
