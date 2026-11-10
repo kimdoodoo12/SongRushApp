@@ -66,3 +66,18 @@ Cut from dev after cycle 111 is merged: both cycles touch `GameScreen.jsx` and `
 ## Out of scope
 - The lobby's answer-mode control (cycle 114).
 - Server changes.
+
+## Result
+- **Commits.** Spec `88006db`. Tests `bfa765f` (locked). Implementation `d802ea5`. No test was changed after the lock.
+- **Verifier** (on `d802ea5`):
+  - `npm test` 635/635. Lint is clean and the build passes.
+  - The locked-test diff is empty.
+  - `room.css`, `roomCss.test.js` and `indexCss.test.js` are unchanged.
+  - Before the reveal, no class or attribute marks the correct tile.
+- **Critic code review:** no Blocker or High.
+  - **Medium:** in a ranked game, a player whose pick was correct sees no mark on the picked tile until the reveal (the others are `.locked`). The mockup has no such state. Recorded in Follow-ups for the owner's look.
+  - **Nit:** the waiting sub text in a choice game is still the chat one ("모두가 같은 순간에…"); the mockup's idle choice sub ("표지 N장 중 하나를…") is not ported. Recorded in Follow-ups.
+- **Lead browser check:** mockup choice mode (`setMode('choice',4)`) against a site choice room (default difficulty, k = 6), in sunset, chalk, pixel and manga, at 1280×800 and 390×844.
+  - Computed styles of `.choices`, `.tile`, `.tframe` and `.tno` are equal, apart from the column count and max-width, which follow k (4 in the mockup, 6 on the site), and the padding, which follows the width.
+  - The tiles, number badges, polaroid skins and fly-in look the same.
+  - Captures: `docs/design/112/`.
