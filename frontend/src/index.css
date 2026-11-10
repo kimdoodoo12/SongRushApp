@@ -124,35 +124,6 @@
     color: var(--a2);
     text-decoration: underline;
   }
-
-  /* A choice room's tiles (cycle 100) until cycle 112 ports them: only the
-     marks, so a pick and the answer stay visible. */
-  .choice-tile:disabled {
-    cursor: default;
-  }
-
-  .choice-tile[data-choice="picked"] {
-    box-shadow: 0 0 0 3px var(--a2);
-  }
-
-  .choice-tile[data-choice="wrong"] {
-    box-shadow: 0 0 0 3px var(--bad);
-  }
-
-  .choice-tile[data-choice="wrong"] img {
-    filter: grayscale(1) brightness(0.6);
-  }
-
-  .choice-tile[data-choice="correct"] {
-    box-shadow: 0 0 0 3px var(--ok);
-  }
-
-  /* The cover slot with no cover (cycle 098), in the reveal card until
-     cycle 111 moves the cover into the deck. */
-  .reveal-cover-empty {
-    border: 1px dashed var(--line);
-    border-radius: calc(var(--r) / 2);
-  }
 }
 
 /* Unlayered, so they beat room.css's global button reset (border and

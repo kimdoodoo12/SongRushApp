@@ -623,3 +623,5 @@ Decided:
   - `JsonErrorController` turns non-standard status codes into 500; use `HttpStatusCode.valueOf`. A direct `/error` call returns 500; return 404 when there is no status attribute.
   - The Stop hook runs areas one after another, each up to 850 s, so two changed areas can exceed the 900 s cap. Share one deadline across runners.
 - (109) The manga mood's `--good` and `--bad` are nearly the same red, so a correct mark and an error are hard to tell apart. Chalk lost its wooden frame shadow. Review both in F-030.
+- (112) Ranked choice game: a pending correct pick shows no mark on its tile until the reveal, and the other tiles dim. The mockup has no such state. The owner should look at it.
+- (112) The waiting sub text in a choice game is still the chat one; the mockup's idle choice sub ("표지 N장 중 하나를 고르는 객관식이에요…") is not ported.

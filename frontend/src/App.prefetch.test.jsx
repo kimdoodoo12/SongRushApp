@@ -240,8 +240,15 @@ function srcs(list) {
   return list.map((t) => t.querySelector('img').getAttribute('src'))
 }
 
+// Cycle 112 (declared): the mark is the tile's class (correct, wrong, dim or
+// locked; the mockup's renderChoices), no longer data-choice. null with none.
+const MARKS = ['correct', 'wrong', 'dim', 'locked']
+
 function marks(list) {
-  return list.map((b) => b.getAttribute('data-choice'))
+  return list.map((b) => {
+    const found = MARKS.filter((m) => b.classList.contains(m))
+    return found.length === 0 ? null : found.join(' ')
+  })
 }
 
 function revealShown() {
@@ -286,7 +293,7 @@ async function revealedChoiceSong(env, { choices = true } = {}) {
   deliver(socket, revealMsg(0, choices ? { correctChoice: 2 } : {}))
   deliver(socket, { type: 'scores', scores: [{ name: '하루', score: 0 }] })
   expect(revealShown()).toBe(true)
-  if (choices) expect(marks(koTiles(4))).toEqual([null, null, 'correct', null])
+  if (choices) expect(marks(koTiles(4))).toEqual(['dim', 'dim', 'correct', 'dim'])
   return socket
 }
 
@@ -297,7 +304,7 @@ function expectHeldReveal() {
   expect(roundShown('2 / 5')).toBe(false)
   expect(tileCount(), 'the revealed song keeps its 4 tiles').toBe(4)
   expect(srcs(koTiles(4))).toEqual(COVERS4)
-  expect(marks(koTiles(4))).toEqual([null, null, 'correct', null])
+  expect(marks(koTiles(4))).toEqual(['dim', 'dim', 'correct', 'dim'])
 }
 
 // Song 1's round as a fresh prepare shows it: label, 6 unmarked tiles, no reveal.

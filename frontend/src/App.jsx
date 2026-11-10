@@ -351,6 +351,17 @@ function GameApp({
     document.documentElement.dataset.mood = theme
   }, [theme])
 
+  // body.choice-mode while the current game is a choice game (the mockup's
+  // setMode, cycle 112): the room.css layout with the tiles below the deck
+  // and the panel. Off in a chat game and once the game screen is left.
+  const choiceGame =
+    (state.screen === 'game' || state.screen === 'over') &&
+    (state.choices !== null || (state.settings !== null && state.settings.answerMode === 'choice'))
+  useLayoutEffect(() => {
+    document.body.classList.toggle('choice-mode', choiceGame)
+    return () => document.body.classList.remove('choice-mode')
+  }, [choiceGame])
+
   const banner = state.reconnecting && (
     <p
       className="reconnecting rounded-xl border border-warn/40 bg-warn/10 px-4 py-2 text-center text-sm font-semibold text-warn"

@@ -32,20 +32,23 @@
 //   flag: started and the clock has passed startAt), for watchers, after a
 //   pick and from the reveal on.
 // - A click sends exactly one {type:"pick", index, choice} and disables all
-//   tiles; the clicked tile gets data-choice="picked". pick-result{index,
-//   choice} (means wrong) sets data-choice="wrong" on that tile.
+//   tiles; the other tiles get .locked, the clicked one no mark. pick-result
+//   {index, choice} (means wrong) sets .wrong on that tile.
+//   Cycle 112 (declared, D-124): the marks are the mockup's classes on
+//   button.tile (correct, wrong, dim, locked), not data-choice; see
+//   App.choiceport.test.jsx for the markup and the full mark rules.
 //   error{code:"too-early", for:"pick"} re-enables the tiles and clears the
 //   mark; error{code:"already-picked", for:"pick"} keeps every tile disabled;
 //   an error for something else does not re-enable them.
 // - declared change (100 review M1): already-picked locks instead of
 //   re-enabling; too-early still re-enables.
-// - reveal{..., correctChoice}: the tile at correctChoice gets
-//   data-choice="correct"; the own wrong pick keeps data-choice="wrong"; the
-//   grid stays (all tiles disabled) under the reveal card. The next prepare
+// - reveal{..., correctChoice}: the tile at correctChoice gets .correct;
+//   the own wrong pick keeps .wrong; every other tile gets .dim; the grid
+//   stays (all tiles disabled) under the reveal card. The next prepare
 //   replaces the tiles and clears every mark.
 // - snapshot: the per-song fields are on song: song.choices and
 //   song.picked (position or null). A non-null picked shows that tile as
-//   data-choice="wrong" with every tile disabled.
+//   .wrong, the others .locked, with every tile disabled.
 // - Chat in a choice room works exactly as in a chat room (owner O1): the
 //   input stays enabled and sends chat{text}, also after a wrong pick; a
 //   correct frame from a chat answer ends the song like any other, and the
@@ -328,8 +331,15 @@ function disabledStates(list) {
   return list.map((b) => b.disabled)
 }
 
+// Cycle 112 (declared): the mark is the tile's class (correct, wrong, dim or
+// locked; the mockup's renderChoices), no longer data-choice. null with none.
+const MARKS = ['correct', 'wrong', 'dim', 'locked']
+
 function marks(list) {
-  return list.map((b) => b.getAttribute('data-choice'))
+  return list.map((b) => {
+    const found = MARKS.filter((m) => b.classList.contains(m))
+    return found.length === 0 ? null : found.join(' ')
+  })
 }
 
 function settingsLines() {
@@ -609,7 +619,7 @@ describe('a pick', () => {
     fireEvent.click(koTiles(4)[2])
     await waitFor(() => expect(socket.sentOfType('pick')).toEqual([{ type: 'pick', index: 0, choice: 2 }]))
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
-    expect(marks(koTiles(4))).toEqual([null, null, 'picked', null])
+    expect(marks(koTiles(4))).toEqual(['locked', 'locked', null, 'locked'])
     fireEvent.click(koTiles(4)[2])
     fireEvent.click(koTiles(4)[0])
     await settle()
@@ -639,6 +649,7 @@ describe('a pick', () => {
     deliver(socket, { type: 'error', code: 'already-picked', for: 'pick' })
     await settle(300)
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
+    expect(marks(koTiles(4))).toEqual([null, null, null, null])
     fireEvent.click(koTiles(4)[1])
     await settle()
     expect(socket.sentOfType('pick')).toHaveLength(1)
@@ -652,7 +663,7 @@ describe('a pick', () => {
     deliver(socket, { type: 'error', code: 'rate-limited', for: 'skipVote' })
     await settle()
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
-    expect(marks(koTiles(4))).toEqual(['picked', null, null, null])
+    expect(marks(koTiles(4))).toEqual([null, 'locked', 'locked', 'locked'])
   })
 
   it('pick-result marks the tile wrong and the tiles stay disabled', async () => {
@@ -661,7 +672,7 @@ describe('a pick', () => {
     fireEvent.click(koTiles(4)[1])
     await waitFor(() => expect(socket.sentOfType('pick')).toHaveLength(1))
     deliver(socket, { type: 'pick-result', index: 0, choice: 1 })
-    await waitFor(() => expect(marks(koTiles(4))).toEqual([null, 'wrong', null, null]))
+    await waitFor(() => expect(marks(koTiles(4))).toEqual(['locked', 'wrong', 'locked', 'locked']))
     await settle(300)
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
   })
@@ -676,7 +687,7 @@ describe('the reveal', () => {
     deliver(socket, { type: 'pick-result', index: 0, choice: 1 })
     deliver(socket, revealMsg(0, { correctChoice: 3 }))
     await waitFor(() => expect(screen.getByText(ko.reveal.heading)).toBeTruthy())
-    expect(marks(koTiles(4))).toEqual([null, 'wrong', null, 'correct'])
+    expect(marks(koTiles(4))).toEqual(['dim', 'wrong', 'dim', 'correct'])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
     expect(koTiles(4).map((t) => t.querySelector('img').getAttribute('src'))).toEqual(COVERS4)
   })
@@ -686,7 +697,7 @@ describe('the reveal', () => {
     const socket = await choiceSongAudible(env)
     deliver(socket, revealMsg(0, { correctChoice: 0 }))
     await waitFor(() => expect(screen.getByText(ko.reveal.heading)).toBeTruthy())
-    expect(marks(koTiles(4))).toEqual(['correct', null, null, null])
+    expect(marks(koTiles(4))).toEqual(['correct', 'dim', 'dim', 'dim'])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
   })
 
@@ -722,7 +733,7 @@ describe('chat in a choice room (owner O1)', () => {
     fireEvent.click(koTiles(4)[1])
     await waitFor(() => expect(socket.sentOfType('pick')).toHaveLength(1))
     deliver(socket, { type: 'pick-result', index: 0, choice: 1 })
-    await waitFor(() => expect(marks(koTiles(4))).toEqual([null, 'wrong', null, null]))
+    await waitFor(() => expect(marks(koTiles(4))).toEqual(['locked', 'wrong', 'locked', 'locked']))
     const input = screen.getByLabelText(ko.chat.input)
     expect(input.disabled).toBe(false)
     fireEvent.change(input, { target: { value: '진격의 거인' } })
@@ -737,7 +748,7 @@ describe('chat in a choice room (owner O1)', () => {
     await waitFor(() => expect(disabledStates(koTiles(4))).toEqual([true, true, true, true]))
     deliver(socket, revealMsg(0, { correctChoice: 2, winner: '하루' }))
     await waitFor(() => expect(screen.getByText(ko.reveal.heading)).toBeTruthy())
-    expect(marks(koTiles(4))).toEqual([null, null, 'correct', null])
+    expect(marks(koTiles(4))).toEqual(['dim', 'dim', 'correct', 'dim'])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
     expect(socket.sentOfType('pick')).toEqual([])
   })
@@ -852,7 +863,7 @@ describe('rejoin', () => {
     const env = setup()
     const attempt = await rejoined(env)
     await playingSnapshot(env, attempt, 2)
-    expect(marks(koTiles(4))).toEqual([null, null, 'wrong', null])
+    expect(marks(koTiles(4))).toEqual(['locked', 'locked', 'wrong', 'locked'])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
   })
 

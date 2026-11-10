@@ -33,8 +33,9 @@
 //   ranking list.
 // - Rejoin snapshot in ranked (R5): song.answered (bool) and song.correct
 //   ([{name, rank}]). The seats get the 정답! tag for every name in correct.
-//   In a choice room a held song.picked is shown as data-choice="wrong" only
-//   when answered is false; with answered true it is never "wrong". Either
+//   In a choice room a held song.picked is shown as .wrong only when
+//   answered is false; with answered true it is never .wrong (cycle 112,
+//   declared: the mark is the tile's class, no longer data-choice). Either
 //   way every tile is disabled.
 // - First come is unchanged (one regression test here; the rest is covered
 //   by App.chatcorrect.test.jsx and App.choice.test.jsx).
@@ -319,8 +320,15 @@ function disabledStates(list) {
   return list.map((b) => b.disabled)
 }
 
+// Cycle 112 (declared): the mark is the tile's class (correct, wrong, dim or
+// locked; the mockup's renderChoices), no longer data-choice. null with none.
+const MARKS = ['correct', 'wrong', 'dim', 'locked']
+
 function marks(list) {
-  return list.map((b) => b.getAttribute('data-choice'))
+  return list.map((b) => {
+    const found = MARKS.filter((m) => b.classList.contains(m))
+    return found.length === 0 ? null : found.join(' ')
+  })
 }
 
 const revealMsg = (index, extra = {}) => ({
@@ -822,7 +830,7 @@ describe('rejoin (R5)', () => {
       { choices: choicesOf(COVERS4), picked: 2, answered: false, correct: [{ name: 'Joon', rank: 1 }] },
       { answerMode: 'choice' },
     )
-    expect(marks(koTiles(4))).toEqual([null, null, 'wrong', null])
+    expect(marks(koTiles(4))).toEqual(['locked', 'locked', 'wrong', 'locked'])
     expect(disabledStates(koTiles(4))).toEqual([true, true, true, true])
     expect(taggedSeats(['하루', 'Joon'])).toEqual(['Joon'])
   })
