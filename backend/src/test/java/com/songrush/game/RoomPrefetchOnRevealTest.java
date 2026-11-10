@@ -204,13 +204,21 @@ class RoomPrefetchOnRevealTest {
 		Room probe = new Room(catalog, probeTokens, probeScheduler, probeClock, new Random(SEED), probeOutbox,
 				List.of(MINA, JOON));
 		probe.start(5);
-		probeScheduler.advance(Duration.ofHours(1));
-		assertThat(probeOutbox.ofType("gameOver")).as("probe game finished").hasSize(1);
+		// cycle 107: declared fix (token read before expiry): each prepare's token is resolved within a
+		// second of its sending, not after the whole game.
 		List<Integer> order = new ArrayList<>();
-		for (Sent s : probeOutbox.ofType("prepare")) {
-			String url = (String) s.message().get("audioUrl");
-			order.add(probeTokens.resolve(url.substring("/audio/".length())).orElseThrow());
+		for (int second = 0; second <= 3600; second++) {
+			List<Sent> prepares = probeOutbox.ofType("prepare");
+			for (Sent s : prepares.subList(order.size(), prepares.size())) {
+				String url = (String) s.message().get("audioUrl");
+				order.add(probeTokens.resolve(url.substring("/audio/".length())).orElseThrow());
+			}
+			if (!probeOutbox.ofType("gameOver").isEmpty()) {
+				break;
+			}
+			probeScheduler.advance(Duration.ofSeconds(1));
 		}
+		assertThat(probeOutbox.ofType("gameOver")).as("probe game finished").hasSize(1);
 		assertThat(order).hasSize(5);
 		return order;
 	}
@@ -556,7 +564,8 @@ class RoomPrefetchOnRevealTest {
 	void aPauseDuringTheRevealStopsItAndResumeReprepareWithoutHoldMsThenStartsAtOnceWhenAllReady() {
 		buildEarly();
 		playSongZeroToReveal();
-		Map<String, Object> early = lastPrepare();
+		// cycle 107: declared fix (token read before expiry)
+		int earlyTheme = themeOf(lastPrepare());
 		scheduler.advance(Duration.ofSeconds(1));
 		readyAll(1);
 		room.pause();
@@ -571,7 +580,7 @@ class RoomPrefetchOnRevealTest {
 		Map<String, Object> again = sent.get(0).message();
 		assertThat(again.keySet()).as("re-prepare keys").containsExactlyElementsOf(DEFAULT_PREPARE_KEYS);
 		assertThat(num(again, "index")).isEqualTo(1);
-		assertThat(themeOf(again)).isEqualTo(themeOf(early));
+		assertThat(themeOf(again)).isEqualTo(earlyTheme);
 		assertThat(room.phase()).isEqualTo(Room.Phase.PREPARE);
 
 		mark = outbox.mark();
