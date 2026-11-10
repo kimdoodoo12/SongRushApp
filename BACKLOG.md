@@ -375,6 +375,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [ ] **B-032** backend: lobby chat (from D-123, design 108 item 7). While no room runs, chat is broadcast to the lobby's connected members, under the same flood, length and invisible rules (shared code). It is never answer-checked.
 - [ ] **F-028** frontend: lobby redesign and lobby chat (from D-121/D-123, design 108 item 8). A ticket with the code, share link and n/8; a settings card; per-mood signage in ko/en/ja; a lobby chat log and input. The chat is cleared on entry and on 대기실로.
 - [ ] **F-029** frontend: mood scenes and visualizer (design 108 item 9). A background canvas per mood and a deck visualizer. The analyser is a side tap only. Off under reduced motion, and paused when the tab is hidden.
+
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.

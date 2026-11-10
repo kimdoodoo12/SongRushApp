@@ -70,7 +70,7 @@ Roadmap: M-1 혼자 플레이 프로토타입 → M-2 방 → M-3 동기화 라�
 |---|---|---|
 | `guard.py` | 도구 실행 전 | 잠긴 테스트 쓰기, main 커밋, 강제 푸시, main push, 히스토리 재작성 차단 |
 | `lock.py` | lead가 직접 실행 | 테스트 경로 잠금·해제 |
-| `check_on_stop.py` | 종료 시 | 바뀐 영역의 테스트 실행: `backend/`는 `gradlew test`, `frontend/`는 `npm test`, `data/`는 `pytest`. `contracts/`가 바뀌면 `backend/`와 `data/`를 둘 다 돌림. 테스트가 잠긴 구현 단계에서 실패하면 종료를 막고, 3회 넘게 실패하면 `blocked.log`에 기록. 준비 안 된 영역은 UNVERIFIED로 알리고 통과로 치지 않음 |
+| `check_on_stop.py` | 종료 시 | 테스트가 잠긴 동안에만, 종료하는 세션이 고친 영역의 테스트 실행(세션 기록으로 판단하며, 작성 에이전트에 맡겼거나 셸로 고쳤으면 바뀐 영역 전체): `backend/`는 `gradlew test`, `frontend/`는 `npm test`, `data/`는 `pytest`. `contracts/`가 바뀌면 `backend/`와 `data/`를 둘 다 돌림. 테스트가 잠긴 구현 단계에서 실패하면 종료를 막고, 3회 넘게 실패하면 `blocked.log`에 기록. 준비 안 된 영역은 UNVERIFIED로 알리고 통과로 치지 않음 |
 | `notify_discord.py` | 종료 시 | 네 가지 모드로 Discord에 알림. `stop`(프로젝트): `PROGRESS.md`의 새 결정 요청이나 새 BLOCKED. `notification`(전역): 권한 확인 창이나 입력 대기. `failure`(전역): 사용량 한도·과부하·네트워크 같은 API 오류로 턴이 끝났을 때. `end`(전역): 세션 종료. 네트워크가 끊겨 보내지 못한 알림은 outbox에 쌓아 두고, 백그라운드 재전송기가 다시 보냄. 항상 종료 코드 0이라 알림 실패가 사이클을 막지 않음 |
 
 ### 6.3 브랜치
