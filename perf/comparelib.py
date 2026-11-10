@@ -91,3 +91,11 @@ def summarize_group(results):
                     key=lambda t: datetime.fromisoformat(t.replace("Z", "+00:00")))
     summary["times"] = (stamps[0], stamps[-1]) if stamps else None
     return summary
+
+
+def ratio(numerator, denominator):
+    """numerator / denominator rounded to 1 decimal ("약 N배"), or None when
+    either is missing or the denominator is not positive."""
+    if numerator is None or denominator is None or denominator <= 0:
+        return None
+    return round(numerator / denominator, 1)
