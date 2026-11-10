@@ -83,7 +83,10 @@
     "hint": "Type the anime title in the chat to guess the song",
     "skip": "Skip",
     "skipCancel": "Unskip",
-    "skipCount": "Skip {{votes}}/{{needed}}"
+    "skipCount": "Skip {{votes}}/{{needed}}",
+    "sub": "Korean, English, Japanese and romaji titles all count. Spaces and punctuation are ignored.",
+    "soon": "When the song plays, type the anime title in the chat",
+    "soonSub": "Everyone hears the same song at the same moment."
   },
   "reveal": {
     "heading": "Answer",
@@ -96,7 +99,15 @@
       "en": "EN",
       "ja": "JA",
       "romaji": "Romaji"
-    }
+    },
+    "solvers": "Solved: {{names}}",
+    "next": "The next song starts in a moment",
+    "nextFinal": "The final ranking is up in a moment",
+    "rankPlace": "#{{rank}}",
+    "rankPoints": "+{{points}}",
+    "stampHit": "Correct",
+    "stampPass": "Pass",
+    "sfx": "BA-DUM!"
   },
   "chat": {
     "label": "Chat",
@@ -104,7 +115,8 @@
     "placeholder": "Type the anime title",
     "send": "Send",
     "correctLine": "{{name}} got it!",
-    "correctRanked": "{{name}} got it! (#{{rank}})"
+    "correctRanked": "{{name}} got it! (#{{rank}})",
+    "live": "{{n}} online"
   },
   "score": {
     "board": "Scoreboard",
@@ -169,5 +181,17 @@
   "volume": {
     "label": "Volume",
     "mute": "Mute"
+  },
+  "mood": {
+    "tag": {
+      "sunset": "One record, one glass of sunset",
+      "rain": "Dawn by the window, listening",
+      "sakura": "A night of pulling your favourite card",
+      "neon": "Signal hunting",
+      "chalk": "After school: music quiz time",
+      "pixel": "Insert coin",
+      "matsuri": "Guess the song under the fireworks",
+      "manga": "Next chapter: the answer revealed!"
+    }
   }
 }

@@ -1,10 +1,14 @@
 @import "tailwindcss";
 
-/* Room looks: the eight moods (cycle 109, D-122), ported from the token
-   blocks of docs/design/108-ui-design-reference.html (first: cycle 071).
-   Each look is a token set on the app shell's data-room-theme; the Tailwind
-   colours below read the tokens directly (inline), so utilities such as
-   text-muted or bg-bad/10 follow the look. */
+/* Cycle 110 (D-124): the look is room.css, the mockup's own stylesheet,
+   loaded after this file (main.jsx). This file keeps only Tailwind, the
+   interim aliases below and what the screens outside the mockup (start,
+   lobby, admin, feedback) still need until cycle 114. No rule here names a
+   class that room.css defines, so nothing here can override a mockup rule
+   (indexCss.test.js). */
+
+/* The Tailwind colours read the tokens directly (inline), so utilities such
+   as text-muted or bg-bad/10 follow the mood. */
 @theme inline {
   --color-surface: var(--panel);
   --color-line: var(--line);
@@ -18,724 +22,78 @@
   --font-display: var(--font-d);
 }
 
-/* Layout tokens: declared once, outside the looks, so switching the look
-   never moves or resizes a box (cycle 076). A look keeps a heavier frame
-   with --ring, an inset shadow that takes no layout space. */
-.app-shell {
-  --bw: 2px;
+/* Interim aliases until cycle 114: the old token names that the start,
+   lobby, admin and feedback screens still read, as names for the mockup's
+   tokens (room.css sets those per mood on :root[data-mood]). */
+:root {
+  --soft: var(--dim);
+  --good: var(--ok);
+  --good-text: var(--ok);
+  --bad: #ff6b81;
+  --warn: #fbbf24;
+  --font-d: var(--f-display);
 }
 
-/* ---------- 1. 노을 옥상: sunset rooftop (also the default) ---------- */
-.app-shell,
-[data-room-theme="sunset"] {
-  --scheme: dark;
-  --ring: 0px; --r: 18px; --font-d: "Jua", "IBM Plex Sans KR", system-ui, sans-serif; --font-b: "Gowun Dodum", "IBM Plex Sans KR", system-ui, sans-serif;
-  --bg: radial-gradient(ellipse at 50% -10%, #ff8a4c2e 0, transparent 60%), #1c0f1a;
-  --solid-bg: #1c0f1a;
-  --solid: #2a1624;
-  --panel: #2a1624; --panel-me: #3a1f30; --line: #4a2a3c; --ink: #fff1e6; --soft: #c4a3a8;
-  --a1: #ff8a4c; --a1-ink: #1c0f1a; --a2: #ffcf70; --a3: #ff5d8f; --good: #9ff0a8; --good-text: #9ff0a8; --good-ink: #1c0f1a; --me: #ffcf70;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #9ff0a8, 0 0 22px #9ff0a859; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #ffcf70; --code-line: #ffcf70; --av-ink: #1c0f1a; --av-line: transparent; --av-r: 50%;
-  --bub: #fff1e6; --bub-ink: #1c0f1a; --bub-line: #fff1e6;
-  --record: repeating-radial-gradient(circle, #1c0f1a 0 2px, #3a1f30 2px 4px); --label: #ff8a4c; --record-glow: 0 0 #0000;
-  --sheen: #ffcf7080; --label-dot: #1c0f1a;
-  --eq: #ff8a4c; --eq2: #ffcf70; --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 #0000;
-  --track: #3a1f30; --fill: linear-gradient(90deg, #ff8a4c, #ffcf70); --fill-glow: none;
-  --btn: transparent; --btn-ink: #fff1e6; --btn-shadow: 0 0 #0000; --go-line: #ff8a4c;
-  --card: #2a1624; --card-line: #4a2a3c; --input: #1c0f1a;
-  --stage: #2a1624; --frame: #4a2a3c; --glow1: none; --glow2: none; --clock: #fff1e6;
-}
-/* ---------- 2. 비 오는 밤: rainy night ---------- */
-[data-room-theme="rain"] {
-  --scheme: dark;
-  --ring: 0px; --r: 4px; --font-d: "Gowun Batang", Georgia, serif; --font-b: "Gowun Batang", Georgia, serif;
-  --bg: radial-gradient(ellipse at 50% -10%, #a9b8ff2e 0, transparent 60%), #0b131d;
-  --solid-bg: #0b131d;
-  --solid: #101c2a;
-  --panel: #101c2a; --panel-me: #172638; --line: #22364c; --ink: #e6eef8; --soft: #8aa0b8;
-  --a1: #8cc8ff; --a1-ink: #0b131d; --a2: #d6ecff; --a3: #a9b8ff; --good: #8ff0c8; --good-text: #8ff0c8; --good-ink: #0b131d; --me: #d6ecff;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #8ff0c8, 0 0 22px #8ff0c859; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #d6ecff; --code-line: #d6ecff; --av-ink: #0b131d; --av-line: transparent; --av-r: 50%;
-  --bub: #e6eef8; --bub-ink: #0b131d; --bub-line: #e6eef8;
-  --record: repeating-radial-gradient(circle, #0b131d 0 2px, #172638 2px 4px); --label: #8cc8ff; --record-glow: 0 0 #0000;
-  --sheen: #d6ecff80; --label-dot: #0b131d;
-  --eq: #8cc8ff; --eq2: #d6ecff; --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 #0000;
-  --track: #172638; --fill: linear-gradient(90deg, #8cc8ff, #d6ecff); --fill-glow: none;
-  --btn: transparent; --btn-ink: #e6eef8; --btn-shadow: 0 0 #0000; --go-line: #8cc8ff;
-  --card: #101c2a; --card-line: #22364c; --input: #0b131d;
-  --stage: #101c2a; --frame: #22364c; --glow1: none; --glow2: none; --clock: #e6eef8;
-}
-/* ---------- 3. 벚꽃 밤: cherry blossom night ---------- */
-[data-room-theme="sakura"] {
-  --scheme: dark;
-  --ring: 0px; --r: 24px; --font-d: "Gaegu", "Jua", system-ui, sans-serif; --font-b: "Gowun Dodum", "IBM Plex Sans KR", system-ui, sans-serif;
-  --bg: radial-gradient(ellipse at 50% -10%, #ff9ec42e 0, transparent 60%), #161430;
-  --solid-bg: #161430;
-  --solid: #211d45;
-  --panel: #211d45; --panel-me: #2c2758; --line: #3b3570; --ink: #fff5fa; --soft: #b9b0d8;
-  --a1: #ff9ec4; --a1-ink: #161430; --a2: #ffe08a; --a3: #9fe8d4; --good: #9fe8d4; --good-text: #9fe8d4; --good-ink: #161430; --me: #ffe08a;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #9fe8d4, 0 0 22px #9fe8d459; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #ffe08a; --code-line: #ffe08a; --av-ink: #161430; --av-line: transparent; --av-r: 50%;
-  --bub: #fff5fa; --bub-ink: #161430; --bub-line: #fff5fa;
-  --record: repeating-radial-gradient(circle, #161430 0 2px, #2c2758 2px 4px); --label: #ff9ec4; --record-glow: 0 0 #0000;
-  --sheen: #ffe08a80; --label-dot: #161430;
-  --eq: #ff9ec4; --eq2: #ffe08a; --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 #0000;
-  --track: #2c2758; --fill: linear-gradient(90deg, #ff9ec4, #ffe08a); --fill-glow: none;
-  --btn: transparent; --btn-ink: #fff5fa; --btn-shadow: 0 0 #0000; --go-line: #ff9ec4;
-  --card: #211d45; --card-line: #3b3570; --input: #161430;
-  --stage: #211d45; --frame: #3b3570; --glow1: none; --glow2: none; --clock: #fff5fa;
-}
-/* ---------- 4. 네온 시티: neon city ---------- */
-[data-room-theme="neon"] {
-  --scheme: dark;
-  --ring: 0px; --r: 0px; --font-d: "Do Hyeon", "IBM Plex Sans KR", system-ui, sans-serif; --font-b: "IBM Plex Sans KR", system-ui, sans-serif;
-  --bg: radial-gradient(ellipse at 50% -10%, #ff3fd22e 0, transparent 60%), #07060f;
-  --solid-bg: #07060f;
-  --solid: #0e0b1c;
-  --panel: #0e0b1c; --panel-me: #161130; --line: #2a2050; --ink: #f0f6ff; --soft: #8f86b8;
-  --a1: #ff3fd2; --a1-ink: #07060f; --a2: #33f3ff; --a3: #f8ff4a; --good: #4dffa6; --good-text: #4dffa6; --good-ink: #07060f; --me: #33f3ff;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #4dffa6, 0 0 22px #4dffa659; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #33f3ff; --code-line: #33f3ff; --av-ink: #07060f; --av-line: transparent; --av-r: 50%;
-  --bub: #f0f6ff; --bub-ink: #07060f; --bub-line: #f0f6ff;
-  --record: repeating-radial-gradient(circle, #07060f 0 2px, #161130 2px 4px); --label: #ff3fd2; --record-glow: 0 0 40px #ff3fd259;
-  --sheen: #33f3ff80; --label-dot: #07060f;
-  --eq: #ff3fd2; --eq2: #33f3ff; --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 10px #33f3ff73;
-  --track: #161130; --fill: linear-gradient(90deg, #ff3fd2, #33f3ff); --fill-glow: 0 0 14px #ff3fd299;
-  --btn: transparent; --btn-ink: #f0f6ff; --btn-shadow: 0 0 #0000; --go-line: #ff3fd2;
-  --card: #0e0b1c; --card-line: #2a2050; --input: #07060f;
-  --stage: #0e0b1c; --frame: #2a2050; --glow1: 0 0 12px color-mix(in srgb, #ff3fd2 70%, transparent); --glow2: 0 0 12px color-mix(in srgb, #ff3fd2 70%, transparent); --clock: #f0f6ff;
-}
-/* ---------- 5. 칠판 교실: chalkboard classroom ---------- */
-[data-room-theme="chalk"] {
-  --scheme: dark;
-  --ring: 0px; --r: 6px; --font-d: "Nanum Pen Script", "Gaegu", cursive; --font-b: "Gaegu", "Gowun Dodum", sans-serif;
-  --bg: #203b31;
-  --solid-bg: #203b31;
-  --solid: #24443a;
-  --panel: #24443a; --panel-me: #2d5146; --line: #4d6e62; --ink: #f3f1e7; --soft: #b9c7bd;
-  --a1: #ffe27a; --a1-ink: #203b31; --a2: #ffb3c1; --a3: #9ad7ff; --good: #c6f39a; --good-text: #c6f39a; --good-ink: #203b31; --me: #ffb3c1;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #c6f39a, 0 0 22px #c6f39a59; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #ffb3c1; --code-line: #ffb3c1; --av-ink: #203b31; --av-line: transparent; --av-r: 50%;
-  --bub: #f3f1e7; --bub-ink: #203b31; --bub-line: #f3f1e7;
-  --record: repeating-radial-gradient(circle, #203b31 0 2px, #2d5146 2px 4px); --label: #ffe27a; --record-glow: 0 0 #0000;
-  --sheen: #ffb3c180; --label-dot: #203b31;
-  --eq: #ffe27a; --eq2: #ffb3c1; --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 #0000;
-  --track: #2d5146; --fill: linear-gradient(90deg, #ffe27a, #ffb3c1); --fill-glow: none;
-  --btn: transparent; --btn-ink: #f3f1e7; --btn-shadow: 0 0 #0000; --go-line: #ffe27a;
-  --card: #24443a; --card-line: #4d6e62; --input: #203b31;
-  --stage: #24443a; --frame: #4d6e62; --glow1: none; --glow2: none; --clock: #f3f1e7;
-}
-/* ---------- 6. 8비트 오락실: 8-bit arcade ---------- */
-[data-room-theme="pixel"] {
-  --scheme: dark;
-  --ring: 0px; --r: 0px; --font-d: "Do Hyeon", "IBM Plex Sans KR", sans-serif; --font-b: "Do Hyeon", "IBM Plex Sans KR", sans-serif;
-  --bg: radial-gradient(ellipse at 50% -10%, #3fe0ff2e 0, transparent 60%), #0f0a24;
-  --solid-bg: #0f0a24;
-  --solid: #1a1238;
-  --panel: #1a1238; --panel-me: #251a4d; --line: #3e2f7a; --ink: #ffffff; --soft: #a49ad6;
-  --a1: #ff5c8a; --a1-ink: #0f0a24; --a2: #ffd23f; --a3: #3fe0ff; --good: #6dff6d; --good-text: #6dff6d; --good-ink: #0f0a24; --me: #ffd23f;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #6dff6d, 0 0 22px #6dff6d59; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #ffd23f; --code-line: #ffd23f; --av-ink: #0f0a24; --av-line: transparent; --av-r: 0;
-  --bub: #ffffff; --bub-ink: #0f0a24; --bub-line: #ffffff;
-  --record: repeating-radial-gradient(circle, #0f0a24 0 2px, #251a4d 2px 4px); --label: #ff5c8a; --record-glow: 0 0 #0000;
-  --sheen: #ffd23f80; --label-dot: #0f0a24;
-  --eq: #ff5c8a; --eq2: #ffd23f; --eq-line: transparent; --eq-r: 0; --eq-glow: 0 0 #0000;
-  --track: #251a4d; --fill: linear-gradient(90deg, #ff5c8a, #ffd23f); --fill-glow: none;
-  --btn: transparent; --btn-ink: #ffffff; --btn-shadow: 0 0 #0000; --go-line: #ff5c8a;
-  --card: #1a1238; --card-line: #3e2f7a; --input: #0f0a24;
-  --stage: #1a1238; --frame: #3e2f7a; --glow1: none; --glow2: none; --clock: #ffffff;
-}
-/* ---------- 7. 여름 축제: summer festival ---------- */
-[data-room-theme="matsuri"] {
-  --scheme: dark;
-  --ring: 0px; --r: 10px; --font-d: "Yeon Sung", "Gowun Batang", serif; --font-b: "Gowun Dodum", "IBM Plex Sans KR", sans-serif;
-  --bg: radial-gradient(ellipse at 50% -10%, #ff5a4e2e 0, transparent 60%), #0e1430;
-  --solid-bg: #0e1430;
-  --solid: #18204a;
-  --panel: #18204a; --panel-me: #222b5a; --line: #343e74; --ink: #fff6ea; --soft: #b3b6d4;
-  --a1: #ff5a4e; --a1-ink: #0e1430; --a2: #ffc94d; --a3: #6fd3ff; --good: #a8f07a; --good-text: #a8f07a; --good-ink: #0e1430; --me: #ffc94d;
-  --warn: #fbbf24; --bad: #ff6b81;
-  --shadow: 0 0 #0000; --got-shadow: 0 0 0 1px #a8f07a, 0 0 22px #a8f07a59; --room-shadow: 0 0 #0000;
-  --code-bg: transparent; --code-ink: #ffc94d; --code-line: #ffc94d; --av-ink: #0e1430; --av-line: transparent; --av-r: 50%;
-  --bub: #fff6ea; --bub-ink: #0e1430; --bub-line: #fff6ea;
-  --record: repeating-radial-gradient(circle, #0e1430 0 2px, #222b5a 2px 4px); --label: #ff5a4e; --record-glow: 0 0 #0000;
-  --sheen: #ffc94d80; --label-dot: #0e1430;
-  --eq: #ff5a4e; --eq2: #ffc94d; --eq-line: transparent; --eq-r: 6px; --eq-glow: 0 0 #0000;
-  --track: #222b5a; --fill: linear-gradient(90deg, #ff5a4e, #ffc94d); --fill-glow: none;
-  --btn: transparent; --btn-ink: #fff6ea; --btn-shadow: 0 0 #0000; --go-line: #ff5a4e;
-  --card: #18204a; --card-line: #343e74; --input: #0e1430;
-  --stage: #18204a; --frame: #343e74; --glow1: none; --glow2: none; --clock: #fff6ea;
-}
-/* ---------- 8. 만화 원고: manga manuscript (the one light mood) ---------- */
-[data-room-theme="manga"] {
-  --scheme: light;
-  --ring: 1px; --r: 0px; --font-d: "Black Han Sans", "IBM Plex Sans KR", sans-serif; --font-b: "IBM Plex Sans KR", system-ui, sans-serif;
-  --bg: #fbfbf8;
-  --solid-bg: #fbfbf8;
-  --solid: #ffffff;
-  --panel: #ffffff; --panel-me: #efefea; --line: #111111; --ink: #111111; --soft: #555555;
-  --a1: #111111; --a1-ink: #ffffff; --a2: #e0262f; --a3: #111111; --good: #e0262f; --good-text: #e0262f; --good-ink: #ffffff; --me: #e0262f;
-  --warn: #b45309; --bad: #d92d3a;
-  --shadow: 0 4px 0 #111111; --got-shadow: 0 4px 0 #e0262f; --room-shadow: 0 6px 0 #111111;
-  --code-bg: #111111; --code-ink: #ffffff; --code-line: transparent; --av-ink: #111111; --av-line: #111111; --av-r: 50%;
-  --bub: #ffffff; --bub-ink: #111111; --bub-line: #111111;
-  --record: repeating-radial-gradient(circle, #111111 0 3px, #2a2a2a 3px 6px); --label: #111111; --record-glow: 0 0 #0000;
-  --sheen: rgba(255,255,255,.42); --label-dot: #ffffff;
-  --eq: #111111; --eq2: #e0262f; --eq-line: #111111; --eq-r: 0; --eq-glow: 0 0 #0000;
-  --track: #efefea; --fill: linear-gradient(90deg, #111111, #e0262f); --fill-glow: none;
-  --btn: #ffffff; --btn-ink: #111111; --btn-shadow: 0 3px 0 #111111; --go-line: #111111;
-  --card: #ffffff; --card-line: #111111; --input: #efefea;
-  --stage: #ffffff; --frame: #111111; --glow1: none; --glow2: none; --clock: #111111;
+/* #root sits between body and the mockup's .app, which fills the page
+   height (room.css sets html and body to 100%). */
+#root {
+  height: 100%;
 }
 
-@layer base {
-  html {
-    color-scheme: light;
+/* ---- Interim until cycle 114: the screens outside the mockup ---- */
+
+@layer components {
+  :is(.start-screen, .room, .admin, .feedback, .lang-switch) button {
+    padding: 0.5rem 1rem;
+    border-radius: var(--r);
   }
 
-  /* A neutral fallback; the app shell paints the look over the whole page. */
-  body {
-    min-height: 100vh;
-    background-color: #e9eef6;
-    color: #1f2430;
-    font-family: "Gowun Dodum", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
-    line-height: 1.5;
-    overflow-x: hidden;
-  }
-
-  /* A fixed height, so the field does not follow the look's font metrics. */
-  input[type="text"],
-  select {
+  :is(.start-screen, .room, .admin, .feedback) :is(input[type="text"], select, textarea) {
     width: 100%;
     min-width: 0;
-    height: 2.25rem;
-    border-radius: calc(var(--r) - 6px);
-    border: var(--bw) solid var(--line);
-    box-shadow: inset 0 0 0 var(--ring) var(--line);
-    background: var(--input);
+    border-radius: calc(var(--r) / 2);
+    border: 1px solid var(--line);
+    background: var(--bg);
     color: var(--ink);
     padding: 0 0.75rem;
     font: inherit;
-    transition: border-color 150ms, box-shadow 150ms;
   }
 
-  input[type="text"]::placeholder {
-    color: var(--soft);
+  :is(.start-screen, .room, .admin, .feedback) :is(input[type="text"], select) {
+    height: 2.25rem;
   }
 
-  /* The feedback body (cycle 082): the field look without the fixed height;
-     it grows only vertically. */
-  textarea {
-    width: 100%;
-    min-width: 0;
-    border-radius: calc(var(--r) - 6px);
-    border: var(--bw) solid var(--line);
-    box-shadow: inset 0 0 0 var(--ring) var(--line);
-    background: var(--input);
-    color: var(--ink);
-    padding: 0.5rem 0.75rem;
-    font: inherit;
+  :is(.start-screen, .room, .admin, .feedback) textarea {
+    padding-block: 0.5rem;
     resize: vertical;
-    transition: border-color 150ms, box-shadow 150ms;
   }
 
-  input[type="text"]:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible {
-    outline: 2px solid var(--a1);
-    outline-offset: 1px;
+  :is(.start-screen, .room, .admin, .feedback) input[type="text"]::placeholder {
+    color: var(--dim);
   }
 
-  select option {
-    background-color: var(--solid);
+  :is(.start-screen, .room, .admin, .feedback) select option {
+    background-color: var(--panel);
     color: var(--ink);
   }
 
-  button {
-    cursor: pointer;
-    border-radius: calc(var(--r) - 6px);
-    border: var(--bw) solid var(--line);
-    background: var(--btn);
-    color: var(--btn-ink);
-    box-shadow: inset 0 0 0 var(--ring) var(--line), var(--btn-shadow);
-    padding: 0.5rem 1rem;
-    font: inherit;
-    font-family: var(--font-d);
-    transition: filter 150ms, transform 150ms, opacity 150ms;
-  }
-
-  button.go {
-    background: var(--a1);
-    color: var(--a1-ink);
-    border-color: var(--go-line);
-    box-shadow: inset 0 0 0 var(--ring) var(--go-line), var(--btn-shadow);
-  }
-
-  button:hover:not(:disabled) {
-    filter: brightness(1.08);
-  }
-
-  button:active:not(:disabled) {
-    transform: translateY(1px);
-  }
-
-  button:focus-visible {
-    outline: 2px solid var(--a1);
-    outline-offset: 2px;
-  }
-
-  button:disabled {
-    cursor: not-allowed;
-    opacity: 0.45;
-  }
-}
-
-@layer components {
-  .app-shell {
-    position: relative;
-    color-scheme: var(--scheme);
-    background: var(--solid-bg);
-    color: var(--ink);
-    font-family: var(--font-b);
-    transition: color 0.4s;
-  }
-
-  /* The look's background on a fixed layer, so it covers the viewport at
-     any scroll position; the shell paints the solid colour under it, so a
-     full-page capture is covered too. */
-  .app-shell::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: var(--bg);
+  /* The start card, the lobby sections, the dialog and the admin records:
+     a panel box in the mood's colours. */
+  .room-controls,
+  .room > section,
+  .feedback,
+  .admin article {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
   }
 
   .brand {
-    font-family: var(--font-d);
-    color: var(--a1);
-    text-shadow: var(--glow1);
-  }
-
-  .panel {
-    background: var(--panel);
-    border: var(--bw) solid var(--line);
-    border-radius: var(--r);
-    box-shadow: inset 0 0 0 var(--ring) var(--line), var(--shadow);
-  }
-
-  /* The room frame around the lobby and the game. The same padding in
-     every look; a look's heavier frame is an inset shadow. */
-  .room {
-    position: relative;
-    border: var(--bw) solid var(--frame);
-    border-radius: calc(var(--r) + 8px);
-    box-shadow: inset 0 0 0 var(--ring) var(--frame), var(--room-shadow);
-    padding: 14px;
-  }
-
-  @media (min-width: 768px) {
-    .room {
-      padding: 18px;
-    }
-  }
-
-  /* The room code: a fixed box for five characters in any look's font. */
-  .code {
-    display: inline-block;
-    box-sizing: border-box;
-    width: calc(5.4em + 24px + 2 * var(--bw));
-    height: calc(1.5em + 8px + 2 * var(--bw));
-    padding: 4px 12px;
-    border-radius: 999px;
-    letter-spacing: 0.12em;
-    text-align: center;
-    white-space: nowrap;
-    font-family: var(--font-d);
-    background: var(--code-bg);
-    color: var(--code-ink);
-    border: var(--bw) solid var(--code-line);
-  }
-
-  .chip {
-    display: inline-block;
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--soft);
-    border: var(--bw) solid var(--line);
-    box-shadow: inset 0 0 0 var(--ring) var(--line);
-    font-family: var(--font-d);
-  }
-
-  /* The 분위기 picker: buttons at least 8rem wide that grow to the whole
-     name, so no mood name is cut in ko, en or ja (D-095); the row wraps. */
-  .pick {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    min-width: 8rem;
-    height: 36px;
-    padding: 0 6px 0 5px;
-    border-radius: 999px;
-    background: var(--solid);
-    color: var(--ink);
-    border: var(--bw) solid var(--line);
-    box-shadow: inset 0 0 0 var(--ring) var(--line);
-    font-size: 14px;
-    line-height: 20px;
-    white-space: nowrap;
-  }
-
-  /* 13px in every look; the whole name, never cut. */
-  .pick-name {
-    font-size: 13px;
-  }
-
-  .pick[aria-pressed="true"] {
-    background: var(--a1);
-    color: var(--a1-ink);
-  }
-
-  .pick:disabled {
-    opacity: 0.6;
-  }
-
-  .pick[aria-pressed="true"]:disabled {
-    opacity: 1;
-  }
-
-  .pick-swatch {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    border: 1px solid rgb(0 0 0 / 0.2);
-  }
-
-  /* Seats. */
-  .seat-me {
-    border-color: var(--me);
-    background: var(--panel-me);
-    box-shadow: inset 0 0 0 var(--ring) var(--me), var(--shadow);
-  }
-
-  .seat-got {
-    border-color: var(--good);
-    box-shadow: inset 0 0 0 var(--ring) var(--good), var(--got-shadow);
-  }
-
-  .seat-empty {
-    border: var(--bw) dashed var(--line);
-    border-radius: var(--r);
-    color: var(--soft);
-    font-family: var(--font-d);
-  }
-
-  .avatar {
-    border-radius: var(--av-r);
-    color: var(--av-ink);
-    border: var(--bw) solid var(--av-line);
-    box-shadow: inset 0 0 0 var(--ring) var(--av-line);
-    font-family: var(--font-d);
-  }
-
-  .crown {
-    color: #ffc531;
-  }
-
-  .seat-tag {
-    border-radius: 999px;
-    background: var(--good);
-    color: var(--good-ink);
-    font-family: var(--font-d);
-  }
-
-  .bubble {
-    background: var(--bub);
-    color: var(--bub-ink);
-    border: var(--bw) solid var(--bub-line);
-    box-shadow: inset 0 0 0 var(--ring) var(--bub-line);
-  }
-
-  .bubble-tail {
-    background: var(--bub);
-    border: 0 solid var(--bub-line);
-  }
-
-  /* The stage. */
-  .stage {
-    background: var(--stage);
-  }
-
-  .round-num {
-    color: var(--a1);
-    text-shadow: var(--glow1);
-  }
-
-  /* The clock: a fixed box that fits 90초 in any look's font. */
-  .clock {
-    font-family: var(--font-d);
-    color: var(--clock);
-    text-shadow: var(--glow2);
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .record {
-    width: 128px;
-    height: 128px;
-    border-radius: 50%;
-    position: relative;
-    animation: sr-spin 3.2s linear infinite;
-    background: var(--record);
-    border: var(--bw) solid var(--line);
-    box-shadow: inset 0 0 0 var(--ring) var(--line), var(--record-glow);
-  }
-
-  /* The rotation cue (cycle 078): concentric grooves and a plain label look
-     the same at every angle, so two uneven light streaks on the grooves and
-     a dot on the label turn with the record. Both are paint only, in the
-     look's --sheen and --label-dot; the boxes are the record's own. */
-  .record::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: conic-gradient(
-      from 0deg,
-      transparent 0deg,
-      var(--sheen) 6deg 34deg,
-      transparent 40deg 150deg,
-      var(--sheen) 156deg 170deg,
-      transparent 176deg 360deg
-    );
-  }
-
-  .record::after {
-    content: "";
-    position: absolute;
-    inset: 39%;
-    border-radius: 50%;
-    background: radial-gradient(circle at 50% 24%, var(--label-dot) 0 13%, transparent 15%), var(--label);
-    border: var(--bw) solid var(--line);
-  }
-
-  .eq {
-    display: flex;
-    align-items: flex-end;
-    gap: 5px;
-    height: 86px;
-  }
-
-  .eq span {
-    width: 12px;
-    border-radius: var(--eq-r);
-    animation: sr-bounce 1s ease-in-out infinite;
-    background: var(--eq);
-    border: var(--bw) solid var(--eq-line);
-    box-shadow: inset 0 0 0 var(--ring) var(--eq-line), var(--eq-glow);
-  }
-
-  .eq span:nth-child(even) { background: var(--eq2); }
-  .eq span:nth-child(2) { animation-delay: -0.2s; }
-  .eq span:nth-child(3) { animation-delay: -0.5s; }
-  .eq span:nth-child(4) { animation-delay: -0.7s; }
-  .eq span:nth-child(5) { animation-delay: -0.35s; }
-  .eq span:nth-child(6) { animation-delay: -0.85s; }
-  .eq span:nth-child(7) { animation-delay: -0.15s; }
-
-  @media (min-width: 768px) {
-    .record {
-      width: 170px;
-      height: 170px;
-    }
-
-    .eq {
-      height: 110px;
-    }
-  }
-
-  /* A choice room's stage below md (cycle 100, spec A10): the record and
-     the equalizer shrink to one short row, so the cover grid fits a phone
-     screen (390x844) while the song plays. The same in every look; md and
-     up, and chat rooms, keep the full disc. */
-  @media (max-width: 767.98px) {
-    .stage[data-answer-mode="choice"] .record {
-      width: 56px;
-      height: 56px;
-    }
-
-    .stage[data-answer-mode="choice"] .eq {
-      height: 40px;
-      gap: 3px;
-    }
-
-    .stage[data-answer-mode="choice"] .eq span {
-      width: 8px;
-    }
-  }
-
-  /* The ring is drawn on a layer above the fill, so the fill never covers
-     it; the layer takes no layout space. */
-  .timebar {
-    position: relative;
-    background: var(--track);
-    border: var(--bw) solid var(--line);
-  }
-
-  .timebar::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 var(--ring) var(--line);
-    pointer-events: none;
-  }
-
-  .timebar-fill {
-    background: var(--fill);
-    box-shadow: var(--fill-glow);
-  }
-
-  .skip-on {
-    background: var(--a1);
-    color: var(--a1-ink);
-  }
-
-  /* The own volume (D-099): the native range in the look's accent; its box
-     is fixed by utilities and the same in every look. */
-  .volume-slider {
-    accent-color: var(--a1);
-    cursor: pointer;
-  }
-
-  .volume-slider:focus-visible {
-    outline: 2px solid var(--a1);
-    outline-offset: 2px;
-  }
-
-  .correct {
-    background: var(--good);
-    color: var(--good-ink);
-  }
-
-  /* The reveal: one card flipping in. */
-  .flip {
-    perspective: 900px;
-  }
-
-  .card {
-    border-radius: var(--r);
-    animation: sr-flip-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    background: var(--card);
-    border: var(--bw) solid var(--card-line);
-    box-shadow: inset 0 0 0 var(--ring) var(--card-line), var(--shadow);
-  }
-
-  /* The cover slot with no cover (cycle 098): a faint frame of the same
-     size, so the card keeps its height. */
-  .reveal-cover-empty {
-    border: var(--bw) dashed color-mix(in srgb, var(--soft) 45%, transparent);
-    border-radius: calc(var(--r) / 2);
-    background: color-mix(in srgb, var(--soft) 8%, transparent);
-  }
-
-  /* The choice tiles (cycle 100): the box is fixed by utilities (4 columns,
-     3:4); these rules only paint. A disabled tile dims less than a button,
-     and a marked one not at all, so the marks stay readable. */
-  .choice-tile {
-    background: var(--solid);
-  }
-
-  .choice-tile:disabled {
-    opacity: 0.7;
-  }
-
-  .choice-tile[data-choice]:disabled {
-    opacity: 1;
-  }
-
-  .choice-tile[data-choice="picked"] {
-    border-color: var(--a1);
-    box-shadow: inset 0 0 0 3px var(--a1), var(--btn-shadow);
-  }
-
-  .choice-tile[data-choice="wrong"] {
-    border-color: var(--bad);
-    box-shadow: inset 0 0 0 3px var(--bad), var(--btn-shadow);
-  }
-
-  .choice-tile[data-choice="wrong"] img {
-    opacity: 0.45;
-  }
-
-  .choice-tile[data-choice="correct"] {
-    border-color: var(--good);
-    box-shadow: inset 0 0 0 3px var(--good), var(--btn-shadow);
-  }
-
-  .card-label {
+    font-family: var(--f-display);
     color: var(--a1);
   }
 
-  .card-slug {
-    background: color-mix(in srgb, var(--a1) 18%, transparent);
-    color: var(--a1);
-    font-family: var(--font-d);
-  }
-
-  .card-winner {
-    background: var(--good);
-    color: var(--good-ink);
-  }
-
-  /* A ranked reveal's rows (cycle 101): the box is fixed by utilities and
-     scrolls inside; these rules only paint. Rank 1 looks like the winner
-     line, the others are softer. */
-  .card-rank-row {
-    background: color-mix(in srgb, var(--good) 22%, transparent);
-  }
-
-  .card-rank-row:first-child {
-    background: var(--good);
-    color: var(--good-ink);
-  }
-
-  .rank-row:first-child {
-    border-color: var(--a1);
-    box-shadow: inset 0 0 0 var(--ring) var(--a1), var(--shadow);
-    color: var(--a1);
-    font-family: var(--font-d);
-  }
-
-  /* The chat under the stage. */
-  .send {
-    border-top: var(--bw) dashed var(--line);
-  }
-
-  .chat-mark {
-    border: 1px solid rgb(0 0 0 / 0.2);
-  }
-
-  /* The 정답 system line in the chat log (D-094). Colour only: --good-text
-     is --good darkened where --good is under 4.5:1 on the panel. */
-  .chat-system {
-    color: var(--good-text);
-  }
-
-  /* The 문의하기 dialog (cycle 082): a dimmed layer over the page; the
-     dialog itself is a .panel, so it takes the look's colours. */
+  /* The 문의하기 dialog (cycle 082): a dimmed layer over the page. */
   .feedback-backdrop {
     background: rgb(0 0 0 / 0.45);
   }
@@ -762,98 +120,57 @@
     overflow-wrap: anywhere;
   }
 
-  .admin-tab[aria-selected="true"] {
-    background: var(--a1);
-    color: var(--a1-ink);
-    border-color: var(--go-line);
-  }
-
   .admin-link {
     color: var(--a2);
     text-decoration: underline;
   }
-}
 
-/* Per-look touches from the mockup. Unlayered, so they beat the utilities
-   (a look's text stroke over a utility's, for example). A look may
-   change only how things are painted, never a size or a position (cycle 076):
-   no font-size, font-weight, letter-spacing, padding or border width here.
-   The mockup's bold display type is a thin text stroke instead, which paints
-   over the glyphs without changing their advance. */
-[data-room-theme="sakura"] .round,
-[data-room-theme="sakura"] .clock,
-[data-room-theme="sakura"] .card h2,
-[data-room-theme="sakura"] .brand,
-[data-room-theme="rain"] .brand {
-  -webkit-text-stroke: 0.03em currentColor;
-}
-
-/* Nanum Pen Script runs small (the mockup set chalk's type 1.15-1.2 times
-   larger). font-size-adjust scales its glyphs inside the same boxes: 0.57 is
-   1.2 times the font's x-height of 0.476 em. */
-[data-room-theme="chalk"] .brand,
-[data-room-theme="chalk"] .font-display,
-[data-room-theme="chalk"] .code,
-[data-room-theme="chalk"] .chip,
-[data-room-theme="chalk"] .seat-empty,
-[data-room-theme="chalk"] .seat-tag,
-[data-room-theme="chalk"] .avatar,
-[data-room-theme="chalk"] .card-slug,
-[data-room-theme="chalk"] .rank-row:first-child,
-[data-room-theme="chalk"] button {
-  font-size-adjust: 0.57;
-}
-
-/* In Nanum Pen Script "71초" reads like the word 기초: digits and the clock
-   use a clearer face, at the same size. */
-[data-room-theme="chalk"] .clock,
-[data-room-theme="chalk"] .round-num {
-  font-family: "Gaegu", "Gowun Dodum", sans-serif;
-  font-size-adjust: none;
-  -webkit-text-stroke: 0.03em currentColor;
-}
-
-/* While the song's audio is loading or failed to load, the record and the
-   equalizer stand still (D-101). Paint only: the play state, never a box.
-   Placed after the theme rules with higher specificity, so neither the base
-   animation shorthand nor a theme's record rule resets it. */
-.disc-area[data-paused="true"] .record,
-.disc-area[data-paused="true"] .record::before,
-.disc-area[data-paused="true"] .record::after,
-.disc-area[data-paused="true"] .eq span {
-  animation-play-state: paused;
-}
-
-@keyframes sr-spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes sr-bounce {
-  0%, 100% { height: 22%; }
-  50% { height: 100%; }
-}
-
-@keyframes sr-flip-in {
-  from { transform: rotateY(-90deg); opacity: 0; }
-  to { transform: rotateY(0); opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .record,
-  .eq span,
-  .card,
-  .sound-prompt {
-    animation: none !important;
+  /* A choice room's tiles (cycle 100) until cycle 112 ports them: only the
+     marks, so a pick and the answer stay visible. */
+  .choice-tile:disabled {
+    cursor: default;
   }
 
-  .eq span {
-    height: 60%;
+  .choice-tile[data-choice="picked"] {
+    box-shadow: 0 0 0 3px var(--a2);
   }
 
-  .app-shell,
-  .bubble,
-  button,
-  .timebar-fill {
-    transition: none !important;
+  .choice-tile[data-choice="wrong"] {
+    box-shadow: 0 0 0 3px var(--bad);
   }
+
+  .choice-tile[data-choice="wrong"] img {
+    filter: grayscale(1) brightness(0.6);
+  }
+
+  .choice-tile[data-choice="correct"] {
+    box-shadow: 0 0 0 3px var(--ok);
+  }
+
+  /* The cover slot with no cover (cycle 098), in the reveal card until
+     cycle 111 moves the cover into the deck. */
+  .reveal-cover-empty {
+    border: 1px dashed var(--line);
+    border-radius: calc(var(--r) / 2);
+  }
+}
+
+/* Unlayered, so they beat room.css's global button reset (border and
+   background) on these screens only; the mockup's own classes, such as
+   .moods buttons, keep their rules by specificity and order. */
+:is(.start-screen, .room, .admin, .feedback, .lang-switch) button {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+}
+
+:is(.start-screen, .room, .admin, .feedback, .lang-switch) button[aria-pressed="true"],
+.admin-tab[aria-selected="true"] {
+  background: var(--a1);
+  border-color: var(--a1);
+  color: var(--bg);
+}
+
+:is(.start-screen, .room, .admin, .feedback, .lang-switch) button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }

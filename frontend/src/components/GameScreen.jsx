@@ -1,52 +1,51 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { settingsLine } from '../game/filters.js'
 import { nameColour } from '../game/themes.js'
 import ChoiceGrid from './ChoiceGrid.jsx'
+import Deck from './Deck.jsx'
 import Seats from './Seats.jsx'
+import ThemePicker from './ThemePicker.jsx'
 import VolumeControl from './VolumeControl.jsx'
-import { Trans, currentLanguage, messageText, useTranslation } from '../i18n/index.js'
+import { Trans, messageText, useTranslation } from '../i18n/index.js'
 
-const EQ_BARS = [0, 1, 2, 3, 4, 5, 6]
 // The mark before a system line in the chat log.
 const CHECK = String.fromCharCode(0x2714)
 // The reveal card's title lines, in card order.
 const TITLE_LANGS = ['ko', 'en', 'ja', 'romaji']
 const HANGUL = /[ㄱ-ㆎ가-힣]/
+// The clock turns .low at this many seconds or less (the mockup's rule).
+const LOW_SECONDS = 10
+// The chat log follows new lines while it is scrolled to within this many
+// pixels of its end (the mockup's rule); the own line always scrolls it.
+const STICK_PX = 60
 
-function TimeBar({ max, remaining }) {
+const LOAD_KEY = {
+  loading: 'stage.loading',
+  failed: 'stage.loadFailed',
+}
+
+// The time bar: the fill shrinks from the left by scaleX, as in the mockup.
+// It is a progressbar only while a song has a clock.
+function TimeBar({ timer }) {
   const { t } = useTranslation()
-  const percent = max > 0 ? (remaining / max) * 100 : 0
+  if (timer === null) {
+    return (
+      <div className="timebar">
+        <div className="timebar-fill" />
+      </div>
+    )
+  }
+  const ratio = timer.max > 0 ? Math.min(1, Math.max(0, timer.remaining / timer.max)) : 0
   return (
     <div
-      className="timebar h-3.5 w-full overflow-hidden rounded-full"
+      className="timebar"
       role="progressbar"
       aria-label={t('stage.timeLeft')}
       aria-valuemin={0}
-      aria-valuemax={max}
-      aria-valuenow={remaining}
+      aria-valuemax={timer.max}
+      aria-valuenow={timer.remaining}
     >
-      <div
-        className="timebar-fill h-full rounded-full transition-[width] duration-200 ease-linear"
-        style={{ width: `${percent}%` }}
-      />
-    </div>
-  )
-}
-
-// The spinning record and the equalizer while a round runs; decoration only.
-// Until the song actually plays they stand still (D-101).
-function Disc({ paused }) {
-  return (
-    <div
-      className="disc-area flex flex-1 flex-wrap items-center justify-center gap-6"
-      data-paused={paused ? 'true' : undefined}
-    >
-      <div className="record" aria-hidden="true" />
-      <div className="eq" aria-hidden="true">
-        {EQ_BARS.map((n) => (
-          <span key={n} />
-        ))}
-      </div>
+      <div className="timebar-fill" style={{ transform: `scaleX(${ratio})` }} />
     </div>
   )
 }
@@ -58,16 +57,6 @@ function firstTitle(titles, lang) {
   return list[0]
 }
 
-// A title line's language label, the same box in every look and language.
-function TitleLabel({ lang }) {
-  const { t } = useTranslation()
-  return (
-    <span className="title-label w-14 shrink-0 truncate text-[11px] leading-4 tracking-wide text-muted">
-      {t(`reveal.label.${lang}`)}
-    </span>
-  )
-}
-
 // The title of a language's line. The KO line is the frame's reveal text
 // when that is Korean: titles.ko can be the raw source text, such as
 // "나루토 (애니메이션)", while reveal is the cleaned title.
@@ -76,11 +65,11 @@ function lineTitle(reveal, lang) {
   return firstTitle(reveal.titles, lang)
 }
 
-// The anime's cover at the top of the reveal card (cycle 097). It is
-// decorative (the title is on the card), so alt is empty. The slot is always
-// there, so the card keeps one height (cycle 098, D-109); with no cover, or
-// after the image fails, it is the empty placeholder. The caller keys this
-// component by coverUrl, so a failure is forgotten when the cover changes.
+// The anime's cover at the top of the reveal card (cycle 097), kept in the
+// card until cycle 111 moves it into the deck's frame. It is decorative (the
+// title is on the card), so alt is empty. With no cover, or after the image
+// fails, it is the empty placeholder. The caller keys this component by
+// coverUrl, so a failure is forgotten when the cover changes.
 function RevealCover({ coverUrl }) {
   const [failed, setFailed] = useState(false)
   const showing = coverUrl !== null && !failed
@@ -99,67 +88,101 @@ function RevealCover({ coverUrl }) {
   )
 }
 
-// A ranked song's ranking on the reveal card (cycle 101), in place of the
-// winner line: one fixed box in every look, three rows high, which scrolls
-// inside when more players answered.
-function RankingList({ rows }) {
-  const { t } = useTranslation()
+// The slug, then the song and the artists when the frame has them:
+// "OP1 · <b>song</b> — artist, artist".
+function ThemeLine({ reveal }) {
+  const hasSong = typeof reveal.song === 'string' && reveal.song !== ''
+  const artists = Array.isArray(reveal.artists) ? reveal.artists : []
   return (
-    <ul
-      className="card-ranking mt-3 flex h-20 w-full flex-col gap-1 overflow-y-auto text-sm leading-6"
-      aria-label={t('reveal.ranking')}
-    >
-      {rows.map((row) => (
-        <li key={row.name} className="card-rank-row font-display block h-6 w-full shrink-0 truncate rounded-full px-3.5">
-          {t('reveal.rankLine', { rank: row.rank, name: row.name, points: row.points })}
-        </li>
-      ))}
-    </ul>
+    <p className="theme-line">
+      {reveal.themeSlug}
+      {hasSong && (
+        <>
+          {' · '}
+          <b>{reveal.song}</b>
+        </>
+      )}
+      {artists.length > 0 && ` — ${artists.join(', ')}`}
+    </p>
   )
 }
 
-// The answer card; the flip-in is a CSS animation of this one card. The
-// big title is the line in the UI language when the frame has one, else
-// the line equal to the reveal text, else the bare reveal text; the other
-// languages are the smaller lines, so no title shows twice.
-function RevealCard({ reveal }) {
+// The mockup's answer card in the panel. A ranked song (cycle 101) names
+// every solver in .who and lists its ranking in ol.rank; a first-come song
+// names its winner. The four titles are dl.titles, the Korean one dd.ko.
+// There is no answer-time line (D-123).
+function RevealCard({ reveal, last }) {
   const { t } = useTranslation()
-  const lang = currentLanguage()
-  const lines = TITLE_LANGS.map((l) => ({ lang: l, title: lineTitle(reveal, l) })).filter((line) => line.title !== null)
-  const main = lines.find((line) => line.lang === lang) ?? lines.find((line) => line.title === reveal.title) ?? null
-  const others = lines.filter((line) => line !== main)
+  const lines = TITLE_LANGS.map((lang) => ({ lang, title: lineTitle(reveal, lang) })).filter((line) => line.title !== null)
+  const ranked = Array.isArray(reveal.ranking)
+  const solvers = ranked ? reveal.ranking.map((row) => row.name) : []
+  let who
+  if (ranked) who = solvers.length > 0 ? t('reveal.solvers', { names: solvers.join(', ') }) : null
+  else who = reveal.winner === null || reveal.winner === undefined ? null : t('reveal.winner', { name: reveal.winner })
   return (
-    <div className="flip grid w-full min-w-0 max-w-full flex-1 grid-cols-1 place-items-center">
-      <section className="reveal card w-full min-w-0 max-w-[min(420px,100%)] p-5 text-center md:p-6">
-        <RevealCover key={reveal.coverUrl ?? 'none'} coverUrl={reveal.coverUrl} />
-        <p className="card-label font-display h-5 truncate text-[13px] leading-5 tracking-[0.14em]">{t('reveal.heading')}</p>
-        {/* Two lines are kept for the title in every look, so the card has
-            the same box whichever font wraps it. */}
-        <div className="mt-1.5 mb-1 flex h-[65px] w-full min-w-0 max-w-full items-center justify-center gap-2 md:h-[75px]">
-          {main !== null && <TitleLabel lang={main.lang} />}
-          <h2 className="font-display line-clamp-2 min-w-0 flex-1 text-[26px] leading-tight wrap-anywhere md:text-[30px]">
-            {main === null ? reveal.title : main.title}
-          </h2>
-        </div>
-        {others.map((line) => (
-          <p key={line.lang} className="reveal-alt flex h-5 w-full min-w-0 items-center justify-center gap-2 text-sm leading-5">
-            <TitleLabel lang={line.lang} />
-            <span className="min-w-0 truncate">{line.title}</span>
-          </p>
-        ))}
-        <p className="card-slug mx-auto mt-1 block h-6 w-24 max-w-full truncate rounded-full px-3 py-0.5 text-xs leading-5 tracking-wide">{reveal.themeSlug}</p>
-        {reveal.song !== null && reveal.song !== undefined && <p className="mt-2 h-6 min-w-0 truncate text-base leading-6 wrap-anywhere">{reveal.song}</p>}
-        {reveal.artists.length > 0 && <p className="h-5 min-w-0 truncate text-sm leading-5 wrap-anywhere text-muted">{reveal.artists.join(', ')}</p>}
-        {Array.isArray(reveal.ranking) && reveal.ranking.length > 0 ? (
-          <RankingList rows={reveal.ranking} />
+    <div className="reveal">
+      <RevealCover key={reveal.coverUrl ?? 'none'} coverUrl={reveal.coverUrl} />
+      <h3>{t('reveal.heading')}</h3>
+      {who === null ? <p className="who none">{t('reveal.noWinner')}</p> : <p className="who">{who}</p>}
+      <dl className="titles">
+        {lines.length === 0 ? (
+          <>
+            <dt />
+            <dd className="ko">{reveal.title}</dd>
+          </>
         ) : (
-          <p className="card-winner font-display mt-3 block h-7 w-full truncate rounded-full px-3.5 py-1 text-sm leading-5">
-            {reveal.winner === null || reveal.winner === undefined || Array.isArray(reveal.ranking)
-              ? t('reveal.noWinner')
-              : t('reveal.winner', { name: reveal.winner })}
-          </p>
+          lines.map((line) => (
+            <Fragment key={line.lang}>
+              <dt>{t(`reveal.label.${line.lang}`)}</dt>
+              <dd className={line.lang === 'ko' ? 'ko' : undefined}>{line.title}</dd>
+            </Fragment>
+          ))
         )}
-      </section>
+      </dl>
+      {ranked && reveal.ranking.length > 0 && (
+        <ol className="rank" aria-label={t('reveal.ranking')}>
+          {reveal.ranking.map((row) => (
+            <li key={row.name}>
+              <span className="p">{t('reveal.rankPlace', { rank: row.rank })}</span>{' '}
+              <span>{row.name}</span>{' '}
+              <span className="s">{t('reveal.rankPoints', { points: row.points })}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <ThemeLine reveal={reveal} />
+      <p className="next">{last ? t('reveal.nextFinal') : t('reveal.next')}</p>
+    </div>
+  )
+}
+
+// The final ranking card: ol.rank in server order, each row "N위 name N점",
+// with " (나)" after the own row's points.
+function FinalCard({ ranking, me, finalScore, toLobby, onToLobby }) {
+  const { t } = useTranslation()
+  return (
+    <div className="reveal">
+      <h3>{t('score.ranking')}</h3>
+      {ranking !== null && (
+        <ol className="rank" aria-label={t('score.ranking')}>
+          {ranking.map((row) => (
+            <li key={row.name}>
+              <span className="p">{t('score.rank', { rank: row.rank })}</span>{' '}
+              <span>{row.name}</span>{' '}
+              <span>
+                <span className="s">{t('score.points', { score: row.score })}</span>
+                {row.name === me && ` ${t('seat.me')}`}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {finalScore !== null && <p className="sub">{t('score.final', { score: finalScore })}</p>}
+      {toLobby && (
+        <button type="button" className="btn primary" onClick={onToLobby}>
+          {t('game.toLobby')}
+        </button>
+      )}
     </div>
   )
 }
@@ -176,126 +199,102 @@ function ChatForm({ onSend }) {
   }
 
   return (
-    <form className="chat-form send flex items-end gap-2 p-2 md:p-3" onSubmit={handleSubmit}>
-      <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-muted">
-        {t('chat.input')}
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          autoComplete="off"
-          placeholder={t('chat.placeholder')}
-        />
-      </label>
-      <button type="submit" className="go h-11 w-24 shrink-0 truncate px-2">
-        {t('chat.send')}
-      </button>
+    <form className="send" onSubmit={handleSubmit}>
+      <input
+        type="text"
+        maxLength={200}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        autoComplete="off"
+        placeholder={t('chat.placeholder')}
+        aria-label={t('chat.input')}
+      />
+      <button type="submit">{t('chat.send')}</button>
     </form>
   )
 }
 
-// The chat log, scrolled to the newest line whenever a line arrives. A
-// system line (D-094) has no name marker and uses the good colour.
-function ChatLog({ chat }) {
+// The chat log: one .msg per line, the name colour as its <i> and the line
+// as .t; the own lines are .mine. A system line (D-094) is .msg.sys.correct.
+function ChatLog({ chat, me }) {
   const { t } = useTranslation()
   const ref = useRef(null)
-  useEffect(() => {
+  const stickRef = useRef(true)
+  const last = chat.length === 0 ? null : chat[chat.length - 1]
+  const lastMine = last !== null && last.kind !== 'system' && last.name === me
+  useLayoutEffect(() => {
     const el = ref.current
-    if (el !== null) el.scrollTop = el.scrollHeight
-  }, [chat])
+    if (el !== null && (stickRef.current || lastMine)) el.scrollTop = el.scrollHeight
+  }, [chat, lastMine])
+
+  function handleScroll() {
+    const el = ref.current
+    if (el !== null) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
+  }
+
   return (
-    <ul ref={ref} className="chat-log flex h-36 flex-col gap-1 overflow-y-auto px-3 py-2 text-[15px] md:h-44" aria-label={t('chat.label')}>
+    <div ref={ref} className="msgs" role="log" aria-live="off" onScroll={handleScroll}>
       {chat.map((line) =>
         line.kind === 'system' ? (
-          <li key={line.id} className="chat-system min-w-0 wrap-anywhere">
+          <div key={line.id} className="msg sys correct">
             {typeof line.rank === 'number'
               ? `${CHECK} ${t('chat.correctRanked', { name: line.winner, rank: line.rank })}`
               : `${CHECK} ${t('chat.correctLine', { name: line.winner })}`}
-          </li>
+          </div>
         ) : (
-          <li key={line.id} className="min-w-0 wrap-anywhere">
-            <span
-              aria-hidden="true"
-              className="chat-mark mr-2 inline-block size-2.5 rounded-full align-middle"
-              style={{ background: typeof line.name === 'string' ? nameColour(line.name) : 'currentColor' }}
-            />
-            {line.text}
-          </li>
+          <div key={line.id} className={line.name === me ? 'msg mine' : 'msg'}>
+            <i style={{ background: typeof line.name === 'string' ? nameColour(line.name) : 'currentColor' }} />
+            <span className="t">{line.text}</span>
+          </div>
         ),
-      )}
-    </ul>
-  )
-}
-
-// The tail of a score or ranking row: " N점", and " (나)" on the player's
-// own row. These parts never shrink, so a long name is cut instead; the
-// leading spaces are kept (whitespace-pre) because the row is a flex box.
-function ScoreTail({ row, me }) {
-  const { t } = useTranslation()
-  return (
-    <>
-      <span className="shrink-0 whitespace-pre">{` ${t('score.points', { score: row.score })}`}</span>
-      {row.name === me && <span className="shrink-0 whitespace-pre">{` ${t('seat.me')}`}</span>}
-    </>
-  )
-}
-
-function Scoreboard({ rows, me }) {
-  const { t } = useTranslation()
-  return (
-    <ul className="scoreboard grid grid-cols-2 gap-1.5 text-xs md:grid-cols-4" aria-label={t('score.board')}>
-      {rows.map((row) => (
-        <li key={row.name} className="chip flex h-6 min-w-0 items-center justify-center px-2.5 py-0.5 leading-4">
-          <span className="min-w-0 truncate">{row.name}</span>
-          <ScoreTail row={row} me={me} />
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function Ranking({ rows, me }) {
-  const { t } = useTranslation()
-  return (
-    <ul className="ranking flex flex-col gap-1.5" aria-label={t('score.ranking')}>
-      {rows.map((row) => (
-        <li
-          key={row.name}
-          className="rank-row panel flex h-10 min-w-0 items-center px-4 py-2 text-sm leading-5"
-        >
-          <span className="shrink-0 whitespace-pre">{`${t('score.rank', { rank: row.rank })} `}</span>
-          <span className="min-w-0 truncate">{row.name}</span>
-          <ScoreTail row={row} me={me} />
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-// The skip vote: the button toggles the own vote; the count is from skipState.
-function SkipControls({ voted, count, onSkip }) {
-  const { t } = useTranslation()
-  return (
-    <div className="skip flex items-center gap-3 md:col-start-2">
-      <button type="button" onClick={onSkip} className={`h-11 w-28 shrink-0 truncate px-2 ${voted ? 'skip-on' : ''}`}>
-        {voted ? t('stage.skipCancel') : t('stage.skip')}
-      </button>
-      {count !== null && (
-        <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{t('stage.skipCount', { votes: count.votes, needed: count.needed })}</span>
       )}
     </div>
   )
 }
 
-const LOAD_KEY = {
-  loading: 'stage.loading',
-  failed: 'stage.loadFailed',
+// Today's scores, for assistive technology: the seats show the same points,
+// so these stay out of sight (the mockup has no separate scoreboard).
+function ScoreLists({ score, scoreboard, me }) {
+  const { t } = useTranslation()
+  if (score === null && scoreboard === null) return null
+  return (
+    <div className="sr-only">
+      {score !== null && <p>{t('stage.score', { score })}</p>}
+      {scoreboard !== null && (
+        <ul aria-label={t('score.board')}>
+          {scoreboard.map((row) => (
+            <li key={row.name}>
+              <span>{row.name}</span>
+              <span>{` ${t('score.points', { score: row.score })}`}</span>
+              {row.name === me && <span>{` ${t('seat.me')}`}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
-// The game and its result. In a room the result has no 다시 하기; once the
-// room is back in its lobby, 대기실로 shows the lobby screen. A room also
-// shows everyone's scores, the skip vote and the final ranking.
-function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnlockSound, volume, onVolumeLevel, onToggleMute }) {
+// The game room in the mockup's markup (D-124, cycle 110): header, then
+// .main with the stage and the chat. banner is the reconnecting line and
+// footer the page footer, both from App. A room shows its code and the
+// mood picker (enabled for the host); before joined (room null) neither.
+function GameScreen({
+  state,
+  theme,
+  onPickTheme,
+  onChat,
+  onPick,
+  onSkip,
+  onReset,
+  onToLobby,
+  onUnlockSound,
+  volume,
+  onVolumeLevel,
+  onToggleMute,
+  banner,
+  footer,
+}) {
   const { t } = useTranslation()
   const {
     screen,
@@ -331,163 +330,199 @@ function GameScreen({ state, onChat, onPick, onSkip, onReset, onToLobby, onUnloc
   } = state
   const line = settings === null ? '' : settingsLine(settings, t)
   const me = room === null ? null : room.me
+  const own = players.find((p) => p.name === me)
+  const isHost = own !== undefined && own.host
+  const online = players.filter((p) => p.connected !== false).length
   const canSkip = room !== null && screen === 'game' && started && !watching
-  // The hint: between the start and the reveal.
   const playing = screen === 'game' && started && reveal === null
-  // The record and the equalizer (D-101, 087): drawn whenever a round is
-  // current and not revealed, so from prepare on. They move only while the
-  // song is audible: started, the local clock past its startAt, loaded, and
-  // the sound not blocked.
-  const discShown = screen === 'game' && round !== null && reveal === null
-  const discPaused = !started || !reached || load === 'loading' || load === 'failed' || soundBlocked
-  // A choice room's tiles (cycle 100): shown from prepare to the next
-  // prepare, so also under the reveal card. They work while the song is
-  // audible (087 reached), for a player who has not picked, until the first
-  // correct answer. In ranked correct stays null (cycle 101, R4), so only the
-  // own pick locks them.
+  // The song is audible (D-101, 087): a round is current and not revealed,
+  // started, the local clock past its startAt, loaded, and the sound not
+  // blocked. body.playing then runs the disc and the logo bars (the
+  // mockup's CSS).
+  const songCurrent = screen === 'game' && round !== null && reveal === null
+  const audible = songCurrent && started && reached && load !== 'loading' && load !== 'failed' && !soundBlocked
+  // A choice room's tiles (cycle 100), in the panel until cycle 112: shown
+  // from prepare to the next prepare, so also under the reveal card. They
+  // work while the song is audible (087 reached), for a player who has not
+  // picked, until the first correct answer. In ranked correct stays null
+  // (cycle 101, R4), so only the own pick locks them.
   const gridShown = screen === 'game' && choices !== null
   const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
-  const clock = timer === null ? null : t('stage.seconds', { seconds: Math.ceil(timer.remaining / 1000) })
-  const stage = (
-    <section
-      aria-label={t('stage.label')}
-      // A choice room's song: below md the disc is compact (index.css).
-      data-answer-mode={gridShown ? 'choice' : undefined}
-      className="stage panel relative z-10 flex min-w-0 flex-col items-stretch gap-3 p-4 md:col-start-2 md:row-start-1 md:min-h-[340px] md:gap-4 md:p-5"
-    >
-      <div className="status stage-head flex flex-wrap items-center gap-3">
-        {round === null && !watching && !waitingNext && <span className="text-muted">{t('stage.connecting')}</span>}
-        {round === null && waitingNext && <span className="text-muted">{t('stage.waitingNext')}</span>}
-        {round !== null && (
-          <span className="round font-display flex h-10 w-40 items-center gap-1 overflow-hidden text-[15px] leading-5 whitespace-nowrap md:h-12 md:w-46">
-            {/* The label sits before or after the number, by language. A
-                label before it (lead) is a fixed box, so the number box
-                stays put whichever look's font draws the label. */}
-            <Trans
-              i18nKey="stage.round"
-              values={{ index: round.index + 1, total: round.total }}
-              components={{
-                lead: <span className="round-lead block w-12 shrink-0 truncate" />,
-                num: (
-                  <span className="round-num block h-8 w-[3.9em] shrink-0 overflow-hidden text-right text-2xl leading-8 tabular-nums md:h-9 md:text-3xl md:leading-9" />
-                ),
-              }}
-            />
-          </span>
-        )}
-        {score !== null && <span className="chip h-8 w-24 shrink-0 truncate px-2 py-1 text-center text-sm leading-5 tabular-nums">{t('stage.score', { score })}</span>}
-        {clock !== null && <span className="clock ml-auto h-10 w-24 text-4xl leading-10 tabular-nums md:h-12 md:w-29 md:text-[44px] md:leading-12">{clock}</span>}
-      </div>
-      {/* The own volume (D-099): a row of its own, right after the head, in
-          every stage state. */}
-      <VolumeControl volume={volume} onLevel={onVolumeLevel} onToggleMute={onToggleMute} />
-      {screen === 'game' && watching && (
-        <p className="watching chip line-clamp-2 h-15 rounded-xl px-3 py-2 text-center text-sm leading-5">{t('stage.watching')}</p>
-      )}
-      {screen === 'game' && soundBlocked && (
-        <button type="button" className="sound-prompt go h-11 w-44 self-center truncate px-2 py-0 animate-pulse" onClick={onUnlockSound}>
-          {t('stage.unlockSound')}
+  const seconds = timer === null ? null : Math.ceil(timer.remaining / 1000)
+  const loadText = load !== null && LOAD_KEY[load] !== undefined ? t(LOAD_KEY[load]) : null
+  const last = round !== null && round.index + 1 >= round.total
+  // The reveal has no winner: the deck's stamp reads 통과 (shown from 111).
+  const missed =
+    reveal !== null &&
+    (Array.isArray(reveal.ranking) ? reveal.ranking.length === 0 : reveal.winner === null || reveal.winner === undefined)
+
+  useEffect(() => {
+    document.body.classList.toggle('playing', audible)
+    return () => document.body.classList.remove('playing')
+  }, [audible])
+
+  let panel
+  if (screen === 'disconnected') {
+    panel = (
+      <div className="reveal">
+        {finalScore !== null && <p className="sub">{t('score.final', { score: finalScore })}</p>}
+        <p className="who none">{replaced ? t('game.replaced') : t('game.disconnected')}</p>
+        <button type="button" className="btn primary" onClick={onReset}>
+          {t('game.reset')}
         </button>
-      )}
-      {/* The load text. While the disc is shown the line keeps its box, empty
-          once loaded, so the disc does not move when loading ends. */}
-      {(discShown || (load !== null && LOAD_KEY[load] !== undefined)) && (
-        <p className={`load-line h-5 truncate text-center text-sm leading-5 ${load === 'failed' ? 'text-bad' : 'text-muted'}`}>
-          {load !== null && LOAD_KEY[load] !== undefined ? t(LOAD_KEY[load]) : ''}
-        </p>
-      )}
-      {discShown && <Disc paused={discPaused} />}
-      {correct !== null && (
-        // Right-to-left on the box, left-to-right on the text: when the line is
-        // too long the ellipsis cuts the start of the name, so " 정답!" stays.
-        // The text stays one node, so the banner reads "<name> 정답!" as is
-        // (chat.correctLine in the current language).
-        <p className="correct font-display h-10 w-60 max-w-full self-center truncate rounded-full px-4 py-1.5 text-center text-lg leading-7 [direction:rtl]">
-          <span className="[direction:ltr] [unicode-bidi:isolate]">{t('chat.correctLine', { name: correct })}</span>
-        </p>
-      )}
-      {reveal !== null && <RevealCard reveal={reveal} />}
-      {gridShown && (
-        <ChoiceGrid
-          choices={choices}
-          picked={picked}
-          pickWrong={pickWrong}
-          correctChoice={correctChoice}
-          enabled={canPick}
-          onPick={onPick}
-        />
-      )}
-      {timer !== null && <TimeBar max={timer.max} remaining={timer.remaining} />}
-      {(playing || canSkip) && (
-        <div className="stage-foot grid grid-cols-1 items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-          {playing && <span className="stage-hint line-clamp-2 h-10 text-sm leading-5 text-muted">{t('stage.hint')}</span>}
-          {canSkip && <SkipControls voted={skipVoted} count={skipCount} onSkip={onSkip} />}
-        </div>
-      )}
-      {error !== null && <p className="error rounded-xl bg-bad/10 px-3 py-2 text-sm text-bad">{messageText(t, error)}</p>}
-      {scoreboard !== null && <Scoreboard rows={scoreboard} me={me} />}
-      {ranking !== null && <Ranking rows={ranking} me={me} />}
-      {screen === 'over' && (
-        <section className="over flex flex-col items-center gap-3 text-center">
-          {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{t('score.final', { score: finalScore })}</p>}
-          {room !== null && lobbyOpen && (
-            <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onToLobby}>
-              {t('game.toLobby')}
-            </button>
-          )}
-        </section>
-      )}
-      {screen === 'disconnected' && (
-        <section className="over flex flex-col items-center gap-3 text-center">
-          {finalScore !== null && <p className="font-display h-8 w-full truncate text-2xl leading-8">{t('score.final', { score: finalScore })}</p>}
-          <p className="text-sm text-bad">{replaced ? t('game.replaced') : t('game.disconnected')}</p>
-          <button type="button" className="go h-11 w-32 truncate px-2 py-0" onClick={onReset}>
-            {t('game.reset')}
-          </button>
-        </section>
-      )}
-    </section>
-  )
-  const chatPanel = (
-    <section className="chat panel min-w-0 overflow-hidden md:col-start-2 md:row-start-2">
-      <ChatLog chat={chat} />
-      {screen === 'game' && <ChatForm onSend={onChat} />}
-    </section>
-  )
-  // The title row: the room code chip (no 방 코드: label in a game) and the
-  // one settings line of this game.
-  const titleRow = (room !== null || line !== '') && (
-    <div className="room-top flex items-center justify-between gap-3">
-      {room !== null && <span className="code shrink-0 text-sm leading-[1.5] md:text-base">{room.code}</span>}
-      {line !== '' && <p className="settings chip h-7 w-52 min-w-0 truncate px-3 py-0.5 text-center text-[13px] leading-5">{line}</p>}
-    </div>
-  )
-  if (room === null) {
-    return (
-      <div className="game room mx-auto flex w-full max-w-3xl flex-col gap-3 md:gap-4">
-        {titleRow}
-        {stage}
-        {chatPanel}
       </div>
     )
-  }
-  return (
-    <div className="game room flex flex-col gap-3 md:gap-4">
-      {titleRow}
-      <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,10rem)] md:gap-x-6 md:gap-y-4 lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,11rem)]">
-        <Seats
-          layout="sides"
-          players={players}
+  } else if (screen === 'over') {
+    // The last song's card stays under the final ranking.
+    panel = (
+      <>
+        <FinalCard
+          ranking={ranking}
           me={me}
-          chat={chat}
-          scoreboard={scoreboard}
-          correct={correctNames.length > 0 ? correctNames : correct}
-          roundIndex={round === null ? null : round.index}
+          finalScore={finalScore}
+          toLobby={room !== null && lobbyOpen}
+          onToLobby={onToLobby}
         />
-        {stage}
-        {chatPanel}
+        {reveal !== null && <RevealCard reveal={reveal} last={last} />}
+      </>
+    )
+  } else if (reveal !== null) {
+    panel = <RevealCard reveal={reveal} last={last} />
+  } else {
+    let hint
+    if (correct !== null) hint = t('chat.correctLine', { name: correct })
+    else if (round === null) hint = waitingNext ? t('stage.waitingNext') : watching ? t('stage.watching') : t('stage.connecting')
+    else hint = playing ? t('stage.hint') : t('stage.soon')
+    const subs = []
+    if (round !== null && loadText !== null) subs.push(loadText)
+    if (round !== null && correct === null) subs.push(playing ? t('stage.sub') : t('stage.soonSub'))
+    panel = (
+      <>
+        <p className="hint">{hint}</p>
+        {subs.map((text) => (
+          <p key={text} className="sub">
+            {text}
+          </p>
+        ))}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="scan" aria-hidden="true" />
+      <div className="app">
+        <header>
+          <div className="logo">
+            <span className="eq" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            SongRush
+          </div>
+          <div className="roominfo">
+            {room !== null && <span className="code">{room.code}</span>}
+            {line !== '' && <p className="settings">{line}</p>}
+          </div>
+          <div className="hd-right">
+            <VolumeControl volume={volume} onLevel={onVolumeLevel} onToggleMute={onToggleMute} />
+          </div>
+          {room !== null && (
+            <div className="moodbar">
+              <span className="ml">{isHost ? t('theme.label') : t('theme.labelGuest')}</span>
+              <ThemePicker value={theme} onPick={onPickTheme} disabled={!isHost} />
+            </div>
+          )}
+        </header>
+
+        <div className="main">
+          <section className="stage" aria-label={t('stage.label')}>
+            <div className="inner">
+              {banner}
+              <div className="stage-top">
+                <div className="round">
+                  <span className="tag">{`${t(`theme.${theme}`)} · ${t(`mood.tag.${theme}`)}`}</span>
+                  {round !== null && (
+                    <Trans
+                      i18nKey="stage.round"
+                      values={{ index: round.index + 1, total: round.total }}
+                      components={{ lead: <span />, num: <span className="num" /> }}
+                    />
+                  )}
+                </div>
+                <div className={seconds !== null && seconds <= LOW_SECONDS ? 'clock low' : 'clock'}>
+                  {seconds === null ? '' : t('stage.seconds', { seconds })}
+                </div>
+              </div>
+              <TimeBar timer={timer} />
+
+              <div className="now">
+                <Deck idle={!songCurrent && reveal === null} missed={missed} />
+                <div className="panel">
+                  {panel}
+                  {/* A mid-song joiner watches until the next song, also
+                      through its reveal; before a round it is the hint. */}
+                  {screen === 'game' && watching && (round !== null || waitingNext) && (
+                    <p className="sub">{t('stage.watching')}</p>
+                  )}
+                  {screen === 'game' && soundBlocked && (
+                    <button type="button" className="btn primary" onClick={onUnlockSound}>
+                      {t('stage.unlockSound')}
+                    </button>
+                  )}
+                  {canSkip && (
+                    <div className="row">
+                      <button type="button" className={skipVoted ? 'btn voted' : 'btn'} onClick={onSkip}>
+                        {skipVoted ? t('stage.skipCancel') : t('stage.skip')}
+                      </button>
+                      {skipCount !== null && (
+                        <span className="skipcount">{t('stage.skipCount', { votes: skipCount.votes, needed: skipCount.needed })}</span>
+                      )}
+                    </div>
+                  )}
+                  {gridShown && (
+                    <ChoiceGrid
+                      choices={choices}
+                      picked={picked}
+                      pickWrong={pickWrong}
+                      correctChoice={correctChoice}
+                      enabled={canPick}
+                      onPick={onPick}
+                    />
+                  )}
+                  {error !== null && <p className="warn">{messageText(t, error)}</p>}
+                </div>
+              </div>
+
+              <div className="seats">
+                <h2>{t('seat.list')}</h2>
+                <Seats
+                  players={players}
+                  me={me}
+                  scoreboard={scoreboard}
+                  correct={correctNames.length > 0 ? correctNames : correct}
+                />
+              </div>
+              <ScoreLists score={score} scoreboard={scoreboard} me={me} />
+              {footer}
+            </div>
+          </section>
+
+          <aside className="chat" aria-label={t('chat.label')}>
+            <div className="chat-hd">
+              <b>{t('chat.label')}</b>
+              <span className="live">
+                <span className="dot" />
+                {t('chat.live', { n: online })}
+              </span>
+            </div>
+            <ChatLog chat={chat} me={me} />
+            {screen === 'game' && <ChatForm onSend={onChat} />}
+          </aside>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

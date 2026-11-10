@@ -1,7 +1,8 @@
-// The room looks, the eight moods (D-122, cycle 109), in picker order. Each
-// id has a token set under [data-room-theme="<id>"] in index.css; swatch is
-// the picker dot, a CSS background. The names are in the dictionaries under
-// theme.<id>.
+// The room looks, the eight moods (D-122, cycle 109), in picker order. The
+// applied id is <html data-mood="<id>">, which room.css (the mockup's
+// stylesheet, D-124) reads; swatch is the picker's .sw, a CSS background.
+// The names are in the dictionaries under theme.<id>, the taglines under
+// mood.tag.<id>.
 export const THEMES = [
   { id: 'sunset', swatch: 'linear-gradient(135deg, #ff8a4c, #ff5d8f)' },
   { id: 'rain', swatch: 'linear-gradient(135deg, #8cc8ff, #a9b8ff)' },
