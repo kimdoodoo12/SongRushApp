@@ -42,6 +42,8 @@ import App from './App.jsx'
 import en from './i18n/en.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
 import {
+  createRoomAs,
+  joinRoomAs,
   lobbyCode,
   pressedIn,
   seatNames,
@@ -147,8 +149,7 @@ async function openSocket(env, count = 1) {
 
 // 방 만들기 as 하루: joined QWERT and a lobby roster with 하루 as host.
 async function hostLobby(env, { count = 1, players = HOST_PLAYERS } = {}) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))
@@ -157,9 +158,7 @@ async function hostLobby(env, { count = 1, players = HOST_PLAYERS } = {}) {
 
 // 참가 to ABCDE as Hana: joined, then `players` (Mina hosts) unless null.
 async function guestLobby(env, { count = 1, players = GUEST_PLAYERS } = {}) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana' })
   if (players !== null) deliver(socket, roster(players))

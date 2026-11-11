@@ -66,7 +66,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { pickSeg, setSongCount, startGame } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, pickSeg, setSongCount, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -238,8 +238,7 @@ async function openSocket(env, count = 1) {
 
 // 방 만들기 as 하루; joined and a lobby roster that makes 하루 host.
 async function hostLobby(env, { count = 1, players = ALONE, dict = ko } = {}) {
-  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: dict.start.createRoom }))
+  createRoomAs('하루', dict)
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))
@@ -248,9 +247,7 @@ async function hostLobby(env, { count = 1, players = ALONE, dict = ko } = {}) {
 
 // 참가 to ABCDE as Hana; Mina is host.
 async function guestJoin(env) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana' })
   return socket
@@ -745,8 +742,7 @@ describe('rejoin (R5)', () => {
   // The lobby as host 하루 of QWERT (with Joon) and token T1; a drop and,
   // 500 ms later, the first reconnect attempt opened and joined again.
   async function rejoined(env) {
-    fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: '하루' } })
-    fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+    createRoomAs('하루')
     await flushUntil(() => env.sockets.sockets.length === 1)
     const socket = env.sockets.last
     act(() => socket.open())

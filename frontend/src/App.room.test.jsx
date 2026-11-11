@@ -41,6 +41,7 @@ import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testi
 import App from './App.jsx'
 import ko from './i18n/ko.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs, joinRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const MOOD_IDS = ['sunset', 'rain', 'sakura', 'neon', 'chalk', 'pixel', 'matsuri', 'manga']
@@ -86,10 +87,6 @@ function deliver(socket, msg) {
   act(() => socket.receive(msg))
 }
 
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: nickname } })
-}
-
 const player = (name, { host = false, score = 0, connected = true } = {}) => ({ name, score, host, connected })
 const roster = (players, phase = 'lobby') => ({ type: 'roster', phase, players })
 // Mina hosts; the player is Hana (2), second in server order.
@@ -127,9 +124,7 @@ async function openSocket(env, count = 1) {
 
 // Joins ABCDE as Hana and receives joined (Hana (2)) and the lobby roster.
 async function guestLobby(env) {
-  setNickname('Hana')
-  fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana (2)' })
   deliver(socket, roster(GUEST_PLAYERS))
@@ -138,8 +133,7 @@ async function guestLobby(env) {
 
 // Creates QWERT as 하루, the host, with Mina in the lobby.
 async function hostLobby(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+  createRoomAs('하루')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(HOST_PLAYERS))
@@ -557,8 +551,7 @@ describe('panel states', () => {
 
   it('before joined (room null): the connecting text as .hint in the panel, no .code and no .moods', async () => {
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+    createRoomAs('하루')
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     const text = screen.getByText(ko.stage.connecting)
     expect(text.classList.contains('hint')).toBe(true)

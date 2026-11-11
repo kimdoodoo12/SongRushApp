@@ -13,7 +13,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { setSongCount, startButton, startGame } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, setSongCount, startButton, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -61,10 +61,6 @@ function pingsOf(socket) {
   return socket.sentOfType('ping')
 }
 
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
-}
-
 const player = (name, { host = false } = {}) => ({ name, score: 0, host, connected: true })
 const roster = (players, phase = 'lobby') => ({ type: 'roster', phase, players })
 const HOST_ROSTER = [player('하루', { host: true }), player('Joon')]
@@ -100,8 +96,7 @@ async function advance(env, ms) {
 
 // 방 만들기 as 하루 and open the socket, with fake timers.
 async function createRoomFake(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   await flushUntil(() => env.sockets.sockets.length === 1)
   expect(env.sockets.sockets).toHaveLength(1)
   const socket = env.sockets.last
@@ -168,8 +163,7 @@ async function openSocket(env, count = 1) {
 // A room of one (D-093): 방 만들기, joined, the lobby roster with 하루
 // alone, 곡 수 5 and 게임 시작, then roster{playing}.
 async function startAlone(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env)
   expect(socket.sent[0]).toEqual({ type: 'create', nickname: '하루' })
   const alone = [player('하루', { host: true })]
@@ -183,8 +177,7 @@ async function startAlone(env) {
 }
 
 async function createRoom(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env)
   expect(socket.sent[0]).toEqual({ type: 'create', nickname: '하루' })
   deliver(socket, joinedMsg)
@@ -419,9 +412,8 @@ describe('audio session', () => {
   ])('with navigator.audioSession, the first click (%s) sets its type to playback', async (button) => {
     const session = stubAudioSession()
     const env = setup()
-    setNickname('하루')
-    fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-    fireEvent.click(screen.getByRole('button', { name: button }))
+    if (button === '참가') joinRoomAs('하루', 'ABCDE')
+    else createRoomAs('하루')
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(session.type).toBe('playback')
     expect(window.navigator.audioSession.type).toBe('playback')
@@ -431,8 +423,7 @@ describe('audio session', () => {
   it('without navigator.audioSession the click still creates, resumes and connects', async () => {
     expect('audioSession' in window.navigator).toBe(false)
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    createRoomAs('하루')
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
     const socket = await openSocket(env)

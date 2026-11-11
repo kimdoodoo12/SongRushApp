@@ -6,6 +6,7 @@
 // goes through these, so the next markup change touches one file (critic H1
 // of 114). Not a test file itself (no .test. in the name).
 import { fireEvent, screen, within } from '@testing-library/react'
+import ko from '../i18n/ko.json'
 
 // The first element matching `selector` outside any [hidden] subtree, or null.
 function shown(selector) {
@@ -137,4 +138,22 @@ export function seatNames() {
 export function lobbyCode() {
   const code = shown('.ticket .tk-code')
   return code === null ? null : code.textContent
+}
+
+// Cycle 119 (D-127): every test that creates or joins a room from the start
+// screen goes through these two, so the nickname moving into a dialog
+// touches one file. `dict` is the UI language's messages (ko, en or ja
+// json) when a test runs in another language.
+
+// 방 만들기 as `name`: fills 닉네임 and clicks 방 만들기.
+export function createRoomAs(name, dict = ko) {
+  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: name } })
+  fireEvent.click(screen.getByRole('button', { name: dict.start.createRoom }))
+}
+
+// 참가 to `code` as `name`: fills 닉네임 and 방 코드, then clicks 참가.
+export function joinRoomAs(name, code, dict = ko) {
+  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: name } })
+  fireEvent.change(screen.getByLabelText(dict.start.roomCode), { target: { value: code } })
+  fireEvent.click(screen.getByRole('button', { name: dict.start.join }))
 }

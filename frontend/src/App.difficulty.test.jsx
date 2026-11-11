@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { pressedIn, segGroup, setTier, startButton, startGame } from './testing/lobby.js'
+import { createRoomAs, pressedIn, segGroup, setTier, startButton, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 
@@ -45,10 +45,6 @@ function setup() {
 
 function deliver(socket, msg) {
   act(() => socket.receive(msg))
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 // Waits for socket number `count`, opens it and waits for its first message.
@@ -86,8 +82,7 @@ async function prepareAndReady(socket, index = 0, readyCount = 1) {
 }
 
 async function hostLobby(env, count = 1, players = HOST_PLAYERS) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))

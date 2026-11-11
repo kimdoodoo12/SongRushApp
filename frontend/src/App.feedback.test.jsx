@@ -37,6 +37,7 @@ import App from './App.jsx'
 import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FEEDBACK_URL = '/api/feedback'
@@ -248,8 +249,7 @@ describe('the request', () => {
   it('posts page lobby from the lobby', async () => {
     const fetchMock = stubFetch(() => jsonResponse(201, { ok: true }))
     const env = setup()
-    fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: 'Kai' } })
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    createRoomAs('Kai')
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     const socket = env.sockets.last
     act(() => socket.open())

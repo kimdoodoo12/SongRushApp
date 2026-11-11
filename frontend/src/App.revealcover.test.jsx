@@ -32,7 +32,7 @@ import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import viteConfig from '../vite.config.js?raw'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { startGame } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const COVER = '/cover/AbC_12-x'
@@ -89,8 +89,7 @@ const roster = (phase) => ({ type: 'roster', phase, players: PLAYERS })
 // Creates room QWERT as Kai through the labels of `dict`; returns the socket
 // with the lobby roster delivered.
 async function hostLobby(env, dict) {
-  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: 'Kai' } })
-  fireEvent.click(screen.getByRole('button', { name: dict.start.createRoom }))
+  createRoomAs('Kai', dict)
   await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
   const socket = env.sockets.last
   act(() => socket.open())
@@ -313,9 +312,7 @@ describe('no cover before the reveal', () => {
   it('a playing snapshot with coverUrl on the frame and its song leaves the frame empty and fetches no /cover/ URL', async () => {
     const globalFetch = spyGlobalFetch()
     const env = setup()
-    fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-    fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-    fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+    joinRoomAs('Hana', 'ABCDE')
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     const socket = env.sockets.last
     act(() => socket.open())

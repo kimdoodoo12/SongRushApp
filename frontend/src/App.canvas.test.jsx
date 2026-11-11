@@ -36,6 +36,7 @@ import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testi
 import App from './App.jsx'
 import ko from './i18n/ko.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch, createRecordingContext } from './testing/fakes.js'
+import { joinRoomAs } from './testing/lobby.js'
 import * as canvasModule from './canvas/index.js'
 
 vi.mock('./canvas/index.js', async (importOriginal) => {
@@ -182,9 +183,7 @@ async function openSocket(env, count = 1) {
 
 // Joins ABCDE as Hana; the lobby shows.
 async function guestLobby(env, count = 1) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: ME })
   deliver(socket, roster('lobby'))

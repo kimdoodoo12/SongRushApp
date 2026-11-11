@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { lobbyCode, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, lobbyCode, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
 
 const DISCONNECTED = '서버와 연결이 끊어졌습니다.'
 const WAITING = '방장이 게임을 시작하기를 기다리는 중...'
@@ -69,9 +69,7 @@ async function openSocket(env, count = 1) {
 
 // Clicks 참가 with the given nickname and code; returns the opened socket.
 async function clickJoin(env, { nickname = 'Hana', code = 'ABCDE' } = {}) {
-  setNickname(nickname)
-  setCode(code)
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs(nickname, code)
   return openSocket(env)
 }
 
@@ -198,8 +196,7 @@ describe('start screen room controls', () => {
 describe('create', () => {
   it('방 만들기 calls resume() in the click and sends create with exactly type and nickname', async () => {
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    createRoomAs('하루')
     // Synchronously inside the click handler (audio unlock).
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
@@ -215,8 +212,7 @@ describe('create', () => {
 
   it('joined after create shows the lobby with the creator as host', async () => {
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    createRoomAs('하루')
     const socket = await openSocket(env)
     deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
     deliver(socket, roster([player('하루', { host: true })]))
@@ -230,10 +226,9 @@ describe('create', () => {
 describe('join', () => {
   it('upper-cases the typed code and 참가 sends join{code, nickname}', async () => {
     const env = setup()
-    setNickname('Hana')
     setCode('abcde')
     expect(screen.getByLabelText('방 코드').value).toBe('ABCDE')
-    fireEvent.click(screen.getByRole('button', { name: '참가' }))
+    joinRoomAs('Hana', 'abcde')
     // The join gesture also unlocks audio synchronously.
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
@@ -243,7 +238,6 @@ describe('join', () => {
 
   it('참가 is disabled while the code is empty', () => {
     setup()
-    setNickname('Hana')
     expect(screen.getByLabelText('방 코드').value).toBe('')
     expect(screen.getByRole('button', { name: '참가' }).disabled).toBe(true)
     setCode('abcde')

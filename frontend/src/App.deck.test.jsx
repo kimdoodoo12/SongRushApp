@@ -37,6 +37,7 @@ import App from './App.jsx'
 import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs, joinRoomAs } from './testing/lobby.js'
 
 const drawSpy = vi.hoisted(() => vi.fn())
 vi.mock('./components/drawPlayer.js', () => ({ drawPlayer: drawSpy, default: drawSpy }))
@@ -116,9 +117,7 @@ async function openSocket(env, count = 1) {
 
 // Joins ABCDE as Hana through the labels of `dict`.
 async function guestLobby(env, dict = ko) {
-  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText(dict.start.roomCode), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: dict.start.join }))
+  joinRoomAs('Hana', 'ABCDE', dict)
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: ME })
   deliver(socket, roster(PLAYERS))
@@ -299,9 +298,7 @@ const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 describe('deck classes', () => {
   it('idle while connecting and before the first round; none while prepared and playing; revealed after reveal; idle after gameOver', async () => {
     const env = setup()
-    fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-    fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-    fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+    joinRoomAs('Hana', 'ABCDE')
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     expect(deckState(), 'connecting').toEqual({ idle: true, revealed: false })
     const socket = env.sockets.last
@@ -631,8 +628,7 @@ describe('mood on the game screen', () => {
     window.localStorage.setItem(OWN_THEME_KEY, 'neon')
     const env = setup()
     expect(document.documentElement.dataset.mood, 'start screen').toBe('neon')
-    fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-    fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+    createRoomAs('Hana')
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     expect(q('.now .deck'), 'the game screen while connecting').not.toBeNull()
     expect(document.documentElement.dataset.mood, 'connecting').toBe('sunset')

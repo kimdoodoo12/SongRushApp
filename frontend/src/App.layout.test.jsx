@@ -6,10 +6,11 @@
 // seat-bubble test is replaced by the log test (a .msg line in the chat).
 // Timer rule: real timers and waitFor, as in App.multi.test.jsx.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
+import { render, screen, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { initialState, reducer } from './game/state.js'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { joinRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 
@@ -44,10 +45,6 @@ function setup() {
 
 function deliver(socket, msg) {
   act(() => socket.receive(msg))
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 const player = (name, { host = false, score = 0, connected = true } = {}) => ({ name, score, host, connected })
@@ -86,9 +83,7 @@ async function openSocket(env, count = 1) {
 
 // Joins ABCDE as Hana and receives joined (Hana (2)) and the lobby roster.
 async function joinLobby(env) {
-  setNickname('Hana')
-  fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env)
   expect(socket.sent[0]).toEqual({ type: 'join', code: 'ABCDE', nickname: 'Hana' })
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana (2)' })

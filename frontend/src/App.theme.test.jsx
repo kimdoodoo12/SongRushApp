@@ -17,6 +17,7 @@ import App from './App.jsx'
 import { initialState, reducer } from './game/state.js'
 import { THEMES, DEFAULT_THEME, themeId } from './game/themes.js'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs, joinRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const STORAGE_KEY = 'songrush.roomTheme'
@@ -57,10 +58,6 @@ function setup() {
 
 function deliver(socket, msg) {
   act(() => socket.receive(msg))
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 // The applied mood: <html data-mood> (cycle 110, D-124; it replaces the
@@ -112,8 +109,7 @@ const roster = (players, phase = 'lobby') => ({ type: 'roster', phase, players }
 
 // Creates room QWERT as 하루, the host.
 async function hostLobby(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster([player('하루', { host: true }), player('Joon')]))
@@ -122,9 +118,7 @@ async function hostLobby(env) {
 
 // Joins ABCDE as Hana (2); Mina hosts.
 async function guestLobby(env) {
-  setNickname('Hana')
-  fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana (2)' })
   deliver(socket, roster([player('Mina', { host: true }), player('Hana (2)'), player('Joon')]))

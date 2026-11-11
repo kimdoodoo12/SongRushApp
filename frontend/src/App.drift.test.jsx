@@ -8,9 +8,10 @@
 // App.sync.test.jsx. advance() does not move ctx.currentTime; the tests set
 // it themselves.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
+import { render, screen, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -56,10 +57,6 @@ function deliver(socket, msg) {
 
 function pingsOf(socket) {
   return socket.sentOfType('ping')
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 const player = (name, { host = false } = {}) => ({ name, score: 0, host, connected: true })
@@ -108,8 +105,7 @@ async function advance(env, ms) {
 
 // 방 만들기 as 하루, open the socket, joined and the lobby roster.
 async function joinRoomFake(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   await flushUntil(() => env.sockets.sockets.length === 1)
   expect(env.sockets.sockets).toHaveLength(1)
   const socket = env.sockets.last

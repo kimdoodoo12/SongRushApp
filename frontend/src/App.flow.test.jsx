@@ -42,10 +42,6 @@ function deliver(socket, msg) {
   act(() => socket.receive(msg))
 }
 
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
-}
-
 const player = (name, { host = false } = {}) => ({ name, score: 0, host, connected: true })
 // A room of one: how a player plays alone (D-093).
 const ALONE = [player('하루', { host: true })]
@@ -54,8 +50,7 @@ const joinedMsg = { type: 'joined', code: 'QWERT', name: '하루' }
 
 // 방 만들기 as 하루 and opens socket number `count`. Real timers only.
 async function clickCreate(env, count = 1) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  lobby.createRoomAs('하루')
   await waitFor(() => expect(env.sockets.sockets.length).toBe(count))
   const socket = env.sockets.last
   act(() => socket.open())
@@ -129,8 +124,7 @@ async function flushUntil(cond, max = 20) {
 
 // startAndPrepare for fake timers (waitFor does not drive them).
 async function startAndPrepareFakeTimers(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  lobby.createRoomAs('하루')
   await flushUntil(() => env.sockets.sockets.length === 1)
   const socket = env.sockets.last
   act(() => socket.open())
@@ -186,8 +180,7 @@ describe('start screen', () => {
 describe('starting a game', () => {
   it('방 만들기 calls resume() in the click; 게임 시작 then sends start with the song count as a number', async () => {
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    lobby.createRoomAs('하루')
     // Synchronously inside the click handler (audio unlock).
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
@@ -211,8 +204,7 @@ describe('starting a game', () => {
     deliver(socket, roster('lobby'))
     fireEvent.click(screen.getByRole('button', { name: '대기실로' }))
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    lobby.createRoomAs('하루')
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(2)
     await waitFor(() => expect(env.sockets.sockets.length).toBe(2))

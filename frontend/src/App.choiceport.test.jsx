@@ -57,7 +57,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { startButton, startGame } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, startButton, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const SYNC = 2500
@@ -226,8 +226,7 @@ async function openSocket(env, count = 1) {
 }
 
 async function hostLobby(env, { players = ALONE } = {}) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+  createRoomAs('하루')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))
@@ -235,9 +234,7 @@ async function hostLobby(env, { players = ALONE } = {}) {
 }
 
 async function guestJoin(env) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana' })
   return socket

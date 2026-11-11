@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { lobbyCode, seatNames, startButton } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, lobbyCode, seatNames, startButton } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -60,10 +60,6 @@ function setup({ ctxOptions } = {}) {
 
 function deliver(socket, msg) {
   act(() => socket.receive(msg))
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 function pingsOf(socket) {
@@ -135,9 +131,7 @@ async function openSocket(env, count = 1) {
 
 // Clicks 참가 as Hana for ABCDE; returns the opened socket (nothing received yet).
 async function clickJoin(env) {
-  setNickname('Hana')
-  fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env)
   expect(socket.sent[0]).toEqual({ type: 'join', code: 'ABCDE', nickname: 'Hana' })
   return socket
@@ -619,8 +613,7 @@ const HOST_ROSTER = [player('하루', { host: true }), player('Joon')]
 
 // A room created as 하루, synced to SYNC by 8 + 3 answered pings, song 0 ready.
 async function syncedRoomReady(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   await flushUntil(() => env.sockets.sockets.length === 1)
   const socket = env.sockets.last
   act(() => socket.open())

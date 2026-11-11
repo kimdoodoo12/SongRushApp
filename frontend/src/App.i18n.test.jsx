@@ -31,6 +31,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const LANG_KEY = 'songrush.lang'
@@ -138,8 +139,7 @@ const roster = (phase) => ({ type: 'roster', phase, players: PLAYERS })
 // Creates room QWERT as Kai through the labels of `dict`; returns the socket
 // with the lobby roster delivered.
 async function hostLobby(env, dict) {
-  fireEvent.change(screen.getByLabelText(tr(dict, 'start.nickname')), { target: { value: 'Kai' } })
-  fireEvent.click(screen.getByRole('button', { name: tr(dict, 'start.createRoom') }))
+  createRoomAs('Kai', dict)
   await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
   const socket = env.sockets.last
   act(() => socket.open())

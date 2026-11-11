@@ -15,6 +15,8 @@ import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-libra
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
 import {
+  createRoomAs,
+  joinRoomAs,
   pressedIn,
   segGroup,
   setSongCount,
@@ -64,10 +66,6 @@ function deliver(socket, msg) {
   act(() => socket.receive(msg))
 }
 
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
-}
-
 // Waits for socket number `count`, opens it and waits for its first message.
 async function openSocket(env, count = 1) {
   await waitFor(() => expect(env.sockets.sockets.length).toBe(count))
@@ -111,8 +109,7 @@ async function prepareAndReady(socket, index = 0, readyCount = 1) {
 
 // 방 만들기 as 하루, then joined and a roster that makes 하루 host.
 async function hostLobby(env, count = 1, players = HOST_PLAYERS) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))
@@ -343,9 +340,7 @@ describe('the applied-conditions line', () => {
 
   it('late join: joined, a playing snapshot, settings, roster shows the line', async () => {
     const env = setup()
-    setNickname('Hana')
-    fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-    fireEvent.click(screen.getByRole('button', { name: '참가' }))
+    joinRoomAs('Hana', 'ABCDE')
     const socket = await openSocket(env)
     const players = [player('Mina', { host: true }), player('Hana')]
     deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana' })
