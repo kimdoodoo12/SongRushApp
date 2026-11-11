@@ -77,3 +77,25 @@
   - `scrollCss.test.js` and `choiceCss.test.js`: the new exact rules.
   - A new `App.headerheight.test.jsx`: `.app` gets `--hd` from the header's height, with ResizeObserver and `offsetHeight` stubbed.
   - `App.nickname.test.jsx`: a drag that ends on the backdrop does not cancel; cancelling the invite dialog focuses 참가.
+
+## Result (cycles 118 and 119 together)
+- **Commits.** All are on `cycle/119-nickname-dialog`, which merges `cycle/118-choice-deck`:
+  - 118: tests, then implementation for revisions 1–4;
+  - 119: helpers `f8c7969`, tests `41dd751`, declared deck-test fix `aefe89e`, implementation `9c3fcd2`, card fixes `86673f7` and `eed74cb`, pre-PR tests `04e3012`, pre-PR fix `e5ea507`.
+- **Verifier**, before the pre-PR fixes:
+  - lint and build passed; the implementation commits touch no test file; the CSS matches the spec strings;
+  - `npm test` was flaky: 2 of 4 runs passed, with timeouts in dialog-driven tests. This was fixed by the 15 s `testTimeout`.
+- **Critic**, before the pre-PR fixes:
+  - High: fixed header heights. Fixed with `--hd`, measured by `Frame`.
+  - Medium: drag-release on the backdrop cancelled the dialog. Fixed.
+  - Nit: focus after cancelling the invite dialog. Fixed.
+  - No secrecy or fairness change.
+- **Lead, after the fixes:**
+  - `npm test` 3 runs in a row, each 52 files and 779 tests passed; lint is clean and the build passes.
+  - Browser check at 1536×730:
+    - in en the header is 114 px, `--hd` is 114px, the chat runs 114–730 and the send box ends at 730;
+    - in ko the header is 67 px and the chat runs 67–730.
+  - Earlier browser checks:
+    - create through the dialog at 1536×730 and join through the invite link at 390×844, with 2 players in the lobby;
+    - the dialog card is opaque in rain and chalk;
+    - choice sizes per revision 2, and the page scroll per revision 4.
