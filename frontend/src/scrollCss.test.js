@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url'
 
 // Cycle 118, revision 4: above 900 px wide the whole page scrolls instead of
 // .stage, and the chat is not sticky: it spans from under the header to the
-// bottom of the screen (114 px header below 1300 px wide, 67 px from 1300 px)
-// and scrolls away with the page (docs/cycles/118-choice-deck.md, Revision 4).
+// bottom of the screen and scrolls away with the page
+// (docs/cycles/118-choice-deck.md, Revision 4). Cycle 119 review: the header
+// height comes from --hd, measured on .app, instead of fixed 67/114 px
+// (docs/cycles/119-nickname-dialog.md, Pre-PR review fixes).
 // - scroll.css holds exactly the rules from the spec; comments and whitespace
 //   do not matter, a trailing semicolon before } is optional, and "@media("
 //   counts the same as "@media (" wherever it appears.
@@ -20,9 +22,7 @@ const EXPECTED =
   'html,body{height:auto}' +
   '.app{height:auto;min-height:100vh}' +
   '.stage{overflow:visible}' +
-  '.chat{align-self:start;height:calc(100vh - 114px)}}' +
-  '@media (min-width:1300px){' +
-  '.chat{height:calc(100vh - 67px)}}'
+  '.chat{align-self:start;height:calc(100vh - var(--hd,67px))}}'
 
 function read(path) {
   return fs.readFileSync(path, 'utf8').replace(/\r\n?/g, '\n')

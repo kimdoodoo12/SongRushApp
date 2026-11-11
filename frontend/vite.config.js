@@ -22,6 +22,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Full runs take 50-65 s on the dev PC; tests that go through the
+    // nickname dialog timed out at the default 5 s (cycle 119 review).
+    testTimeout: 15000,
     projects: [
       {
         extends: true,

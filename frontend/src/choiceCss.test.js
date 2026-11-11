@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url'
 // 960 px cap and the deck keeps its size at the reveal. On screens at least
 // 1300 px wide the .moodbar sits on the logo row, and choice games at 900 px
 // height or less hide the panel's .sub text
-// (docs/cycles/118-choice-deck.md, Revision 2).
+// (docs/cycles/118-choice-deck.md, Revision 2). Cycle 119 review: --oh is
+// the measured header height --hd plus 175 px instead of fixed 290/242 px
+// (docs/cycles/119-nickname-dialog.md, Pre-PR review fixes).
 // - choice.css holds exactly the rule from the spec; comments and whitespace
 //   do not matter, a trailing semicolon before } is optional, and
 //   "@media(" / "@container(" count the same as "@media (" / "@container (".
@@ -24,8 +26,7 @@ const MAIN_JSX = fileURLToPath(new URL('./main.jsx', import.meta.url))
 const EXPECTED =
   '@media (min-width:1300px){.moodbar{flex-basis:auto}}' +
   '@media (max-height:900px){.choice-mode .now .sub{display:none}}' +
-  '.choice-mode{--oh:290px}' +
-  '@media (min-width:1300px){.choice-mode{--oh:242px}}' +
+  '.choice-mode{--oh:calc(var(--hd,67px) + 175px)}' +
   '@container (min-width:621px){' +
   '.choice-mode .inner{max-width:none}' +
   '.choice-mode .now,.choice-mode .now:has(.revealed){' +

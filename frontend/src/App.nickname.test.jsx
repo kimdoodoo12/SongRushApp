@@ -254,6 +254,42 @@ describe('the create dialog', () => {
     expect(document.activeElement).toBe(createButton())
   })
 
+  // Cycle 119 review (critic Medium): a drag that starts in the card (for
+  // example selecting the name) and is released on the backdrop must not
+  // cancel. Only a mousedown and a click both on the backdrop itself cancel.
+  it('a mousedown in the card and a click on the backdrop do not cancel; the name stays', () => {
+    const env = setup()
+    fireEvent.click(createButton())
+    typeName('하루')
+    const dialog = nicknameDialog()
+    const backdrop = dialog.parentElement
+    expect(backdrop).not.toBeNull()
+    fireEvent.mouseDown(nicknameInput())
+    fireEvent.mouseUp(backdrop)
+    fireEvent.click(backdrop)
+    expect(screen.queryByRole('dialog')).not.toBeNull()
+    expect(nicknameInput().value).toBe('하루')
+    fireEvent.mouseDown(dialog)
+    fireEvent.mouseUp(backdrop)
+    fireEvent.click(backdrop)
+    expect(screen.queryByRole('dialog')).not.toBeNull()
+    expect(nicknameInput().value).toBe('하루')
+    expect(env.sockets.factory).not.toHaveBeenCalled()
+  })
+
+  it('a mousedown and a click on the backdrop cancel and give focus back to 방 만들기', () => {
+    const env = setup()
+    fireEvent.click(createButton())
+    typeName('하루')
+    const backdrop = nicknameDialog().parentElement
+    fireEvent.mouseDown(backdrop)
+    fireEvent.mouseUp(backdrop)
+    fireEvent.click(backdrop)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(env.sockets.factory).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(createButton())
+  })
+
   it('Tab and Shift+Tab stay inside the dialog', () => {
     setup()
     fireEvent.click(createButton())
@@ -461,6 +497,24 @@ describe('the invite link', () => {
     fireEvent.click(within(screen.getByRole('group', { name: 'Language' })).getByRole('button', { name: '한국어' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(env.sockets.factory).not.toHaveBeenCalled()
+  })
+
+  // Cycle 119 review (critic Nit): no button opened the invite dialog, so
+  // cancelling it puts focus on 참가.
+  it('취소 on the invite dialog gives focus to 참가', () => {
+    window.history.pushState({}, '', '/r/ABCDE')
+    setup()
+    fireEvent.click(cancelButton())
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(joinButton())
+  })
+
+  it('Escape on the invite dialog gives focus to 참가', () => {
+    window.history.pushState({}, '', '/r/ABCDE')
+    setup()
+    pressKey(nicknameInput(), 'Escape')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(document.activeElement).toBe(joinButton())
   })
 })
 
