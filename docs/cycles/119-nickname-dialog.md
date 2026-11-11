@@ -26,6 +26,20 @@
 7. **Unchanged:** reconnect and reload rejoin (they never ask for a name), the lobby and the game.
 8. **i18n:** every new text in ko, en and ja.
 
+## Spec review (critic, round 1) and resolutions
+- **Blocker: the dialog cannot survive an error as written.** Pressing 확인 dispatches `connecting` (`App.jsx:289`), which sets `screen:'game'` (`state.js:168-170`) and unmounts the start screen. A following `startError` resets to `initialState` (`state.js:171-172`).
+  - **Resolution.** The dialog state (open, mode, code, name) lives in `App`, not in `StartScreen`.
+  - While the dialog's attempt is connecting, the start screen stays rendered under the dialog with the dialog's busy state (확인 disabled). A dialog-started attempt does not switch to the game frame until `joined`.
+  - `startError` keeps the dialog open with the error as `p.warn`.
+  - `state.js` may change for this: the `connecting` action gains a flag that keeps `screen:'start'` for dialog attempts.
+- **High: existing tests check the error on the start screen** (`App.flow.test.jsx:504-516`, `App.lobby.test.jsx:456-467`). Declared changes: they now expect the error inside the open dialog.
+- **High: the invite link reopens the dialog.** The invite dialog opens **once per page load**. A later return to the start screen (leave, error, rejoin-failed) does not reopen it. This is pinned by a test.
+- **Medium: connection failures.** If the socket closes before `joined`, the dialog shows today's connection-failure text as `p.warn` and stays open (instead of the `disconnected` screen) for dialog attempts. Reload rejoin keeps today's path.
+- **Medium: opus.** When `canPlayOpus` is false, 방 만들기 and 참가 are disabled and `start.noOpus` shows on the start card, as today (`App.flow.test.jsx:179`, `App.lobby.test.jsx:190`).
+- **Medium: focus.** The dialog is a `div role="dialog" aria-modal="true"`, not a native `<dialog>`: jsdom lacks `showModal`. It follows `FeedbackDialog.jsx`'s pattern: focus moves into it, Tab is trapped, Escape closes, and on close the focus returns to the button that opened it.
+- **Nit: size.** Two steps in one cycle. First the test writer adds the helpers `createRoomAs`/`joinRoomAs`, written against today's UI, and switches the 18 files to them, with all tests green. Then the new tests and the helper internals change for the dialog.
+- **Nit: mobile.** The 390×844 browser check opens the dialog with the on-screen keyboard emulated by a shorter viewport (390×500). The input and 확인 must stay visible.
+
 ## Acceptance
 1. **`App.nickname.test.jsx`** (new, jsdom):
    - the start screen has no nickname input;
@@ -44,7 +58,7 @@
 
 ## File ownership
 - **Test writer:** the new test, the helper, and the declared changes.
-- **Implementer:** `src/components/StartScreen.jsx`, a new `src/components/NicknameDialog.jsx`, `src/App.jsx` (wiring only), `src/index.css` (dialog layout, on classes `room.css` does not define), and `src/i18n/{ko,en,ja}.json`.
+- **Implementer:** `src/components/StartScreen.jsx`, a new `src/components/NicknameDialog.jsx`, `src/App.jsx` (dialog state and wiring), `src/game/state.js` (the dialog-attempt flag on `connecting`, and error routing), `src/game/session.js` (close before `joined` for dialog attempts only), `src/index.css` (dialog layout, on classes `room.css` does not define), and `src/i18n/{ko,en,ja}.json`.
 
 ## Out of scope
 - Server changes.
