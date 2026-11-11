@@ -173,3 +173,11 @@
   cursor: not-allowed;
   opacity: 0.45;
 }
+
+/* The nickname dialog's card (cycle 119): opaque, so the start card does
+   not show through the mockup's translucent .opts. Unlayered and two
+   classes, so it beats room.css's .opts background. */
+.nick-backdrop .nick-card {
+  background: var(--panel);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}

@@ -66,7 +66,7 @@ export default function NicknameDialog({ mode, code, name, busy, error, onNameCh
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="opts relative my-auto flex w-full max-w-sm flex-col gap-4"
+        className="opts nick-card relative my-auto flex w-full max-w-sm flex-col gap-4"
         onKeyDown={handleKeyDown}
       >
         <h2 id={titleId} className="flex flex-col gap-0.5">
