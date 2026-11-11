@@ -10,6 +10,9 @@
     "orCode": "またはコードで参加",
     "roomCode": "ルームコード",
     "join": "参加",
+    "joinTitle": "ルーム {{code}} に参加",
+    "confirm": "OK",
+    "cancel": "キャンセル",
     "noOpus": "このブラウザでは音声を再生できません。ブラウザまたはiOSを最新版に更新してください。"
   },
   "theme": {

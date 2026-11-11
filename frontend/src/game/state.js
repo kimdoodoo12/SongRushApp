@@ -48,6 +48,9 @@ export function errorText(code, message) {
 export const initialState = {
   screen: 'start',
   startError: null,
+  // A nickname-dialog attempt (create or join, cycle 119) is connecting: the
+  // start screen stays, under the dialog, until joined.
+  joining: false,
   room: null, // { code, me } once joined; null before
   players: [], // the last roster: { name, score, host, connected }
   lobbyOpen: false, // the room is back in its lobby after a game
@@ -166,7 +169,10 @@ export function reducer(state, action) {
 function step(state, action) {
   switch (action.type) {
     case 'connecting':
-      // A reload rejoin (cycle 079) shows the reconnecting banner meanwhile.
+      // A nickname-dialog attempt (cycle 119) keeps the start screen until
+      // joined; its startError shows in the dialog. A reload rejoin (cycle
+      // 079) shows the game frame with the reconnecting banner meanwhile.
+      if (action.dialog === true) return { ...initialState, joining: true }
       return { ...initialState, screen: 'game', reconnecting: action.rejoin === true }
     case 'startError':
       return { ...initialState, startError: action.text }
@@ -176,6 +182,7 @@ function step(state, action) {
       return {
         ...lobbyLog(state, 'chat.lobbyJoined', { code: action.code }),
         screen: 'lobby',
+        joining: false,
         room: { code: action.code, me: action.name },
         error: null,
         notice: null,

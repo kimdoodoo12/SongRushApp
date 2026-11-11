@@ -115,6 +115,18 @@
     background: rgb(0 0 0 / 0.45);
   }
 
+  /* The nickname dialog (cycle 119, D-127): the same dimmed layer; the
+     card is the mockup's .opts, its title's second line in the dim ink. */
+  .nick-backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
+
+  .nick-sub {
+    font-family: var(--f-body);
+    font-size: 0.95rem;
+    color: var(--dim);
+  }
+
   /* The honeypot: clipped to nothing and out of the layout, but still in
      the form, so a bot that fills every field fills it too. */
   .feedback-trap {

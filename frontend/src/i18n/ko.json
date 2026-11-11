@@ -10,6 +10,9 @@
     "orCode": "또는 코드로 참가",
     "roomCode": "방 코드",
     "join": "참가",
+    "joinTitle": "{{code}} 방 참가",
+    "confirm": "확인",
+    "cancel": "취소",
     "noOpus": "이 브라우저에서는 음원을 재생할 수 없습니다. 브라우저 또는 iOS를 최신 버전으로 업데이트해 주세요."
   },
   "theme": {

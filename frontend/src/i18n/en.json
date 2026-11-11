@@ -10,6 +10,9 @@
     "orCode": "or join with a code",
     "roomCode": "Room code",
     "join": "Join",
+    "joinTitle": "Join room {{code}}",
+    "confirm": "OK",
+    "cancel": "Cancel",
     "noOpus": "This browser cannot play the audio. Please update your browser or iOS to the latest version."
   },
   "theme": {
