@@ -1,0 +1,4 @@
+/* Cycle 117 addendum (D-125): the start screen has no chat, so its .main drops the chat column and the card is centred. */
+.main.solo{grid-template-columns:minmax(0,1fr)}
+.main.solo .inner{margin-inline:auto}
+.start-screen{margin-inline:auto}

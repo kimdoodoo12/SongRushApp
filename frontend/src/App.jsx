@@ -611,6 +611,7 @@ function GameApp({
           banner={banner}
           footer={footer}
           chat={null}
+          solo
         >
           <StartScreen
             canPlayOpus={opusOk}

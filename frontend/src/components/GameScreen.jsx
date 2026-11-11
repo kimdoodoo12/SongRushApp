@@ -287,7 +287,7 @@ function ScoreLists({ score, scoreboard, me }) {
 // as the host's pick. banner is the reconnecting line, the first child of
 // .stage .inner; footer the page footer, its last. chat is null (no chat
 // aside) or { lines, me, online, onSend }, onSend null without the form.
-export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute, banner, footer, chat, children }) {
+export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute, banner, footer, chat, solo = false, children }) {
   const { t } = useTranslation()
   return (
     <>
@@ -317,7 +317,7 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
           )}
         </header>
 
-        <div className="main">
+        <div className={solo ? 'main solo' : 'main'}>
           <section className="stage" aria-label={t('stage.label')}>
             <div className="inner">
               {banner}
