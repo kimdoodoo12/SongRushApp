@@ -549,9 +549,12 @@ describe('panel states', () => {
     expect(toLobby.classList.contains('primary')).toBe(true)
   })
 
+  // Cycle 119 (D-127, declared): a create or join from the nickname dialog
+  // stays on the start screen until joined, so the game frame before joined
+  // is reached by a reload rejoin.
   it('before joined (room null): the connecting text as .hint in the panel, no .code and no .moods', async () => {
-    const env = setup()
-    createRoomAs('하루')
+    window.sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ token: 'T1', code: 'ABCDE' }))
+    const env = setup({ navigationType: 'reload' })
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     const text = screen.getByText(ko.stage.connecting)
     expect(text.classList.contains('hint')).toBe(true)

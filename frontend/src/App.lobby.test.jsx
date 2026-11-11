@@ -9,10 +9,10 @@
 // The behaviour checked is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { createRoomAs, joinRoomAs, lobbyCode, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
+import { confirmNickname, createRoomAs, joinRoomAs, lobbyCode, nicknameDialog, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
 
 const DISCONNECTED = '서버와 연결이 끊어졌습니다.'
 const WAITING = '방장이 게임을 시작하기를 기다리는 중...'
@@ -48,10 +48,6 @@ function setup({ canPlayOpus = true } = {}) {
 
 function deliver(socket, msg) {
   act(() => socket.receive(msg))
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 function setCode(code) {
@@ -170,7 +166,8 @@ describe('start screen room controls', () => {
     expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(false)
   })
 
-  it('has no solo controls: no 시작 button and no 곡 수 or filter select; 닉네임, 분위기, 방 만들기, 방 코드 and 참가 remain', () => {
+  // Cycle 119 (D-127, declared): 닉네임 is no longer on the start screen.
+  it('has no solo controls: no 시작 button and no 곡 수 or filter select; 분위기, 방 만들기, 방 코드 and 참가 remain, 닉네임 is gone', () => {
     setup()
     expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
     expect(screen.queryByLabelText('곡 수')).toBeNull()
@@ -180,7 +177,7 @@ describe('start screen room controls', () => {
     }
     expect(screen.queryByText('혼자 하기')).toBeNull()
     expect(screen.queryAllByRole('combobox')).toEqual([])
-    expect(screen.getByLabelText('닉네임').tagName).toBe('INPUT')
+    expect(screen.queryByLabelText('닉네임')).toBeNull()
     expect(screen.getByRole('group', { name: '분위기' })).toBeTruthy()
     expectStartScreen()
   })
@@ -253,15 +250,18 @@ describe('join', () => {
     expect(screen.getByRole('button', { name: '참가' }).disabled).toBe(false)
   })
 
-  it('Enter in the code field sends join, never a create', async () => {
+  // Cycle 119 (D-127, declared): Enter in the code field is 참가, so it
+  // opens the join dialog; 확인 there sends the join.
+  it('Enter in the code field opens the join dialog, whose 확인 sends join, never a create', async () => {
     const env = setup()
-    setNickname('Hana')
     setCode('abcde')
     const input = screen.getByLabelText('방 코드')
     const notPrevented = fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13, charCode: 13 })
     // A browser submits the enclosing form on Enter unless keydown was
     // cancelled; jsdom does not, so the test does it the same way.
     if (notPrevented && input.form !== null) fireEvent.submit(input.form)
+    expect(env.sockets.factory).not.toHaveBeenCalled()
+    confirmNickname('Hana')
     const socket = await openSocket(env)
     expect(socket.sent).toEqual([{ type: 'join', code: 'ABCDE', nickname: 'Hana' }])
     expect(socket.sentOfType('create')).toEqual([])
@@ -450,11 +450,15 @@ describe('room errors', () => {
   it.each([
     ['room-not-found', '방을 찾을 수 없습니다.'],
     ['room-full', '방이 가득 찼습니다 (최대 8명).'],
-  ])('error{code:"%s"} after join shows its text on the start screen and closes the socket', async (code, text) => {
+  ])('error{code:"%s"} after join shows its text in the open nickname dialog and closes the socket', async (code, text) => {
+    // Cycle 119 (D-127, declared): the dialog stays open over the start
+    // screen and shows the error as p.warn.
     const env = setup()
     const socket = await clickJoin(env)
     deliver(socket, { type: 'error', code })
-    expect(screen.getByText(text)).toBeTruthy()
+    const warn = within(nicknameDialog()).getByText(text)
+    expect(warn.tagName).toBe('P')
+    expect(warn.classList.contains('warn')).toBe(true)
     expectStartScreen()
     expect(socket.closed).toBe(true)
     act(() => socket.serverClose())

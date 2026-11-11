@@ -29,9 +29,10 @@
 //   game. The log is cleared on every way into the lobby (from the start
 //   screen, 대기실로, an abandoned game, a rejoin into the lobby phase); the
 //   mockup's system lines (방에 들어왔어요, 대기실로 돌아왔어요) may follow.
-// - Start screen: h1.marquee > span SongRush, a section.opts card with the
-//   닉네임 input, .btn.primary.go 방 만들기, the 방 코드 input and the 참가
-//   .btn; no chat aside shown.
+// - Start screen: h1.marquee > span SongRush, a section.opts card with
+//   .btn.primary.go 방 만들기, the 방 코드 input and the 참가 .btn; no chat
+//   aside shown. Cycle 119 (D-127, declared): the 닉네임 input moved into
+//   the nickname dialog, so the card has none.
 // No i18n key names are fixed here: Korean texts are literals, English is
 // read through the existing lobby.leave key and the pixel SKIN, whose values
 // are English in every language.
@@ -284,7 +285,8 @@ describe('one frame', () => {
     expect(text('.app .main .stage .inner h1.marquee > span')).toBe('SongRush')
     const card = q('.stage .inner section.opts')
     expect(card).not.toBeNull()
-    expect(card.contains(screen.getByLabelText('닉네임'))).toBe(true)
+    expect(screen.queryByLabelText('닉네임')).toBeNull()
+    expect(card.contains(screen.getByLabelText('방 코드'))).toBe(true)
     const create = screen.getByRole('button', { name: '방 만들기' })
     expect(create.classList.contains('btn')).toBe(true)
     expect(create.classList.contains('primary')).toBe(true)

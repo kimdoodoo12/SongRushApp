@@ -4,7 +4,7 @@
 // Cycle 114 (D-124, declared): 곡 수 is the lobby stepper and the start
 // button is .start-row .go, both through src/testing/lobby.js.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
 import * as lobby from './testing/lobby.js'
@@ -152,14 +152,20 @@ async function tick(env) {
 }
 
 describe('start screen', () => {
-  it('shows the nickname input, 방 만들기 and the credit line; the host lobby has the song count stepper at 10 within 5-30', async () => {
+  // Cycle 119 (D-127, declared): the nickname input is in the dialog that
+  // 방 만들기 opens; the start screen has none.
+  it('shows 방 만들기 and the credit line, the nickname input in its dialog; the host lobby has the song count stepper at 10 within 5-30', async () => {
     const env = setup()
     expect(screen.getByRole('heading', { level: 1, name: 'SongRush' })).toBeTruthy()
-    const nickname = screen.getByLabelText('닉네임')
-    expect(nickname.tagName).toBe('INPUT')
-    expect(nickname.maxLength).toBe(16)
+    expect(screen.queryByLabelText('닉네임')).toBeNull()
     expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(false)
     expect(screen.getByText(CREDIT)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    const nickname = lobby.nicknameInput()
+    expect(nickname.tagName).toBe('INPUT')
+    expect(nickname.maxLength).toBe(16)
+    fireEvent.click(within(lobby.nicknameDialog()).getByRole('button', { name: '취소' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
     await aloneLobby(env)
     expect(screen.getByLabelText('곡 수')).toBe(lobby.songCountOutput())
     expect(lobby.songCount()).toBe(10)
@@ -476,7 +482,9 @@ describe('game over and errors', () => {
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
     expect(socket.closed).toBe(true)
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
-    expect(screen.getByLabelText('닉네임')).toBeTruthy()
+    // Cycle 119 (D-127, declared): no nickname input and no dialog.
+    expect(screen.queryByLabelText('닉네임')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
     act(() => socket.serverClose())
     expect(screen.queryByText(DISCONNECTED)).toBeNull()
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
@@ -496,11 +504,16 @@ describe('game over and errors', () => {
   it.each([
     ['bad-nickname', '닉네임은 1~16자로 입력해 주세요.'],
     ['xyz', '오류가 발생했습니다 (xyz)'],
-  ])('an error{code:"%s"} answering create shows its message on the start screen', async (code, text) => {
+  ])('an error{code:"%s"} answering create shows its message in the open nickname dialog', async (code, text) => {
+    // Cycle 119 (D-127, declared): the dialog stays open over the start
+    // screen and shows the error as p.warn.
     const env = setup()
     const socket = await clickCreate(env)
     deliver(socket, { type: 'error', code })
-    expect(screen.getByText(text)).toBeTruthy()
+    const dialog = lobby.nicknameDialog()
+    const warn = within(dialog).getByText(text)
+    expect(warn.tagName).toBe('P')
+    expect(warn.classList.contains('warn')).toBe(true)
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
     expect(socket.closed).toBe(true)
     act(() => socket.serverClose())

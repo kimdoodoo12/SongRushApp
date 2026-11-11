@@ -140,20 +140,47 @@ export function lobbyCode() {
   return code === null ? null : code.textContent
 }
 
-// Cycle 119 (D-127): every test that creates or joins a room from the start
-// screen goes through these two, so the nickname moving into a dialog
-// touches one file. `dict` is the UI language's messages (ko, en or ja
-// json) when a test runs in another language.
+// Cycle 119 (D-127): the start screen has 방 만들기 and 방 코드 with 참가; a
+// press opens the nickname dialog (role dialog: one text input, 확인 as
+// .btn.primary, 취소). Every test that creates or joins a room from the
+// start screen goes through createRoomAs/joinRoomAs, so the next change of
+// this flow touches one file. `dict` is the UI language's messages (ko, en
+// or ja json) when a test runs in another language; the dialog itself is
+// found by its role and classes, so it needs no texts.
 
-// 방 만들기 as `name`: fills 닉네임 and clicks 방 만들기.
-export function createRoomAs(name, dict = ko) {
-  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: name } })
-  fireEvent.click(screen.getByRole('button', { name: dict.start.createRoom }))
+// The open nickname dialog; throws when none is open.
+export function nicknameDialog() {
+  return screen.getByRole('dialog')
 }
 
-// 참가 to `code` as `name`: fills 닉네임 and 방 코드, then clicks 참가.
+// The dialog's nickname input.
+export function nicknameInput() {
+  return within(nicknameDialog()).getByRole('textbox')
+}
+
+// The dialog's 확인 button (.btn.primary).
+export function confirmButton() {
+  const button = nicknameDialog().querySelector('button.btn.primary')
+  if (button === null) throw new Error('no 확인 button (.btn.primary) in the nickname dialog')
+  return button
+}
+
+// In the open dialog: types `name` and clicks 확인.
+export function confirmNickname(name) {
+  fireEvent.change(nicknameInput(), { target: { value: name } })
+  fireEvent.click(confirmButton())
+}
+
+// 방 만들기 as `name`: clicks 방 만들기, then 닉네임 and 확인 in the dialog.
+export function createRoomAs(name, dict = ko) {
+  fireEvent.click(screen.getByRole('button', { name: dict.start.createRoom }))
+  confirmNickname(name)
+}
+
+// 참가 to `code` as `name`: fills 방 코드, clicks 참가, then 닉네임 and 확인
+// in the dialog.
 export function joinRoomAs(name, code, dict = ko) {
-  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: name } })
   fireEvent.change(screen.getByLabelText(dict.start.roomCode), { target: { value: code } })
   fireEvent.click(screen.getByRole('button', { name: dict.start.join }))
+  confirmNickname(name)
 }
