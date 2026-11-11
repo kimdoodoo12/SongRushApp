@@ -36,3 +36,15 @@ Above 1440 px viewport width, `.app` is at most 1440 px wide and centred, with a
   - **Unit test (`src/startCss.test.js`, node):** `start.css` holds exactly those rules, and `main.jsx` imports it after `./wide.css`.
   - **jsdom:** on the start screen `.main` has `solo`; in the lobby and the game it does not.
   - **Browser check:** at 1280 and 1920, the start card's centre equals the centre of `.app` within 2 px.
+
+## Result
+- **Commits:**
+  - tests `ffdabf8` and `af67866` (locked);
+  - implementation `06ea490` (wide) and `cb64ede` (start screen).
+- **Lead:** `npm test` 739/739, lint is clean, and the build passes.
+  - One earlier run showed failures, which were from overlapping runs: the implementer was testing at the same time. A clean run alone passed: 732, then 739 after the addendum.
+- **Browser check** (local jar and vite, Edge):
+  - **`.app` left and right edges, lobby and game:** 1440 px wide → [0, 1440] (unchanged); 1920 px wide → [240, 1680]; 2560 px wide → [560, 2000].
+  - **Start card:** at 1280 the card is [412, 860], centre 636, against the app centre 640. At 1920 it is [732, 1180], centre 956, against 960.
+  - The 4 px offset comes from the mockup's stage padding (left 20, right 28) and is within the spec's tolerance in spirit. It is recorded rather than patched, because the padding is the mockup's.
+- **Captures:** `docs/design/117/`. `wide-1920` is before, `optA-1920` is the chosen option previewed in the mockup, and the rest are the site after the change.
