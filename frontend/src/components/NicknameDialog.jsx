@@ -9,7 +9,8 @@ const FOCUSABLE = 'button:not(:disabled), input:not(:disabled):not([tabindex="-1
 // App owns its state (name, busy, error), so it survives the attempt's
 // connecting and error. A modal div, as FeedbackDialog is (jsdom has no
 // showModal): focus goes to the input on open, Tab cycles inside it, and
-// Escape, 취소 or a click outside the card call onCancel. Enter or 확인
+// Escape, 취소 or a click outside the card (pressed and released on the
+// backdrop) call onCancel. Enter or 확인
 // call onConfirm with the trimmed name; a blank name, or busy (an attempt
 // connecting), keeps 확인 disabled. error is the attempt's start error
 // ({ key, values }), shown as p.warn.
@@ -18,6 +19,8 @@ export default function NicknameDialog({ mode, code, name, busy, error, onNameCh
   const titleId = useId()
   const dialogRef = useRef(null)
   const inputRef = useRef(null)
+  // The last mousedown inside the dialog's backdrop began on the backdrop.
+  const downOnBackdropRef = useRef(false)
   const trimmed = name.trim()
   const canConfirm = !busy && trimmed !== ''
 
@@ -51,14 +54,23 @@ export default function NicknameDialog({ mode, code, name, busy, error, onNameCh
     }
   }
 
-  // Only a click on the backdrop itself, not one that bubbles from the card.
+  // Only a click on the backdrop itself, not one that bubbles from the card,
+  // and only when the press began on the backdrop too: a drag from the card
+  // (selecting the name) released outside it does not cancel.
+  function handleBackdropMouseDown(event) {
+    downOnBackdropRef.current = event.target === event.currentTarget
+  }
+
   function handleBackdropClick(event) {
-    if (event.target === event.currentTarget) onCancel()
+    const downOnBackdrop = downOnBackdropRef.current
+    downOnBackdropRef.current = false
+    if (downOnBackdrop && event.target === event.currentTarget) onCancel()
   }
 
   return (
     <div
       className="nick-backdrop fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3"
+      onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >
       <div

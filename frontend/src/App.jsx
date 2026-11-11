@@ -382,6 +382,16 @@ function GameApp({
     const opener = dialogOpenerRef.current
     dialogOpenerRef.current = null
     if (opener !== null && opener.isConnected) opener.focus()
+    // The invite dialog opened on mount, with no opener: the focus goes to
+    // the start screen's 참가 (cycle 119 review).
+    else if (opener === null) startJoinButton()?.focus()
+  }
+
+  // The start screen's 참가 button, found by its label, or null.
+  function startJoinButton() {
+    const label = t('start.join')
+    const buttons = document.querySelectorAll('.start-screen button')
+    return Array.from(buttons).find((button) => button.textContent.trim() === label) ?? null
   }
 
   function handleStartGame() {
