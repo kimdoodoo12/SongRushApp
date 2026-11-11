@@ -36,8 +36,8 @@ function normalize(css) {
     .replace(/\(\s+/g, '(')
     .replace(/\s+\)/g, ')')
     .replace(/;}/g, '}')
-    .replace(/^@container\(/, '@container (')
     .trim()
+    .replace(/^@container\(/, '@container (')
 }
 
 describe('choice.css', () => {
