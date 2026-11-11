@@ -1,3 +1,4 @@
-/* Cycle 118, revision 3: above 900 px the whole page scrolls, not .stage;
-   the chat column stays in view (docs/cycles/118-choice-deck.md). */
-@media (min-width:901px){html,body{height:auto}.app{height:auto;min-height:100vh}.stage{overflow:visible}.chat{position:sticky;top:0;height:100vh;align-self:start}}
+/* Cycle 118, revision 4: above 900 px the whole page scrolls, not .stage;
+   the chat spans from under the header to the bottom of the screen and
+   scrolls away with the page (docs/cycles/118-choice-deck.md). */
+@media (min-width:901px){html,body{height:auto}.app{height:auto;min-height:100vh}.stage{overflow:visible}.chat{align-self:start;height:calc(100vh - 114px)}}@media (min-width:1300px){.chat{height:calc(100vh - 67px)}}
