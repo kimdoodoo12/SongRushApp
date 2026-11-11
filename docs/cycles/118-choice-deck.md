@@ -53,3 +53,25 @@ In the mockup today the choice deck is 130–160 px while playing and 220–300 
 ## File ownership
 - **Test writer:** `src/choiceCss.test.js` and the `vite.config.js` `NODE_TESTS` line.
 - **Implementer:** `src/choice.css` and `src/main.jsx`.
+
+## Revision 2 (owner, 2026-11-11: "내 노트북 기준으로, 레코드가 너무 작아. 더 키울수있을것 같은데. 그리고 사진도 더 키울수 있을것 같은데. 큰 모니터 기준으로도 괜찮아")
+- **The owner's laptop**, measured on this PC: a gram at 1920×1080 with 125 % scaling (`1536x864` logical). A maximized browser gives about 1536×730 CSS px.
+- **Measured at 1536×730 with revision 1:** the header is 114 px (two rows), the deck 200, and the covers 159×217.
+- **`choice.css` becomes exactly the rule below.** Besides the choice layout, it adds:
+  - on screens at least 1300 px wide, the header `.moodbar` sits on the logo row (`flex-basis:auto`);
+  - in choice games at 900 px height or less, the panel's `.sub` text is hidden;
+  - the deck takes 28 % of the `.now` width, capped by the height;
+  - the covers fit the height left, with the header-dependent overhead in `--oh`.
+
+  `@media (min-width:1300px){.moodbar{flex-basis:auto}}@media (max-height:900px){.choice-mode .now .sub{display:none}}.choice-mode{--oh:290px}@media (min-width:1300px){.choice-mode{--oh:242px}}@container (min-width:621px){.choice-mode .inner{max-width:none}.choice-mode .now,.choice-mode .now:has(.revealed){grid-template-columns:clamp(200px,min(calc(100vh - 400px),28%),340px) minmax(0,1fr);grid-template-areas:"deck choices" "panel choices";grid-template-rows:auto 1fr;align-items:start;gap:16px 28px}.choice-mode .choices.k4,.choice-mode .choices.k6,.choice-mode .choices.k8{--tw:calc((100vh - var(--oh)) / 2.75);max-width:calc(var(--cols) * var(--tw) + (var(--cols) - 1) * 12px);padding-top:0;border-top:0;align-self:start}.choice-mode .now .hint{font-size:1.15rem}}`
+
+- **Measured with this rule** (prototype on the local site; covers given as width; "bottom" is the bottom of the 2nd row):
+
+  | Screen | Deck | k = 6 | k = 8 | Bottom (k = 6) |
+  |---|---|---|---|---|
+  | 1536×730 | 283 | 186×253 | 174×237 | 701 |
+  | 1900×870 | 283 | 236 | 174 | 833 |
+  | 1440×900 | 283 | 236 | 174 | 835 |
+  | 1280×800 | 239 | 194 | 144 | 770 |
+
+  At 1280×800 the k = 8 covers are slightly smaller than in revision 1 (154). The owner saw the 1536×730 and 1900×870 captures.
