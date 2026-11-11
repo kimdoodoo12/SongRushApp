@@ -1,5 +1,10 @@
 # 109 eight-moods (B-031 + F-025; D-122, design 108 items 1-2)
 
+> **Superseded in part by D-124 (cycle 110).**
+> - The frontend part (token blocks, `data-room-theme`, the theme-layout test, Do Hyeon for pixel) was replaced by the mockup's verbatim CSS and `html[data-mood]`.
+> - The backend part (B-031: the eight ids and the old-id mapping) still holds.
+
+
 ## Decision (owner, 2026-11-10)
 - "시안 8종으로 교체"
 - "방장이 고르기 (지금처럼)"
