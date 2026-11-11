@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { joinRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const ANY_SKIP = /^스킵/
@@ -82,9 +83,7 @@ function clickSkip() {
 
 // Joined as Hana (2) in ABCDE, song 0 started and playing.
 async function roomSongStarted(env) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs('Hana', 'ABCDE')
   await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
   const socket = env.sockets.last
   act(() => socket.open())

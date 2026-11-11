@@ -9,10 +9,10 @@
 // The behaviour checked is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { lobbyCode, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
+import { confirmNickname, createRoomAs, joinRoomAs, lobbyCode, nicknameDialog, seatNames, setSongCount, songCount, songCountOutput, startButton, startGame, stepperButtons } from './testing/lobby.js'
 
 const DISCONNECTED = '서버와 연결이 끊어졌습니다.'
 const WAITING = '방장이 게임을 시작하기를 기다리는 중...'
@@ -50,10 +50,6 @@ function deliver(socket, msg) {
   act(() => socket.receive(msg))
 }
 
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
-}
-
 function setCode(code) {
   fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: code } })
 }
@@ -69,9 +65,7 @@ async function openSocket(env, count = 1) {
 
 // Clicks 참가 with the given nickname and code; returns the opened socket.
 async function clickJoin(env, { nickname = 'Hana', code = 'ABCDE' } = {}) {
-  setNickname(nickname)
-  setCode(code)
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs(nickname, code)
   return openSocket(env)
 }
 
@@ -172,7 +166,8 @@ describe('start screen room controls', () => {
     expect(screen.getByRole('button', { name: '방 만들기' }).disabled).toBe(false)
   })
 
-  it('has no solo controls: no 시작 button and no 곡 수 or filter select; 닉네임, 분위기, 방 만들기, 방 코드 and 참가 remain', () => {
+  // Cycle 119 (D-127, declared): 닉네임 is no longer on the start screen.
+  it('has no solo controls: no 시작 button and no 곡 수 or filter select; 분위기, 방 만들기, 방 코드 and 참가 remain, 닉네임 is gone', () => {
     setup()
     expect(screen.queryByRole('button', { name: '시작' })).toBeNull()
     expect(screen.queryByLabelText('곡 수')).toBeNull()
@@ -182,7 +177,7 @@ describe('start screen room controls', () => {
     }
     expect(screen.queryByText('혼자 하기')).toBeNull()
     expect(screen.queryAllByRole('combobox')).toEqual([])
-    expect(screen.getByLabelText('닉네임').tagName).toBe('INPUT')
+    expect(screen.queryByLabelText('닉네임')).toBeNull()
     expect(screen.getByRole('group', { name: '분위기' })).toBeTruthy()
     expectStartScreen()
   })
@@ -198,8 +193,7 @@ describe('start screen room controls', () => {
 describe('create', () => {
   it('방 만들기 calls resume() in the click and sends create with exactly type and nickname', async () => {
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    createRoomAs('하루')
     // Synchronously inside the click handler (audio unlock).
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
@@ -215,8 +209,7 @@ describe('create', () => {
 
   it('joined after create shows the lobby with the creator as host', async () => {
     const env = setup()
-    setNickname('하루')
-    fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+    createRoomAs('하루')
     const socket = await openSocket(env)
     deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
     deliver(socket, roster([player('하루', { host: true })]))
@@ -230,10 +223,9 @@ describe('create', () => {
 describe('join', () => {
   it('upper-cases the typed code and 참가 sends join{code, nickname}', async () => {
     const env = setup()
-    setNickname('Hana')
     setCode('abcde')
     expect(screen.getByLabelText('방 코드').value).toBe('ABCDE')
-    fireEvent.click(screen.getByRole('button', { name: '참가' }))
+    joinRoomAs('Hana', 'abcde')
     // The join gesture also unlocks audio synchronously.
     expect(env.audio.factory).toHaveBeenCalledTimes(1)
     expect(env.audio.last.resume).toHaveBeenCalledTimes(1)
@@ -243,7 +235,6 @@ describe('join', () => {
 
   it('참가 is disabled while the code is empty', () => {
     setup()
-    setNickname('Hana')
     expect(screen.getByLabelText('방 코드').value).toBe('')
     expect(screen.getByRole('button', { name: '참가' }).disabled).toBe(true)
     setCode('abcde')
@@ -259,15 +250,18 @@ describe('join', () => {
     expect(screen.getByRole('button', { name: '참가' }).disabled).toBe(false)
   })
 
-  it('Enter in the code field sends join, never a create', async () => {
+  // Cycle 119 (D-127, declared): Enter in the code field is 참가, so it
+  // opens the join dialog; 확인 there sends the join.
+  it('Enter in the code field opens the join dialog, whose 확인 sends join, never a create', async () => {
     const env = setup()
-    setNickname('Hana')
     setCode('abcde')
     const input = screen.getByLabelText('방 코드')
     const notPrevented = fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', keyCode: 13, charCode: 13 })
     // A browser submits the enclosing form on Enter unless keydown was
     // cancelled; jsdom does not, so the test does it the same way.
     if (notPrevented && input.form !== null) fireEvent.submit(input.form)
+    expect(env.sockets.factory).not.toHaveBeenCalled()
+    confirmNickname('Hana')
     const socket = await openSocket(env)
     expect(socket.sent).toEqual([{ type: 'join', code: 'ABCDE', nickname: 'Hana' }])
     expect(socket.sentOfType('create')).toEqual([])
@@ -456,11 +450,15 @@ describe('room errors', () => {
   it.each([
     ['room-not-found', '방을 찾을 수 없습니다.'],
     ['room-full', '방이 가득 찼습니다 (최대 8명).'],
-  ])('error{code:"%s"} after join shows its text on the start screen and closes the socket', async (code, text) => {
+  ])('error{code:"%s"} after join shows its text in the open nickname dialog and closes the socket', async (code, text) => {
+    // Cycle 119 (D-127, declared): the dialog stays open over the start
+    // screen and shows the error as p.warn.
     const env = setup()
     const socket = await clickJoin(env)
     deliver(socket, { type: 'error', code })
-    expect(screen.getByText(text)).toBeTruthy()
+    const warn = within(nicknameDialog()).getByText(text)
+    expect(warn.tagName).toBe('P')
+    expect(warn.classList.contains('warn')).toBe(true)
     expectStartScreen()
     expect(socket.closed).toBe(true)
     act(() => socket.serverClose())

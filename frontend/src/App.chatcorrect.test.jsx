@@ -6,10 +6,10 @@
 // src/testing/lobby.js (the stepper and .start-row .go).
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { setSongCount, startGame } from './testing/lobby.js'
+import { createRoomAs, setSongCount, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 
@@ -50,8 +50,7 @@ function startMsg() {
 
 // 하루 creates a room with 민수 and 지수, starts a game of 5 and plays song 0.
 async function playing(env) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
   const socket = env.sockets.last
   act(() => socket.open())

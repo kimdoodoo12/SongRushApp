@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // Tests that read the file system through import.meta.url run in the node
 // environment: under jsdom, Vite's client transform rewrites
 // new URL('..', import.meta.url) into a location-based http URL.
-const NODE_TESTS = ['src/noTypeScript.test.js', 'src/i18n/keys.test.js', 'src/roomCss.test.js', 'src/indexCss.test.js']
+const NODE_TESTS = ['src/noTypeScript.test.js', 'src/i18n/keys.test.js', 'src/roomCss.test.js', 'src/indexCss.test.js', 'src/wideCss.test.js', 'src/startCss.test.js', 'src/choiceCss.test.js', 'src/scrollCss.test.js']
 
 // The dev server proxies to the Spring Boot backend on port 8080.
 // changeOrigin is deliberately left off: the browser's Origin header must
@@ -22,6 +22,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Full runs take 50-65 s on the dev PC; tests that go through the
+    // nickname dialog timed out at the default 5 s (cycle 119 review).
+    testTimeout: 15000,
     projects: [
       {
         extends: true,

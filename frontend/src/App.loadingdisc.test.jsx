@@ -27,10 +27,11 @@
 // Timer rule (cycle 039): real timers and waitFor, except 'rejoin', which
 // needs the reconnect backoff and uses fake timers with flushUntil/advance.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import ko from './i18n/ko.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs, joinRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -100,8 +101,7 @@ const roster = (phase) => ({ type: 'roster', phase, players: PLAYERS })
 
 // Creates a room alone as 하루; the game starts and prepare{0} is delivered.
 async function gamePrepared(env) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+  createRoomAs('하루')
   await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
   const socket = env.sockets.last
   act(() => socket.open())
@@ -387,9 +387,7 @@ describe('load text', () => {
 describe('late join (watching)', () => {
   it('a playing snapshot before the late start: the disc is drawn and paused; after the first pong it plays and moves', async () => {
     const env = setup()
-    fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: 'Hana' } })
-    fireEvent.change(screen.getByLabelText(ko.start.roomCode), { target: { value: 'ABCDE' } })
-    fireEvent.click(screen.getByRole('button', { name: ko.start.join }))
+    joinRoomAs('Hana', 'ABCDE')
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     const socket = env.sockets.last
     act(() => socket.open())
@@ -448,8 +446,7 @@ describe('rejoin', () => {
   // The lobby as host 하루 of QWERT with token T1; then a drop and, 500 ms
   // later, the first reconnect attempt opened and joined again.
   async function rejoined(env) {
-    fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: '하루' } })
-    fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+    createRoomAs('하루')
     await flushUntil(() => env.sockets.sockets.length === 1)
     const socket = env.sockets.last
     act(() => socket.open())

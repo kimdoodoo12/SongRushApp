@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { lobbyCode, seatNames, startButton } from './testing/lobby.js'
+import { createRoomAs, lobbyCode, seatNames, startButton } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -68,10 +68,6 @@ function setup() {
 
 function deliver(socket, msg) {
   act(() => socket.receive(msg))
-}
-
-function setNickname(nickname) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: nickname } })
 }
 
 function pageText() {
@@ -188,8 +184,7 @@ function answerLatestPing(env, socket) {
 
 // 방 만들기 as 하루 and open the socket.
 async function createRoom(env) {
-  setNickname('하루')
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   await flushUntil(() => env.sockets.sockets.length === 1)
   expect(env.sockets.sockets).toHaveLength(1)
   const socket = env.sockets.last

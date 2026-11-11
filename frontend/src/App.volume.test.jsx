@@ -20,6 +20,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const VOLUME_KEY = 'songrush.volume'
@@ -70,8 +71,7 @@ const roster = (phase) => ({ type: 'roster', phase, players: PLAYERS })
 // Creates a room alone as 하루 (labels from `dict`) on socket number `count`,
 // then the game starts and prepare{0} is delivered. Returns the socket.
 async function gamePrepared(env, dict = ko, count = 1) {
-  fireEvent.change(screen.getByLabelText(dict.start.nickname), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: dict.start.createRoom }))
+  createRoomAs('하루', dict)
   await waitFor(() => expect(env.sockets.sockets.length).toBe(count))
   const socket = env.sockets.last
   act(() => socket.open())

@@ -287,13 +287,30 @@ function ScoreLists({ score, scoreboard, me }) {
 // as the host's pick. banner is the reconnecting line, the first child of
 // .stage .inner; footer the page footer, its last. chat is null (no chat
 // aside) or { lines, me, online, onSend }, onSend null without the form.
-export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute, banner, footer, chat, children }) {
+// The header's height is measured (cycle 119 review) and set as --hd (px) on
+// .app, for scroll.css and choice.css: longer mood names in en or ja wrap the
+// mood bar. Without ResizeObserver it is measured once, on mount.
+export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute, banner, footer, chat, solo = false, children }) {
   const { t } = useTranslation()
+  const headerRef = useRef(null)
+  const [headerHeight, setHeaderHeight] = useState(null)
+
+  useLayoutEffect(() => {
+    const header = headerRef.current
+    if (header === null) return undefined
+    const measure = () => setHeaderHeight(header.offsetHeight)
+    measure()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const observer = new ResizeObserver(measure)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
+
   return (
     <>
       <div className="scan" aria-hidden="true" />
-      <div className="app">
-        <header>
+      <div className="app" style={headerHeight === null ? undefined : { '--hd': `${headerHeight}px` }}>
+        <header ref={headerRef}>
           <div className="logo">
             <span className="eq" aria-hidden="true">
               <i />
@@ -317,7 +334,7 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
           )}
         </header>
 
-        <div className="main">
+        <div className={solo ? 'main solo' : 'main'}>
           <section className="stage" aria-label={t('stage.label')}>
             <div className="inner">
               {banner}

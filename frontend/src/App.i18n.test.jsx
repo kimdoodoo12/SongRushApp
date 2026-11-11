@@ -31,6 +31,7 @@ import ko from './i18n/ko.json'
 import en from './i18n/en.json'
 import ja from './i18n/ja.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const LANG_KEY = 'songrush.lang'
@@ -138,8 +139,7 @@ const roster = (phase) => ({ type: 'roster', phase, players: PLAYERS })
 // Creates room QWERT as Kai through the labels of `dict`; returns the socket
 // with the lobby roster delivered.
 async function hostLobby(env, dict) {
-  fireEvent.change(screen.getByLabelText(tr(dict, 'start.nickname')), { target: { value: 'Kai' } })
-  fireEvent.click(screen.getByRole('button', { name: tr(dict, 'start.createRoom') }))
+  createRoomAs('Kai', dict)
   await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
   const socket = env.sockets.last
   act(() => socket.open())
@@ -207,7 +207,8 @@ describe('default and switcher', () => {
   it('starts in Korean in test mode, with 한국어 pressed', () => {
     setup()
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
-    expect(screen.getByLabelText('닉네임')).toBeTruthy()
+    // Cycle 119 (D-127, declared): 닉네임 moved into the dialog; 방 코드 stays.
+    expect(screen.getByLabelText('방 코드')).toBeTruthy()
     const names = within(switcher())
       .getAllByRole('button')
       .map((b) => b.textContent.trim())
@@ -219,7 +220,7 @@ describe('default and switcher', () => {
     setup()
     chooseLanguage('English')
     expect(screen.getByRole('button', { name: 'Create room' })).toBeTruthy()
-    expect(screen.getByLabelText('Nickname')).toBeTruthy()
+    expect(screen.getByLabelText(tr(en, 'start.roomCode'))).toBeTruthy()
     expect(screen.queryByRole('button', { name: '방 만들기' })).toBeNull()
     expect(window.localStorage.getItem(LANG_KEY)).toBe('en')
     expect(document.documentElement.lang).toBe('en')
@@ -235,7 +236,7 @@ describe('default and switcher', () => {
     expect(createRoom).not.toBe(tr(ko, 'start.createRoom'))
     expect(createRoom).not.toBe(tr(en, 'start.createRoom'))
     expect(screen.getByRole('button', { name: createRoom })).toBeTruthy()
-    expect(screen.getByLabelText(tr(ja, 'start.nickname'))).toBeTruthy()
+    expect(screen.getByLabelText(tr(ja, 'start.roomCode'))).toBeTruthy()
     expect(window.localStorage.getItem(LANG_KEY)).toBe('ja')
     expect(document.documentElement.lang).toBe('ja')
     expect(pressedLanguages()).toEqual(['日本語'])
@@ -257,7 +258,7 @@ describe('stored choice', () => {
     window.localStorage.setItem(LANG_KEY, 'ja')
     setup()
     expect(screen.getByRole('button', { name: tr(ja, 'start.createRoom') })).toBeTruthy()
-    expect(screen.getByLabelText(tr(ja, 'start.nickname'))).toBeTruthy()
+    expect(screen.getByLabelText(tr(ja, 'start.roomCode'))).toBeTruthy()
     expect(screen.queryByRole('button', { name: '방 만들기' })).toBeNull()
     expect(pressedLanguages()).toEqual(['日本語'])
   })
