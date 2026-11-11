@@ -5,6 +5,8 @@ import './index.css'
 import './room.css'
 import './wide.css'
 import './start.css'
+import './choice.css'
+import './scroll.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

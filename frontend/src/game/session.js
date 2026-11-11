@@ -22,6 +22,8 @@
 // socket. rejoin-failed, a close before its first joined, or no joined
 // within ATTEMPT_MS of its creation ends the session on the start screen
 // with the rejoin-failed text; there is no retry ladder for this attempt.
+// A create or join closed before its joined ends with a startError of the
+// game.disconnected text (cycle 119): the nickname dialog shows it.
 import { planPlayback, loadTrack } from '../audio/playback.js'
 import { createClockSync } from '../net/clockSync.js'
 import { errorText } from './state.js'
@@ -873,6 +875,13 @@ export function startSession({
     }
     if (reloadRejoin && !everJoined) {
       failReloadRejoin()
+      return
+    }
+    if (!reloadRejoin && !everJoined) {
+      // A create or join from the nickname dialog (cycle 119) that never got
+      // in: the dialog stays open with the connection-failure text.
+      shutdown()
+      dispatch({ type: 'startError', text: { key: 'game.disconnected' } })
       return
     }
     if (reconnecting) {

@@ -22,10 +22,10 @@
 // Timer rule: fake timers in every test (the hold is a local timer), driven
 // by flushUntil / advance with the injected now() moved together with them.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, act, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
-import ko from './i18n/ko.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
+import { createRoomAs } from './testing/lobby.js'
 
 const T0 = 1_000_000
 const FAKE_TIMERS = { toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] }
@@ -270,8 +270,7 @@ function loadLineText() {
 // COVERS4, ready, started and audible, then revealed with correctChoice 2.
 // Returns the socket with the reveal on screen.
 async function revealedChoiceSong(env, { choices = true } = {}) {
-  fireEvent.change(screen.getByLabelText(ko.start.nickname), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: ko.start.createRoom }))
+  createRoomAs('하루')
   await flushUntil(() => env.sockets.sockets.length === 1)
   const socket = env.sockets.last
   act(() => socket.open())

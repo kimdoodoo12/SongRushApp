@@ -4,10 +4,10 @@
 // (docs/cycles/117-wide-center.md, "Addendum: the start screen").
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
+import { render, screen, waitFor, act, cleanup } from '@testing-library/react'
 import App from './App.jsx'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
-import { startGame } from './testing/lobby.js'
+import { createRoomAs, joinRoomAs, startGame } from './testing/lobby.js'
 
 const T0 = 1_000_000
 
@@ -66,8 +66,7 @@ async function openSocket(env) {
 }
 
 async function hostLobby(env) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(HOST_PLAYERS))
@@ -90,9 +89,7 @@ describe('.main.solo on the start screen only', () => {
 
   it('the lobby, guest: .main lacks solo', async () => {
     const env = setup()
-    fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: 'Hana' } })
-    fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-    fireEvent.click(screen.getByRole('button', { name: '참가' }))
+    joinRoomAs('Hana', 'ABCDE')
     const socket = await openSocket(env)
     deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana' })
     deliver(socket, roster(GUEST_PLAYERS))

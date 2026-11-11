@@ -4,6 +4,7 @@ import { startSession } from './game/session.js'
 import { initialState, isAudible, reducer } from './game/state.js'
 import { DEFAULT_SELECTION, isReversed, settingsLine, toFields } from './game/filters.js'
 import StartScreen from './components/StartScreen.jsx'
+import NicknameDialog from './components/NicknameDialog.jsx'
 import GameScreen, { Frame } from './components/GameScreen.jsx'
 import LobbyScreen from './components/LobbyScreen.jsx'
 import LanguageSwitcher from './components/LanguageSwitcher.jsx'
@@ -28,6 +29,8 @@ const defaultAudioContextFactory = () => new (window.AudioContext || window.webk
 const defaultFetch = (url) => fetch(url)
 // The rejoin entry session.js stores on every token frame (cycle 049).
 const REJOIN_KEY = 'songrush.rejoin'
+// The last nickname confirmed in the nickname dialog (cycle 119).
+const NICKNAME_KEY = 'songrush.nickname'
 
 function socketUrl() {
   const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -66,6 +69,26 @@ function deckBox() {
 // The matsuri fireworks at a reveal (the mockup's showCover): three big
 // ones over the deck, 0, 250 and 520 ms after it.
 const REVEAL_FIREWORKS = [0, 250, 520]
+
+// The stored nickname, or '' when there is none or the storage is blocked.
+function loadNickname() {
+  try {
+    const stored = window.localStorage.getItem(NICKNAME_KEY)
+    return typeof stored === 'string' ? stored : ''
+  } catch (err) {
+    console.warn('localStorage read failed', err)
+    return ''
+  }
+}
+
+// A blocked storage changes nothing else: the attempt goes on.
+function saveNickname(name) {
+  try {
+    window.localStorage.setItem(NICKNAME_KEY, name)
+  } catch (err) {
+    console.warn('localStorage write failed', err)
+  }
+}
 
 function removeRejoinEntry() {
   try {
@@ -171,6 +194,18 @@ function GameApp({
   const opusOk = canPlayOpus === undefined ? detectedOpus : canPlayOpus
   // Read once at mount (D-048 share links).
   const [initialCode] = useState(codeFromPath)
+  // The nickname dialog (cycle 119, D-127): null, or { mode: 'create' |
+  // 'join', code, attempted }. attempted: 확인 has started an attempt, so
+  // the start error is the dialog's. It lives here, not in StartScreen, so
+  // it survives the attempt's connecting and error. A share link opens the
+  // join dialog at mount, once per page load (not on a reload rejoin, not
+  // without Opus); a later return to the start screen does not reopen it.
+  const [dialog, setDialog] = useState(() =>
+    initialCode !== '' && plan.rejoin === null && opusOk ? { mode: 'join', code: initialCode, attempted: false } : null,
+  )
+  const [dialogName, setDialogName] = useState(loadNickname)
+  // The element that opened the dialog; the focus goes back to it on close.
+  const dialogOpenerRef = useRef(null)
   // 곡 수, the filters and 정답 형식 (cycle 100), the host's lobby controls,
   // kept for the page's lifetime (F-008): neither 처음으로 nor 나가기 resets
   // them.
@@ -286,7 +321,9 @@ function GameApp({
       console.warn('AudioContext resume failed', err)
     })
     closeSession()
-    dispatch({ type: 'connecting', rejoin: options.mode === 'rejoin' })
+    // create and join come only from the nickname dialog (cycle 119).
+    const rejoin = options.mode === 'rejoin'
+    dispatch({ type: 'connecting', rejoin, dialog: !rejoin })
     sessionRef.current = startSession({
       socketFactory,
       url: socketUrl(),
@@ -294,17 +331,67 @@ function GameApp({
       output: gainRef.current,
       fetchFn,
       now,
-      dispatch: stampChat(dispatch),
+      dispatch: closingDialog(stampChat(dispatch)),
       ...options,
     })
   }
 
-  function handleCreate(nickname) {
-    openSession({ mode: 'create', nickname })
+  // The session's dispatch, which closes the nickname dialog once the
+  // screen leaves the start screen for good: joined (the lobby), or a
+  // replaced or disconnected end.
+  function closingDialog(next) {
+    return (action) => {
+      if (action.type === 'joined' || action.type === 'replaced' || action.type === 'disconnected') setDialog(null)
+      next(action)
+    }
   }
 
-  function handleJoin(nickname, code) {
-    openSession({ mode: 'join', nickname, code })
+  function openDialog(mode, code, opener) {
+    if (!opusOk) return
+    dialogOpenerRef.current = opener
+    setDialogName(loadNickname())
+    setDialog({ mode, code, attempted: false })
+  }
+
+  function handleCreate(opener) {
+    openDialog('create', '', opener)
+  }
+
+  function handleJoin(code, opener) {
+    openDialog('join', code, opener)
+  }
+
+  // 확인: today's create or join with the trimmed name. The audio unlock in
+  // openSession runs inside this click.
+  function handleConfirmNickname(nickname) {
+    if (dialog === null) return
+    saveNickname(nickname)
+    setDialog({ ...dialog, attempted: true })
+    if (dialog.mode === 'create') openSession({ mode: 'create', nickname })
+    else openSession({ mode: 'join', nickname, code: dialog.code })
+  }
+
+  // Escape, 취소 or a click outside: closes without sending anything. An
+  // attempt in progress is dropped, and its error goes with the dialog.
+  function handleCancelNickname() {
+    if (dialog !== null && dialog.attempted) {
+      closeSession()
+      dispatch({ type: 'reset' })
+    }
+    setDialog(null)
+    const opener = dialogOpenerRef.current
+    dialogOpenerRef.current = null
+    if (opener !== null && opener.isConnected) opener.focus()
+    // The invite dialog opened on mount, with no opener: the focus goes to
+    // the start screen's 참가 (cycle 119 review).
+    else if (opener === null) startJoinButton()?.focus()
+  }
+
+  // The start screen's 참가 button, found by its label, or null.
+  function startJoinButton() {
+    const label = t('start.join')
+    const buttons = document.querySelectorAll('.start-screen button')
+    return Array.from(buttons).find((button) => button.textContent.trim() === label) ?? null
   }
 
   function handleStartGame() {
@@ -615,12 +702,24 @@ function GameApp({
         >
           <StartScreen
             canPlayOpus={opusOk}
-            error={state.startError}
+            error={dialog === null ? state.startError : null}
             initialCode={initialCode}
             onCreate={handleCreate}
             onJoin={handleJoin}
           />
         </Frame>
+        {dialog !== null && (
+          <NicknameDialog
+            mode={dialog.mode}
+            code={dialog.code}
+            name={dialogName}
+            busy={state.joining}
+            error={dialog.attempted ? state.startError : null}
+            onNameChange={setDialogName}
+            onConfirm={handleConfirmNickname}
+            onCancel={handleCancelNickname}
+          />
+        )}
         {feedback}
       </>
     )

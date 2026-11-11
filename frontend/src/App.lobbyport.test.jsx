@@ -29,9 +29,10 @@
 //   game. The log is cleared on every way into the lobby (from the start
 //   screen, 대기실로, an abandoned game, a rejoin into the lobby phase); the
 //   mockup's system lines (방에 들어왔어요, 대기실로 돌아왔어요) may follow.
-// - Start screen: h1.marquee > span SongRush, a section.opts card with the
-//   닉네임 input, .btn.primary.go 방 만들기, the 방 코드 input and the 참가
-//   .btn; no chat aside shown.
+// - Start screen: h1.marquee > span SongRush, a section.opts card with
+//   .btn.primary.go 방 만들기, the 방 코드 input and the 참가 .btn; no chat
+//   aside shown. Cycle 119 (D-127, declared): the 닉네임 input moved into
+//   the nickname dialog, so the card has none.
 // No i18n key names are fixed here: Korean texts are literals, English is
 // read through the existing lobby.leave key and the pixel SKIN, whose values
 // are English in every language.
@@ -42,6 +43,8 @@ import App from './App.jsx'
 import en from './i18n/en.json'
 import { createSocketFactory, createAudioContextFactory, createFakeFetch } from './testing/fakes.js'
 import {
+  createRoomAs,
+  joinRoomAs,
   lobbyCode,
   pressedIn,
   seatNames,
@@ -147,8 +150,7 @@ async function openSocket(env, count = 1) {
 
 // 방 만들기 as 하루: joined QWERT and a lobby roster with 하루 as host.
 async function hostLobby(env, { count = 1, players = HOST_PLAYERS } = {}) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: '하루' } })
-  fireEvent.click(screen.getByRole('button', { name: '방 만들기' }))
+  createRoomAs('하루')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'QWERT', name: '하루' })
   deliver(socket, roster(players))
@@ -157,9 +159,7 @@ async function hostLobby(env, { count = 1, players = HOST_PLAYERS } = {}) {
 
 // 참가 to ABCDE as Hana: joined, then `players` (Mina hosts) unless null.
 async function guestLobby(env, { count = 1, players = GUEST_PLAYERS } = {}) {
-  fireEvent.change(screen.getByLabelText('닉네임'), { target: { value: 'Hana' } })
-  fireEvent.change(screen.getByLabelText('방 코드'), { target: { value: 'ABCDE' } })
-  fireEvent.click(screen.getByRole('button', { name: '참가' }))
+  joinRoomAs('Hana', 'ABCDE')
   const socket = await openSocket(env, count)
   deliver(socket, { type: 'joined', code: 'ABCDE', name: 'Hana' })
   if (players !== null) deliver(socket, roster(players))
@@ -285,7 +285,8 @@ describe('one frame', () => {
     expect(text('.app .main .stage .inner h1.marquee > span')).toBe('SongRush')
     const card = q('.stage .inner section.opts')
     expect(card).not.toBeNull()
-    expect(card.contains(screen.getByLabelText('닉네임'))).toBe(true)
+    expect(screen.queryByLabelText('닉네임')).toBeNull()
+    expect(card.contains(screen.getByLabelText('방 코드'))).toBe(true)
     const create = screen.getByRole('button', { name: '방 만들기' })
     expect(create.classList.contains('btn')).toBe(true)
     expect(create.classList.contains('primary')).toBe(true)
