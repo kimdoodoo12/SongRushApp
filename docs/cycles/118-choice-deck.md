@@ -53,3 +53,54 @@ In the mockup today the choice deck is 130–160 px while playing and 220–300 
 ## File ownership
 - **Test writer:** `src/choiceCss.test.js` and the `vite.config.js` `NODE_TESTS` line.
 - **Implementer:** `src/choice.css` and `src/main.jsx`.
+
+## Revision 2 (owner, 2026-11-11: "내 노트북 기준으로, 레코드가 너무 작아. 더 키울수있을것 같은데. 그리고 사진도 더 키울수 있을것 같은데. 큰 모니터 기준으로도 괜찮아")
+- **The owner's laptop**, measured on this PC: a gram at 1920×1080 with 125 % scaling (`1536x864` logical). A maximized browser gives about 1536×730 CSS px.
+- **Measured at 1536×730 with revision 1:** the header is 114 px (two rows), the deck 200, and the covers 159×217.
+- **`choice.css` becomes exactly the rule below.** Besides the choice layout, it adds:
+  - on screens at least 1300 px wide, the header `.moodbar` sits on the logo row (`flex-basis:auto`);
+  - in choice games at 900 px height or less, the panel's `.sub` text is hidden;
+  - the deck takes 28 % of the `.now` width, capped by the height;
+  - the covers fit the height left, with the header-dependent overhead in `--oh`.
+
+  `@media (min-width:1300px){.moodbar{flex-basis:auto}}@media (max-height:900px){.choice-mode .now .sub{display:none}}.choice-mode{--oh:290px}@media (min-width:1300px){.choice-mode{--oh:242px}}@container (min-width:621px){.choice-mode .inner{max-width:none}.choice-mode .now,.choice-mode .now:has(.revealed){grid-template-columns:clamp(200px,min(calc(100vh - 400px),28%),340px) minmax(0,1fr);grid-template-areas:"deck choices" "panel choices";grid-template-rows:auto 1fr;align-items:start;gap:16px 28px}.choice-mode .choices.k4,.choice-mode .choices.k6,.choice-mode .choices.k8{--tw:calc((100vh - var(--oh)) / 2.75);max-width:calc(var(--cols) * var(--tw) + (var(--cols) - 1) * 12px);padding-top:0;border-top:0;align-self:start}.choice-mode .now .hint{font-size:1.15rem}}`
+
+- **Measured with this rule** (prototype on the local site; covers given as width; "bottom" is the bottom of the 2nd row):
+
+  | Screen | Deck | k = 6 | k = 8 | Bottom (k = 6) |
+  |---|---|---|---|---|
+  | 1536×730 | 283 | 186×253 | 174×237 | 701 |
+  | 1900×870 | 283 | 236 | 174 | 833 |
+  | 1440×900 | 283 | 236 | 174 | 835 |
+  | 1280×800 | 239 | 194 | 144 | 770 |
+
+  At 1280×800 the k = 8 covers are slightly smaller than in revision 1 (154). The owner saw the 1536×730 and 1900×870 captures.
+
+## Revision 3: one page scroll (owner, 2026-11-11: "스크롤이 약간 좀 그렇네. 왜 굳이 레코드쪽 스크롤이 따로 있지? 그냥 전체로 내리면 되는거 아닌가?")
+- **The problem.** The mockup's `.stage` scrolls by itself (`overflow-y:auto`) inside a 100 %-high `.app`, so the left side has its own scrollbar.
+- **The change.** Above 900 px wide, the whole page scrolls instead. The chat column stays in view (sticky, full viewport height, input at the bottom). At 900 px and below, the mockup's own rules already make the page scroll.
+- **New file `frontend/src/scroll.css`,** imported after `choice.css`, with exactly:
+  `@media (min-width:901px){html,body{height:auto}.app{height:auto;min-height:100vh}.stage{overflow:visible}.chat{position:sticky;top:0;height:100vh;align-self:start}}`
+- **Prototype** on the local site at 1536×730 (choice game, k = 6, after one wheel scroll of 400 px):
+  - the window scrolled 285 px, the stage's own `scrollTop` stayed 0, and the document height is 1015;
+  - the chat column stays at top 0 and bottom 730.
+- **Acceptance.**
+  - `src/scrollCss.test.js` (node): `scroll.css` holds exactly the rule, imported after `./choice.css`.
+  - `npm test`, lint and build pass.
+  - Browser check: at 1536×730 and 1900×870, in the lobby and in the game, the window scrolls, `.stage` never scrolls, and the chat input stays visible.
+
+## Revision 4: the chat stays at screen height (owner, 2026-11-11)
+- **What the owner said.** "채팅이 쭉.. 끝까지 있으니까 채팅치기 불편하잖아". Asked to choose, he picked "예전처럼 화면 높이 고정".
+- **The change.** The chat is not sticky. It spans from under the header to the bottom of the screen, as before revision 3, and it scrolls away with the page.
+- **The rule.** `scroll.css` becomes exactly:
+  `@media (min-width:901px){html,body{height:auto}.app{height:auto;min-height:100vh}.stage{overflow:visible}.chat{align-self:start;height:calc(100vh - 114px)}}@media (min-width:1300px){.chat{height:calc(100vh - 67px)}}`
+- **Header heights.** 114 px is the header in two rows (below 1300 px wide) and 67 px in one row, both measured.
+- **Prototype check.** Measured before and after one 400 px wheel scroll:
+
+  | Screen | Chat at top of page | Chat after the scroll |
+  |---|---|---|
+  | 1536×730 | 67–730 | −218–445 |
+  | 1280×800 | 114–800 | −170–516 |
+  | 1900×870 | 67–870 | −210–593 |
+
+  The input sits at the bottom of the screen before scrolling.
