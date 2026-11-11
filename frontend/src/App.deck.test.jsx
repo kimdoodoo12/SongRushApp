@@ -296,15 +296,21 @@ function stubLayoutAndCanvas() {
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('deck classes', () => {
+  // Cycle 119 (D-127, declared): a dialog join stays on the start screen
+  // until joined, so the game frame while connecting is reached by a reload
+  // rejoin.
   it('idle while connecting and before the first round; none while prepared and playing; revealed after reveal; idle after gameOver', async () => {
-    const env = setup()
-    joinRoomAs('Hana', 'ABCDE')
+    window.sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ token: 'T1', code: 'ABCDE' }))
+    const env = setup({ navigationType: 'reload' })
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     expect(deckState(), 'connecting').toEqual({ idle: true, revealed: false })
     const socket = env.sockets.last
     act(() => socket.open())
+    expect(socket.sent[0]).toEqual({ type: 'rejoin', token: 'T1' })
     deliver(socket, { type: 'joined', code: 'ABCDE', name: ME })
-    deliver(socket, roster(PLAYERS, 'playing'))
+    // A rejoin is answered with a snapshot: the game is on, no song yet.
+    deliver(socket, { type: 'snapshot', phase: 'playing', players: PLAYERS, song: null, scores: [] })
+    expect(deckState(), 'before the first round').toEqual({ idle: true, revealed: false })
     deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0' })
     expect(deckState(), 'prepared').toEqual({ idle: false, revealed: false })
     await waitFor(() => expect(socket.sentOfType('ready')).toHaveLength(1))
@@ -624,11 +630,27 @@ describe('mood on the game screen', () => {
     expect(values, 'data-mood never took the own pick').not.toContain('neon')
   })
 
-  it('creating a room: the start screen uses the own pick, the connecting game screen sunset', async () => {
+  // Cycle 119 (D-127, declared): a dialog create stays on the start screen
+  // (the own pick) until joined; the connecting game screen is reached by a
+  // reload rejoin.
+  it('creating a room: the start screen under the dialog uses the own pick, the joined room sunset', async () => {
     window.localStorage.setItem(OWN_THEME_KEY, 'neon')
     const env = setup()
     expect(document.documentElement.dataset.mood, 'start screen').toBe('neon')
     createRoomAs('Hana')
+    await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
+    expect(document.documentElement.dataset.mood, 'connecting under the dialog').toBe('neon')
+    const socket = env.sockets.last
+    act(() => socket.open())
+    await waitFor(() => expect(socket.sentOfType('create')).toHaveLength(1))
+    deliver(socket, { type: 'joined', code: 'QWERT', name: 'Hana' })
+    expect(document.documentElement.dataset.mood, 'joined').toBe('sunset')
+  })
+
+  it('a reload rejoin: the connecting game screen is sunset, not the own pick', async () => {
+    window.localStorage.setItem(OWN_THEME_KEY, 'neon')
+    window.sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ token: 'T1', code: 'ABCDE' }))
+    const env = setup({ navigationType: 'reload' })
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     expect(q('.now .deck'), 'the game screen while connecting').not.toBeNull()
     expect(document.documentElement.dataset.mood, 'connecting').toBe('sunset')
