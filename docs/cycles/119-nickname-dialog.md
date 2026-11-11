@@ -63,3 +63,17 @@
 ## Out of scope
 - Server changes.
 - Changing the nickname inside a room.
+
+## Pre-PR review fixes (verifier and critic on cycles 118 and 119)
+- **Verifier.** `npm test` passed in 2 of 4 runs. The failures were tests that go through the new dialog, which timed out at the default 5 s (`App.flow.test.jsx:157`, `App.prefetch.test.jsx:458`). Each full run takes 50–65 s on this PC with the local servers running.
+  - **Fix.** Vitest's `testTimeout` becomes 15000 in `vite.config.js`, a declared test-config change.
+- **Critic High: fixed header heights.** `scroll.css` uses 67/114 px and `choice.css` uses `--oh`, both measured only in ko. In en and ja the longer mood names wrap the mood bar, so the header becomes about 114 px even at 1300 px and wider. The chat input then ends 47 px below the screen.
+  - **Fix.** `Frame` measures the header with a ResizeObserver and sets `--hd` (px) on `.app`.
+  - `scroll.css`: `.chat{align-self:start;height:calc(100vh - var(--hd,67px))}` inside the 901 px media query, replacing the two fixed heights.
+  - `choice.css`: `--oh` becomes `calc(var(--hd,67px) + 175px)`. 175 = 242 − 67 = 290 − 115, as measured.
+- **Critic Medium: drag-release cancels.** The backdrop cancels only when both the mousedown and the click start on the backdrop itself.
+- **Critic Nit: focus after cancelling the invite dialog.** Focus goes to the 참가 button.
+- **Tests (declared).**
+  - `scrollCss.test.js` and `choiceCss.test.js`: the new exact rules.
+  - A new `App.headerheight.test.jsx`: `.app` gets `--hd` from the header's height, with ResizeObserver and `offsetHeight` stubbed.
+  - `App.nickname.test.jsx`: a drag that ends on the backdrop does not cancel; cancelling the invite dialog focuses 참가.
