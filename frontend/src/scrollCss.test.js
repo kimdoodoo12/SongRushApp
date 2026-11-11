@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-// Cycle 118, revision 3: above 900 px wide the whole page scrolls instead of
-// .stage, and the chat column stays in view (sticky, full viewport height)
-// (docs/cycles/118-choice-deck.md, Revision 3).
-// - scroll.css holds exactly the rule from the spec; comments and whitespace
+// Cycle 118, revision 4: above 900 px wide the whole page scrolls instead of
+// .stage, and the chat is not sticky: it spans from under the header to the
+// bottom of the screen (114 px header below 1300 px wide, 67 px from 1300 px)
+// and scrolls away with the page (docs/cycles/118-choice-deck.md, Revision 4).
+// - scroll.css holds exactly the rules from the spec; comments and whitespace
 //   do not matter, a trailing semicolon before } is optional, and "@media("
-//   counts the same as "@media (".
+//   counts the same as "@media (" wherever it appears.
 // - main.jsx imports ./scroll.css after ./choice.css.
 // Runs in the node project: it reads the files through import.meta.url.
 
@@ -19,7 +20,9 @@ const EXPECTED =
   'html,body{height:auto}' +
   '.app{height:auto;min-height:100vh}' +
   '.stage{overflow:visible}' +
-  '.chat{position:sticky;top:0;height:100vh;align-self:start}}'
+  '.chat{align-self:start;height:calc(100vh - 114px)}}' +
+  '@media (min-width:1300px){' +
+  '.chat{height:calc(100vh - 67px)}}'
 
 function read(path) {
   return fs.readFileSync(path, 'utf8').replace(/\r\n?/g, '\n')
@@ -53,7 +56,7 @@ describe('scroll.css', () => {
     expect(fs.existsSync(SCROLL_CSS), 'frontend/src/scroll.css').toBe(true)
   })
 
-  it('holds exactly the one rule from the spec', () => {
+  it('holds exactly the rules from the spec', () => {
     expect(normalize(read(SCROLL_CSS))).toBe(normalize(EXPECTED))
   })
 })
