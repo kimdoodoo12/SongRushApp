@@ -1,5 +1,12 @@
 # 108 ui-redesign-plan (D-121, D-122, D-123)
 
+> **Superseded in part by D-124 (2026-11-11). Kept as history.**
+> - The site now uses the mockup's stylesheet verbatim: `room.css`, plus the owner-approved `wide.css`, `start.css`, `choice.css` and `scroll.css`.
+> - `themeLayout.test.js` and `ThemeDecor` are gone, and the mood is `html[data-mood]`, not `data-room-theme`.
+> - Items 3-9 below were not done as written. They were done as cycles 110-116 (see BACKLOG F-032), followed by 117-119 (D-125 to D-127).
+> - The request, the reference and the eight mood ids below are still correct.
+
+
 ## Request (owner, 2026-11-10)
 - "이제 디자인 다른 세션으로부터 받은거 있지? 그거 적용시켜봐"
 - Answers to the lead's questions:
