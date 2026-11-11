@@ -88,3 +88,19 @@ In the mockup today the choice deck is 130–160 px while playing and 220–300 
   - `src/scrollCss.test.js` (node): `scroll.css` holds exactly the rule, imported after `./choice.css`.
   - `npm test`, lint and build pass.
   - Browser check: at 1536×730 and 1900×870, in the lobby and in the game, the window scrolls, `.stage` never scrolls, and the chat input stays visible.
+
+## Revision 4: the chat stays at screen height (owner, 2026-11-11)
+- **What the owner said.** "채팅이 쭉.. 끝까지 있으니까 채팅치기 불편하잖아". Asked to choose, he picked "예전처럼 화면 높이 고정".
+- **The change.** The chat is not sticky. It spans from under the header to the bottom of the screen, as before revision 3, and it scrolls away with the page.
+- **The rule.** `scroll.css` becomes exactly:
+  `@media (min-width:901px){html,body{height:auto}.app{height:auto;min-height:100vh}.stage{overflow:visible}.chat{align-self:start;height:calc(100vh - 114px)}}@media (min-width:1300px){.chat{height:calc(100vh - 67px)}}`
+- **Header heights.** 114 px is the header in two rows (below 1300 px wide) and 67 px in one row, both measured.
+- **Prototype check.** Measured before and after one 400 px wheel scroll:
+
+  | Screen | Chat at top of page | Chat after the scroll |
+  |---|---|---|
+  | 1536×730 | 67–730 | −218–445 |
+  | 1280×800 | 114–800 | −170–516 |
+  | 1900×870 | 67–870 | −210–593 |
+
+  The input sits at the bottom of the screen before scrolling.
