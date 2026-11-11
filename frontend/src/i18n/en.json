@@ -102,7 +102,7 @@
     "soon": "When the song plays, type the anime title in the chat",
     "soonSub": "Everyone hears the same song at the same moment.",
     "choiceSoon": "When the song plays, pick its anime from the covers",
-    "choiceHint": "Pick the anime of the song you hear from the covers below",
+    "choiceHint": "Pick the anime of the song you hear from the covers",
     "choiceSub": "You can pick only once. If you miss, watch the rest of this song. Nobody else sees your pick, and the chat is just for talking.",
     "pickWrong": "No. {{n}} is wrong. Wait for the answer."
   },
