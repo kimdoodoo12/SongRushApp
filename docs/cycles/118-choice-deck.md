@@ -75,3 +75,16 @@ In the mockup today the choice deck is 130–160 px while playing and 220–300 
   | 1280×800 | 239 | 194 | 144 | 770 |
 
   At 1280×800 the k = 8 covers are slightly smaller than in revision 1 (154). The owner saw the 1536×730 and 1900×870 captures.
+
+## Revision 3: one page scroll (owner, 2026-11-11: "스크롤이 약간 좀 그렇네. 왜 굳이 레코드쪽 스크롤이 따로 있지? 그냥 전체로 내리면 되는거 아닌가?")
+- **The problem.** The mockup's `.stage` scrolls by itself (`overflow-y:auto`) inside a 100 %-high `.app`, so the left side has its own scrollbar.
+- **The change.** Above 900 px wide, the whole page scrolls instead. The chat column stays in view (sticky, full viewport height, input at the bottom). At 900 px and below, the mockup's own rules already make the page scroll.
+- **New file `frontend/src/scroll.css`,** imported after `choice.css`, with exactly:
+  `@media (min-width:901px){html,body{height:auto}.app{height:auto;min-height:100vh}.stage{overflow:visible}.chat{position:sticky;top:0;height:100vh;align-self:start}}`
+- **Prototype** on the local site at 1536×730 (choice game, k = 6, after one wheel scroll of 400 px):
+  - the window scrolled 285 px, the stage's own `scrollTop` stayed 0, and the document height is 1015;
+  - the chat column stays at top 0 and bottom 730.
+- **Acceptance.**
+  - `src/scrollCss.test.js` (node): `scroll.css` holds exactly the rule, imported after `./choice.css`.
+  - `npm test`, lint and build pass.
+  - Browser check: at 1536×730 and 1900×870, in the lobby and in the game, the window scrolls, `.stage` never scrolls, and the chat input stays visible.
