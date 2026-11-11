@@ -30,7 +30,7 @@
 //   mockup's renderStage):
 //     stage.choiceSoon  waiting hint (where a chat game shows stage.soon):
 //                       곡이 나오면 표지 중에서 그 애니를 골라 보세요
-//     stage.choiceHint  playing hint: 들리는 곡의 애니를 아래 표지에서 골라 보세요
+//     stage.choiceHint  playing hint: 들리는 곡의 애니를 표지에서 골라 보세요
 //     stage.choiceSub   playing sub: the mockup's sub text
 //     stage.pickWrong   p.pickmsg after a wrong pick, with {{n}} = N:
 //                       {{n}}번은 오답이에요. 정답 공개를 기다려 주세요.
@@ -71,7 +71,7 @@ const COVERS8 = ['/cover/k1', '/cover/k2', '/cover/k3', '/cover/k4', '/cover/k5'
 const choicesOf = (urls) => urls.map((coverUrl) => ({ coverUrl }))
 
 const HINT_SOON = '곡이 나오면 표지 중에서 그 애니를 골라 보세요'
-const HINT_PLAY = '들리는 곡의 애니를 아래 표지에서 골라 보세요'
+const HINT_PLAY = '들리는 곡의 애니를 표지에서 골라 보세요'
 const SUB_PLAY = '한 번만 고를 수 있어요. 틀리면 이번 곡은 끝까지 구경해요. 내가 고른 표지는 다른 사람에게 보이지 않고, 채팅은 대화용이에요.'
 const pickMsg = (n) => `${n}번은 오답이에요. 정답 공개를 기다려 주세요.`
 
