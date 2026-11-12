@@ -212,88 +212,88 @@
   },
   "mood": {
     "tag": {
-      "sunset": "레코드 한 장, 노을 한 잔",
-      "rain": "창가에 앉아 듣는 새벽",
-      "sakura": "최애 카드 뽑는 밤",
-      "neon": "Signal hunting",
-      "chalk": "방과후, 음악 퀴즈 시간",
-      "pixel": "Insert coin",
-      "matsuri": "불꽃놀이 아래 노래 맞히기",
-      "manga": "다음 화, 정답 공개!"
+      "sunset": "애니 OP·ED 맞히기",
+      "rain": "애니 OP·ED 맞히기",
+      "sakura": "애니 OP·ED 맞히기",
+      "neon": "애니 OP·ED 맞히기",
+      "chalk": "애니 OP·ED 맞히기",
+      "pixel": "애니 OP·ED 맞히기",
+      "matsuri": "애니 OP·ED 맞히기",
+      "manga": "애니 OP·ED 맞히기"
     }
   },
   "skin": {
     "sunset": {
-      "title": "옥상 레코드 바",
-      "label": "오늘의 방 번호",
+      "title": "노을",
+      "label": "방 코드",
       "admit": "ADMIT ONE",
-      "start": "레코드 올리기",
-      "seats": "오늘의 손님",
-      "ready": "입장",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
       "empty": "빈 자리"
     },
     "rain": {
-      "title": "새벽 창가, 비 오는 날의 리퀘스트",
-      "label": "예약석 번호",
-      "admit": "RESERVED",
-      "start": "첫 곡 틀기",
-      "seats": "창가에 앉은 사람",
-      "ready": "착석",
-      "empty": "빈 의자"
+      "title": "비 오는 밤",
+      "label": "방 코드",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
+      "empty": "빈 자리"
     },
     "sakura": {
-      "title": "최애 카드 뽑기 대기실",
+      "title": "벚꽃",
       "label": "방 코드",
-      "admit": "CARD PACK",
-      "start": "카드 뽑기 시작!",
-      "seats": "모인 친구들",
-      "ready": "카드 준비 완료",
-      "empty": "빈 슬롯"
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
+      "empty": "빈 자리"
     },
     "neon": {
-      "title": "Club SongRush",
-      "label": "ENTRY CODE",
-      "admit": "VIP",
-      "start": "START SIGNAL",
-      "seats": "GUEST LIST",
-      "ready": "ON LIST",
-      "empty": "—"
+      "title": "네온",
+      "label": "방 코드",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
+      "empty": "빈 자리"
     },
     "chalk": {
-      "title": "오늘의 음악 퀴즈",
-      "label": "우리 반",
-      "admit": "출석",
-      "start": "수업 시작",
-      "seats": "출석부",
-      "ready": "출석 ✓",
+      "title": "교실",
+      "label": "방 코드",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
       "empty": "빈 자리"
     },
     "pixel": {
-      "title": "PLAYER SELECT",
-      "label": "ROOM",
-      "admit": "CREDIT",
-      "start": "PRESS START",
-      "seats": "PLAYERS",
-      "ready": "READY",
-      "empty": "INSERT COIN"
+      "title": "오락실",
+      "label": "방 코드",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
+      "empty": "빈 자리"
     },
     "matsuri": {
-      "title": "여름 축제 노래 맞히기 부스",
-      "label": "번호표",
-      "admit": "입장권",
-      "start": "축제 시작!",
-      "seats": "모인 사람들",
-      "ready": "등불 켜짐",
+      "title": "여름 축제",
+      "label": "방 코드",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
       "empty": "빈 자리"
     },
     "manga": {
-      "title": "제1화 「대기 중」",
-      "label": "연재 코드",
-      "admit": "VOL.1",
-      "start": "제1화 시작!",
-      "seats": "등장인물",
-      "ready": "등장!",
-      "empty": "???"
+      "title": "만화",
+      "label": "방 코드",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "대기실",
+      "ready": "참가",
+      "empty": "빈 자리"
     }
   }
 }
