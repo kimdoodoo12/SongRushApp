@@ -41,3 +41,9 @@ The lobby texts per mood (`skin.<mood>.*` and `mood.tag.<mood>` in ko/en/ja) bec
 
 ## Out of scope
 Picker names, the game-screen layout, the CSS.
+
+## Result
+- Commits: spec `4cd8837`, tests `8a5a384` (locked), implementation `cd98e58`.
+- Red phase: the three lobby tests failed on the old text (`expected '옥상 레코드 바' to be '노을'`).
+- Verifier: `npm test` 52 files, 779 of 779 passed; `npm run lint` exit 0; `npm run build` exit 0; locked-test diff empty; only `skin.*` and `mood.tag.*` changed in ko/en/ja.
+- Lead browser check (local jar + vite, Edge, 1536x730, full page): sunset, rain, pixel, manga read titles 노을 / 비 오는 밤 / 오락실 / 만화, the button Play Song, the heading "대기실 · 참가자 1 / 8", and the tag "<mood name> · 애니 OP·ED 맞히기". No overflow seen.
