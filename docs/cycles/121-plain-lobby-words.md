@@ -47,3 +47,7 @@ Picker names, the game-screen layout, the CSS.
 - Red phase: the three lobby tests failed on the old text (`expected '옥상 레코드 바' to be '노을'`).
 - Verifier: `npm test` 52 files, 779 of 779 passed; `npm run lint` exit 0; `npm run build` exit 0; locked-test diff empty; only `skin.*` and `mood.tag.*` changed in ko/en/ja.
 - Lead browser check (local jar + vite, Edge, 1536x730, full page): sunset, rain, pixel, manga read titles 노을 / 비 오는 밤 / 오락실 / 만화, the button Play Song, the heading "대기실 · 참가자 1 / 8", and the tag "<mood name> · 애니 OP·ED 맞히기". No overflow seen.
+- GitHub CI on PR #42: frontend pass (2m58s), backend pass (4m30s).
+- Critic code review: no Blocker or High. Values checked for all 24 mood/language pairs.
+  - Medium (to Follow-ups): the pixel mood still shows a blinking "▶ INSERT COIN" after the ticket hint, from `room.css:522` (`[data-mood="pixel"] .tk-sub::after`). `room.css` is verbatim, so removing it needs an override in an approved file; owner's call.
+  - Nits: `mood.tag` is also shown in the game screen's `.stage-top .tag` (GameScreen.jsx:525), so the game header now reads "<mood name> · 애니 OP·ED 맞히기" too; the `LobbyScreen.jsx:54` comment still calls the SKIN row "the mockup's lobby table".
