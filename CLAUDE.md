@@ -64,7 +64,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 
 Drop "(verified once bootstrapped)" from a row only after its bootstrap cycle has run that command successfully.
 
-The Stop hook runs the tests of each area whose files changed: `frontend` (`npm test --silent`), `backend` (`gradlew test`), and `data` (`.venv` python `-m pytest`). It runs an area only once it is bootstrapped; otherwise the area is reported UNVERIFIED, never as a pass. A change under `contracts/` runs both `backend` and `data`. settings.json caps the hook at 900 s, so each runner is limited to 850 s.
+The Stop hook runs only while tests are locked, and only for areas the stopping session wrote, read from its transcript; a session that delegated to a writing agent or changed files from the shell gets every changed area. It runs `frontend` (`npm test --silent`), `backend` (`gradlew test`), and `data` (`.venv` python `-m pytest`). It runs an area only once it is bootstrapped; otherwise the area is reported UNVERIFIED, never as a pass. A change under `contracts/` runs both `backend` and `data`. settings.json caps the hook at 900 s, so each runner is limited to 850 s.
 
 ## External source rules
 

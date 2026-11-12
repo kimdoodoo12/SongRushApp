@@ -1,0 +1,11 @@
+name: songrush
+services:
+  app:
+    build: .
+    image: songrush:local
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data:ro
+    mem_limit: 640m
+    restart: unless-stopped
