@@ -359,6 +359,18 @@ class ChoiceSocketTest {
 		assertThat(keys(result)).containsExactly("type", "index", "choice");
 		assertThat(result.path("index").intValue()).isEqualTo(0);
 		assertThat(result.path("choice").intValue()).isEqualTo(wrong);
+		// Cycle 122: the host learns that one of the two has picked, and who picked wrong; never where.
+		JsonNode count = host.await("pickState");
+		assertThat(keys(count)).containsExactlyInAnyOrder("type", "index", "picked", "total");
+		assertThat(count.path("index").intValue()).isEqualTo(0);
+		assertThat(count.path("picked").intValue()).isEqualTo(1);
+		assertThat(count.path("total").intValue()).isEqualTo(2);
+		for (TestClient client : two) {
+			JsonNode miss = client.await("wrong");
+			assertThat(keys(miss)).containsExactlyInAnyOrder("type", "index", "name");
+			assertThat(miss.path("index").intValue()).isEqualTo(0);
+			assertThat(miss.path("name").asString(null)).isEqualTo("Guest");
+		}
 		guest.send("pick", "index", 0, "choice", correct);
 		JsonNode again = guest.await("error");
 		assertThat(again.path("code").asString(null)).isEqualTo("already-picked");

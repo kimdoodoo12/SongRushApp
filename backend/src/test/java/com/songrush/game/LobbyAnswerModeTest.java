@@ -80,6 +80,17 @@ class LobbyAnswerModeTest {
 
 	private static final Map<String, Object> CHOICE_SETTINGS = msg("settings", "answerMode", "choice");
 
+	// Cycle 122: one of the two connected Room players has picked song 0.
+	private static final Map<String, Object> PICKED_ONE_OF_TWO = msg("pickState", "index", 0, "picked", 1, "total", 2);
+
+	// The counts nested in a snapshot's song.
+	private static Map<String, Object> counts(int picked, int total) {
+		Map<String, Object> m = new LinkedHashMap<>();
+		m.put("picked", picked);
+		m.put("total", total);
+		return m;
+	}
+
 	private static List<String> types(List<Sent> sent) {
 		return sent.stream().map(Sent::type).toList();
 	}
@@ -270,17 +281,23 @@ class LobbyAnswerModeTest {
 		toAudible(0);
 		int mark = outbox.mark();
 		lobby.pick(P2, 0, wrong);
-		assertThat(outbox.since(mark)).extracting(Sent::to).containsExactly(P2);
-		assertThat(outbox.since(mark)).extracting(Sent::message)
-				.containsExactly(msg("pick-result", "index", 0, "choice", wrong));
+		// Cycle 122: the count and the wrong name reach every connected member, the result its sender only.
+		assertThat(toSince(mark, P2)).extracting(Sent::message).containsExactly(PICKED_ONE_OF_TWO,
+				msg("pick-result", "index", 0, "choice", wrong), msg("wrong", "index", 0, "name", "Joon"));
+		assertThat(toSince(mark, P1)).extracting(Sent::message).containsExactly(PICKED_ONE_OF_TWO,
+				msg("wrong", "index", 0, "name", "Joon"));
+		assertThat(outbox.since(mark)).hasSize(5);
+		assertThat(outbox.since(mark)).filteredOn(s -> "pick-result".equals(s.type())).extracting(Sent::to)
+				.containsExactly(P2);
 
 		mark = outbox.mark();
 		lobby.pick(P1, 0, correctPosition());
 		for (String id : List.of(P1, P2)) {
 			List<Sent> sent = toSince(mark, id);
-			assertThat(types(sent)).as("to " + id).startsWith("correct", "reveal", "scores");
-			assertThat(sent.get(0).message()).isEqualTo(msg("correct", "index", 0, "name", "Mina"));
-			assertThat(sent.get(1).message().get("correctChoice")).isEqualTo(correctPosition());
+			assertThat(types(sent)).as("to " + id).startsWith("pickState", "correct", "reveal", "scores");
+			assertThat(sent.get(0).message()).isEqualTo(msg("pickState", "index", 0, "picked", 2, "total", 2));
+			assertThat(sent.get(1).message()).isEqualTo(msg("correct", "index", 0, "name", "Mina"));
+			assertThat(sent.get(2).message().get("correctChoice")).isEqualTo(correctPosition());
 		}
 	}
 
@@ -322,6 +339,8 @@ class LobbyAnswerModeTest {
 		Map<String, Object> song = snapshotSong(sent);
 		assertThat(coverUrls(song)).isEqualTo(urls);
 		assertThat(song).containsEntry("picked", null);
+		// The counts as they are when the snapshot is built: the Room learns of the reconnect after it.
+		assertThat(song.get("pickState")).isEqualTo(counts(0, 1));
 
 		// In PLAYING after a wrong pick.
 		int wrong = wrongPosition();
@@ -331,11 +350,16 @@ class LobbyAnswerModeTest {
 		mark = outbox.mark();
 		assertThat(lobby.reconnect(P2)).isTrue();
 		sent = toSince(mark, P2);
-		assertThat(types(sent)).containsExactly("joined", "snapshot", "settings", "roster");
+		assertThat(types(sent)).containsExactly("joined", "snapshot", "settings", "roster", "pickState");
 		song = snapshotSong(sent);
 		assertThat(coverUrls(song)).isEqualTo(urls);
 		assertThat(song.get("picked")).isEqualTo(wrong);
 		assertThat(song).doesNotContainKey("lockedOut");
+		// The snapshot comes first, then the broadcast with the numbers that include the player.
+		assertThat(song.get("pickState")).isEqualTo(counts(0, 1));
+		assertThat(sent.get(4).message()).isEqualTo(PICKED_ONE_OF_TWO);
+		assertThat(toSince(mark, P1)).extracting(Sent::message).containsExactly(sent.get(3).message(),
+				PICKED_ONE_OF_TWO);
 
 		// A replaced socket of the player who did not pick.
 		mark = outbox.mark();
@@ -345,6 +369,7 @@ class LobbyAnswerModeTest {
 		song = snapshotSong(sent);
 		assertThat(coverUrls(song)).isEqualTo(urls);
 		assertThat(song).containsEntry("picked", null);
+		assertThat(song.get("pickState")).isEqualTo(counts(1, 2));
 
 		// The rejoined player is still locked out.
 		mark = outbox.mark();
@@ -368,6 +393,7 @@ class LobbyAnswerModeTest {
 		Map<String, Object> song = snapshotSong(sent);
 		assertThat(coverUrls(song)).isEqualTo(urls);
 		assertThat(song).containsEntry("picked", null);
+		assertThat(song.get("pickState")).as("a late joiner is not counted").isEqualTo(counts(0, 2));
 		assertThat(settingsSince(mark)).hasSize(1);
 	}
 
