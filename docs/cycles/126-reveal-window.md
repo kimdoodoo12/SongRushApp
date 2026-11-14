@@ -62,3 +62,10 @@ All with the switch on unless said otherwise. "Decided at 10 s" means 10 s after
 One round. No Blocker. One High, taken: the socket criterion could not pass with the shared fixture, whose songs are 3 s long, so the window is 5 s either way; the socket test now writes 30 s songs and uses bounds that fail with the switch off.
 
 Also taken: criteria for the two decided-by-answers paths that had none (a disconnect, and a resumed song decided as it starts), for the deadline reached by a chat or a pick, and for the delayed prefetch `prepare` (no stale `correct` rows or pick, the spoiler guard, a late joiner, an early `ready`); the pause criterion names both modes.
+
+## Result
+- Tests first: commit `799204b`. `RoomPlayToLimitTest` (new, 95 cases), five tests added to `GamePropertiesBindingTest`, `PlayToLimitSocketTest` (new, 2 tests). Red, run by the verifier: the test sources did not compile, with 9 errors, all the missing 10-argument `Room` constructor or the missing `playToLimit()` accessor, in those three files; `compileJava` still passed.
+- Implementation: commit `4f943a9`, first attempt. `GameProperties`, `Room`, `Lobby`, `GameSocketHandler` (+84, -23). `endSong` takes a `decided` flag from its nine call sites; the early-prepare block moved unchanged into `prepareEarly()`, which runs inline when the reveal lasts 5 s and through the one pending task otherwise.
+- Green, run by the verifier with a forced rerun: 1047 tests, 0 failures, 0 errors, 1 skipped (`FeedbackStoreTest`, not from this cycle). `git diff 799204b HEAD -- backend/src/test` is empty. Criteria 1 to 13 confirmed. With the switch off the verifier found no changed behaviour.
+- Review of the diff: no Blocker, no High. One Medium: this cycle's tests pin the exact frames at a decision and "a skip vote in the window is ignored", and B-035 changes both (a zero `skipState` after `scores`, and skip in the window). B-035's test step revises `decide()` and the two skip tests; that is written on B-035. Two comment nits went to Follow-ups.
+- The switch is off by default, so nothing changes for players yet.
