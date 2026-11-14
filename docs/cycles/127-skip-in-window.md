@@ -59,3 +59,10 @@ One round. One Blocker and one High, both taken.
 - High: the room did not store `playUntil`, and no criterion caught an implementation that tested `deadlineAt` instead, which would accept late votes during the 5 s reveal of a skipped song and cut it short. The design now says the room stores `playUntil`, and criterion 6 has that case.
 
 Also taken: the connection-change section names what changes in code and criterion 9 pins the frames; criterion 3 no longer claims that nothing happens up to the old deadline; the token check states its conditions. The added socket test was dropped: the Lobby and the handler forward a skip with no phase logic, so Room-level tests cover it.
+
+## Result
+- Tests first: commit `aab8f2a`. `RoomWindowSkipTest` (new, 146 cases) and the declared changes in `RoomPlayToLimitTest`. Red, run by the verifier: 1193 tests, 166 failed, 0 errors, only in those two classes, every failure an assertion on the missing `skipState` after a reveal.
+- Implementation: commit `0743568`, first attempt. `Room.java` only (+59, -10): the stored `playUntil`, one condition `skipInWindow()` used by `skip`, the new connection-change branch, `clearSkipVote` and the zero `skipState`; a pass in `REVEAL` cancels the pending task and calls `afterReveal`.
+- Green, run by the verifier with a forced rerun: 1193 tests, 0 failures, 0 errors, 1 skipped. `git diff aab8f2a HEAD -- backend/src/test` is empty. Criteria 1 to 12 confirmed; the verifier matched criteria to parameter rows, not to method names.
+- Review of the diff: no Blocker, no High. One Medium: after a vote passes on the last song the votes stay in the set while the room is back in `LOBBY`; a `clearSkipVote` there would send `skipState` with index -1 and, with the right numbers, could throw. Not reachable today because the Lobby drops the room at `gameOver`. It went to Follow-ups with the one-line fix and the test that pins it.
+- The switch is still off by default.
