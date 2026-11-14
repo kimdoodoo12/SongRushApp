@@ -252,7 +252,9 @@ public final class Room {
 	// As currentSong(), and in a choice game also the song's choices (as sent in its prepare) and
 	// that player's picked position, or null (always null for a watcher). In a ranked game also
 	// answered (that player answered this song correctly; false for a watcher) and correct, the
-	// [{name, rank}] rows already sent in correct messages, in rank order (cycle 101 R5).
+	// [{name, rank}] rows already sent in correct messages, in rank order (cycle 101 R5). In a choice
+	// game also pickState {picked, total}, the counts as they are now (cycle 122, D-130): nested,
+	// because picked and total already mean the own position and the song count here.
 	public Map<String, Object> currentSong(String playerId) {
 		Map<String, Object> song = currentSong();
 		if (song == null) {
@@ -261,6 +263,7 @@ public final class Room {
 		if (answerMode == AnswerMode.CHOICE) {
 			song.put("choices", choices.get(songIndex).wire());
 			song.put("picked", picks.get(playerId));
+			song.put("pickState", row("picked", pickedCount(), "total", connectedCount()));
 		}
 		if (gameMode == GameMode.RANKED) {
 			song.put("answered", rankedIds.contains(playerId));
@@ -535,6 +538,9 @@ public final class Room {
 	// The lobby's report of a Room player's connection; an unknown id or no change is ignored. A
 	// disconnect drops the player's ready mark and skip vote, then the ready and skip rules run again
 	// over the players still connected. A watcher's state is only recorded for its promotion.
+	// In a choice game a change during PLAYING first tells everyone the new pick count (pickState),
+	// before the skipState or reveal the same change may cause; nothing with nobody connected
+	// (cycle 122, D-130).
 	public void setConnected(String playerId, boolean connected) {
 		if (watchers.containsKey(playerId)) {
 			if (connected) {
@@ -564,6 +570,10 @@ public final class Room {
 			startIfAllReady();
 		}
 		else if (phase == Phase.PLAYING) {
+			// First, because the skip vote or the ranked rule below can end the song (cycle 122).
+			if (connectedCount() > 0) {
+				sendPickState();
+			}
 			if (hadVotes) {
 				sendSkipStateAndPass();
 			}
@@ -606,6 +616,9 @@ public final class Room {
 	// locks the player out of picks for the song and tells the sender only. A pick costs no chat token.
 	// In a ranked game a correct pick is ranked and scored instead and the song goes on; the song ends
 	// once every connected Room player has picked, right or wrong (cycle 101 item 4).
+	// Every accepted pick first tells everyone the new count (pickState), and a wrong one is then
+	// named to everyone (wrong{index, name}) after the sender's pick-result: the name only, never the
+	// position, so nothing about the answer leaves (cycle 122, D-130). A refused pick sends neither.
 	public void pick(String playerId, int index, int choice) {
 		if (answerMode != AnswerMode.CHOICE || paused || phase != Phase.PLAYING || !isConnected(playerId)
 				|| index != songIndex) {
@@ -629,21 +642,22 @@ public final class Room {
 			return;
 		}
 		picks.put(playerId, choice);
+		sendPickState();
+		PlayerRef player = byId.get(playerId);
 		if (gameMode == GameMode.RANKED) {
 			if (choice == current.correct()) {
-				rankCorrect(byId.get(playerId));
+				rankCorrect(player);
 			}
 			else {
-				outbox.toPlayer(playerId, message("pick-result", "index", songIndex, "choice", choice));
+				sendWrongPick(player, choice);
 			}
 			endIfAllAnswered();
 			return;
 		}
 		if (choice != current.correct()) {
-			outbox.toPlayer(playerId, message("pick-result", "index", songIndex, "choice", choice));
+			sendWrongPick(player, choice);
 			return;
 		}
-		PlayerRef player = byId.get(playerId);
 		scores.merge(playerId, 1, Integer::sum);
 		outbox.toAll(message("correct", "index", songIndex, "name", player.name()));
 		endSong(player);
@@ -736,6 +750,33 @@ public final class Room {
 			}
 		}
 		return connected;
+	}
+
+	// Connected Room players with an accepted pick of the current song. A disconnected player's pick
+	// is kept but not counted until that player is back (cycle 122).
+	private int pickedCount() {
+		int picked = 0;
+		for (PlayerRef p : players) {
+			if (!disconnected.contains(p.id()) && picks.containsKey(p.id())) {
+				picked++;
+			}
+		}
+		return picked;
+	}
+
+	// Choice game only: tells everyone how many connected Room players have picked the current song
+	// (cycle 122, D-130). Counts only, nothing of the song.
+	private void sendPickState() {
+		if (answerMode != AnswerMode.CHOICE) {
+			return;
+		}
+		outbox.toAll(message("pickState", "index", songIndex, "picked", pickedCount(), "total", connectedCount()));
+	}
+
+	// A wrong pick: the position goes to its sender only, then everyone gets the name alone (cycle 122).
+	private void sendWrongPick(PlayerRef player, int choice) {
+		outbox.toPlayer(player.id(), message("pick-result", "index", songIndex, "choice", choice));
+		outbox.toAll(message("wrong", "index", songIndex, "name", player.name()));
 	}
 
 	// Ranked: the player gets the next rank of this song and its points; everyone gets
@@ -856,6 +897,8 @@ public final class Room {
 		outbox.toAll(message("start", "index", songIndex, "startAt", startAt, "deadlineAt", deadlineAt,
 				"serverTime", now));
 		schedule(Duration.ofMillis(deadlineAt - now), () -> endSong(null));
+		// Choice: every song's first count, also after a resume or a change during PREPARE (cycle 122).
+		sendPickState();
 		// Ranked: a resumed song whose connected players have all answered ends at once (cycle 101 R6).
 		endIfAllAnswered();
 	}
