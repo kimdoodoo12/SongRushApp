@@ -378,7 +378,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-032** frontend+backend: lobby settings shared with guests (from cycle 114 review, cycle 116).
   - Done as cycles 110-116 under D-124 (the mockup CSS followed exactly), which replaced the design-108 split: 110 frame, 111 deck and reveal, 112 choice, 113 lobby chat, 114 lobby, 115 canvases, 116 lobby settings.
 
-- [ ] **B-033** backend: pick count and wrong-pick notice in choice rooms (from D-130, issue #44 request 2)
+- [~] **B-033** backend: pick count and wrong-pick notice in choice rooms (from D-130, issue #44 request 2)
   - On every accepted pick, and when the number of connected Room players changes during a choice song, everyone gets `pickState{index, picked, total}`: `picked` = connected Room players who have picked this song, `total` = connected Room players. Watchers are not counted.
   - A wrong pick also sends everyone `wrong{index, name}`. The sender still gets `pick-result` as today. Neither message carries the choice position, a cover id or anything else of the song.
   - A reconnect snapshot of a choice song carries the current `picked` and `total`.
