@@ -552,6 +552,9 @@ export function startSession({
     if (hold) {
       r.held = true
       r.prepareAction = action
+      // The skip button goes at once (cycle 130); the server ignores votes
+      // after this prepare, although the old music plays on.
+      dispatch({ type: 'held', index: msg.index })
       holdTimer = setTimeout(() => {
         holdTimer = null
         if (active && round === r) endHold(r)
@@ -781,6 +784,12 @@ export function startSession({
         coverUrl: typeof msg.coverUrl === 'string' && COVER_URL.test(msg.coverUrl) ? msg.coverUrl : null,
       },
     })
+    // In a window the skip vote goes on (cycle 130): the server cleared the
+    // votes cast before the reveal, so the own vote starts as not voted.
+    if (windowEnd !== null) {
+      resetSkips()
+      dispatchOwnSkip()
+    }
   }
 
   function onMessage(msg) {
@@ -1079,9 +1088,10 @@ export function startSession({
       if (active) send({ type: 'lobbySettings', songCount: count, ...fields })
     },
     // Toggles the own skip vote for the current song, between its start and
-    // its reveal. Watchers do not vote.
+    // its reveal, or the end of its reveal window (cycle 130). Watchers do
+    // not vote.
     skipVote() {
-      if (!active || round === null || round.watching || round.start === null || round.revealed) return
+      if (!active || round === null || round.watching || round.start === null || round.over) return
       send({ type: 'skipVote', index: round.index })
       skipsSent += 1
       dispatchOwnSkip()
