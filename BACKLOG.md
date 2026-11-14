@@ -391,7 +391,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-034** frontend: the wrong-pick chat line in red (from D-131)
   - The line gets its own class and a red look that mirrors the green of the correct line (`.msg.correct` in `room.css`): colour, weight, a tinted border and background. The rule goes in `choice.css`, with `choiceCss.test.js` updated; `room.css` is not edited.
   - Acceptance (Vitest): the wrong line's element has the class; plain notices and the correct line do not; `choice.css` holds exactly the old rules plus the new one. Seen in a browser in at least two moods, the manga mood among them.
-- [ ] **S-008** design: songs play to the time limit (from D-129, issue #44 request 1)
+- [~] **S-008** design: songs play to the time limit (from D-129, issue #44 request 1)
   - Design the new end-of-song rule for 선착순 and 순위전 in chat and choice rooms: what the server sends when the song is decided and when the music ends, the reveal at the first correct answer in 선착순 and only after everyone has answered or picked in 순위전 (D-129), how chat and picks are treated between the two (no answer-checking, no scoring after 선착순 is decided), the skip vote before and after the song is decided, the next-song prefetch and its spoiler guard (D-119, D-120), pause, reconnect snapshots and late joiners, and the locked tests that pin the early end today.
   - Output: `docs/design/NNN-play-to-limit.md` and the resulting B- and F- items appended here. The before captures are in `docs/issues/044/`.
 
