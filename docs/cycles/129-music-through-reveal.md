@@ -60,3 +60,14 @@ One round. No Blocker; two High and two Medium, all taken.
 - Medium: the reducer API was unnamed; it is now `reveal {window: true}`, `windowOpen`, and `windowEnd {index}` that ignores another index (criterion 8b).
 - Medium: a reveal before this client's `start` had no time basis; it opens no window (criterion 8a).
 - Checked by the critic: no overlap with the next song beyond clock skew (the new song needs its `start`; the hold ends at the window's end); the time bar keeps its meaning since `playUntil` equals `deadlineAt` when decided; the fakes can drive every criterion.
+
+## Result
+- Tests first: commit `1665c26`. `App.window.test.jsx` (new, 16 cases). Red, run by the lead: 840 tests, 9 failed, all in the new file, every failure an assertion that the reveal stopped the source or the clock; the other 7 (the "as today" cases, 8, 8a, 8b) pass on `dev`.
+- Implementation: commit `2fc9950`, first attempt. `session.js` (+124 lines including context): the `over` flag beside `revealed`, `windowEndOf`, `endWindow`, `retire`, the `prev` round for a held `prepare`; `state.js`: `windowOpen`, `reveal {window}`, `windowEnd {index}`, `isAudible` in a window; `GameScreen.jsx`: no skip button while a reveal shows. The implementer found that `dropRound` runs when the socket drops, so it cannot stop `prev` without breaking the locked rejoin test; the Design paragraph was corrected to name the exits that do stop it.
+- Green, run by the verifier: `npm test` 54 files, 840 tests passed; `npm run lint` exit 0; `npm run build` exit 0. `git diff 1665c26 HEAD -- frontend/src/App.window.test.jsx` is empty. Criteria 1 to 9 confirmed against the assertions.
+- Review of the diff: no Blocker, High or Medium. Two behaviour changes outside the window were judged fixes: a `prepare` without hold (a resume) now stops the old round's source, which kept playing beside the re-prepared song before; `gameOver` now stops a playing source. A `start` for a round already over is ignored; the critic traced every way a round becomes over and found none followed by a legitimate `start`. One Nit (Follow-ups): a decode that finishes in the window posts "n번째 곡 시작" under the answer card.
+- Criterion 10, by the lead in Chromium (Playwright) against a local server with `SONGRUSH_GAME_PLAYTOLIMIT=true` and 16 placeholder songs of 70 s (generated tones in a scratch data folder, not in the repository), two players, 선착순 chat:
+  - The host answered about 5 s into the song. On both screens the answer card showed, the clock kept counting (65.2 s left 1 s after the reveal, 62.2 s 3 s later, the same on both), `body.playing` stayed (the disc spins), and no skip button was shown.
+  - The music and the clock ran until the song's end; the next song began 69 s after the reveal, and its clock started at 70 s.
+  - Console: only 404s for the cover images, which the placeholder setup has none of.
+- The switch is still off by default.
