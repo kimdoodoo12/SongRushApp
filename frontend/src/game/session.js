@@ -140,8 +140,12 @@ export function startSession({
   // Whether joined has arrived, and the assigned name.
   let joined = false
   let myName = null
-  // The current song: { index, revealed, buffer, start, source, watching,
-  // lateStart, provisional, choices, audioDone, imagesLeft, readySent }.
+  // The current song: { index, revealed, over, buffer, start, source,
+  // watching, lateStart, provisional, choices, audioDone, imagesLeft,
+  // readySent, windowTimer }. revealed: the answer is out (no pick, no
+  // skip); over: the music and the clock are finished, so late audio, the
+  // decode, the clock correction and the late start are ignored. A reveal
+  // window (cycle 129) sets revealed only, and windowTimer ends it.
   // held: a prepare with holdMs whose prepare, loaded and loadFailed are not
   // dispatched yet (cycle 107); prepareAction is that prepare and outcome the
   // load's result ('loaded' or 'failed'), dispatched when the hold ends.
@@ -152,6 +156,10 @@ export function startSession({
   // choice room's song (cycle 100); ready waits for the audio and for every
   // choice image to load or fail.
   let round = null
+  // The round a held prepare replaced while its reveal window still plays
+  // (cycle 129): its source and window-end timer run until the hold ends,
+  // the next start, its playUntil, gameOver or a rejoin snapshot; or null.
+  let prev = null
   // The own pick in a choice room (cycle 100): { index, choice, wrong }, or
   // null. It belongs to a song index, so a resume's re-prepare of the same
   // song keeps it (spec 100 A4); another index clears it.
@@ -264,6 +272,49 @@ export function startSession({
     if (round !== null && round.source !== null) round.source.stop()
   }
 
+  function clearWindow(r) {
+    if (r.windowTimer !== null) {
+      clearTimeout(r.windowTimer)
+      r.windowTimer = null
+    }
+  }
+
+  // A round's music ends: its window timer is cleared and its source, if it
+  // still plays, stops. A round already over is left alone.
+  function retire(r) {
+    clearWindow(r)
+    if (r.over) return
+    r.over = true
+    if (r.source !== null) r.source.stop()
+  }
+
+  function stopPrev() {
+    if (prev === null) return
+    retire(prev)
+    prev = null
+  }
+
+  // The local time a reveal window ends, min(playUntil, deadlineAt), or null
+  // when the reveal opens none: no start for this client yet, the music is
+  // over, or playUntil is missing or not later than now.
+  function windowEndOf(r, playUntil) {
+    if (r.start === null || r.over || typeof playUntil !== 'number' || !Number.isFinite(playUntil)) return null
+    if (playUntil - r.start.offsetMs <= now()) return null
+    const end = Math.min(playUntil, r.start.deadlineAt) - r.start.offsetMs
+    return end > now() ? end : null
+  }
+
+  // The window's end (its playUntil): the tick and the source stop, and the
+  // screen keeps the card. A round no longer current or previous is ignored.
+  function endWindow(r) {
+    r.windowTimer = null
+    if (!active || r.over || (round !== r && prev !== r)) return
+    stopTimer()
+    retire(r)
+    if (prev === r) prev = null
+    dispatch({ type: 'windowEnd', index: r.index })
+  }
+
   function remaining(start) {
     const max = start.deadlineAt - start.startAt
     const left = start.deadlineAt - start.offsetMs - now()
@@ -279,7 +330,7 @@ export function startSession({
   // Plays the round's buffer once both the buffer and the start time are
   // known, whichever comes last (a late decode plays from the current point).
   async function schedule(r) {
-    if (r.buffer === null || r.start === null || r.source !== null || r.revealed) return
+    if (r.buffer === null || r.start === null || r.source !== null || r.over) return
     if (ctx.state !== 'running') {
       try {
         await ctx.resume()
@@ -288,7 +339,7 @@ export function startSession({
         console.warn('AudioContext resume failed', err)
       }
     }
-    if (!active || round !== r || r.revealed || r.source !== null) return
+    if (!active || round !== r || r.over || r.source !== null) return
     const plan = planPlayback({ ...r.start, nowMs: now(), ctxTime: ctx.currentTime, outputLatency: outputLatency() })
     if (plan === null) return
     const source = ctx.createBufferSource()
@@ -353,6 +404,8 @@ export function startSession({
     return {
       index,
       revealed: false,
+      over: false,
+      windowTimer: null,
       buffer: null,
       start: null,
       source: null,
@@ -385,7 +438,7 @@ export function startSession({
   // settled: its tile shows the empty placeholder.
   function preloadChoices(r) {
     if (r.choices === null) return
-    const current = () => active && round === r && !r.revealed
+    const current = () => active && round === r && !r.over
     for (const url of r.choices) {
       if (url === null) continue
       r.imagesLeft += 1
@@ -408,7 +461,7 @@ export function startSession({
 
   // Loads the round's audio and its choice images; ready follows maybeReady.
   function load(r, audioUrl) {
-    const current = () => active && round === r && !r.revealed
+    const current = () => active && round === r && !r.over
     preloadChoices(r)
     loadTrack(ctx, audioUrl, fetchFn).then(
       (buffer) => {
@@ -450,6 +503,9 @@ export function startSession({
     clearHold()
     if (!r.held) return
     r.held = false
+    // The last song's window, if it still plays, ends with the hold.
+    stopPrev()
+    stopTimer()
     dispatch(r.prepareAction)
     soundCheck()
     if (r.outcome === 'loaded') dispatch({ type: 'loaded' })
@@ -462,6 +518,17 @@ export function startSession({
     // round whose hold keeps the reveal still.
     const revealShown = round !== null && (round.revealed || round.held)
     const hold = revealShown && Number.isFinite(msg.holdMs) && msg.holdMs > 0
+    // The last round's music (cycle 129): a held prepare leaves it playing
+    // as prev until the hold ends; any other prepare stops it and its clock.
+    stopPrev()
+    if (round !== null) {
+      if (hold) {
+        prev = round
+      } else {
+        stopTimer()
+        retire(round)
+      }
+    }
     const r = newRound(msg.index, false, null, choiceUrls(msg.choices))
     round = r
     inGame = true
@@ -502,12 +569,14 @@ export function startSession({
     dispatch({ type: 'start', max: start.deadlineAt - start.startAt, remaining: remaining(start), reached: reached(start) })
     soundCheck()
     stopTimer()
+    stopPrev()
     timer = setInterval(() => dispatch({ type: 'tick', remaining: remaining(start), reached: reached(start) }), TICK_MS)
     schedule(r)
   }
 
   function onStart(msg) {
-    if (round === null || msg.index !== round.index) return
+    // A song revealed before its start here (cycle 129, 8a) never starts.
+    if (round === null || msg.index !== round.index || round.over) return
     if (round.held) endHold(round)
     const { offsetMs, provisional } = startOffset(msg.serverTime)
     round.provisional = provisional
@@ -518,7 +587,7 @@ export function startSession({
   // more than 20 ms above the offset in use; it never moves later, so it is
   // never early (spec 051). The ticks read the same start object.
   function correctStart(r) {
-    if (!r.provisional || r.revealed || r.start === null) return
+    if (!r.provisional || r.over || r.start === null) return
     const bound = sync.lowerBound()
     if (bound === null || bound <= r.start.offsetMs + CORRECTION_MARGIN_MS) return
     r.start.offsetMs = bound
@@ -532,19 +601,25 @@ export function startSession({
   // A watched song already playing: the snapshot has no serverTime, so it
   // starts late once the first clock estimate exists (spec 048 review H1).
   function lateStart(r) {
-    if (r.lateStart === null || r.start !== null || r.revealed) return
+    if (r.lateStart === null || r.start !== null || r.over) return
     const estimate = sync.current()
     if (estimate === null) return
     beginStart(r, { ...r.lateStart, offsetMs: estimate.offsetMs })
   }
 
   // The current round ends: its source stops and late callbacks are ignored.
+  // A held prepare's previous round (prev) is left to the rejoin snapshot,
+  // gameOver or its own window end (cycle 129, criterion 7).
   function dropRound() {
     clearHold()
     stopTimer()
     if (round !== null) {
+      const windowOpen = round.windowTimer !== null && !round.over
+      clearWindow(round)
       round.revealed = true
+      round.over = true
       stopSource()
+      if (windowOpen) dispatch({ type: 'windowEnd', index: round.index })
       round = null
     }
   }
@@ -556,6 +631,7 @@ export function startSession({
     awaitingSnapshot = false
     clearHold()
     dropRound()
+    stopPrev()
     resetSkips()
     const playing = msg.phase === 'playing'
     const song = playing && msg.song !== null && msg.song !== undefined ? msg.song : null
@@ -654,6 +730,7 @@ export function startSession({
     resetSkips()
     clearHold()
     dropRound()
+    stopPrev()
     dispatch({ type: 'abandoned' })
   }
 
@@ -665,16 +742,30 @@ export function startSession({
     dispatch({ type: 'pickWrong', choice: msg.choice })
   }
 
+  // A reveal whose playUntil is later than now, for a song this client has
+  // started, opens a window (cycle 129, F-035): the source and the tick go
+  // on until min(playUntil, deadlineAt). Any other reveal ends them now.
   function onReveal(msg) {
-    stopTimer()
     const choices = round === null ? null : round.choices
-    if (round !== null) {
-      round.revealed = true
-      round.provisional = false
-      stopSource()
+    const r = round
+    const windowEnd = r === null ? null : windowEndOf(r, msg.playUntil)
+    if (r !== null) {
+      r.revealed = true
+      r.provisional = false
+      clearWindow(r)
+    }
+    if (windowEnd === null) {
+      stopTimer()
+      if (r !== null) {
+        r.over = true
+        stopSource()
+      }
+    } else {
+      r.windowTimer = setTimeout(() => endWindow(r), windowEnd - now())
     }
     dispatch({
       type: 'reveal',
+      window: windowEnd !== null,
       // The correct tile of a choice room (spec 100 item 6), or null.
       correctChoice: isPosition(msg.correctChoice, choices) ? msg.correctChoice : null,
       reveal: {
@@ -724,6 +815,9 @@ export function startSession({
         const row = ownRow(msg.ranking)
         stopTimer()
         clearHold()
+        // A reveal window, current or held over, ends with the game.
+        stopPrev()
+        if (round !== null) retire(round)
         inGame = false
         ownPick = null
         dispatch({
@@ -823,6 +917,8 @@ export function startSession({
     stopTimer()
     stopSync()
     stopSource()
+    if (round !== null) clearWindow(round)
+    stopPrev()
   }
 
   // Closing on purpose: handlers are cleared first, so the old socket's
