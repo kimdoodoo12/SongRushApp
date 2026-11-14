@@ -634,10 +634,27 @@ describe('the wrong-pick chat line (criterion 4)', () => {
     expect(qa('aside.chat .msgs .msg.sys.correct')).toEqual([])
     // It is the last line of the log.
     const lines = qa('aside.chat .msgs .msg')
-    expect(lines[lines.length - 1].className).toBe('msg sys')
+    expect(lines[lines.length - 1].className).toBe('msg sys wrong')
     // A second wrong pick is a second line.
     deliver(socket, wrongMsg('Mina'))
     expect(sysLines()).toEqual([...before, WRONG.ko('Joon'), WRONG.ko('Mina')])
+  })
+
+  // Cycle 124 (F-034, D-131): only the wrong line carries .wrong; a plain
+  // notice and the correct line keep their classes
+  // (docs/cycles/124-wrong-line-red.md, criterion 1).
+  it('in one log the song-start line is msg sys, the correct line msg sys correct and the wrong line msg sys wrong', async () => {
+    const env = setup()
+    const socket = await choiceSongAudible(env)
+    deliver(socket, wrongMsg('Joon'))
+    deliver(socket, { type: 'correct', index: 0, name: 'Mina' })
+    const classOf = (text) =>
+      qa('aside.chat .msgs .msg')
+        .filter((el) => el.textContent.replace(/\s+/g, ' ').trim() === text)
+        .map((el) => el.className)
+    expect(classOf(ko.chat.songStart.replace('{{n}}', '1'))).toEqual(['msg sys'])
+    expect(qa('aside.chat .msgs .msg.correct').map((el) => el.className)).toEqual(['msg sys correct'])
+    expect(classOf(WRONG.ko('Joon'))).toEqual(['msg sys wrong'])
   })
 
   it('English: a line already shown changes language after the switch, and a new one is English', async () => {
