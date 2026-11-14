@@ -412,7 +412,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-036** frontend: the skip button during the reveal window (from S-008; after B-035 and F-035)
   - The skip button and its count stay while the music plays after the reveal; the own vote is reset at the reveal; the button goes when the music ends or a held `prepare` arrives.
   - Acceptance (Vitest): the button is shown in the window and sends `skipVote` for the current index; `skipState` updates the count; a vote made before the reveal shows as not voted after it; no button after `playUntil`, during a hold, for a watcher, or after a reveal without a window. Seen in a browser with two players passing a skip.
-- [ ] **F-037** frontend: reload and late join during the reveal window (from S-008; after B-036 and F-035)
+- [~] **F-037** frontend: reload and late join during the reveal window (from S-008; after B-036 and F-035)
   - A `restore` or `watching` snapshot whose song has `reveal` shows the card and plays the rest of the music late.
   - Acceptance (Vitest): the card shows with the snapshot's titles, the audio starts late once the clock is known and stops at `playUntil`; a snapshot without `reveal` behaves as today. Seen in a browser by reloading during a window.
 - [ ] **B-037** backend and docs: turn play-to-limit on (from S-008; after every item above)
@@ -696,3 +696,4 @@ Decided:
 - (129) A decode that finishes during the reveal window posts the "n번째 곡 시작" line under the answer card (`state.js:170-172`, announce on the first audible state). Add `next.reveal === null` to that condition, or accept it.
 - (129) In a window the reveal card still reads "잠시 후 다음 곡이 시작돼요" while up to 85 s of music remain. Wording for the owner once the switch is on.
 - (130) A skip vote sent within about one round trip before the deciding answer reaches the server after the reveal's reset (`Room.java` `endSong` clears `votes`, `skip` accepts it in the window) and counts; the client reset its own vote at the reveal (`session.js` `onReveal`), so its button shows "not voted" for a counted vote and the next click removes it while showing "voted". Fix: tag the vote with the phase it was cast in (for example `skipVote{index, window: true}`) and have the server ignore an untagged vote in `REVEAL`. No test pins that the next song's button returns after a held hold ends (the code clears `skipClosed` on `prepare`).
+- (131) No test pins that a snapshot reveal dropped before the first clock estimate (a held `prepare`, `gameOver`, another snapshot) starts nothing; the code does (`lateStart` returns for a round without `lateStart` or `over`). Add one in a later cycle.

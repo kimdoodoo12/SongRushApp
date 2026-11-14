@@ -298,9 +298,16 @@ export function startSession({
   // when the reveal opens none: no start for this client yet, the music is
   // over, or playUntil is missing or not later than now.
   function windowEndOf(r, playUntil) {
-    if (r.start === null || r.over || typeof playUntil !== 'number' || !Number.isFinite(playUntil)) return null
-    if (playUntil - r.start.offsetMs <= now()) return null
-    const end = Math.min(playUntil, r.start.deadlineAt) - r.start.offsetMs
+    if (r.start === null || r.over) return null
+    return windowEndFrom(r.start, playUntil)
+  }
+
+  // The same for a start's { deadlineAt, offsetMs }, also before the round
+  // has begun it (a snapshot in a window, cycle 131).
+  function windowEndFrom(start, playUntil) {
+    if (typeof playUntil !== 'number' || !Number.isFinite(playUntil)) return null
+    if (playUntil - start.offsetMs <= now()) return null
+    const end = Math.min(playUntil, start.deadlineAt) - start.offsetMs
     return end > now() ? end : null
   }
 
@@ -419,6 +426,9 @@ export function startSession({
       held: false,
       prepareAction: null,
       outcome: null,
+      // A snapshot's song.reveal (cycle 131): the round was revealed before
+      // this client had it; its window opens at the first clock estimate.
+      snapshotReveal: null,
     }
   }
 
@@ -603,11 +613,51 @@ export function startSession({
 
   // A watched song already playing: the snapshot has no serverTime, so it
   // starts late once the first clock estimate exists (spec 048 review H1).
+  // A snapshot taken in a reveal window (cycle 131) begins only while its
+  // window is still open here, and then opens it; otherwise the round is over.
   function lateStart(r) {
     if (r.lateStart === null || r.start !== null || r.over) return
     const estimate = sync.current()
     if (estimate === null) return
-    beginStart(r, { ...r.lateStart, offsetMs: estimate.offsetMs })
+    const start = { ...r.lateStart, offsetMs: estimate.offsetMs }
+    if (r.snapshotReveal === null) {
+      beginStart(r, start)
+      return
+    }
+    const windowEnd = windowEndFrom(start, r.snapshotReveal.playUntil)
+    if (windowEnd === null) {
+      r.over = true
+      return
+    }
+    beginStart(r, start)
+    dispatch({ type: 'windowOpen', index: r.index })
+    r.windowTimer = setTimeout(() => endWindow(r), windowEnd - now())
+  }
+
+  // A snapshot song's reveal (cycle 131), or null when it has none.
+  function snapshotRevealOf(song) {
+    return song.reveal !== null && typeof song.reveal === 'object' && !Array.isArray(song.reveal) ? song.reveal : null
+  }
+
+  // A snapshot in a reveal window (cycle 131): the round is revealed and the
+  // card shows at once, with no window yet (lateStart opens it). The
+  // snapshot's count is applied only now, so a newer skipState overrides it.
+  // The own vote starts as not voted (the skips were reset).
+  function showSnapshotReveal(r, reveal, skipState) {
+    r.revealed = true
+    r.snapshotReveal = reveal
+    // Without a startAt nothing can play from the right point.
+    if (r.lateStart === null) r.over = true
+    dispatch(revealAction(reveal, r.choices, false))
+    if (
+      skipState !== null &&
+      typeof skipState === 'object' &&
+      Number.isInteger(skipState.votes) &&
+      Number.isInteger(skipState.needed)
+    ) {
+      dispatch({ type: 'skipState', votes: skipState.votes, needed: skipState.needed })
+    }
+    dispatchOwnSkip()
   }
 
   // The current round ends: its source stops and late callbacks are ignored.
@@ -641,6 +691,7 @@ export function startSession({
     const scores = Array.isArray(msg.scores) && msg.scores.length > 0 ? msg.scores : null
     const own = scores === null ? undefined : ownRow(scores)
     const choices = song === null ? null : choiceUrls(song.choices)
+    const reveal = song === null ? null : snapshotRevealOf(song)
     // The server's record of the own pick this song (L3). In first come a
     // pick it holds was wrong, since a correct one ends the song; in ranked
     // the song goes on after a correct pick, so it was wrong only when
@@ -660,11 +711,13 @@ export function startSession({
       correctNames: correctNamesOf(song),
       pickCount: song === null || choices === null ? null : pickCountOf(song.pickState),
       ...pickFields(song === null ? null : song.index),
+      revealed: reveal !== null,
     })
     if (song === null) return
     const late = typeof song.startAt === 'number' ? { startAt: song.startAt, deadlineAt: song.deadlineAt } : null
     const r = newRound(song.index, false, late, choices)
     round = r
+    if (reveal !== null) showSnapshotReveal(r, reveal, song.skipState)
     soundCheck()
     load(r, song.audioUrl)
     lateStart(r)
@@ -691,13 +744,16 @@ export function startSession({
     const late = typeof song.startAt === 'number' ? { startAt: song.startAt, deadlineAt: song.deadlineAt } : null
     const r = newRound(song.index, true, late, choiceUrls(song.choices))
     round = r
+    const reveal = snapshotRevealOf(song)
     dispatch({
       type: 'watching',
       round: { index: song.index, total: song.total },
       choices: r.choices,
       correctNames: correctNamesOf(song),
       pickCount: r.choices === null ? null : pickCountOf(song.pickState),
+      revealed: reveal !== null,
     })
+    if (reveal !== null) showSnapshotReveal(r, reveal, song.skipState)
     soundCheck()
     load(r, song.audioUrl)
     lateStart(r)
@@ -745,6 +801,29 @@ export function startSession({
     dispatch({ type: 'pickWrong', choice: msg.choice })
   }
 
+  // The reveal action of a live reveal frame or of a snapshot's song.reveal
+  // (cycle 131), with the same card fields; opens: a reveal window opens.
+  function revealAction(msg, choices, opens) {
+    return {
+      type: 'reveal',
+      window: opens,
+      // The correct tile of a choice room (spec 100 item 6), or null.
+      correctChoice: isPosition(msg.correctChoice, choices) ? msg.correctChoice : null,
+      reveal: {
+        title: msg.reveal,
+        // The accepted titles per language, for the card's KO/EN/JA/Romaji lines.
+        titles: msg.titles !== null && typeof msg.titles === 'object' ? msg.titles : {},
+        themeSlug: msg.themeSlug,
+        song: msg.song,
+        artists: msg.artists ?? [],
+        winner: msg.winner,
+        // Ranked only (cycle 101): the song's ranking rows; null in first come.
+        ranking: rankingRows(msg.ranking),
+        coverUrl: typeof msg.coverUrl === 'string' && COVER_URL.test(msg.coverUrl) ? msg.coverUrl : null,
+      },
+    }
+  }
+
   // A reveal whose playUntil is later than now, for a song this client has
   // started, opens a window (cycle 129, F-035): the source and the tick go
   // on until min(playUntil, deadlineAt). Any other reveal ends them now.
@@ -766,24 +845,7 @@ export function startSession({
     } else {
       r.windowTimer = setTimeout(() => endWindow(r), windowEnd - now())
     }
-    dispatch({
-      type: 'reveal',
-      window: windowEnd !== null,
-      // The correct tile of a choice room (spec 100 item 6), or null.
-      correctChoice: isPosition(msg.correctChoice, choices) ? msg.correctChoice : null,
-      reveal: {
-        title: msg.reveal,
-        // The accepted titles per language, for the card's KO/EN/JA/Romaji lines.
-        titles: msg.titles !== null && typeof msg.titles === 'object' ? msg.titles : {},
-        themeSlug: msg.themeSlug,
-        song: msg.song,
-        artists: msg.artists ?? [],
-        winner: msg.winner,
-        // Ranked only (cycle 101): the song's ranking rows; null in first come.
-        ranking: rankingRows(msg.ranking),
-        coverUrl: typeof msg.coverUrl === 'string' && COVER_URL.test(msg.coverUrl) ? msg.coverUrl : null,
-      },
-    })
+    dispatch(revealAction(msg, choices, windowEnd !== null))
     // In a window the skip vote goes on (cycle 130): the server cleared the
     // votes cast before the reveal, so the own vote starts as not voted.
     if (windowEnd !== null) {

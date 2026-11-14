@@ -307,6 +307,8 @@ function step(state, action) {
         // The snapshot's count (cycle 123), validated by the session.
         pickCount: action.pickCount ?? null,
         ...choiceFields(action),
+        // A song whose answer is already out (cycle 131) gets no song-start line.
+        announced: action.revealed === true && action.round !== null ? action.round.index : state.announced,
       }
       if (action.phase === 'lobby') {
         return {
@@ -351,6 +353,8 @@ function step(state, action) {
         skipClosed: false,
         pickCount: action.pickCount ?? null,
         ...choiceFields(action),
+        // A song whose answer is already out (cycle 131) gets no song-start line.
+        announced: action.revealed === true && action.round !== null ? action.round.index : state.announced,
       }
     case 'abandoned':
       return {
@@ -486,6 +490,11 @@ function step(state, action) {
         correctChoice: action.correctChoice ?? null,
       }
     }
+    case 'windowOpen':
+      // A snapshot's reveal window opens at the first clock estimate (cycle
+      // 131); the card, the count and the own vote stay as they are.
+      if (state.round === null || state.round.index !== action.index || state.reveal === null) return state
+      return { ...state, windowOpen: true }
     case 'windowEnd':
       // A late timer of another song never touches the current one.
       if (!state.windowOpen || state.round === null || state.round.index !== action.index) return state
