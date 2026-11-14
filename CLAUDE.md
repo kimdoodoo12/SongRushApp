@@ -88,7 +88,7 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
 
 - **The server is the authority.** The backend owns the answer, the round clock, and scores. Never send the answer, or anything that reveals the song, to clients before the round ends; audio URLs are opaque. Catalog anime and theme ids are the public AnimeThemes ids, so an id alone identifies the song: never send them (or any catalog record) to a client before the reveal. One exception (D-111, A9): in a multiple-choice room the cover URLs of a song's choices go out in `prepare`, shuffled, with nothing marking the correct one.
 - **Arrival order is enforced on the server** (D-016). The first correct answer by server arrival order wins, including when messages arrive concurrently.
-- **Fairness bugs**, such as one client hearing the song earlier, are High severity. The one accepted exception: a modified client can hear the next song's file once it is prefetched, 5 s before the reveal's music ends (one reveal pause before; D-025, D-119, D-129). During that reveal, a chat line that matches the next song's titles goes to its sender only (D-120).
+- **Fairness bugs**, such as one client hearing the song earlier, are High severity. The one accepted exception: a modified client can hear the next song's file once it is prefetched, one reveal pause (5 s) before the next song starts: at the start of a reveal with no music left, or 5 s before the end of a reveal window where the music plays on (D-025, D-119, D-129). During those 5 s, a chat line that matches the next song's titles goes to its sender only (D-120).
 
 ## Environment pitfalls
 

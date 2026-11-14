@@ -6,7 +6,7 @@
 > - 현재 서버에서 쓰는 설정값 세 개는 이 문서에 없습니다.
 >   - `SONGRUSH_AUDIO_CDNHOST`: CloudFront 주소. 비워 두면 S3에서 직접 받습니다.
 >   - `SONGRUSH_GAME_PREFETCHONREVEAL`: `true`면 정답 공개 중에 다음 곡을 미리 받습니다.
->   - `SONGRUSH_GAME_PLAYTOLIMIT`: 기본으로 켜져 있어, 정답이 나와도 곡이 시간 제한까지 계속 나옵니다. `false`로 두면 정답 공개가 예전처럼 5초로 돌아갑니다.
+>   - `SONGRUSH_GAME_PLAYTOLIMIT`: 서버에 따로 넣지 않아도 기본으로 켜져 있어, 정답이 나와도 곡이 시간 제한까지 계속 나옵니다. `false`로 두면 정답 공개가 예전처럼 5초로 돌아갑니다.
 > - 현재 절차로 다시 쓸지는 정해지지 않았습니다.
 
 이 안내서는 개발자가 아닌 분이 혼자서 따라 할 수 있게 썼습니다.
