@@ -79,10 +79,10 @@ Not taken: leaving `pickState` out of a first-come correct pick to save test cha
 - In this container Maven Central refused many requests (HTTP 429, and 404 for files that exist), so Gradle ran against a local read-through mirror kept outside the repo. Nothing in the repo changed for it.
 
 ## Result
-- Tests first: commit `06dfb97`. One new class (`RoomPickStateTest`, 19 tests) and updated exact-frame assertions in `RoomChoiceTest`, `RoomRankedChoiceTest`, `RoomPrefetchOnRevealTest`, `LobbyAnswerModeTest` and `ChoiceSocketTest`.
+- Tests first: commit `232a4f8`. One new class (`RoomPickStateTest`, 19 tests) and updated exact-frame assertions in `RoomChoiceTest`, `RoomRankedChoiceTest`, `RoomPrefetchOnRevealTest`, `LobbyAnswerModeTest` and `ChoiceSocketTest`.
 - Red, run by the verifier: `945 tests completed, 37 failed, 1 skipped`, every failure in those six classes and every one an assertion about the missing frames or the missing snapshot key.
-- Implementation: commit `a0bd46a`, first attempt. `Room.java` only (+48, -5): `pickState` after an accepted pick, as the first frame of a connection change during a song, and after every `start`; `wrong` after the sender's `pick-result`; `pickState` nested in the snapshot's song.
-- Green, run by the verifier with a forced rerun: 945 tests, 0 failures, 0 errors, 1 skipped. `git diff 06dfb97 HEAD -- backend/src/test` is empty. Criteria 1 to 11 confirmed.
+- Implementation: commit `88aaf2a`, first attempt. `Room.java` only (+48, -5): `pickState` after an accepted pick, as the first frame of a connection change during a song, and after every `start`; `wrong` after the sender's `pick-result`; `pickState` nested in the snapshot's song.
+- Green, run by the verifier with a forced rerun: 945 tests, 0 failures, 0 errors, 1 skipped. `git diff 232a4f8 HEAD -- backend/src/test` is empty. Criteria 1 to 11 confirmed.
 - Review of the diff: no Blocker, no High. One Medium (the snapshot count leaves out the rejoining player) and three smaller notes went to Follow-ups; the Medium is also written on F-033.
-- GitHub CI on PR #46 passed on `a0bd46a`; merged to `dev` as `7b96aa9`.
+- GitHub CI on PR #46 passed on `88aaf2a`; merged to `dev` as `c4f9212`.
 - Not checked in a browser: there is no screen for it yet (F-033).
