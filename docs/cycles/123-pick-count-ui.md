@@ -76,3 +76,5 @@ Also taken: the choice-room rule for both frames is written into the session des
   - No `unknown message` warning in the browser console.
   - The captures are not committed: they show placeholder covers. The after captures for issue #44 are taken on the live site once this is deployed.
 - Review of the diff: no Blocker, no High. Two Medium: this Result section was missing at review time, and a `wrong` or `pickState` frame that arrived after the reveal would still be applied (the server never sends one). The second went to Follow-ups with three wording notes.
+- GitHub CI on PR #48 passed; merged to `dev` as `6a3db6e`.
+- The owner saw the screen and asked for the wrong line in red (D-131); that is F-034, the next cycle.
