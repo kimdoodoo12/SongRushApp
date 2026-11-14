@@ -186,6 +186,10 @@ public final class Room {
 	// (cycle 127). Not deadlineAt, which is still ahead after a skip reveal.
 	private long playUntil;
 
+	// With playToLimit, a copy of the last reveal frame without its type key, for the snapshot in the
+	// reveal window (cycle 128); null outside REVEAL. Never the map passed to the outbox.
+	private Map<String, Object> lastReveal;
+
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players) {
 		this(catalog, tokens, scheduler, clock, random, outbox, players, CoverMap.empty());
@@ -277,8 +281,12 @@ public final class Room {
 	// [{name, rank}] rows already sent in correct messages, in rank order (cycle 101 R5). In a choice
 	// game also pickState {picked, total}, the counts as they are now (cycle 122, D-130): nested,
 	// because picked and total already mean the own position and the song count here.
+	// In a reveal window (cycle 128, while skipInWindow holds) the song as it played, with the same
+	// per-mode keys, plus reveal (the broadcast reveal frame without type) and skipState {votes, needed}
+	// as the skipState broadcast counts them.
 	public Map<String, Object> currentSong(String playerId) {
-		Map<String, Object> song = currentSong();
+		boolean window = skipInWindow() && lastReveal != null;
+		Map<String, Object> song = window ? playingSong() : currentSong();
 		if (song == null) {
 			return null;
 		}
@@ -290,6 +298,10 @@ public final class Room {
 		if (gameMode == GameMode.RANKED) {
 			song.put("answered", rankedIds.contains(playerId));
 			song.put("correct", correctRows());
+		}
+		if (window) {
+			song.put("reveal", new LinkedHashMap<>(lastReveal));
+			song.put("skipState", row("votes", votes.size(), "needed", connectedCount() / 2 + 1));
 		}
 		return song;
 	}
@@ -311,12 +323,17 @@ public final class Room {
 		if (paused || (phase != Phase.PREPARE && phase != Phase.PLAYING)) {
 			return null;
 		}
-		Map<String, Object> song = row("index", songIndex, "total", songs.size(), "audioUrl", audioUrl);
 		if (phase == Phase.PLAYING) {
-			song.put("startAt", startAt);
-			song.put("deadlineAt", deadlineAt);
+			return playingSong();
 		}
-		return song;
+		return row("index", songIndex, "total", songs.size(), "audioUrl", audioUrl);
+	}
+
+	// The current song as its prepare and start messages gave it: {index, total, audioUrl, startAt,
+	// deadlineAt}.
+	private Map<String, Object> playingSong() {
+		return row("index", songIndex, "total", songs.size(), "audioUrl", audioUrl, "startAt", startAt, "deadlineAt",
+				deadlineAt);
 	}
 
 	public void start(int songCount) {
@@ -904,6 +921,7 @@ public final class Room {
 	// watchers, clears ready and votes and issues the token. Returns the prepare message.
 	private Map<String, Object> enterPrepare(int index) {
 		phase = Phase.PREPARE;
+		lastReveal = null;
 		songIndex = index;
 		for (PlayerRef p : watchers.values()) {
 			promote(p);
@@ -998,6 +1016,9 @@ public final class Room {
 			playUntil = decided ? deadlineAt : now;
 			reveal.put("playUntil", playUntil);
 			pause = Math.max(playUntil - now, pause);
+			// Kept for the window snapshot (cycle 128): a copy, so the broadcast map is never touched.
+			lastReveal = new LinkedHashMap<>(reveal);
+			lastReveal.remove("type");
 		}
 		outbox.toAll(reveal);
 		List<Object> rows = new ArrayList<>();
@@ -1054,6 +1075,7 @@ public final class Room {
 		}
 		pending = null;
 		phase = Phase.LOBBY;
+		lastReveal = null;
 		songIndex = -1;
 		songs = List.of();
 		outbox.toAll(message("gameOver", "ranking", ranking()));
