@@ -412,7 +412,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-036** frontend: the skip button during the reveal window (from S-008; after B-035 and F-035)
   - The skip button and its count stay while the music plays after the reveal; the own vote is reset at the reveal; the button goes when the music ends or a held `prepare` arrives.
   - Acceptance (Vitest): the button is shown in the window and sends `skipVote` for the current index; `skipState` updates the count; a vote made before the reveal shows as not voted after it; no button after `playUntil`, during a hold, for a watcher, or after a reveal without a window. Seen in a browser with two players passing a skip.
-- [~] **F-037** frontend: reload and late join during the reveal window (from S-008; after B-036 and F-035)
+- [x] **F-037** frontend: reload and late join during the reveal window (from S-008; after B-036 and F-035)
   - A `restore` or `watching` snapshot whose song has `reveal` shows the card and plays the rest of the music late.
   - Acceptance (Vitest): the card shows with the snapshot's titles, the audio starts late once the clock is known and stops at `playUntil`; a snapshot without `reveal` behaves as today. Seen in a browser by reloading during a window.
 - [ ] **B-037** backend and docs: turn play-to-limit on (from S-008; after every item above)
