@@ -22,22 +22,22 @@ When they are sent:
 1. **An accepted pick** (a pick stored in `picks`): `pickState` first. Then, as today, `correct` for a correct pick, or `pick-result` to the sender for a wrong one; a wrong pick is followed by `wrong`. Then whatever ends the song (`reveal`, `scores`) as today.
    - Wrong pick, in order: `pickState` (all), `pick-result` (sender), `wrong` (all).
    - Correct pick, in order: `pickState` (all), `correct` (all), and in first-come `reveal`, `scores`.
-2. **A Room player's connection changes during PLAYING** (`setConnected`, not paused, the value really changed): `pickState` with the new numbers, before `endIfAllAnswered()`. Not sent when `total` is 0.
-3. **A resume re-prepares a choice song** (`resume()`): `pickState` right after that `prepare`, because picks are kept across a pause.
+2. **A Room player's connection changes during PLAYING** (`setConnected`, not paused, the value really changed): `pickState` with the new numbers is the first frame of that change, before the `skipState` of `sendSkipStateAndPass()` and before `endIfAllAnswered()`, either of which can end the song. Nothing is sent after the song has ended, and nothing when `total` is 0.
+3. **Every `start` of a choice song** (`startSong`): `pickState` right after `start`, before the `endIfAllAnswered()` there. This gives each song its first count and covers everything that changes the numbers outside PLAYING: a resume (picks are kept across a pause), a disconnect or reconnect during PREPARE, and a late joiner promoted at the prepare.
 
 Never sent: in a chat game; for a refused pick (not a choice game, paused, not PLAYING, a watcher or disconnected sender, another index, a position out of range, at or after the deadline, `too-early`, `already-picked`); for a watcher's connection change.
 
-Snapshot: the `song` of a `snapshot` in a choice game gains `pickState: {picked, total}`. The keys `picked` (the own pick position) and `total` (the song count) already exist in that map with other meanings, so the counts are nested. The receiving player is counted as connected when it is a Room player, because the snapshot is built just before the Lobby marks a reconnecting player connected (`Lobby.java:311` vs `:315`). A watcher's snapshot counts Room players only.
+Snapshot: the `song` of a `snapshot` in a choice game gains `pickState: {picked, total}` with the numbers as they are when the snapshot is built. The keys `picked` (the own pick position) and `total` (the song count) already exist in that map with other meanings, so the counts are nested. A player who reconnects during PLAYING gets the snapshot first and then the rule 2 broadcast with the numbers that include them; during PREPARE the next `start` brings them (rule 3).
 
 ## Acceptance criteria
 1. Three players, first-come choice, one wrong pick: `outbox.since(mark)` is exactly `pickState{index, picked: 1, total: 3}` (all), `pick-result` (sender), `wrong{index, name}` (all), in that order. The key sets are exactly `type, index, picked, total` and `type, index, name`.
 2. A correct pick in first-come: exactly `pickState`, `correct`, `reveal`, `scores`.
-3. Ranked choice: a correct pick gives exactly `pickState`, `correct` (no `wrong`); a wrong pick gives `pickState`, `pick-result`, `wrong`; when the last player picks wrong the frames are `pickState`, `pick-result`, `wrong`, `reveal`, `scores`.
+3. Ranked choice: a correct pick while another connected player has not picked gives exactly `pickState`, `correct` (no `wrong`); a wrong pick gives `pickState`, `pick-result`, `wrong`; when the last player picks wrong the frames are `pickState`, `pick-result`, `wrong`, `reveal`, `scores`.
 4. A refused pick sends neither message: `already-picked`, `too-early`, a watcher, a disconnected player, at the deadline.
 5. A chat game never sends `pickState` or `wrong`, also on a disconnect and reconnect during PLAYING.
-6. During a choice song, a Room player's disconnect sends `pickState` with `total` one lower, and `picked` one lower when that player had picked; the reconnect sends it with the earlier numbers. A watcher's disconnect sends nothing. In ranked, when the last unpicked player disconnects the frames are `pickState`, `reveal`, `scores`.
-7. `currentSong(playerId)` of a choice song carries `pickState` with the current numbers; for a disconnected Room player it counts that player as connected. A chat song has no `pickState` key.
-8. A resume of a paused choice song sends `prepare` and then `pickState` with the kept picks.
+6. During a choice song, a Room player's disconnect sends `pickState` with `total` one lower, and `picked` one lower when that player had picked; the reconnect sends it with the earlier numbers. A watcher's disconnect sends nothing. In ranked, when the last unpicked player disconnects the frames are `pickState`, `reveal`, `scores`. A disconnect that passes the skip vote (4 players, 2 votes, a non-voter drops) gives exactly `pickState`, `skipState`, `reveal`, `scores`, and no `pickState` after the `reveal`.
+7. `currentSong(playerId)` of a choice song carries `pickState` with the current numbers. A chat song has no `pickState` key.
+8. Every `start` of a choice song is followed at once by `pickState` (`picked: 0` on a fresh song). After a pause with one kept pick, a resume where a second player reconnects during the resumed PREPARE gives `start`, then `pickState{picked: 1, total: 2}`. A chat song's `start` is followed by no `pickState`.
 9. No frame before the reveal other than the sender's `pick-result` contains the picked position: in a full first-come and a full ranked choice song, every `pickState` and `wrong` frame has exactly the key sets of criterion 1.
 10. Through the Lobby with real members: a wrong pick reaches every connected member as `pickState` and `wrong`, and `pick-result` reaches the sender only. Over a real socket (`ChoiceSocketTest`): the host receives `pickState` and `wrong` with the guest's name after the guest's wrong pick, and no host frame contains `pick-result`.
 11. `./gradlew test` passes from `backend/`.
@@ -47,10 +47,11 @@ New:
 - `backend/src/test/java/com/songrush/game/RoomPickStateTest.java`: criteria 1 to 9 at Room level, with `RecordingOutbox`, `ManualScheduler`, `MutableClock`, built like `RoomChoiceTest` and `RoomRankedChoiceTest`.
 
 Updated (existing exact-frame assertions that the new frames change; keep every other assertion as it is):
-- `RoomChoiceTest`: `:314`, `:333-335`, `:507`, the snapshot key sets at `:286` and `:294-295`, and the frame scan at `:687-742` gains the two types.
-- `RoomRankedChoiceTest`: `:166`, `:174`, `:181`, `:187-188`, `:210`, `:239`, `:251`, `:316`, `:384`, `:470`, `:485`, and the scan at `:495-531`; `:404-421` gains the resume `pickState`.
-- `RoomPrefetchOnRevealTest`: `:650`.
-- `LobbyAnswerModeTest`: `:273-275`, `:333`, and the snapshot key checks at `:324`, `:337`, `:347` (criterion 10, Lobby part).
+- `RoomChoiceTest`: `:314`, `:333-335`, `:507-508`, the snapshot key sets at `:286` and `:294-295`, and the frame scan at `:687-742` gains the two types.
+- `RoomRankedChoiceTest`: `:166`, `:174`, `:181`, `:187-188`, `:210-212`, `:238`, `:251`, `:316-318`, `:384`, `:470`, `:485`, and the scan at `:495-531`; `:404-421` gains the `pickState` after the resumed `start`.
+- `RoomPrefetchOnRevealTest`: `:650-652`.
+- `LobbyAnswerModeTest`: `:273-275`, `:333` (becomes `joined, snapshot, settings, roster, pickState`), and the snapshot key checks at `:324`, `:337`, `:347` (criterion 10, Lobby part).
+- Every exact-frame assertion around the `start` of a choice song in these classes and in the other `Room*` and `Lobby*` test classes: the test writer finds them by reading and lists each one in the report.
 - `ChoiceSocketTest`: one added check in `aChoiceGameFromSettingsToTheReveal` (criterion 10, socket part).
 
 Any other test that fails only because of the new frames is updated the same way and reported.
@@ -63,7 +64,15 @@ Any other test that fails only because of the new frames is updated the same way
 - The screen (F-033) and its texts.
 - Playing songs to the time limit (D-129, S-008).
 - Any change to scoring, to `pick-result`, or to chat rooms.
-- `pickState` at the start of every song: the client can show `0 / n` from the roster until the first frame arrives.
+
+## Spec review
+One round. No Blocker. Two High findings, both taken:
+- The count went stale after a pause and resume, and after any connection change during PREPARE. Rule 3 was "after a resume's prepare"; it is now "after every `start`".
+- Rule 2 did not say where `pickState` goes relative to the skip vote, which can end the song inside the same connection change. It is now the first frame.
+
+Also taken: the snapshot carries the plain numbers (no special case for the receiver), and the line references of the tests to update were corrected.
+
+Not taken: leaving `pickState` out of a first-come correct pick to save test changes. One rule for every accepted pick is simpler for the client, and it is what B-033 says.
 
 ## Commands (this cycle ran on a Linux cloud container)
 - `./gradlew test` from `backend/`. JDK 17.
