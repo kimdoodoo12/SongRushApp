@@ -89,6 +89,9 @@ export const initialState = {
   reached: false,
   skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
   skipCount: null, // { votes, needed } from skipState for this song
+  // A held prepare arrived in a reveal window (cycle 130): the skip button
+  // is gone although the old music plays on until the hold ends.
+  skipClosed: false,
   // A choice song's { picked, total } from pickState (cycle 123, D-130), or
   // null. start never changes it: it is shown once the song has started.
   pickCount: null,
@@ -267,6 +270,7 @@ function step(state, action) {
         windowOpen: false,
         skipVoted: false,
         skipCount: null,
+        skipClosed: false,
         pickCount: null,
         ...choiceFields(action),
       }
@@ -299,6 +303,7 @@ function step(state, action) {
         windowOpen: false,
         skipVoted: false,
         skipCount: null,
+        skipClosed: false,
         // The snapshot's count (cycle 123), validated by the session.
         pickCount: action.pickCount ?? null,
         ...choiceFields(action),
@@ -343,6 +348,7 @@ function step(state, action) {
         windowOpen: false,
         skipVoted: false,
         skipCount: null,
+        skipClosed: false,
         pickCount: action.pickCount ?? null,
         ...choiceFields(action),
       }
@@ -376,6 +382,10 @@ function step(state, action) {
       return { ...state, picked: null, pickWrong: false, pickLocked: true }
     case 'pickWrong':
       return { ...state, picked: action.choice, pickWrong: true, pickLocked: true }
+    case 'held':
+      // A held prepare in a reveal window (cycle 130): only the skip button
+      // goes; the clock and disc go on through the hold (cycle 129).
+      return { ...state, skipClosed: true }
     case 'ownSkip':
       return { ...state, skipVoted: action.voted }
     case 'skipState':
@@ -496,6 +506,7 @@ function step(state, action) {
         timer: null,
         started: false,
         windowOpen: false,
+        skipClosed: false,
         finalScore: action.score,
         ranking: action.ranking,
         settings: null,

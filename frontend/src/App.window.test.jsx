@@ -13,7 +13,7 @@
 //   whichever is first. gameOver and a rejoin snapshot stop them too.
 // - Any other reveal (no playUntil, playUntil at or before now, no start
 //   yet) behaves as today.
-// - Pick and skip stay refused after any reveal; no skip button shows.
+// - A pick stays refused after any reveal (the skip button in a window is cycle 130).
 //
 // "Stopped at once" means stop() or stop(t) with t no later than the
 // context's currentTime (App.flow.test.jsx's convention); the scheduled
@@ -450,17 +450,14 @@ describe('a reveal that opens no window behaves as today (7)', () => {
 })
 
 describe('pick and skip after a reveal (8)', () => {
-  it('a pick after a window reveal sends nothing; no skip button shows in the window', async () => {
+  it('a pick after a window reveal sends nothing', async () => {
     const env = setup()
     const { socket } = await windowReveal(env, { choices: true })
     expect(revealShown()).toBe(true)
-    expect(screen.queryByRole('button', { name: SKIP }), 'no skip button in the window').toBeNull()
     fireEvent.click(screen.getByRole('button', { name: tileName(1) }))
     fireEvent.click(screen.getByRole('button', { name: tileName(3) }))
     await advance(env, 250)
     expect(socket.sentOfType('pick')).toEqual([])
-    expect(socket.sentOfType('skipVote')).toEqual([])
-    expect(screen.queryByRole('button', { name: SKIP })).toBeNull()
   })
 
   it('a skip button shows during the song and no skip button after a reveal without a window', async () => {
