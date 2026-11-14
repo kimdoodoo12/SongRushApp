@@ -99,6 +99,11 @@ class RoomPlayToLimitTest {
 
 	private GameMode mode;
 
+	// How the room was built: the switch and prefetchOnReveal (cycle 127: decide() needs both).
+	private boolean switchOn;
+
+	private boolean prefetchOn;
+
 	// The current song, as capture() read it from its prepare.
 	private int index;
 
@@ -112,6 +117,8 @@ class RoomPlayToLimitTest {
 
 	private void build(AnswerMode answerMode, boolean prefetch, Switch sw, PlayerRef... members) {
 		answer = answerMode;
+		switchOn = sw == Switch.ON;
+		prefetchOn = prefetch;
 		players = List.of(members);
 		CoverMap covers;
 		if (answer == AnswerMode.CHOICE) {
@@ -281,8 +288,10 @@ class RoomPlayToLimitTest {
 
 	// Decides the current song by answers, now. First come: Mina's correct chat or pick. Ranked: Mina
 	// answers correctly, then Joon's correct chat or wrong pick ends it. Returns the frames of the
-	// deciding action and checks they are the frames of today, in order.
+	// deciding action and checks they are the frames of today, in order. Cycle 127: when the reveal is
+	// skippable, skipState{index, votes: 0, needed: 2} follows scores (see skippableAtTheDecision).
 	private List<Sent> decide() {
+		boolean skippable = skippableAtTheDecision();
 		if (mode == GameMode.RANKED) {
 			minaAnswersFirst();
 		}
@@ -302,7 +311,14 @@ class RoomPlayToLimitTest {
 			room.chat(MINA.id(), title);
 		}
 		List<Sent> sent = outbox.since(mark);
-		assertThat(types(sent)).as("the frames at the decision").containsExactlyElementsOf(decisionTypes());
+		List<String> expected = new ArrayList<>(decisionTypes());
+		if (skippable) {
+			expected.add("skipState");
+		}
+		assertThat(types(sent)).as("the frames at the decision").containsExactlyElementsOf(expected);
+		if (skippable) {
+			assertSkipState(sent.get(sent.size() - 1), index, 0, 2);
+		}
 		Map<String, Object> reveal = revealIn(sent);
 		assertThat(num(reveal, "index")).isEqualTo(index);
 		assertThat(reveal.get("winner")).isEqualTo("Mina");
@@ -316,6 +332,26 @@ class RoomPlayToLimitTest {
 		return sent;
 	}
 
+	// Cycle 127: a decision is followed by skipState exactly when the switch is on, the deadline is
+	// still ahead, and not (prefetch on and the deadline at most 5 s away: the next prepare then comes
+	// with the reveal). Read before the deciding action.
+	private boolean skippableAtTheDecision() {
+		long left = deadlineAt() - clock.millis();
+		return switchOn && left > 0 && !(prefetchOn && left <= REVEAL_MS);
+	}
+
+	// Exactly skipState{index, votes, needed}, to everyone.
+	private static void assertSkipState(Sent sent, int songIndex, int votes, int needed) {
+		assertThat(sent.type()).isEqualTo("skipState");
+		assertThat(sent.toAll()).as("skipState goes to everyone").isTrue();
+		Map<String, Object> message = sent.message();
+		assertThat(message.keySet()).as("skipState keys").containsExactlyInAnyOrder("type", "index", "votes", "needed");
+		assertThat(num(message, "index")).as("skipState index").isEqualTo(songIndex);
+		assertThat(num(message, "votes")).as("skipState votes").isEqualTo(votes);
+		assertThat(num(message, "needed")).as("skipState needed").isEqualTo(needed);
+	}
+
+	// The frames of a decision without the skipState of cycle 127.
 	private List<String> decisionTypes() {
 		if (answer == AnswerMode.CHAT) {
 			return List.of("correct", "chat", "reveal", "scores");
@@ -512,7 +548,9 @@ class RoomPlayToLimitTest {
 		toOffset(10_000);
 		List<Sent> sent = decide();
 		assertThat(room.scores()).containsEntry(MINA.id(), mina).containsEntry(JOON.id(), joon);
-		assertThat(sent.get(sent.size() - 1).message().get("scores")).isEqualTo(List.of(
+		List<Sent> scores = sent.stream().filter(s -> "scores".equals(s.type())).toList();
+		assertThat(scores).as("exactly one scores frame").hasSize(1);
+		assertThat(scores.get(0).message().get("scores")).isEqualTo(List.of(
 				Map.of("name", "Mina", "score", mina), Map.of("name", "Joon", "score", joon)));
 		scheduler.advance(Duration.ofMillis(deadlineAt() - clock.millis()));
 		assertThat(room.scores()).as("the window scores nothing").containsEntry(MINA.id(), mina)
@@ -650,7 +688,9 @@ class RoomPlayToLimitTest {
 		room.setConnected(JOON.id(), false);
 		List<Sent> sent = outbox.since(mark);
 		assertThat(types(sent)).containsExactlyElementsOf(answerMode == AnswerMode.CHOICE
-				? List.of("pickState", "reveal", "scores") : List.of("reveal", "scores"));
+				? List.of("pickState", "reveal", "scores", "skipState") : List.of("reveal", "scores", "skipState"));
+		// Cycle 127: the window is skippable; only Mina is connected, so one vote is the majority.
+		assertSkipState(sent.get(sent.size() - 1), 0, 0, 1);
 		assertRevealOn(revealIn(sent), deadlineAt);
 		assertThat(ranking(revealIn(sent))).containsExactly("Mina:1:3");
 		assertThat(revealIn(sent).get("winner")).isEqualTo("Mina");
@@ -706,7 +746,10 @@ class RoomPlayToLimitTest {
 		room.ready(MINA.id(), 0);
 		List<Sent> sent = outbox.since(mark);
 		assertThat(types(sent)).containsExactlyElementsOf(answerMode == AnswerMode.CHOICE
-				? List.of("start", "pickState", "reveal", "scores") : List.of("start", "reveal", "scores"));
+				? List.of("start", "pickState", "reveal", "scores", "skipState")
+				: List.of("start", "reveal", "scores", "skipState"));
+		// Cycle 127: the window is skippable; only Mina is connected, so one vote is the majority.
+		assertSkipState(sent.get(sent.size() - 1), 0, 0, 1);
 		Map<String, Object> start = sent.get(0).message();
 		assertThat(num(start, "serverTime")).isEqualTo(revealAt);
 		assertThat(num(start, "startAt")).as("the reveal comes before startAt").isEqualTo(revealAt + LEAD_MS);
@@ -726,8 +769,7 @@ class RoomPlayToLimitTest {
 
 	@ParameterizedTest
 	@CsvSource({"CHAT, FIRST", "CHOICE, FIRST", "CHAT, RANKED", "CHOICE, RANKED"})
-	void inTheWindowChatIsOnlyChatAndPicksSkipsAndConnectionChangesDoNothing(AnswerMode answerMode,
-			GameMode gameMode) {
+	void inTheWindowChatIsOnlyChatPicksDoNothingAndASkipVoteIsCounted(AnswerMode answerMode, GameMode gameMode) {
 		buildOn(answerMode, false);
 		startGame(gameMode);
 		toOffset(10_000);
@@ -752,13 +794,19 @@ class RoomPlayToLimitTest {
 		room.pick(JOON.id(), 0, 1);
 		room.pick(MINA.id(), 0, 0);
 		assertThat(types(outbox.since(mark))).as("a pick is ignored").isEmpty();
-		room.skip(MINA.id(), 0);
-		room.skip(JOON.id(), 0);
 		room.skip(MINA.id(), 1);
-		assertThat(types(outbox.since(mark))).as("a skip vote is ignored").isEmpty();
+		assertThat(types(outbox.since(mark))).as("a skip vote for another index is ignored").isEmpty();
+		// Cycle 127: a skip vote for this song is counted in the window, and it toggles.
+		room.skip(MINA.id(), 0);
+		room.skip(MINA.id(), 0);
+		List<Sent> votes = outbox.since(mark);
+		assertThat(types(votes)).as("a skip vote is counted").containsExactly("skipState", "skipState");
+		assertSkipState(votes.get(0), 0, 1, 2);
+		assertSkipState(votes.get(1), 0, 0, 2);
+		mark = outbox.mark();
 		room.setConnected(JOON.id(), false);
 		room.setConnected(JOON.id(), true);
-		assertThat(types(outbox.since(mark))).as("a connection change sends nothing").isEmpty();
+		assertThat(types(outbox.since(mark))).as("with no votes a connection change sends nothing").isEmpty();
 		assertThat(room.scores()).isEqualTo(scores);
 		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 		assertThat(room.songIndex()).isEqualTo(0);
@@ -770,22 +818,28 @@ class RoomPlayToLimitTest {
 		assertThat(room.scores()).isEqualTo(scores);
 	}
 
-	// The votes ignored in the window are not kept: the next song starts with none.
+	// A vote cast in the window (cycle 127: it is counted there) is not kept, and one for the next
+	// index is ignored: the next song starts with none.
 	@Test
-	void skipVotesIgnoredInTheWindowDoNotCountForTheNextSong() {
+	void skipVotesCastInTheWindowDoNotCountForTheNextSong() {
 		buildOn(AnswerMode.CHAT, false);
 		startGame(GameMode.FIRST);
 		toOffset(10_000);
 		decide();
+		int window = outbox.mark();
 		room.skip(MINA.id(), 0);
 		room.skip(MINA.id(), 1);
+		List<Sent> counted = outbox.since(window);
+		assertThat(types(counted)).as("one of two needed votes: counted, the room stays").containsExactly("skipState");
+		assertSkipState(counted.get(0), 0, 1, 2);
+		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 		scheduler.advance(Duration.ofMillis(deadlineAt() - clock.millis()));
 		play(1);
 		int mark = outbox.mark();
 		room.skip(JOON.id(), 1);
 		List<Sent> sent = outbox.since(mark);
 		assertThat(types(sent)).containsExactly("skipState");
-		assertThat(num(sent.get(0).message(), "votes")).isEqualTo(1);
+		assertSkipState(sent.get(0), 1, 1, 2);
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 
