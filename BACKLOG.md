@@ -415,7 +415,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-037** frontend: reload and late join during the reveal window (from S-008; after B-036 and F-035)
   - A `restore` or `watching` snapshot whose song has `reveal` shows the card and plays the rest of the music late.
   - Acceptance (Vitest): the card shows with the snapshot's titles, the audio starts late once the clock is known and stops at `playUntil`; a snapshot without `reveal` behaves as today. Seen in a browser by reloading during a window.
-- [~] **B-037** backend and docs: turn play-to-limit on (from S-008; after every item above)
+- [x] **B-037** backend and docs: turn play-to-limit on (from S-008; after every item above)
   - The default of `songrush.game.play-to-limit` becomes on. `CLAUDE.md` "Product decisions" states the new rule (D-129). The deploy guide lists the variable.
   - Acceptance: a socket test with the default configuration plays a song that is decided early and receives `reveal` with `playUntil` in the future; the binding test covers the new default.
 
