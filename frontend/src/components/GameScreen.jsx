@@ -425,7 +425,9 @@ function GameScreen({
   const own = players.find((p) => p.name === me)
   const isHost = own !== undefined && own.host
   const online = players.filter((p) => p.connected !== false).length
-  const canSkip = room !== null && screen === 'game' && started && !watching
+  // started stays true through a reveal window (cycle 129); the skip button
+  // goes with the reveal all the same.
+  const canSkip = room !== null && screen === 'game' && started && !watching && reveal === null
   const playing = screen === 'game' && started && reveal === null
   // While the song is audible (isAudible) body.playing runs the disc and the
   // logo bars (the mockup's CSS).

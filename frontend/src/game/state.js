@@ -80,7 +80,10 @@ export const initialState = {
   scoreboard: null, // the last scores rows { name, score }
   ranking: null, // the gameOver rows { rank, name, score }
   watching: false, // joined mid-song: watching it, playing from the next
-  started: false, // the song is between its start and its reveal
+  started: false, // the song is between its start and its reveal, or the end of its reveal window
+  // A reveal window is open (cycle 129, F-035): the revealed song plays on,
+  // with its clock, until playUntil.
+  windowOpen: false,
   // The local clock has reached the started song's startAt; set by every
   // start and tick, read only together with started (087).
   reached: false,
@@ -126,14 +129,14 @@ function choiceFields(action) {
   }
 }
 
-// The song is audible (D-101, 087): a round is current and not revealed,
-// started, the local clock past its startAt, loaded, and the sound not
-// blocked.
+// The song is audible (D-101, 087): a round is current and not revealed (or
+// in its reveal window, cycle 129), started, the local clock past its
+// startAt, loaded, and the sound not blocked.
 export function isAudible(state) {
   return (
     state.screen === 'game' &&
     state.round !== null &&
-    state.reveal === null &&
+    (state.reveal === null || state.windowOpen) &&
     state.started &&
     state.reached &&
     state.load !== 'loading' &&
@@ -261,6 +264,7 @@ function step(state, action) {
         watching: false,
         waitingNext: false,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
         pickCount: null,
@@ -292,6 +296,7 @@ function step(state, action) {
         notice: null,
         watching: false,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
         // The snapshot's count (cycle 123), validated by the session.
@@ -335,6 +340,7 @@ function step(state, action) {
         settings: null,
         watching: true,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
         pickCount: action.pickCount ?? null,
@@ -352,6 +358,7 @@ function step(state, action) {
         correctNames: [],
         watching: false,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
         pickCount: null,
@@ -454,16 +461,25 @@ function step(state, action) {
         chatSeq: state.chatSeq + 1,
       }
     }
-    case 'reveal':
+    case 'reveal': {
+      // A reveal window (cycle 129) keeps the clock and started until its
+      // windowEnd; any other reveal ends them now.
+      const open = action.window === true
       return {
         ...state,
-        timer: null,
+        timer: open ? state.timer : null,
         reveal: action.reveal,
-        started: false,
+        started: open ? state.started : false,
+        windowOpen: open,
         skipCount: null,
         pickCount: null,
         correctChoice: action.correctChoice ?? null,
       }
+    }
+    case 'windowEnd':
+      // A late timer of another song never touches the current one.
+      if (!state.windowOpen || state.round === null || state.round.index !== action.index) return state
+      return { ...state, timer: null, started: false, windowOpen: false }
     case 'scores':
       // score is null without an own row.
       return {
@@ -479,6 +495,7 @@ function step(state, action) {
         screen: 'over',
         timer: null,
         started: false,
+        windowOpen: false,
         finalScore: action.score,
         ranking: action.ranking,
         settings: null,
