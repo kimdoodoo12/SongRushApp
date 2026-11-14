@@ -64,3 +64,15 @@ Why the count is hidden outside a playing song: the snapshot of a rejoining play
 One round. No Blocker. One High, taken: a real reload delivers the snapshot (whose count leaves the rejoining player out), then the corrective `pickState`, and only then starts the song, and no criterion pinned that order. Criterion 7 now does, and the design says `start` never changes the count.
 
 Also taken: the choice-room rule for both frames is written into the session design; the held-prepare case and the watcher case are in the criteria; the "same state object" rule was dropped as unneeded.
+
+## Result
+- Tests first: commit `f81ed52`, one new file with 44 tests. Red, run by the verifier: `Tests 44 failed | 779 passed (823)`, the only failing file being the new one, every failure an assertion on the missing behaviour.
+- Implementation: commit `dea434f`, first attempt. `state.js`, `session.js`, `GameScreen.jsx` and the three locale files (+70, -5). No CSS file changed.
+- Green, run by the verifier: `Test Files 53 passed (53)`, `Tests 823 passed (823)`; `npm run lint` exit 0; `npm run build` exit 0. `git diff f81ed52 HEAD -- '*.test.*'` is empty. Criteria 1 to 10 confirmed.
+- Criterion 11, by the lead in Chromium against a local server (three players, placeholder audio and covers):
+  - Ranked choice: the row read `선택 0/3` at the start, `선택 1/3` after one wrong pick and `선택 2/3` after a correct one. Every player's chat showed `✘ 민지 오답`, the picker's included, then `✔ 준호 정답! (1등)`.
+  - First-come choice: after the host reloaded during the song the row read `선택 1/3` again; after one guest left it read `선택 1/2`.
+  - English: `Picked 1/2` and `✘ 민지 picked wrong`.
+  - No `unknown message` warning in the browser console.
+  - The captures are not committed: they show placeholder covers. The after captures for issue #44 are taken on the live site once this is deployed.
+- Review of the diff: no Blocker, no High. Two Medium: this Result section was missing at review time, and a `wrong` or `pickState` frame that arrived after the reveal would still be applied (the server never sends one). The second went to Follow-ups with three wording notes.
