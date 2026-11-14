@@ -66,6 +66,9 @@ public final class Lobby {
 	// Passed to every Room: the next song is prepared when a reveal starts (D-119, cycle 107).
 	private final boolean prefetchOnReveal;
 
+	// Passed to every Room: a song decided by answers is revealed until its deadline (D-129, cycle 126).
+	private final boolean playToLimit;
+
 	// Join order. In LOBBY a disconnected member is one in grace; during a game a member who left
 	// (or whose grace ran out) stays, disconnected, until the return.
 	private final List<Member> members = new ArrayList<>();
@@ -105,7 +108,14 @@ public final class Lobby {
 
 	public Lobby(String code, Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock,
 			RandomGenerator random, Outbox outbox, Runnable onClosed, CoverMap covers, boolean prefetchOnReveal) {
+		this(code, catalog, tokens, scheduler, clock, random, outbox, onClosed, covers, prefetchOnReveal, false);
+	}
+
+	public Lobby(String code, Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock,
+			RandomGenerator random, Outbox outbox, Runnable onClosed, CoverMap covers, boolean prefetchOnReveal,
+			boolean playToLimit) {
 		this.prefetchOnReveal = prefetchOnReveal;
+		this.playToLimit = playToLimit;
 		this.code = Objects.requireNonNull(code, "code");
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.tokens = Objects.requireNonNull(tokens, "tokens");
@@ -355,7 +365,8 @@ public final class Lobby {
 			}
 		}
 		RoomOutbox wrapper = new RoomOutbox();
-		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players, covers, prefetchOnReveal);
+		Room next = new Room(catalog, tokens, scheduler, clock, random, wrapper, players, covers, prefetchOnReveal,
+				playToLimit);
 		room = next;
 		roomOutbox = wrapper;
 		next.start(songCount, filter, mode, gameMode);

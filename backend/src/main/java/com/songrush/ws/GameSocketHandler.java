@@ -93,6 +93,9 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 	// Passed to every Lobby (D-119, cycle 107).
 	private final boolean prefetchOnReveal;
 
+	// Passed to every Lobby (D-129, cycle 126).
+	private final boolean playToLimit;
+
 	// Thread-safe; draws every room code.
 	private final SecureRandom codes = new SecureRandom();
 
@@ -128,6 +131,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 		this.clock = clock;
 		this.covers = covers;
 		this.prefetchOnReveal = game.prefetchOnReveal();
+		this.playToLimit = game.playToLimit();
 	}
 
 	// One lobby: its thread, and the player map its outbox reads.
@@ -150,7 +154,7 @@ public class GameSocketHandler extends TextWebSocketHandler implements Disposabl
 			this.code = code;
 			this.scheduler = new ExecutorGameScheduler("lobby " + code);
 			this.lobby = new Lobby(code, catalog, tokens, scheduler, clock, new SplittableRandom(),
-					new SocketOutbox(players), this::closed, covers, prefetchOnReveal);
+					new SocketOutbox(players), this::closed, covers, prefetchOnReveal, playToLimit);
 		}
 
 		// The lobby's onClosed (on its thread): frees the code, the sessions and the thread. Also

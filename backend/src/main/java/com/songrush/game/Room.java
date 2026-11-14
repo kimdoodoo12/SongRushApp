@@ -29,6 +29,10 @@ import com.songrush.cover.CoverMap;
 // With prefetchOnReveal (D-119, docs/cycles/107-prefetch-on-reveal.md) the next song's prepare goes out
 // when a reveal starts: the room is then in PREPARE for the next song while revealing, and the song
 // starts only after the reveal pause, as before.
+// With playToLimit (D-129, docs/cycles/126-reveal-window.md) a song decided by answers keeps its reveal
+// until its deadline (the reveal window, at least the reveal pause): the room stays in REVEAL until then,
+// and with prefetchOnReveal the next song's prepare goes out only for the window's last reveal pause.
+// Every reveal then carries playUntil. Off, nothing changes.
 public final class Room {
 
 	public enum Phase {
@@ -158,7 +162,8 @@ public final class Room {
 	private String audioUrl;
 
 	// The one task of the current phase: prepare timeout, deadline, or reveal pause. While revealing
-	// it is the reveal pause, then the prepare timeout (cycle 107).
+	// it is the reveal pause, then the prepare timeout (cycle 107). In a reveal window (cycle 126) it is
+	// the window's end, or in early mode the wait for the next song's prepare.
 	private Cancellable pending;
 
 	// Early mode (D-119): the next song's prepare goes out when a reveal starts. Fixed per room.
@@ -170,6 +175,10 @@ public final class Room {
 
 	// When the current early prepare's reveal pause ends; meaningful only while revealing.
 	private long revealEndsAt;
+
+	// The reveal window (D-129, cycle 126): a song decided by answers is revealed until its deadline.
+	// Fixed per room.
+	private final boolean playToLimit;
 
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players) {
@@ -184,7 +193,14 @@ public final class Room {
 	// As above; with prefetchOnReveal the next song is prepared when a reveal starts (D-119).
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players, CoverMap covers, boolean prefetchOnReveal) {
+		this(catalog, tokens, scheduler, clock, random, outbox, players, covers, prefetchOnReveal, false);
+	}
+
+	// As above; with playToLimit a song decided by answers keeps its reveal until its deadline (D-129).
+	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
+			Outbox outbox, List<PlayerRef> players, CoverMap covers, boolean prefetchOnReveal, boolean playToLimit) {
 		this.prefetchOnReveal = prefetchOnReveal;
+		this.playToLimit = playToLimit;
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.tokens = Objects.requireNonNull(tokens, "tokens");
 		this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
@@ -630,7 +646,7 @@ public final class Room {
 		}
 		long now = clock.millis();
 		if (now >= deadlineAt) {
-			endSong(null);
+			endSong(null, false);
 			return;
 		}
 		if (now < startAt) {
@@ -660,7 +676,7 @@ public final class Room {
 		}
 		scores.merge(playerId, 1, Integer::sum);
 		outbox.toAll(message("correct", "index", songIndex, "name", player.name()));
-		endSong(player);
+		endSong(player, true);
 	}
 
 	public void chat(String playerId, String text) {
@@ -682,7 +698,7 @@ public final class Room {
 		// prepare only now, so the sender cannot have heard song N + 1 (no spoiler guard for it).
 		boolean revealedBefore = revealing;
 		if (phase == Phase.PLAYING && now >= deadlineAt) {
-			endSong(null);
+			endSong(null, false);
 		}
 		Map<String, Object> chat = message("chat", "name", player.name(), "text", text);
 		// While revealing (early mode) chat is as in REVEAL: broadcast, never answer-checked, also when
@@ -734,7 +750,7 @@ public final class Room {
 			outbox.toAll(message("correct", "index", songIndex, "name", player.name()));
 			// The round is decided by the frame above, so the winning text is shown to all (D-094).
 			outbox.toAll(chat);
-			endSong(player);
+			endSong(player, true);
 		}
 	}
 
@@ -810,7 +826,7 @@ public final class Room {
 			}
 		}
 		if (connected > 0) {
-			endSong(null);
+			endSong(null, true);
 		}
 	}
 
@@ -832,7 +848,7 @@ public final class Room {
 		int needed = connectedCount() / 2 + 1;
 		outbox.toAll(message("skipState", "index", songIndex, "votes", votes.size(), "needed", needed));
 		if (votes.size() >= needed) {
-			endSong(null);
+			endSong(null, false);
 		}
 	}
 
@@ -896,7 +912,7 @@ public final class Room {
 		deadlineAt = startAt + Math.min(songs.get(songIndex).candidate().durationMs(), MAX_PLAY.toMillis());
 		outbox.toAll(message("start", "index", songIndex, "startAt", startAt, "deadlineAt", deadlineAt,
 				"serverTime", now));
-		schedule(Duration.ofMillis(deadlineAt - now), () -> endSong(null));
+		schedule(Duration.ofMillis(deadlineAt - now), () -> endSong(null, false));
 		// Choice: every song's first count, also after a resume or a change during PREPARE (cycle 122).
 		sendPickState();
 		// Ranked: a resumed song whose connected players have all answered ends at once (cycle 101 R6).
@@ -905,7 +921,12 @@ public final class Room {
 
 	// Ends the song with that winner; in a ranked game always with the rank-1 player (or null) and the
 	// ranking [{name, rank, points}], whatever ended it (cycle 101 R7).
-	private void endSong(PlayerRef winner) {
+	// decided: the song was decided by answers (a first-come correct answer, or a ranked song everyone
+	// answered), not ended by a skip or its deadline. With playToLimit (D-129, cycle 126) the reveal
+	// then lasts until deadlineAt, and never less than the reveal pause: the reveal carries playUntil
+	// (deadlineAt when decided, even if already past; else now), and what follows the reveal today,
+	// afterReveal or the early prepare, waits for the window. A skip or deadline reveal is as today.
+	private void endSong(PlayerRef winner, boolean decided) {
 		phase = Phase.REVEAL;
 		votes.clear();
 		boolean ranked = gameMode == GameMode.RANKED;
@@ -931,6 +952,14 @@ public final class Room {
 			}
 			reveal.put("ranking", ranking);
 		}
+		// How long the reveal lasts: the reveal pause, or with playToLimit up to the song's deadline.
+		long pause = REVEAL_PAUSE.toMillis();
+		if (playToLimit) {
+			long now = clock.millis();
+			long playUntil = decided ? deadlineAt : now;
+			reveal.put("playUntil", playUntil);
+			pause = Math.max(playUntil - now, pause);
+		}
 		outbox.toAll(reveal);
 		List<Object> rows = new ArrayList<>();
 		for (PlayerRef p : players) {
@@ -938,21 +967,35 @@ public final class Room {
 		}
 		outbox.toAll(message("scores", "scores", rows));
 		if (prefetchOnReveal && songIndex + 1 < songs.size()) {
-			// Early mode (cycle 107 item 2): the next song's prepare right after reveal and scores, held
-			// on clients for the reveal pause; the song starts only after it.
-			picks.clear();
-			rankedIds.clear();
-			Map<String, Object> prepare = enterPrepare(songIndex + 1);
-			prepare.put("holdMs", REVEAL_PAUSE.toMillis());
-			revealing = true;
-			revealEndsAt = clock.millis() + REVEAL_PAUSE.toMillis();
-			outbox.toAll(prepare);
-			schedule(REVEAL_PAUSE, this::revealOver);
+			// In a reveal window (cycle 126) the early prepare waits, in REVEAL with picks and the ranking
+			// kept, until one reveal pause before the window's end, so the next song is reachable no
+			// earlier than today. With no wait it runs here, in the same turn, as before.
+			if (pause > REVEAL_PAUSE.toMillis()) {
+				schedule(Duration.ofMillis(pause - REVEAL_PAUSE.toMillis()), this::prepareEarly);
+				return;
+			}
+			prepareEarly();
 			return;
 		}
-		schedule(REVEAL_PAUSE, this::afterReveal);
+		schedule(Duration.ofMillis(pause), this::afterReveal);
 	}
 
+	// Early mode (cycle 107 item 2): the next song's prepare right after reveal and scores (in a reveal
+	// window, one reveal pause before its end, cycle 126), held on clients for the reveal pause; the
+	// song starts only after it.
+	private void prepareEarly() {
+		picks.clear();
+		rankedIds.clear();
+		Map<String, Object> prepare = enterPrepare(songIndex + 1);
+		prepare.put("holdMs", REVEAL_PAUSE.toMillis());
+		revealing = true;
+		revealEndsAt = clock.millis() + REVEAL_PAUSE.toMillis();
+		outbox.toAll(prepare);
+		schedule(REVEAL_PAUSE, this::revealOver);
+	}
+
+	// The reveal is over: after the reveal pause, at the end of a reveal window (cycle 126), or at once
+	// on a resume in REVEAL. Moves on to the next song's prepare, or ends the game after the last song.
 	private void afterReveal() {
 		picks.clear();
 		rankedIds.clear();
