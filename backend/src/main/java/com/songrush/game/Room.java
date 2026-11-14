@@ -33,6 +33,8 @@ import com.songrush.cover.CoverMap;
 // until its deadline (the reveal window, at least the reveal pause): the room stays in REVEAL until then,
 // and with prefetchOnReveal the next song's prepare goes out only for the window's last reveal pause.
 // Every reveal then carries playUntil. Off, nothing changes.
+// While that music plays on, players can vote to skip, and a passed vote moves the room on at once
+// (docs/cycles/127-skip-in-window.md).
 public final class Room {
 
 	public enum Phase {
@@ -179,6 +181,10 @@ public final class Room {
 	// The reveal window (D-129, cycle 126): a song decided by answers is revealed until its deadline.
 	// Fixed per room.
 	private final boolean playToLimit;
+
+	// With playToLimit, the playUntil of the last reveal: a skip vote counts in REVEAL before it
+	// (cycle 127). Not deadlineAt, which is still ahead after a skip reveal.
+	private long playUntil;
 
 	public Room(Catalog catalog, AudioTokens tokens, GameScheduler scheduler, Clock clock, RandomGenerator random,
 			Outbox outbox, List<PlayerRef> players) {
@@ -557,6 +563,8 @@ public final class Room {
 	// In a choice game a change during PLAYING first tells everyone the new pick count (pickState),
 	// before the skipState or reveal the same change may cause; nothing with nobody connected
 	// (cycle 122, D-130).
+	// While a skip is possible in a reveal window (cycle 127) only the skip rule runs: a disconnect can
+	// pass the vote, a return re-sends the count. Later in a reveal nothing is sent.
 	public void setConnected(String playerId, boolean connected) {
 		if (watchers.containsKey(playerId)) {
 			if (connected) {
@@ -598,20 +606,32 @@ public final class Room {
 				endIfAllAnswered();
 			}
 		}
+		// Its own branch: a disconnect that just decided a ranked song above is not judged again here.
+		else if (skipInWindow()) {
+			if (hadVotes) {
+				sendSkipStateAndPass();
+			}
+		}
 	}
 
-	// Removes the player's skip vote, if any, and tells everyone the new count.
+	// Removes the player's skip vote, if any, and tells everyone the new count. In REVEAL only while a
+	// skip is possible (cycle 127), else nothing is sent. The count only drops, so this never passes a
+	// vote in the window.
 	public void clearSkipVote(String playerId) {
+		if (phase == Phase.REVEAL && !skipInWindow()) {
+			return;
+		}
 		if (votes.remove(playerId)) {
 			sendSkipStateAndPass();
 		}
 	}
 
-	// Toggles the player's vote to skip the current song (D-012, D-017); from PLAYING only, also
-	// before startAt. A vote costs a chat token; a refused vote is tagged for:"skipVote" so the
-	// client can undo its toggle (cycle 050).
+	// Toggles the player's vote to skip the current song (D-012, D-017); from PLAYING, also before
+	// startAt, and with playToLimit from REVEAL while the decided song's music plays on (D-129,
+	// cycle 127). A vote costs a chat token; a refused vote is tagged for:"skipVote" so the client can
+	// undo its toggle (cycle 050). A vote that cannot count is ignored before the token is taken.
 	public void skip(String playerId, int index) {
-		if (paused || phase != Phase.PLAYING || index != songIndex || !isConnected(playerId)) {
+		if (paused || (phase != Phase.PLAYING && !skipInWindow()) || index != songIndex || !isConnected(playerId)) {
 			return;
 		}
 		if (!takeToken(playerId)) {
@@ -842,14 +862,31 @@ public final class Room {
 		}
 	}
 
-	// Sends everyone skipState; ends the song with no winner when the votes reach a majority of the
-	// connected players.
+	// True while a skip vote counts after the reveal (cycle 127): playToLimit, in REVEAL, not paused and
+	// before playUntil. So only for a song decided by answers whose music still plays; in early mode
+	// the delayed prepare ends it, because the room is then in PREPARE.
+	private boolean skipInWindow() {
+		return playToLimit && !paused && phase == Phase.REVEAL && clock.millis() < playUntil;
+	}
+
+	// Sends everyone skipState. When the votes reach a majority of the connected players: in PLAYING
+	// the song ends with no winner; in a reveal window (cycle 127) the song is already revealed, so the
+	// room moves on at once as the window's end would, with no second reveal or scores.
 	private void sendSkipStateAndPass() {
 		int needed = connectedCount() / 2 + 1;
 		outbox.toAll(message("skipState", "index", songIndex, "votes", votes.size(), "needed", needed));
-		if (votes.size() >= needed) {
-			endSong(null, false);
+		if (votes.size() < needed) {
+			return;
 		}
+		if (phase == Phase.REVEAL) {
+			// The window's own task (its end, or the delayed early prepare) must not run after this.
+			if (pending != null) {
+				pending.cancel();
+			}
+			afterReveal();
+			return;
+		}
+		endSong(null, false);
 	}
 
 	// Spends one token of the player's bucket after the refill; false without one (the caller
@@ -926,6 +963,8 @@ public final class Room {
 	// then lasts until deadlineAt, and never less than the reveal pause: the reveal carries playUntil
 	// (deadlineAt when decided, even if already past; else now), and what follows the reveal today,
 	// afterReveal or the early prepare, waits for the window. A skip or deadline reveal is as today.
+	// When a skip is possible in that window (cycle 127), everyone gets skipState with 0 votes right
+	// after scores: votes cast before the decision do not count, and a passed vote ends the window.
 	private void endSong(PlayerRef winner, boolean decided) {
 		phase = Phase.REVEAL;
 		votes.clear();
@@ -956,7 +995,7 @@ public final class Room {
 		long pause = REVEAL_PAUSE.toMillis();
 		if (playToLimit) {
 			long now = clock.millis();
-			long playUntil = decided ? deadlineAt : now;
+			playUntil = decided ? deadlineAt : now;
 			reveal.put("playUntil", playUntil);
 			pause = Math.max(playUntil - now, pause);
 		}
@@ -971,13 +1010,23 @@ public final class Room {
 			// kept, until one reveal pause before the window's end, so the next song is reachable no
 			// earlier than today. With no wait it runs here, in the same turn, as before.
 			if (pause > REVEAL_PAUSE.toMillis()) {
+				sendWindowSkipState();
 				schedule(Duration.ofMillis(pause - REVEAL_PAUSE.toMillis()), this::prepareEarly);
 				return;
 			}
 			prepareEarly();
 			return;
 		}
+		sendWindowSkipState();
 		schedule(Duration.ofMillis(pause), this::afterReveal);
+	}
+
+	// At a reveal that opens a skippable window (cycle 127): the fresh count, so clients reset their own
+	// vote. Not sent when the next prepare went out with the reveal, nor for a skip or deadline reveal.
+	private void sendWindowSkipState() {
+		if (skipInWindow()) {
+			outbox.toAll(message("skipState", "index", songIndex, "votes", 0, "needed", connectedCount() / 2 + 1));
+		}
 	}
 
 	// Early mode (cycle 107 item 2): the next song's prepare right after reveal and scores (in a reveal
