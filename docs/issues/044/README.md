@@ -8,7 +8,7 @@
 
 | 파일 | 설정 | 장면 |
 |---|---|---|
-| `before-1a-chat-first-playing.png` | 채팅, 선착순 | 곡 재생 중, 남은 시간 74초 |
+| `before-1a-chat-first-playing.png` | 채팅, 선착순 | 곡 재생 중, 남은 시간 75초 |
 | `before-1b-chat-first-ended.png` | 채팅, 선착순 | 민지가 정답을 치자 곡이 바로 끝나고 정답이 공개됨 |
 | `before-2a-choice-picker-view.png` | 객관식, 선착순 | 민지가 오답을 고른 직후, 민지의 화면 |
 | `before-2b-choice-others-view.png` | 객관식, 선착순 | 같은 순간 방장의 화면. 누가 몇 명 골랐는지 표시가 없음 |
