@@ -66,3 +66,4 @@ Also taken: the connection-change section names what changes in code and criteri
 - Green, run by the verifier with a forced rerun: 1193 tests, 0 failures, 0 errors, 1 skipped. `git diff aab8f2a HEAD -- backend/src/test` is empty. Criteria 1 to 12 confirmed; the verifier matched criteria to parameter rows, not to method names.
 - Review of the diff: no Blocker, no High. One Medium: after a vote passes on the last song the votes stay in the set while the room is back in `LOBBY`; a `clearSkipVote` there would send `skipState` with index -1 and, with the right numbers, could throw. Not reachable today because the Lobby drops the room at `gameOver`. It went to Follow-ups with the one-line fix and the test that pins it.
 - The switch is still off by default.
+- GitHub CI on PR #53 passed; merged to `dev` as `9d535a4`.
