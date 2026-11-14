@@ -229,8 +229,10 @@ function ChatLog({ chat, me }) {
     <div ref={ref} className="msgs" role="log" aria-live="off" onScroll={handleScroll}>
       {chat.map((line) => {
         if (line.kind === 'notice') {
+          // The wrong-pick line is red (cycle 124, D-131): .msg.wrong in
+          // choice.css, as room.css has no red and is never edited.
           return (
-            <div key={line.id} className="msg sys">
+            <div key={line.id} className={line.key === 'chat.wrongLine' ? 'msg sys wrong' : 'msg sys'}>
               {t(line.key, line.values)}
             </div>
           )
