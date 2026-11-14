@@ -45,3 +45,4 @@ One round. No Blocker. Two High, both taken: in the manga mood the red did not a
   - chalk: text `rgb(255, 179, 193)`, border and tint as above.
   - manga: red text `rgb(224, 38, 47)` on white with a 2px red border; the correct line is white on that red.
 - Review of the diff: no Blocker, no High. Medium: in the manga mood red is also the colour of the correct line (the mockup's `--ok` equals its red there), so the two lines are a red outline against a red fill. Shown to the owner in the eight-mood capture; the owner's call. Nit: the `ChatLog` header comment does not mention the new class (Follow-ups).
+- GitHub CI on PR #49 passed; merged to `dev` as `f24e311`.

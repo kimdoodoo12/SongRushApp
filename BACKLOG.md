@@ -388,7 +388,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `room.css` is not edited (D-124); any new rule goes in an owner-approved file such as `choice.css`.
   - From cycle 122: the count also arrives right after every `start`, and nested in the snapshot's song as `pickState: {picked, total}`. The snapshot of a player who is rejoining does not count that player yet; the broadcast that follows (during a song) or the next `start` has the right numbers, so the screen shows the count only while a song plays and takes the latest frame.
   - Acceptance (Vitest): the count renders from `pickState` and updates; a chat room shows no count; `wrong` renders the line in each language; the own wrong pick still shows the tile's 오답 mark.
-- [~] **F-034** frontend: the wrong-pick chat line in red (from D-131)
+- [x] **F-034** frontend: the wrong-pick chat line in red (from D-131)
   - The line gets its own class and a red look that mirrors the green of the correct line (`.msg.correct` in `room.css`): colour, weight, a tinted border and background. The rule goes in `choice.css`, with `choiceCss.test.js` updated; `room.css` is not edited.
   - Acceptance (Vitest): the wrong line's element has the class; plain notices and the correct line do not; `choice.css` holds exactly the old rules plus the new one. Seen in a browser in at least two moods, the manga mood among them.
 - [ ] **S-008** design: songs play to the time limit (from D-129, issue #44 request 1)
@@ -662,3 +662,5 @@ Decided:
 - (123) A `wrong` or `pickState` frame that arrives after the reveal (or after the game is over) is still applied: `onWrong` and `onPickState` (`session.js`) check the round's index and choices, not `round.revealed`. The server never sends one. Add the check and one assertion that the log is unchanged.
 - (123) Wording: the ✘ mark sits inside the three `chat.wrongLine` strings while the ✔ of the correct line is added in code (`GameScreen.jsx:13`); ja `stage.skipCount` has no space before the numbers and `stage.pickCount` has one; en "picked wrong" could read "missed" beside "got it!".
 - (123) In a ranked choice room, a player who reloads (or drops) while every other connected player has picked ends the song for everyone, by the existing "all connected players have answered" rule (cycle 101). Seen during the browser check of cycle 123; not new.
+- (124) In the manga mood the wrong line (red text and border on white) and the correct line (white on the same red) share one colour, because the mockup's `--ok` is its red there. Shown to the owner in the eight-mood capture of cycle 124; change only if the owner asks.
+- (124) The `ChatLog` header comment (`GameScreen.jsx:208-211`) lists `.msg.sys.correct` and `.msg.sys` but not `.msg.sys.wrong`.
