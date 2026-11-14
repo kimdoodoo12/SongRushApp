@@ -645,9 +645,9 @@ class RoomPrefetchOnRevealTest {
 		int mark = outbox.mark();
 		room.pick(MINA.id(), 0, correct);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(types(sent)).containsExactly("correct", "reveal", "scores", "prepare");
-		assertThat(num(sent.get(1).message(), "correctChoice")).isEqualTo(correct);
-		Map<String, Object> prepare = sent.get(3).message();
+		assertThat(types(sent)).containsExactly("pickState", "correct", "reveal", "scores", "prepare");
+		assertThat(num(sent.get(2).message(), "correctChoice")).isEqualTo(correct);
+		Map<String, Object> prepare = sent.get(4).message();
 		assertThat(prepare.keySet()).containsExactlyInAnyOrder("type", "index", "total", "audioUrl", "choices",
 				"holdMs");
 		assertThat(num(prepare, "holdMs")).isEqualTo(REVEAL_MS);

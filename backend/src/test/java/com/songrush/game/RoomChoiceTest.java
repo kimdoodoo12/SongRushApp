@@ -283,7 +283,8 @@ class RoomChoiceTest {
 		startChoice(DrawFilter.NONE);
 		List<String> urls = choices();
 		Map<String, Object> inPrepare = room.currentSong(MINA.id());
-		assertThat(inPrepare.keySet()).containsExactlyInAnyOrder("index", "total", "audioUrl", "choices", "picked");
+		assertThat(inPrepare.keySet()).containsExactlyInAnyOrder("index", "total", "audioUrl", "choices", "picked",
+				"pickState");
 		assertThat(coverUrls(inPrepare)).isEqualTo(urls);
 		assertThat(inPrepare.get("picked")).isNull();
 
@@ -292,7 +293,7 @@ class RoomChoiceTest {
 		room.pick(JOON.id(), 0, wrong);
 		Map<String, Object> joon = room.currentSong(JOON.id());
 		assertThat(joon.keySet()).containsExactlyInAnyOrder("index", "total", "audioUrl", "startAt", "deadlineAt",
-				"choices", "picked");
+				"choices", "picked", "pickState");
 		assertThat(coverUrls(joon)).isEqualTo(urls);
 		assertThat(joon.get("picked")).isEqualTo(wrong);
 		assertThat(room.currentSong(MINA.id()).get("picked")).isNull();
@@ -311,11 +312,11 @@ class RoomChoiceTest {
 		int mark = outbox.mark();
 		room.pick(MINA.id(), 0, correct);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("correct", "reveal", "scores");
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "correct", "reveal", "scores");
 		assertThat(sent).allMatch(Sent::toAll);
-		assertThat(sent.get(0).message()).isEqualTo(msg("correct", "index", 0, "name", "Mina"));
-		assertThat(sent.get(1).message().get("winner")).isEqualTo("Mina");
-		assertThat(sent.get(1).message().get("correctChoice")).isEqualTo(correct);
+		assertThat(sent.get(1).message()).isEqualTo(msg("correct", "index", 0, "name", "Mina"));
+		assertThat(sent.get(2).message().get("winner")).isEqualTo("Mina");
+		assertThat(sent.get(2).message().get("correctChoice")).isEqualTo(correct);
 		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 		assertThat(room.scores()).containsEntry(MINA.id(), 1).containsEntry(JOON.id(), 0);
 	}
@@ -330,9 +331,10 @@ class RoomChoiceTest {
 		int mark = outbox.mark();
 		room.pick(JOON.id(), 0, wrong);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).hasSize(1);
-		assertThat(sent.get(0).to()).isEqualTo(JOON.id());
-		assertThat(sent.get(0).message()).isEqualTo(msg("pick-result", "index", 0, "choice", wrong));
+		// Cycle 122: the count and the name go to all; the picked position still reaches the sender only.
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "pick-result", "wrong");
+		assertThat(sent.get(1).to()).isEqualTo(JOON.id());
+		assertThat(sent.get(1).message()).isEqualTo(msg("pick-result", "index", 0, "choice", wrong));
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 
 		for (int choice : new int[] {correct, wrong}) {
@@ -504,8 +506,8 @@ class RoomChoiceTest {
 		room.pick(JOON.id(), 0, correct);
 		room.pick(MINA.id(), 0, correct);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("correct", "reveal", "scores");
-		assertThat(sent.get(0).message().get("name")).isEqualTo("Joon");
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "correct", "reveal", "scores");
+		assertThat(sent.get(1).message().get("name")).isEqualTo("Joon");
 		assertThat(room.scores()).containsEntry(JOON.id(), 1).containsEntry(MINA.id(), 0);
 	}
 
@@ -732,13 +734,16 @@ class RoomChoiceTest {
 				}
 				case "start" -> assertThat(sent.message().keySet()).containsExactlyElementsOf(START_KEYS);
 				case "pick-result" -> assertThat(sent.message().keySet()).containsExactly("type", "index", "choice");
+				case "pickState" -> assertThat(sent.message().keySet()).containsExactlyInAnyOrder("type", "index",
+						"picked", "total");
+				case "wrong" -> assertThat(sent.message().keySet()).containsExactlyInAnyOrder("type", "index", "name");
 				case "error" -> assertThat(sent.message().keySet()).containsExactly("type", "code", "for");
 				default -> {
 				}
 			}
 		}
-		assertThat(seen).contains("settings", "prepare", "start", "pick-result", "error", "correct", "reveal", "chat",
-				"skipState", "scores", "gameOver");
+		assertThat(seen).contains("settings", "prepare", "start", "pick-result", "pickState", "wrong", "error", "correct",
+				"reveal", "chat", "skipState", "scores", "gameOver");
 	}
 
 }

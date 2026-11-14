@@ -142,6 +142,11 @@ class RoomRankedChoiceTest {
 		return msg("correct", "index", index, "name", name, "rank", rank);
 	}
 
+	// Cycle 122: the count of connected Room players who picked this song, to all.
+	private static Map<String, Object> pickState(int index, int picked, int total) {
+		return msg("pickState", "index", index, "picked", picked, "total", total);
+	}
+
 	private static Map<String, Object> ranked(String name, int rank, int points) {
 		return row("name", name, "rank", rank, "points", points);
 	}
@@ -163,31 +168,31 @@ class RoomRankedChoiceTest {
 		int mark = outbox.mark();
 		room.pick(MINA.id(), 0, correct);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).hasSize(1);
-		assertThat(sent.get(0).toAll()).isTrue();
-		assertThat(sent.get(0).message()).isEqualTo(correct(0, "Mina", 1));
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "correct");
+		assertThat(sent.get(1).toAll()).isTrue();
+		assertThat(sent.get(1).message()).isEqualTo(correct(0, "Mina", 1));
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 
 		mark = outbox.mark();
 		room.pick(JOON.id(), 0, wrong);
 		sent = outbox.since(mark);
-		assertThat(sent).hasSize(1);
-		assertThat(sent.get(0).to()).isEqualTo(JOON.id());
-		assertThat(sent.get(0).message()).isEqualTo(msg("pick-result", "index", 0, "choice", wrong));
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "pick-result", "wrong");
+		assertThat(sent.get(1).to()).isEqualTo(JOON.id());
+		assertThat(sent.get(1).message()).isEqualTo(msg("pick-result", "index", 0, "choice", wrong));
 
 		mark = outbox.mark();
 		room.pick(HANA.id(), 0, correct);
 		sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::message).containsExactly(correct(0, "Hana", 2));
+		assertThat(sent).extracting(Sent::message).containsExactly(pickState(0, 3, 4), correct(0, "Hana", 2));
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 
 		mark = outbox.mark();
 		room.pick(SORA.id(), 0, correct);
 		sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("correct", "reveal", "scores");
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "correct", "reveal", "scores");
 		assertThat(sent).allMatch(Sent::toAll);
-		assertThat(sent.get(0).message()).isEqualTo(correct(0, "Sora", 3));
-		Map<String, Object> reveal = sent.get(1).message();
+		assertThat(sent.get(1).message()).isEqualTo(correct(0, "Sora", 3));
+		Map<String, Object> reveal = sent.get(2).message();
 		assertThat(reveal.get("winner")).isEqualTo("Mina");
 		assertThat(reveal.get("correctChoice")).isEqualTo(correct);
 		assertThat(reveal.get("ranking"))
@@ -207,9 +212,9 @@ class RoomRankedChoiceTest {
 		int mark = outbox.mark();
 		room.pick(JOON.id(), 0, wrong);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("pick-result", "reveal", "scores");
-		assertThat(sent.get(0).to()).isEqualTo(JOON.id());
-		assertThat(sent.get(1).message()).containsEntry("winner", null).containsEntry("ranking", List.of());
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "pick-result", "wrong", "reveal", "scores");
+		assertThat(sent.get(1).to()).isEqualTo(JOON.id());
+		assertThat(sent.get(3).message()).containsEntry("winner", null).containsEntry("ranking", List.of());
 		assertThat(room.scores().values()).containsOnly(0);
 	}
 
@@ -235,7 +240,7 @@ class RoomRankedChoiceTest {
 		// Hana can still pick after Mina's correct.
 		mark = outbox.mark();
 		room.pick(HANA.id(), 0, correct);
-		assertThat(outbox.since(mark).get(0).message()).isEqualTo(correct(0, "Hana", 2));
+		assertThat(outbox.since(mark).get(1).message()).isEqualTo(correct(0, "Hana", 2));
 		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 	}
 
@@ -248,8 +253,8 @@ class RoomRankedChoiceTest {
 		int mark = outbox.mark();
 		room.pick(JOON.id(), 0, correct);
 		room.pick(MINA.id(), 0, correct);
-		assertThat(outbox.since(mark)).extracting(Sent::message).containsExactly(correct(0, "Joon", 1),
-				correct(0, "Mina", 2));
+		assertThat(outbox.since(mark)).extracting(Sent::message).containsExactly(pickState(0, 1, 3),
+				correct(0, "Joon", 1), pickState(0, 2, 3), correct(0, "Mina", 2));
 		assertThat(room.scores()).containsEntry(JOON.id(), 3).containsEntry(MINA.id(), 2);
 	}
 
@@ -313,9 +318,9 @@ class RoomRankedChoiceTest {
 		int mark = outbox.mark();
 		room.setConnected(JOON.id(), false);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("reveal", "scores");
-		assertThat(sent.get(0).message().get("winner")).isEqualTo("Hana");
-		assertThat(sent.get(0).message().get("ranking")).isEqualTo(List.of(ranked("Hana", 1, 3)));
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "reveal", "scores");
+		assertThat(sent.get(1).message().get("winner")).isEqualTo("Hana");
+		assertThat(sent.get(1).message().get("ranking")).isEqualTo(List.of(ranked("Hana", 1, 3)));
 	}
 
 	@Test
@@ -382,7 +387,7 @@ class RoomRankedChoiceTest {
 		int wrong = wrongPosition();
 		Map<String, Object> inPrepare = room.currentSong(MINA.id());
 		assertThat(inPrepare.keySet()).containsExactlyInAnyOrder("index", "total", "audioUrl", "choices", "picked",
-				"answered", "correct");
+				"answered", "correct", "pickState");
 		assertThat(inPrepare).containsEntry("picked", null).containsEntry("answered", false)
 				.containsEntry("correct", List.of());
 
@@ -420,8 +425,12 @@ class RoomRankedChoiceTest {
 		assertThat(room.phase()).isEqualTo(Room.Phase.PREPARE);
 		assertThat(room.currentSong(MINA.id())).containsEntry("picked", correct).containsEntry("answered", true);
 		assertThat(room.currentSong(JOON.id())).containsEntry("answered", false);
+		int mark = outbox.mark();
 		room.ready(MINA.id(), 0);
 		room.ready(JOON.id(), 0);
+		// Cycle 122: the resumed start counts the kept picks of the two connected players first.
+		assertThat(outbox.since(mark)).extracting(Sent::type).containsExactly("start", "pickState", "reveal", "scores");
+		assertThat(outbox.since(mark).get(1).message()).isEqualTo(pickState(0, 2, 2));
 		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 		assertThat(lastReveal().get("winner")).isEqualTo("Mina");
 		assertThat(lastReveal().get("ranking")).isEqualTo(List.of(ranked("Mina", 1, 3)));
@@ -467,7 +476,8 @@ class RoomRankedChoiceTest {
 		toAudible(1);
 		int mark = outbox.mark();
 		room.pick(JOON.id(), 1, correctPosition());
-		assertThat(outbox.since(mark)).extracting(Sent::message).containsExactly(correct(1, "Joon", 1));
+		assertThat(outbox.since(mark)).extracting(Sent::message).containsExactly(pickState(1, 1, 2),
+				correct(1, "Joon", 1));
 		assertThat(room.scores()).containsEntry(MINA.id(), 3).containsEntry(JOON.id(), 2 + 3);
 	}
 
@@ -482,9 +492,9 @@ class RoomRankedChoiceTest {
 		int mark = outbox.mark();
 		room.pick(JOON.id(), 0, correct);
 		List<Sent> sent = outbox.since(mark);
-		assertThat(sent).extracting(Sent::type).containsExactly("correct", "reveal", "scores");
-		assertThat(sent.get(0).message()).isEqualTo(msg("correct", "index", 0, "name", "Joon"));
-		assertThat(sent.get(1).message()).doesNotContainKey("ranking");
+		assertThat(sent).extracting(Sent::type).containsExactly("pickState", "correct", "reveal", "scores");
+		assertThat(sent.get(1).message()).isEqualTo(msg("correct", "index", 0, "name", "Joon"));
+		assertThat(sent.get(2).message()).doesNotContainKey("ranking");
 		assertThat(room.scores()).containsEntry(JOON.id(), 1);
 		assertThat(room.currentSong(MINA.id())).isNull();
 	}
@@ -522,6 +532,9 @@ class RoomRankedChoiceTest {
 				case "correct" -> assertThat(sent.message().keySet()).containsExactly("type", "index", "name", "rank");
 				case "prepare" -> assertThat(sent.message().keySet()).containsExactlyInAnyOrderElementsOf(PREPARE_KEYS);
 				case "pick-result" -> assertThat(sent.message().keySet()).containsExactly("type", "index", "choice");
+				case "pickState" -> assertThat(sent.message().keySet()).containsExactlyInAnyOrder("type", "index",
+						"picked", "total");
+				case "wrong" -> assertThat(sent.message().keySet()).containsExactlyInAnyOrder("type", "index", "name");
 				default -> {
 				}
 			}
