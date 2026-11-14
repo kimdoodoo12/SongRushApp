@@ -69,3 +69,4 @@ Also taken: criteria for the two decided-by-answers paths that had none (a disco
 - Green, run by the verifier with a forced rerun: 1047 tests, 0 failures, 0 errors, 1 skipped (`FeedbackStoreTest`, not from this cycle). `git diff 799204b HEAD -- backend/src/test` is empty. Criteria 1 to 13 confirmed. With the switch off the verifier found no changed behaviour.
 - Review of the diff: no Blocker, no High. One Medium: this cycle's tests pin the exact frames at a decision and "a skip vote in the window is ignored", and B-035 changes both (a zero `skipState` after `scores`, and skip in the window). B-035's test step revises `decide()` and the two skip tests; that is written on B-035. Two comment nits went to Follow-ups.
 - The switch is off by default, so nothing changes for players yet.
+- GitHub CI on PR #52 passed; merged to `dev` as `cb035f5`.
