@@ -25,6 +25,11 @@ import com.songrush.GameProperties;
 // Cycle 126 (B-034, D-129) criterion 11: the second component playToLimit is the switch
 // songrush.game.play-to-limit (env SONGRUSH_GAME_PLAYTOLIMIT), default false
 // (docs/cycles/126-reveal-window.md); PlayToLimitSocketTest checks its wiring end to end.
+//
+// Cycle 132 (B-037, D-129) criterion 1: playToLimit now defaults to TRUE when the property is absent
+// (@DefaultValue("true") on the record component); false, through the property or
+// SONGRUSH_GAME_PLAYTOLIMIT=false, still turns it off. prefetchOnReveal still defaults to false
+// (docs/cycles/132-play-to-limit-on.md).
 class GamePropertiesBindingTest {
 
 	@Test
@@ -76,9 +81,20 @@ class GamePropertiesBindingTest {
 	}
 
 	@Test
-	void playToLimitAbsentMeansOff() {
+	void playToLimitBindsFalseFromTheEnvironmentVariable() {
+		SystemEnvironmentPropertySource env = new SystemEnvironmentPropertySource("systemEnvironment",
+				Map.of("SONGRUSH_GAME_PLAYTOLIMIT", "false"));
+		Binder binder = new Binder(ConfigurationPropertySources.from(env));
+		assertThat(binder.bind("songrush.game", GameProperties.class).get().playToLimit()).isFalse();
+	}
+
+	// cycle 132: an absent songrush.game gives play-to-limit ON, and prefetch-on-reveal still off
+	@Test
+	void playToLimitAbsentMeansOn() {
 		Binder binder = new Binder(new MapConfigurationPropertySource(Map.of("songrush.data-dir", "x")));
-		assertThat(binder.bindOrCreate("songrush.game", GameProperties.class).playToLimit()).isFalse();
+		GameProperties props = binder.bindOrCreate("songrush.game", GameProperties.class);
+		assertThat(props.playToLimit()).isTrue();
+		assertThat(props.prefetchOnReveal()).isFalse();
 	}
 
 	@Test
@@ -92,7 +108,13 @@ class GamePropertiesBindingTest {
 				new MapConfigurationPropertySource(Map.of("songrush.game.prefetch-on-reveal", "true")));
 		GameProperties prefetch = prefetchOnly.bind("songrush.game", GameProperties.class).get();
 		assertThat(prefetch.prefetchOnReveal()).isTrue();
-		assertThat(prefetch.playToLimit()).isFalse();
+		assertThat(prefetch.playToLimit()).isTrue(); // cycle 132: absent play-to-limit is on
+
+		Binder prefetchOnLimitOff = new Binder(new MapConfigurationPropertySource(
+				Map.of("songrush.game.prefetch-on-reveal", "true", "songrush.game.play-to-limit", "false")));
+		GameProperties limitOff = prefetchOnLimitOff.bind("songrush.game", GameProperties.class).get();
+		assertThat(limitOff.prefetchOnReveal()).isTrue();
+		assertThat(limitOff.playToLimit()).isFalse();
 
 		Binder both = new Binder(new MapConfigurationPropertySource(
 				Map.of("songrush.game.prefetch-on-reveal", "true", "songrush.game.play-to-limit", "true")));
