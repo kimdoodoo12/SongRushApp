@@ -388,7 +388,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - `room.css` is not edited (D-124); any new rule goes in an owner-approved file such as `choice.css`.
   - From cycle 122: the count also arrives right after every `start`, and nested in the snapshot's song as `pickState: {picked, total}`. The snapshot of a player who is rejoining does not count that player yet; the broadcast that follows (during a song) or the next `start` has the right numbers, so the screen shows the count only while a song plays and takes the latest frame.
   - Acceptance (Vitest): the count renders from `pickState` and updates; a chat room shows no count; `wrong` renders the line in each language; the own wrong pick still shows the tile's 오답 mark.
-- [ ] **F-034** frontend: the wrong-pick chat line in red (from D-131)
+- [~] **F-034** frontend: the wrong-pick chat line in red (from D-131)
   - The line gets its own class and a red look that mirrors the green of the correct line (`.msg.correct` in `room.css`): colour, weight, a tinted border and background. The rule goes in `choice.css`, with `choiceCss.test.js` updated; `room.css` is not edited.
   - Acceptance (Vitest): the wrong line's element has the class; plain notices and the correct line do not; `choice.css` holds exactly the old rules plus the new one. Seen in a browser in at least two moods, the manga mood among them.
 - [ ] **S-008** design: songs play to the time limit (from D-129, issue #44 request 1)
