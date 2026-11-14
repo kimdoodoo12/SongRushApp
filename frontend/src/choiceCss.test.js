@@ -12,10 +12,14 @@ import { fileURLToPath } from 'node:url'
 // (docs/cycles/118-choice-deck.md, Revision 2). Cycle 119 review: --oh is
 // the measured header height --hd plus 175 px instead of fixed 290/242 px
 // (docs/cycles/119-nickname-dialog.md, Pre-PR review fixes).
-// - choice.css holds exactly the rule from the spec; comments and whitespace
-//   do not matter, a trailing semicolon before } is optional, and
-//   "@media(" / "@container(" count the same as "@media (" / "@container (".
-//   Quoted strings (the grid-template-areas values) are compared literally,
+// Cycle 124 (F-034, D-131): the wrong-pick chat line is red. Three rules
+// follow the layout rules: .msg.wrong, and one each for the chalk and manga
+// moods (docs/cycles/124-wrong-line-red.md).
+// - choice.css holds exactly the choice layout rules and then the wrong-line
+//   rules; comments and whitespace do not matter, a trailing semicolon
+//   before } is optional, and "@media(" / "@container(" count the same as
+//   "@media (" / "@container (". Quoted strings (the grid-template-areas
+//   values and the data-mood attribute values) are compared literally,
 //   quotes included.
 // - main.jsx imports ./choice.css after ./start.css.
 // Runs in the node project: it reads the files through import.meta.url.
@@ -37,7 +41,12 @@ const EXPECTED =
   '--tw:calc((100vh - var(--oh)) / 2.75);' +
   'max-width:calc(var(--cols) * var(--tw) + (var(--cols) - 1) * 12px);' +
   'padding-top:0;border-top:0;align-self:start}' +
-  '.choice-mode .now .hint{font-size:1.15rem}}'
+  '.choice-mode .now .hint{font-size:1.15rem}}' +
+  '.msg.wrong{color:#ff6b7a;font-weight:700;' +
+  'border-color:color-mix(in srgb,#ff6b7a 50%,transparent);' +
+  'background:color-mix(in srgb,#ff6b7a 8%,transparent)}' +
+  '[data-mood="chalk"] .msg.wrong{color:#ffb3c1}' +
+  '[data-mood="manga"] .msg.wrong{background:#fff;color:#e0262f;border:2px solid #e0262f}'
 
 function read(path) {
   return fs.readFileSync(path, 'utf8').replace(/\r\n?/g, '\n')
@@ -74,7 +83,7 @@ describe('choice.css', () => {
     expect(fs.existsSync(CHOICE_CSS), 'frontend/src/choice.css').toBe(true)
   })
 
-  it('holds exactly the one rule from the spec', () => {
+  it('holds exactly the choice layout rules and the wrong-line rules', () => {
     expect(normalize(read(CHOICE_CSS))).toBe(normalize(EXPECTED))
   })
 })

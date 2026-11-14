@@ -229,8 +229,10 @@ function ChatLog({ chat, me }) {
     <div ref={ref} className="msgs" role="log" aria-live="off" onScroll={handleScroll}>
       {chat.map((line) => {
         if (line.kind === 'notice') {
+          // The wrong-pick line is red (cycle 124, D-131): .msg.wrong in
+          // choice.css, as room.css has no red and is never edited.
           return (
-            <div key={line.id} className="msg sys">
+            <div key={line.id} className={line.key === 'chat.wrongLine' ? 'msg sys wrong' : 'msg sys'}>
               {t(line.key, line.values)}
             </div>
           )
@@ -407,6 +409,7 @@ function GameScreen({
     reached,
     skipVoted,
     skipCount,
+    pickCount,
     waitingNext,
     replaced,
     settings,
@@ -434,6 +437,9 @@ function GameScreen({
   // correct answer. In ranked correct stays null (cycle 101, R4), so only
   // the own pick locks them.
   const gridShown = screen === 'game' && choices !== null
+  // How many have picked (cycle 123, D-130): during a choice song only. A
+  // watcher has no skip button but sees it, alone in the row.
+  const pickShown = gridShown && started && reveal === null && pickCount !== null
   const canPick = started && reached && !watching && !pickLocked && picked === null && correct === null && reveal === null
   const seconds = timer === null ? null : Math.ceil(timer.remaining / 1000)
   const loadText = load !== null && LOAD_KEY[load] !== undefined ? t(LOAD_KEY[load]) : null
@@ -561,13 +567,20 @@ function GameScreen({
               {t('stage.unlockSound')}
             </button>
           )}
-          {canSkip && (
+          {(canSkip || pickShown) && (
             <div className="row">
-              <button type="button" className={skipVoted ? 'btn voted' : 'btn'} onClick={onSkip}>
-                {skipVoted ? t('stage.skipCancel') : t('stage.skip')}
-              </button>
-              {skipCount !== null && (
+              {canSkip && (
+                <button type="button" className={skipVoted ? 'btn voted' : 'btn'} onClick={onSkip}>
+                  {skipVoted ? t('stage.skipCancel') : t('stage.skip')}
+                </button>
+              )}
+              {canSkip && skipCount !== null && (
                 <span className="skipcount">{t('stage.skipCount', { votes: skipCount.votes, needed: skipCount.needed })}</span>
+              )}
+              {pickShown && (
+                <span className="skipcount pickcount">
+                  {t('stage.pickCount', { picked: pickCount.picked, total: pickCount.total })}
+                </span>
               )}
             </div>
           )}
