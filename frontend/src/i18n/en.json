@@ -212,88 +212,88 @@
   },
   "mood": {
     "tag": {
-      "sunset": "One record, one glass of sunset",
-      "rain": "Dawn by the window, listening",
-      "sakura": "A night of pulling your favourite card",
-      "neon": "Signal hunting",
-      "chalk": "After school: music quiz time",
-      "pixel": "Insert coin",
-      "matsuri": "Guess the song under the fireworks",
-      "manga": "Next chapter: the answer revealed!"
+      "sunset": "Guess the anime OP/ED",
+      "rain": "Guess the anime OP/ED",
+      "sakura": "Guess the anime OP/ED",
+      "neon": "Guess the anime OP/ED",
+      "chalk": "Guess the anime OP/ED",
+      "pixel": "Guess the anime OP/ED",
+      "matsuri": "Guess the anime OP/ED",
+      "manga": "Guess the anime OP/ED"
     }
   },
   "skin": {
     "sunset": {
-      "title": "Rooftop Record Bar",
-      "label": "Tonight's room no.",
+      "title": "Sunset",
+      "label": "Room code",
       "admit": "ADMIT ONE",
-      "start": "Drop the needle",
-      "seats": "Tonight's guests",
-      "ready": "In",
-      "empty": "Empty seat"
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "rain": {
-      "title": "Dawn by the window: rainy-day requests",
-      "label": "Reserved seat no.",
-      "admit": "RESERVED",
-      "start": "Play the first song",
-      "seats": "By the window",
-      "ready": "Seated",
-      "empty": "Empty chair"
+      "title": "Rainy Night",
+      "label": "Room code",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "sakura": {
-      "title": "Bias card pull lounge",
+      "title": "Cherry Blossoms",
       "label": "Room code",
-      "admit": "CARD PACK",
-      "start": "Start pulling!",
-      "seats": "Friends gathered",
-      "ready": "Card ready",
-      "empty": "Empty slot"
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "neon": {
-      "title": "Club SongRush",
-      "label": "ENTRY CODE",
-      "admit": "VIP",
-      "start": "START SIGNAL",
-      "seats": "GUEST LIST",
-      "ready": "ON LIST",
-      "empty": "—"
+      "title": "Neon",
+      "label": "Room code",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "chalk": {
-      "title": "Today's music quiz",
-      "label": "Our class",
-      "admit": "Present",
-      "start": "Class begins",
-      "seats": "Roll call",
-      "ready": "Present ✓",
-      "empty": "Empty seat"
+      "title": "Classroom",
+      "label": "Room code",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "pixel": {
-      "title": "PLAYER SELECT",
-      "label": "ROOM",
-      "admit": "CREDIT",
-      "start": "PRESS START",
-      "seats": "PLAYERS",
-      "ready": "READY",
-      "empty": "INSERT COIN"
+      "title": "Arcade",
+      "label": "Room code",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "matsuri": {
-      "title": "Summer festival song quiz booth",
-      "label": "Number tag",
-      "admit": "Entry ticket",
-      "start": "Festival on!",
-      "seats": "Gathered here",
-      "ready": "Lantern lit",
-      "empty": "Empty spot"
+      "title": "Summer Festival",
+      "label": "Room code",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     },
     "manga": {
-      "title": "Chapter 1: \"Waiting\"",
-      "label": "Serial code",
-      "admit": "VOL.1",
-      "start": "Chapter 1, start!",
-      "seats": "Characters",
-      "ready": "Enter!",
-      "empty": "???"
+      "title": "Manga",
+      "label": "Room code",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "Lobby",
+      "ready": "Joined",
+      "empty": "Empty"
     }
   }
 }

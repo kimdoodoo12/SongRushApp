@@ -212,88 +212,88 @@
   },
   "mood": {
     "tag": {
-      "sunset": "レコード一枚、夕焼け一杯",
-      "rain": "窓辺で聴く夜明け",
-      "sakura": "推しカードを引く夜",
-      "neon": "Signal hunting",
-      "chalk": "放課後、音楽クイズの時間",
-      "pixel": "Insert coin",
-      "matsuri": "花火の下でイントロクイズ",
-      "manga": "次回、正解発表！"
+      "sunset": "アニメOP・ED当て",
+      "rain": "アニメOP・ED当て",
+      "sakura": "アニメOP・ED当て",
+      "neon": "アニメOP・ED当て",
+      "chalk": "アニメOP・ED当て",
+      "pixel": "アニメOP・ED当て",
+      "matsuri": "アニメOP・ED当て",
+      "manga": "アニメOP・ED当て"
     }
   },
   "skin": {
     "sunset": {
-      "title": "屋上レコードバー",
-      "label": "今夜のルーム番号",
+      "title": "夕焼け",
+      "label": "ルームコード",
       "admit": "ADMIT ONE",
-      "start": "レコードを載せる",
-      "seats": "今夜のお客さん",
-      "ready": "入場",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
       "empty": "空席"
     },
     "rain": {
-      "title": "夜明けの窓辺、雨の日のリクエスト",
-      "label": "予約席番号",
-      "admit": "RESERVED",
-      "start": "最初の曲をかける",
-      "seats": "窓辺に座る人",
-      "ready": "着席",
-      "empty": "空いた椅子"
+      "title": "雨の夜",
+      "label": "ルームコード",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
+      "empty": "空席"
     },
     "sakura": {
-      "title": "推しカードガチャ待合室",
+      "title": "桜",
       "label": "ルームコード",
-      "admit": "CARD PACK",
-      "start": "ガチャスタート！",
-      "seats": "集まった友だち",
-      "ready": "カード準備完了",
-      "empty": "空きスロット"
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
+      "empty": "空席"
     },
     "neon": {
-      "title": "Club SongRush",
-      "label": "ENTRY CODE",
-      "admit": "VIP",
-      "start": "START SIGNAL",
-      "seats": "GUEST LIST",
-      "ready": "ON LIST",
-      "empty": "—"
+      "title": "ネオン",
+      "label": "ルームコード",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
+      "empty": "空席"
     },
     "chalk": {
-      "title": "今日の音楽クイズ",
-      "label": "うちのクラス",
-      "admit": "出席",
-      "start": "授業開始",
-      "seats": "出席簿",
-      "ready": "出席 ✓",
+      "title": "教室",
+      "label": "ルームコード",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
       "empty": "空席"
     },
     "pixel": {
-      "title": "PLAYER SELECT",
-      "label": "ROOM",
-      "admit": "CREDIT",
-      "start": "PRESS START",
-      "seats": "PLAYERS",
-      "ready": "READY",
-      "empty": "INSERT COIN"
+      "title": "ゲーセン",
+      "label": "ルームコード",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
+      "empty": "空席"
     },
     "matsuri": {
-      "title": "夏祭り 歌当てブース",
-      "label": "番号札",
-      "admit": "入場券",
-      "start": "祭り開始！",
-      "seats": "集まった人たち",
-      "ready": "提灯点灯",
-      "empty": "空き"
+      "title": "夏祭り",
+      "label": "ルームコード",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
+      "empty": "空席"
     },
     "manga": {
-      "title": "第1話「待機中」",
-      "label": "連載コード",
-      "admit": "VOL.1",
-      "start": "第1話スタート！",
-      "seats": "登場人物",
-      "ready": "登場！",
-      "empty": "???"
+      "title": "漫画",
+      "label": "ルームコード",
+      "admit": "ADMIT ONE",
+      "start": "Play Song",
+      "seats": "ロビー",
+      "ready": "参加",
+      "empty": "空席"
     }
   }
 }

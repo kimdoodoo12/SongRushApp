@@ -13,8 +13,16 @@ A multiplayer anime OP/ED guessing website. Players join a room by code, hear th
 
 - **Players guess the anime title by chat, like the StarCraft use-map quiz** (D-015). A chat message is correct when it matches one of the accepted titles of the anime's series, in Korean, English, Japanese or romaji (D-020). By default only official titles count; an alias counts only when the data has no official title (D-035). Spaces, punctuation, case and width are ignored, but spelling must match. Attempts are unlimited, within a flood limit of burst 5 and 2 per second (D-024). Wrong guesses show as normal chat to everyone; the winning message is shown to all right after `correct`, with a `✔ <name> 정답!` system line (D-094, replaces hiding it). No autocomplete.
 - **Each song plays from its start, at most 90 s** (D-018, D-021). A song ends at the first correct answer, a passed skip vote, or the end of the song. Everyone hears it from the same moment. The reveal shows the entry's own title.
-- **Only the first correct answer scores, by server arrival order** (D-011, D-016). A skip passes with a majority of connected players (D-012, D-017). A game is one round of N songs; the host picks N (5-30, default 10) when creating the room (D-014, D-047, D-058). Late joiners play from the next song (D-059); after a game the room returns to the lobby (D-062). Rooms hold at most 8 players, and a duplicate nickname gets a number appended (D-046, D-048). No hints for now (D-013).
+- **Only the first correct answer scores, by server arrival order** (D-011, D-016). A skip passes with a majority of connected players (D-012, D-017). A game is one round of N songs; the host picks N (5-30, default 10) in the lobby (D-014, D-047, D-058). Late joiners play from the next song (D-059); after a game the room returns to the lobby (D-062). Rooms hold at most 8 players, and a duplicate nickname gets a number appended (D-046, D-048). No hints for now (D-013).
+- **Answer format and game mode, picked by the host in the lobby** (D-111, D-112).
+  - Answer format: 채팅, or 객관식 (cover tiles: 4, 6 or 8 by difficulty; one pick per song; chat never scores in a choice room).
+  - Game mode: 선착순 (the rule above), or 순위전 (everyone answers once; 3, 2, 1 points by arrival; a correct chat is not echoed).
+- **Lobby** (D-123, D-127, cycle 116): the nickname is asked in a dialog when a player creates or joins a room; the lobby has chat; guests see the host's settings.
 - **Songs:** AnimeThemes is the audio source (D-009). The top 3,000 OP/ED themes by popularity, with no per-series cap, are cached ahead of time, and rooms draw from them (D-019, D-027, D-034, D-102). Themes without cached audio are left out of the draw; there is no lobby fetch (D-056, D-070).
+- **Look** (D-122, D-124 to D-126): the UI follows the owner's mockup exactly.
+  - `frontend/src/room.css` is the mockup's stylesheet copied verbatim, checked by `roomCss.test.js`. Never edit it by hand.
+  - Owner-approved additions live in their own files: `wide.css`, `start.css`, `choice.css`, `scroll.css`.
+  - There are eight host-picked moods, set as `html[data-mood]`.
 - UI languages: Korean, English and Japanese (react-i18next), detected from the browser with a switcher; the reveal card shows the title in ko, en, ja and romaji (D-095). Korean credit line: "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata" (D-023).
 
 ## How work happens here
@@ -72,14 +80,14 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
     - Request only the ids AnimeThemes lists (D-036).
     - Wikidata SPARQL: batch the ids.
     - aod: use the pinned release `2026-27`; the repository is archived.
-- **AniDB:** download the titles dump at most once per 24 h (`songrush_data.anidb` enforces it with `data/cache/anidb/attempt.json`). The last request was 2026-11-03 19:45 KST, so the next is allowed from **2026-11-04 19:45 KST**; the cached dump is reused, so a rebuild makes no AniDB request.
-- Live requests to external sources happen only in design cycles and the data tools, and later in the backend's lobby fetch; never in tests. Tests use saved fixtures (`data/tests/fixtures/`: saved external responses and samples) and a conftest guard that blocks DNS and socket connects, so they run offline and deterministically.
+- **AniDB:** download the titles dump at most once per 24 h (`songrush_data.anidb` enforces it with `data/cache/anidb/attempt.json`). The cached dump is reused, so a rebuild makes no AniDB request.
+- Live requests to external sources happen only in design cycles and the data tools; never in tests. Tests use saved fixtures (`data/tests/fixtures/`: saved external responses and samples) and a conftest guard that blocks DNS and socket connects, so they run offline and deterministically.
 
 ## Multiplayer rules
 
 - **The server is the authority.** The backend owns the answer, the round clock, and scores. Never send the answer, or anything that reveals the song, to clients before the round ends; audio URLs are opaque. Catalog anime and theme ids are the public AnimeThemes ids, so an id alone identifies the song: never send them (or any catalog record) to a client before the reveal. One exception (D-111, A9): in a multiple-choice room the cover URLs of a song's choices go out in `prepare`, shuffled, with nothing marking the correct one.
 - **Arrival order is enforced on the server** (D-016). The first correct answer by server arrival order wins, including when messages arrive concurrently.
-- **Fairness bugs**, such as one client hearing the song earlier, are High severity. The one accepted exception: a modified client can listen ahead to the prefetched next-round file (D-025; revisit before M-4).
+- **Fairness bugs**, such as one client hearing the song earlier, are High severity. The one accepted exception: a modified client can hear the next song's file from the start of the reveal, when it is prefetched (D-025, D-119). During that reveal, a chat line that matches the next song's titles goes to its sender only (D-120).
 
 ## Environment pitfalls
 
@@ -102,3 +110,5 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
 - Spring Boot 4 moved classes: `TestRestTemplate` is in `org.springframework.boot.resttestclient` (and needs `@AutoConfigureTestRestTemplate`), `ErrorController` is in `org.springframework.boot.webmvc.error`, and JSON is Jackson 3 (`tools.jackson.*`). Run `.\gradlew.bat` from `backend/`: a bare `gradlew.bat` is not found here (`NoDefaultCurrentDirectoryInExePath` is set).
 - `core.autocrlf=true` turns LF into CRLF on checkout. Any file that must stay LF (shell scripts, units, anything shipped to Linux) needs an `eol=lf` rule in `.gitattributes`. A test that passes before the commit can fail after the next checkout (cycle 055/056).
 - Never run two Gradle builds on `backend/` at once (for example the verifier and a critic in parallel): they share `build/test-results` and fail with `EOFException` or `NoSuchFileException` on the binary results. Tell the critic not to run Gradle while the verifier does, or run them one after the other (cycle 037).
+- Vitest's default 5 s test timeout is too short for the UI tests on this PC when the local servers also run; `vite.config.js` sets `testTimeout` to 15000 (cycle 119). Never run two `npm test` at once: overlapping runs make unrelated tests time out.
+- Never use `git commit -a`: the owner keeps uncommitted edits in tracked files. Stage by explicit path (cycle 108).

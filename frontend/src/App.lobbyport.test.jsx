@@ -33,9 +33,9 @@
 //   .btn.primary.go 방 만들기, the 방 코드 input and the 참가 .btn; no chat
 //   aside shown. Cycle 119 (D-127, declared): the 닉네임 input moved into
 //   the nickname dialog, so the card has none.
+// Cycle 121 (D-128): the SKIN strings are plain words, not the mockup's.
 // No i18n key names are fixed here: Korean texts are literals, English is
-// read through the existing lobby.leave key and the pixel SKIN, whose values
-// are English in every language.
+// read through the existing lobby.leave key and the pixel SKIN's en values.
 // Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -69,12 +69,13 @@ const COPIED = '링크를 복사했어요'
 const COPY_FAILED = '복사하지 못했어요. 주소를 길게 눌러 복사해 주세요'
 const MOOD_NAMES = ['노을 옥상', '비 오는 밤', '벚꽃 밤', '네온 시티', '칠판 교실', '8비트 오락실', '여름 축제', '만화 원고']
 
-// The mockup's SKIN table, ko (D-124: the ko values equal the mockup's).
+// The lobby's per-mood texts in plain words (D-128): only the title differs
+// by mood; the rest is the same in every mood. ko values for sunset and manga.
 const SKIN = {
-  sunset: { title: '옥상 레코드 바', label: '오늘의 방 번호', admit: 'ADMIT ONE', start: '레코드 올리기', seats: '오늘의 손님', ready: '입장', empty: '빈 자리' },
-  manga: { title: '제1화 「대기 중」', label: '연재 코드', admit: 'VOL.1', start: '제1화 시작!', seats: '등장인물', ready: '등장!', empty: '???' },
-  // English in the mockup, so English in every language.
-  pixel: { title: 'PLAYER SELECT', label: 'ROOM', admit: 'CREDIT', start: 'PRESS START', seats: 'PLAYERS', ready: 'READY', empty: 'INSERT COIN' },
+  sunset: { title: '노을', label: '방 코드', admit: 'ADMIT ONE', start: 'Play Song', seats: '대기실', ready: '참가', empty: '빈 자리' },
+  manga: { title: '만화', label: '방 코드', admit: 'ADMIT ONE', start: 'Play Song', seats: '대기실', ready: '참가', empty: '빈 자리' },
+  // en values: the test switches to English.
+  pixel: { title: 'Arcade', label: 'Room code', admit: 'ADMIT ONE', start: 'Play Song', seats: 'Lobby', ready: 'Joined', empty: 'Empty' },
 }
 
 let scrollTo
@@ -393,8 +394,8 @@ describe('lobby markup', () => {
     const env = setup()
     await hostLobby(env)
     expectSkin(SKIN.sunset)
-    expect(text('.seats h2')).toBe('오늘의 손님 · 참가자 2 / 8')
-    expect(text('.ticket .tk-tag')).toBe('노을 옥상 · 레코드 한 장, 노을 한 잔')
+    expect(text('.seats h2')).toBe('대기실 · 참가자 2 / 8')
+    expect(text('.ticket .tk-tag')).toBe('노을 옥상 · 애니 OP·ED 맞히기')
   })
 
   it('ko manga from the roomTheme frame: SKIN.manga, and a guest seat reads SKIN.ready', async () => {
@@ -402,14 +403,14 @@ describe('lobby markup', () => {
     const socket = await hostLobby(env)
     deliver(socket, { type: 'roomTheme', theme: 'manga' })
     expectSkin(SKIN.manga)
-    expect(text('.seats h2')).toBe('등장인물 · 참가자 2 / 8')
-    expect(text('.ticket .tk-tag')).toBe('만화 원고 · 다음 화, 정답 공개!')
+    expect(text('.seats h2')).toBe('대기실 · 참가자 2 / 8')
+    expect(text('.ticket .tk-tag')).toBe('만화 원고 · 애니 OP·ED 맞히기')
     const joon = qa('.seats li.seat:not(.empty)').find((li) => li.querySelector('.sm b').textContent === 'Joon')
     expect(joon).toBeTruthy()
     expect(joon.querySelector('.sm small').textContent.trim()).toBe(SKIN.manga.ready)
   })
 
-  it('en pixel: the SKIN strings stay English and the lobby is in English', async () => {
+  it('en pixel: the SKIN strings are English and the lobby is in English', async () => {
     const env = setup()
     const socket = await hostLobby(env)
     deliver(socket, { type: 'roomTheme', theme: 'pixel' })

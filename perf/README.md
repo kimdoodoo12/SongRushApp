@@ -1,5 +1,8 @@
 # perf: the song-preparation wait (D-113)
 
+> **Needs an update before the next run (2026-11-11).** Since D-127 the nickname is asked in a dialog after pressing 방 만들기. `run.py` and `devtools_shot.py` still fill 닉네임 on the start screen first, so they cannot create a room on the current site. The last runs were for cycle 107 (2026-11-10).
+
+
 Every song starts with a wait: the server sends `prepare`, each browser
 fetches the song's audio (and in a choice room the choice covers), decodes it,
 and answers `ready`; when everyone is ready, or at the server's 25 s prepare
