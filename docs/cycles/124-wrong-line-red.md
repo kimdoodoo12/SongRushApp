@@ -34,3 +34,14 @@ The chat line that names a wrong pick is red, the way the correct line is green.
 
 ## Spec review
 One round. No Blocker. Two High, both taken: in the manga mood the red did not apply at all (the mood's own system-line rule is more specific), and in the chalk mood the red was about 3.6:1 on the panel. Each mood got its own rule. Also taken: the class comes from the notice's key in `ChatLog`, with no state change, and the browser check covers all eight moods because no automated test loads these stylesheets.
+
+## Result
+- Tests first: commit `381561d` (one assertion changed and one test added in `App.pickcount.test.jsx`; `EXPECTED` extended in `choiceCss.test.js`). Red, run by the verifier: `Tests 3 failed | 821 passed (824)`, the three being the class assertions and the stylesheet match.
+- Implementation: commit `8d90dae`, first attempt. `GameScreen.jsx` (the class) and `choice.css` (three rules).
+- Green, run by the verifier: `Test Files 53 passed (53)`, `Tests 824 passed (824)`; lint exit 0; build exit 0. `git diff 381561d HEAD -- '*.test.*'` is empty and `room.css` is not in the diff. Criteria 1 to 4 confirmed.
+- Criterion 5, by the lead in Chromium against a local server, one ranked choice song with a wrong and a correct pick, the host switching through all eight moods. Computed styles of the wrong line:
+  - sunset, rain, sakura, neon, matsuri: text `rgb(255, 107, 122)`, weight 700, a dashed border of the same red at 50%, an 8% red tint. The correct line beside it is each mood's green.
+  - pixel: the same red with that mood's solid border.
+  - chalk: text `rgb(255, 179, 193)`, border and tint as above.
+  - manga: red text `rgb(224, 38, 47)` on white with a 2px red border; the correct line is white on that red.
+- Review of the diff: no Blocker, no High. Medium: in the manga mood red is also the colour of the correct line (the mockup's `--ok` equals its red there), so the two lines are a red outline against a red fill. Shown to the owner in the eight-mood capture; the owner's call. Nit: the `ChatLog` header comment does not mention the new class (Follow-ups).
