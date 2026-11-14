@@ -105,6 +105,15 @@ function isPosition(value, choices) {
   return choices !== null && Number.isInteger(value) && value >= 0 && value < choices.length
 }
 
+// A pickState frame's, or a snapshot song's, count (cycle 123, D-130) as
+// { picked, total }, or null when the numbers are not a valid count.
+function pickCountOf(value) {
+  if (value === null || typeof value !== 'object') return null
+  const { picked, total } = value
+  if (!Number.isInteger(picked) || !Number.isInteger(total) || picked < 0 || picked > total || total < 1) return null
+  return { picked, total }
+}
+
 function scheduleTimeout(fn, ms) {
   const id = setTimeout(fn, ms)
   return () => clearTimeout(id)
@@ -570,6 +579,7 @@ export function startSession({
       score: own === undefined ? null : own.score,
       choices,
       correctNames: correctNamesOf(song),
+      pickCount: song === null || choices === null ? null : pickCountOf(song.pickState),
       ...pickFields(song === null ? null : song.index),
     })
     if (song === null) return
@@ -607,6 +617,7 @@ export function startSession({
       round: { index: song.index, total: song.total },
       choices: r.choices,
       correctNames: correctNamesOf(song),
+      pickCount: r.choices === null ? null : pickCountOf(song.pickState),
     })
     soundCheck()
     load(r, song.audioUrl)
@@ -617,6 +628,22 @@ export function startSession({
     if (round === null || msg.index !== round.index) return
     // Only the count: the own vote follows clicks and tagged refusals.
     dispatch({ type: 'skipState', votes: msg.votes, needed: msg.needed })
+  }
+
+  // How many have picked this song (cycle 123, D-130): choice songs only.
+  // The session's round decides, since the screen still holds the last song
+  // while a prepare is held. Anything else is ignored, with no warning.
+  function onPickState(msg) {
+    if (round === null || msg.index !== round.index || round.choices === null) return
+    const count = pickCountOf(msg)
+    if (count !== null) dispatch({ type: 'pickState', ...count })
+  }
+
+  // A player picked wrong (cycle 123, D-130): a chat line with the name.
+  function onWrong(msg) {
+    if (round === null || msg.index !== round.index || round.choices === null) return
+    if (typeof msg.name !== 'string' || msg.name === '') return
+    dispatch({ type: 'pickWrongNotice', name: msg.name })
   }
 
   // A lobby roster while a game is on and before its gameOver: the game was
@@ -740,6 +767,12 @@ export function startSession({
         break
       case 'skipState':
         onSkipState(msg)
+        break
+      case 'pickState':
+        onPickState(msg)
+        break
+      case 'wrong':
+        onWrong(msg)
         break
       case 'settings':
         // The conditions the server applied to this game (F-008).

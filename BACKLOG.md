@@ -383,7 +383,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - A wrong pick also sends everyone `wrong{index, name}`. The sender still gets `pick-result` as today. Neither message carries the choice position, a cover id or anything else of the song.
   - A reconnect snapshot of a choice song carries the current `picked` and `total`.
   - Acceptance (JUnit): 3 players, one wrong pick: all three get `pickState` 1/3 and `wrong` with that name, and no frame other than the sender's `pick-result` contains the position; a correct pick in 순위전 gives `pickState` and `correct` but no `wrong`; a disconnect during the song sends a new `pickState` with the lower `total`; a chat room never sends `pickState` or `wrong`; a refused pick (already-picked, too-early) sends neither.
-- [ ] **F-033** frontend: show the pick count and the wrong-pick line (from D-130, issue #44 request 2; after B-033)
+- [~] **F-033** frontend: show the pick count and the wrong-pick line (from D-130, issue #44 request 2; after B-033)
   - A choice room shows `picked / total` during the song, reset on each new song and restored from the snapshot after a reload. `wrong` adds a chat system line with the name, in ko, en and ja, styled as a system line beside the `✔ <name> 정답!` one.
   - `room.css` is not edited (D-124); any new rule goes in an owner-approved file such as `choice.css`.
   - From cycle 122: the count also arrives right after every `start`, and nested in the snapshot's song as `pickState: {picked, total}`. The snapshot of a player who is rejoining does not count that player yet; the broadcast that follows (during a song) or the next `start` has the right numbers, so the screen shows the count only while a song plays and takes the latest frame.

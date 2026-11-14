@@ -86,6 +86,9 @@ export const initialState = {
   reached: false,
   skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
   skipCount: null, // { votes, needed } from skipState for this song
+  // A choice song's { picked, total } from pickState (cycle 123, D-130), or
+  // null. start never changes it: it is shown once the song has started.
+  pickCount: null,
   soundBlocked: false, // the AudioContext is not running: show the sound prompt
   reconnecting: false, // the connection dropped and a rejoin is in progress
   waitingNext: false, // rejoined between songs: waiting for the next prepare
@@ -260,6 +263,7 @@ function step(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        pickCount: null,
         ...choiceFields(action),
       }
     }
@@ -290,6 +294,8 @@ function step(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        // The snapshot's count (cycle 123), validated by the session.
+        pickCount: action.pickCount ?? null,
         ...choiceFields(action),
       }
       if (action.phase === 'lobby') {
@@ -331,6 +337,7 @@ function step(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        pickCount: action.pickCount ?? null,
         ...choiceFields(action),
       }
     case 'abandoned':
@@ -347,6 +354,7 @@ function step(state, action) {
         started: false,
         skipVoted: false,
         skipCount: null,
+        pickCount: null,
         ...choiceFields({}),
       }
     case 'pick':
@@ -365,6 +373,12 @@ function step(state, action) {
       return { ...state, skipVoted: action.voted }
     case 'skipState':
       return { ...state, skipCount: { votes: action.votes, needed: action.needed } }
+    case 'pickState':
+      return { ...state, pickCount: { picked: action.picked, total: action.total } }
+    case 'pickWrongNotice':
+      // Another player's wrong pick, by name only (cycle 123, D-130): a
+      // notice, not a system line, so the winner-chat ordering skips it.
+      return withNotice(state, 'chat.wrongLine', { name: action.name })
     case 'sound':
       return { ...state, soundBlocked: action.blocked }
     case 'loaded':
@@ -447,6 +461,7 @@ function step(state, action) {
         reveal: action.reveal,
         started: false,
         skipCount: null,
+        pickCount: null,
         correctChoice: action.correctChoice ?? null,
       }
     case 'scores':
