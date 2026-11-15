@@ -67,7 +67,9 @@
     "choice": "Multiple choice",
     "choiceN": "Choice {{n}}",
     "hintChat": "Guess the anime title in the chat",
-    "hintChoice": "Pick from {{k}} covers (4, 6 or 8 by difficulty)"
+    "hintChoice": "Pick from {{k}} covers (4, 6 or 8 by difficulty)",
+    "markCorrect": "✔ Correct",
+    "markWrong": "✕ Wrong"
   },
   "mode": {
     "label": "Game mode",

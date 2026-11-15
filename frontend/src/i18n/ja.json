@@ -67,7 +67,9 @@
     "choice": "選択式",
     "choiceN": "選択肢{{n}}",
     "hintChat": "チャットでアニメのタイトルを当てます",
-    "hintChoice": "表紙{{k}}枚の中から選びます（難易度により4・6・8枚）"
+    "hintChoice": "表紙{{k}}枚の中から選びます（難易度により4・6・8枚）",
+    "markCorrect": "✔ 正解",
+    "markWrong": "✕ 不正解"
   },
   "mode": {
     "label": "ゲームモード",

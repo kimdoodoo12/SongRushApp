@@ -15,9 +15,13 @@ import { fileURLToPath } from 'node:url'
 // Cycle 124 (F-034, D-131): the wrong-pick chat line is red. Three rules
 // follow the layout rules: .msg.wrong, and one each for the chalk and manga
 // moods (docs/cycles/124-wrong-line-red.md).
-// - choice.css holds exactly the choice layout rules and then the wrong-line
-//   rules; comments and whitespace do not matter, a trailing semicolon
-//   before } is optional, and "@media(" / "@container(" count the same as
+// Cycle 138 (issue #66): the tile marks follow the screen's language. room.css
+// hard-codes the Korean marks as ::before content and is never edited
+// (D-124), so a last rule shows the .tmark's data-mark instead, prefixed with
+// html to outrank room.css (docs/cycles/138-marks-in-language.md).
+// - choice.css holds exactly the choice layout rules, then the wrong-line
+//   rules, then the mark rule; comments and whitespace do not matter, a
+//   trailing semicolon before } is optional, and "@media(" / "@container(" count the same as
 //   "@media (" / "@container (". Quoted strings (the grid-template-areas
 //   values and the data-mood attribute values) are compared literally,
 //   quotes included.
@@ -46,7 +50,8 @@ const EXPECTED =
   'border-color:color-mix(in srgb,#ff6b7a 50%,transparent);' +
   'background:color-mix(in srgb,#ff6b7a 8%,transparent)}' +
   '[data-mood="chalk"] .msg.wrong{color:#ffb3c1}' +
-  '[data-mood="manga"] .msg.wrong{background:#fff;color:#e0262f;border:2px solid #e0262f}'
+  '[data-mood="manga"] .msg.wrong{background:#fff;color:#e0262f;border:2px solid #e0262f}' +
+  'html .tile.wrong .tmark::before,html .tile.correct .tmark::before{content:attr(data-mark)}'
 
 function read(path) {
   return fs.readFileSync(path, 'utf8').replace(/\r\n?/g, '\n')
@@ -83,7 +88,7 @@ describe('choice.css', () => {
     expect(fs.existsSync(CHOICE_CSS), 'frontend/src/choice.css').toBe(true)
   })
 
-  it('holds exactly the choice layout rules and the wrong-line rules', () => {
+  it('holds exactly the choice layout rules, the wrong-line rules and the mark rule', () => {
     expect(normalize(read(CHOICE_CSS))).toBe(normalize(EXPECTED))
   })
 })
