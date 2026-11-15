@@ -419,7 +419,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - The default of `songrush.game.play-to-limit` becomes on. `CLAUDE.md` "Product decisions" states the new rule (D-129). The deploy guide lists the variable.
   - Acceptance: a socket test with the default configuration plays a song that is decided early and receives `reveal` with `playUntil` in the future; the binding test covers the new default.
 
-- [ ] **B-038** backend: chat before the song starts is broadcast (from D-132)
+- [~] **B-038** backend: chat before the song starts is broadcast (from D-132)
   - In `Room.chat`, a line from a Room player in `PREPARE` or before `startAt` goes to everyone, unless it matches the song's accepted titles (normalized, as the answer check); a matching line goes to its sender only and never scores (as D-120). Chat and choice rooms alike (in a choice room chat never scores either way). Watchers keep today's rule.
   - Acceptance (JUnit): two players; in `PREPARE` and in `PLAYING` before `startAt`, a non-matching line reaches both, a matching line only its sender and no `correct`; after `startAt` today's behaviour; the existing tests that pin sender-only early chat are revised as declared changes. Seen in a browser with two players: a line typed while the next song loads shows on both screens.
 ## Roadmap
