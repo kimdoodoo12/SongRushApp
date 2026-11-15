@@ -420,10 +420,13 @@ class ChoiceSocketTest {
 		JsonNode start = host.await("start");
 		guest.await("start");
 
-		// Before startAt: the sender only.
+		// Before startAt: to everyone, as chat in a choice room always is (D-135); it never scores.
 		host.send("chat", "text", title);
-		JsonNode early = host.await("chat");
-		assertThat(early.path("text").asString(null)).isEqualTo(title);
+		for (TestClient client : two) {
+			JsonNode early = client.await("chat");
+			assertThat(early.path("name").asString(null)).isEqualTo("Host");
+			assertThat(early.path("text").asString(null)).isEqualTo(title);
+		}
 
 		waitUntilAudible(start);
 		guest.send("pick", "index", 0, "choice", correct == 0 ? 1 : 0);
@@ -437,7 +440,7 @@ class ChoiceSocketTest {
 			assertThat(frameTypes(client)).doesNotContain("correct", "reveal");
 		}
 		assertThat(frames(guest).stream().filter(f -> "chat".equals(f.path("type").asString(null))).count())
-				.as("the host's early line never reached the guest").isEqualTo(1);
+				.as("the host's early line and the guest's own line reached the guest").isEqualTo(2);
 
 		host.send("pick", "index", 0, "choice", correct);
 		for (TestClient client : two) {
