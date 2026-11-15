@@ -8,8 +8,8 @@
 //   .vol, .moodbar) and .main (.stage > .inner, aside.chat). body.lobby-on
 //   only on the lobby. A view switch calls window.scrollTo(0, 0).
 // - The header .moodbar is the only mood picker (one group 분위기): the own
-//   pick, enabled, on the start screen; the room's in the lobby, enabled for
-//   the host, disabled for a guest, whose .ml reads 분위기 (방장이 고름).
+//   pick, enabled, labelled 분위기, on the start screen and in the lobby, for
+//   the host and a guest alike (cycle 137, D-136; it sends nothing).
 // - The reconnect banner is a p.warn, the first child of .stage .inner. The
 //   lobby notice (ABANDONED) and error are p.warn right after .start-row.
 // - Lobby: h1.marquee > span (SKIN.title); .ticket with .tk-main (.tk-tag
@@ -323,16 +323,19 @@ describe('one frame', () => {
     expect(text('header .moodbar .ml')).toBe('분위기')
     for (const b of moodButtons()) expect(b.disabled).toBe(false)
     fireEvent.click(within(moodGroups()[0]).getByRole('button', { name: '네온 시티' }))
-    await waitFor(() => expect(socket.sentOfType('roomTheme')).toEqual([{ type: 'roomTheme', theme: 'neon' }]))
+    expect(pressedMood()).toEqual(['네온 시티'])
+    expect(socket.sentOfType('roomTheme')).toEqual([])
   })
 
-  it('a guest: the header picker is disabled and its label reads 분위기 (방장이 고름)', async () => {
+  it('a guest: the header picker is enabled and its label reads 분위기; a roomTheme frame does not press another', async () => {
     const env = setup()
     const socket = await guestLobby(env)
     expect(moodGroups()).toHaveLength(1)
-    expect(text('header .moodbar .ml')).toBe('분위기 (방장이 고름)')
-    for (const b of moodButtons()) expect(b.disabled).toBe(true)
+    expect(text('header .moodbar .ml')).toBe('분위기')
+    for (const b of moodButtons()) expect(b.disabled).toBe(false)
     deliver(socket, { type: 'roomTheme', theme: 'sakura' })
+    expect(pressedMood()).toEqual(['노을 옥상'])
+    fireEvent.click(within(moodGroups()[0]).getByRole('button', { name: '벚꽃 밤' }))
     expect(pressedMood()).toEqual(['벚꽃 밤'])
   })
 
@@ -398,10 +401,10 @@ describe('lobby markup', () => {
     expect(text('.ticket .tk-tag')).toBe('노을 옥상 · 애니 OP·ED 맞히기')
   })
 
-  it('ko manga from the roomTheme frame: SKIN.manga, and a guest seat reads SKIN.ready', async () => {
+  it('ko manga from the own pick: SKIN.manga, and a guest seat reads SKIN.ready', async () => {
     const env = setup()
-    const socket = await hostLobby(env)
-    deliver(socket, { type: 'roomTheme', theme: 'manga' })
+    await hostLobby(env)
+    fireEvent.click(within(moodGroups()[0]).getByRole('button', { name: '만화 원고' }))
     expectSkin(SKIN.manga)
     expect(text('.seats h2')).toBe('대기실 · 참가자 2 / 8')
     expect(text('.ticket .tk-tag')).toBe('만화 원고 · 애니 OP·ED 맞히기')
@@ -412,8 +415,8 @@ describe('lobby markup', () => {
 
   it('en pixel: the SKIN strings are English and the lobby is in English', async () => {
     const env = setup()
-    const socket = await hostLobby(env)
-    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
+    await hostLobby(env)
+    fireEvent.click(within(moodGroups()[0]).getByRole('button', { name: '8비트 오락실' }))
     chooseLanguage('English')
     expectSkin(SKIN.pixel)
     expect(screen.getByRole('button', { name: en.lobby.leave })).toBeTruthy()

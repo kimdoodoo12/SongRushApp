@@ -285,8 +285,8 @@ function ScoreLists({ score, scoreboard, me }) {
 // start screen, the lobby and the game (cycle 114): header (the logo,
 // .roominfo with the room code and the settings line, the volume, and the
 // .moodbar picker), then .main with the stage and the chat. picker is null
-// (no picker) or { value, onPick, disabled }; a disabled picker is labelled
-// as the host's pick. banner is the reconnecting line, the first child of
+// (no picker) or { value, onPick }, the player's own pick, enabled for
+// everyone (D-136, cycle 137). banner is the reconnecting line, the first child of
 // .stage .inner; footer the page footer, its last. chat is null (no chat
 // aside) or { lines, me, online, onSend }, onSend null without the form.
 // The header's height is measured (cycle 119 review) and set as --hd (px) on
@@ -330,8 +330,8 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
           </div>
           {picker !== null && (
             <div className="moodbar">
-              <span className="ml">{picker.disabled ? t('theme.labelGuest') : t('theme.label')}</span>
-              <ThemePicker value={picker.value} onPick={picker.onPick} disabled={picker.disabled} />
+              <span className="ml">{t('theme.label')}</span>
+              <ThemePicker value={picker.value} onPick={picker.onPick} />
             </div>
           )}
         </header>
@@ -367,7 +367,7 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
 // The game room inside the frame: the stage top, the time bar, the deck
 // with the panel (and a choice room's tiles), and the seats. banner is the
 // reconnecting line and footer the page footer, both from App. A room shows
-// its code and the mood picker (enabled for the host); before joined (room
+// its code and the mood picker (the own pick, for everyone); before joined (room
 // null) neither. choiceGame is App's body.choice-mode flag, for the deck.
 function GameScreen({
   state,
@@ -424,8 +424,6 @@ function GameScreen({
   } = state
   const line = settings === null ? '' : settingsLine(settings, t)
   const me = room === null ? null : room.me
-  const own = players.find((p) => p.name === me)
-  const isHost = own !== undefined && own.host
   const online = players.filter((p) => p.connected !== false).length
   // started stays true through a reveal window (cycle 129), where the skip
   // vote goes on until a held prepare arrives (cycle 130).
@@ -523,7 +521,7 @@ function GameScreen({
     <Frame
       code={room === null ? null : room.code}
       line={line}
-      picker={room === null ? null : { value: theme, onPick: onPickTheme, disabled: !isHost }}
+      picker={room === null ? null : { value: theme, onPick: onPickTheme }}
       volume={volume}
       onVolumeLevel={onVolumeLevel}
       onToggleMute={onToggleMute}

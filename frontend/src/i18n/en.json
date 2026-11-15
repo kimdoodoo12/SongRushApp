@@ -17,7 +17,6 @@
   },
   "theme": {
     "label": "Theme",
-    "labelGuest": "Theme (picked by the host)",
     "sunset": "Sunset Rooftop",
     "rain": "Rainy Night",
     "sakura": "Cherry Blossom Night",

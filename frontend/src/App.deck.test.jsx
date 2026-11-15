@@ -28,8 +28,9 @@
 // - Client-side system lines (.msg.sys, not .correct) in the current
 //   language: 게임을 시작해요 at game start, <n>번째 곡 시작 when song n
 //   becomes audible, 게임 종료 at game over.
-// - On the game screen html[data-mood] is the room theme (sunset until the
-//   roomTheme frame), also while connecting and rejoining: never the own pick.
+// - On the game screen html[data-mood] is the player's own pick (cycle 137,
+//   D-136), also while connecting and rejoining; a roomTheme frame from the
+//   server does not change it. Tests pick a mood with the header picker.
 // Timer rule (cycle 039): real timers and waitFor; Date alone is faked for .tm.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -177,6 +178,13 @@ function q(selector) {
 
 function qa(selector) {
   return Array.from(document.querySelectorAll(selector))
+}
+
+// Picks a mood with the header picker (the player's own pick, cycle 137).
+function pickMood(id) {
+  const buttons = qa('header .moods button')
+  expect(buttons, 'the header mood buttons').toHaveLength(MOOD_IDS.length)
+  fireEvent.click(buttons[MOOD_IDS.indexOf(id)])
 }
 
 function deck() {
@@ -359,11 +367,11 @@ describe('deck classes', () => {
 describe('the disc', () => {
   it('drawPlayer draws the .disc > canvas with the current mood and again on every mood change', async () => {
     const env = setup()
-    const socket = await playing(env)
+    await playing(env)
     await waitFor(() => expect(drewMood('sunset'), 'drawn for sunset').toBe(true))
     for (const id of ['pixel', 'manga', 'neon']) {
       const before = drawSpy.mock.calls.length
-      deliver(socket, { type: 'roomTheme', theme: id })
+      pickMood(id)
       await waitFor(() => expect(drewMood(id), `drawn for ${id}`).toBe(true))
       expect(drawSpy.mock.calls.length).toBeGreaterThan(before)
       const last = drawSpy.mock.calls[drawSpy.mock.calls.length - 1]
@@ -424,7 +432,7 @@ describe('the reveal frame', () => {
   it.each(MOOD_IDS.filter((m) => m !== 'pixel' && m !== 'neon'))('%s: .cap reads the title, with no rarity badge', async (mood) => {
     const env = setup()
     const socket = await playing(env)
-    deliver(socket, { type: 'roomTheme', theme: mood })
+    pickMood(mood)
     deliver(socket, revealMsg({ winner: 'Mina' }))
     await waitFor(() => expect(text('.deck .cover .cap')).toBe(TITLE))
     expect(q('.deck .cap .rar')).toBeNull()
@@ -437,7 +445,7 @@ describe('the reveal frame', () => {
   ])('pixel: .cap after %s reads %s', async (_name, cap, winner) => {
     const env = setup()
     const socket = await playing(env)
-    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
+    pickMood('pixel')
     if (winner !== null) deliver(socket, { type: 'correct', index: 0, name: winner })
     deliver(socket, revealMsg({ winner }))
     await waitFor(() => expect(text('.deck .cover .cap')).toBe(cap))
@@ -446,7 +454,7 @@ describe('the reveal frame', () => {
   it('neon: .cap reads SIGNAL FOUND · CH-0<n> with the song number', async () => {
     const env = setup()
     const socket = await playing(env)
-    deliver(socket, { type: 'roomTheme', theme: 'neon' })
+    pickMood('neon')
     deliver(socket, revealMsg())
     await waitFor(() => expect(text('.deck .cover .cap')).toBe('SIGNAL FOUND · CH-01'))
     deliver(socket, { type: 'prepare', index: 1, total: 5, audioUrl: '/audio/s1' })
@@ -474,7 +482,7 @@ describe('the reveal frame', () => {
   it('the next prepare empties the frame: no img src, empty .noimg and .cap, no title in the deck', async () => {
     const env = setup()
     const socket = await playing(env)
-    deliver(socket, { type: 'roomTheme', theme: 'sakura' })
+    pickMood('sakura')
     deliver(socket, revealMsg({ coverUrl: COVER }))
     loadCover(460, 644)
     await waitFor(() => expect(text('.deck .cover .cap')).toBe(TITLE))
@@ -492,7 +500,7 @@ describe('pixelate', () => {
     stubLayoutAndCanvas()
     const env = setup()
     const socket = await playing(env)
-    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
+    pickMood('pixel')
     deliver(socket, revealMsg({ coverUrl: COVER }))
     loadCover(460, 644)
     await waitFor(() => expect(q('.deck .cover .shot canvas.pix').hidden).toBe(false))
@@ -503,7 +511,7 @@ describe('pixelate', () => {
     const asked = stubLayoutAndCanvas()
     const env = setup()
     const socket = await playing(env)
-    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
+    pickMood('pixel')
     deliver(socket, revealMsg({ coverUrl: COVER }))
     loadCover(460, 644)
     await waitFor(() => expect(deckState().revealed).toBe(true))
@@ -602,16 +610,16 @@ describe('mood on the game screen', () => {
     }
   }
 
-  it('a reload rejoin keeps data-mood the room theme (sunset, then the frame) and never takes the own pick', async () => {
+  it('a reload rejoin keeps data-mood the own pick throughout; a roomTheme frame does not change it', async () => {
     window.localStorage.setItem(OWN_THEME_KEY, 'neon')
     window.sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ token: 'T1', code: 'ABCDE' }))
     document.documentElement.dataset.mood = 'none-yet'
     const record = recordMood()
     const env = setup({ navigationType: 'reload' })
-    expect(document.documentElement.dataset.mood, 'while connecting').toBe('sunset')
+    expect(document.documentElement.dataset.mood, 'while connecting').toBe('neon')
     const socket = await openSocket(env)
     expect(socket.sent[0]).toEqual({ type: 'rejoin', token: 'T1' })
-    expect(document.documentElement.dataset.mood, 'rejoin socket open').toBe('sunset')
+    expect(document.documentElement.dataset.mood, 'rejoin socket open').toBe('neon')
     deliver(socket, { type: 'joined', code: 'ABCDE', name: '하루' })
     const startAt = T0 - 10_000
     deliver(socket, {
@@ -621,19 +629,22 @@ describe('mood on the game screen', () => {
       song: { index: 0, total: 5, audioUrl: '/audio/re', startAt, deadlineAt: startAt + 90_000 },
       scores: [],
     })
-    expect(document.documentElement.dataset.mood, 'after the snapshot').toBe('sunset')
+    expect(document.documentElement.dataset.mood, 'after the snapshot').toBe('neon')
     deliver(socket, { type: 'roomTheme', theme: 'pixel' })
-    expect(document.documentElement.dataset.mood).toBe('pixel')
-    expect(q('.stage-top .tag').textContent).toContain(ko.theme.pixel)
+    expect(document.documentElement.dataset.mood).toBe('neon')
+    expect(q('.stage-top .tag').textContent).toContain(ko.theme.neon)
     const values = record.values()
     record.stop()
-    expect(values, 'data-mood never took the own pick').not.toContain('neon')
+    expect(
+      values.filter((v) => v !== 'none-yet'),
+      'data-mood only ever held the own pick',
+    ).toEqual(values.filter((v) => v !== 'none-yet').map(() => 'neon'))
   })
 
   // Cycle 119 (D-127, declared): a dialog create stays on the start screen
   // (the own pick) until joined; the connecting game screen is reached by a
-  // reload rejoin.
-  it('creating a room: the start screen under the dialog uses the own pick, the joined room sunset', async () => {
+  // reload rejoin. Cycle 137: the joined room keeps the own pick.
+  it('creating a room: the own pick under the dialog and in the joined room', async () => {
     window.localStorage.setItem(OWN_THEME_KEY, 'neon')
     const env = setup()
     expect(document.documentElement.dataset.mood, 'start screen').toBe('neon')
@@ -644,16 +655,16 @@ describe('mood on the game screen', () => {
     act(() => socket.open())
     await waitFor(() => expect(socket.sentOfType('create')).toHaveLength(1))
     deliver(socket, { type: 'joined', code: 'QWERT', name: 'Hana' })
-    expect(document.documentElement.dataset.mood, 'joined').toBe('sunset')
+    expect(document.documentElement.dataset.mood, 'joined').toBe('neon')
   })
 
-  it('a reload rejoin: the connecting game screen is sunset, not the own pick', async () => {
+  it('a reload rejoin: the connecting game screen shows the own pick', async () => {
     window.localStorage.setItem(OWN_THEME_KEY, 'neon')
     window.sessionStorage.setItem(REJOIN_KEY, JSON.stringify({ token: 'T1', code: 'ABCDE' }))
     const env = setup({ navigationType: 'reload' })
     await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
     expect(q('.now .deck'), 'the game screen while connecting').not.toBeNull()
-    expect(document.documentElement.dataset.mood, 'connecting').toBe('sunset')
-    expect(q('.stage-top .tag').textContent).toContain(ko.theme.sunset)
+    expect(document.documentElement.dataset.mood, 'connecting').toBe('neon')
+    expect(q('.stage-top .tag').textContent).toContain(ko.theme.neon)
   })
 })

@@ -460,11 +460,6 @@ function GameApp({
     saveOwnTheme(next)
   }
 
-  // The host's lobby pick; the pressed button follows the server's frame.
-  function handleRoomTheme(id) {
-    if (sessionRef.current !== null) sessionRef.current.setRoomTheme(id)
-  }
-
   function handleCloseFeedback() {
     setFeedbackOpen(false)
     feedbackButtonRef.current?.focus()
@@ -476,17 +471,14 @@ function GameApp({
   }
 
   const inRoom = state.room !== null
-  const roomTheme = themeId(state.roomTheme ?? DEFAULT_THEME)
   // The screen a feedback post reports; over and disconnected count as game.
   const page = state.screen === 'start' || state.screen === 'lobby' ? state.screen : 'game'
-  // The game screen always shows the room theme, sunset until its frame, also
-  // while connecting and rejoining (cycle 111, critic M1 of 110), so it never
-  // flips between the own pick and the room's.
-  const theme = page === 'game' || inRoom ? roomTheme : ownTheme
+  // Each player's own pick on every screen (D-136, cycle 137): the server's
+  // roomTheme frame no longer sets the look.
+  const theme = ownTheme
 
   // The mood is <html data-mood> (D-124): the mockup's stylesheet reads it
-  // there. The own pick outside a room, the room's pick in one and on the
-  // game screen.
+  // there.
   useLayoutEffect(() => {
     document.documentElement.dataset.mood = theme
   }, [theme])
@@ -668,9 +660,9 @@ function GameApp({
         {sky}
         <GameScreen
           state={state}
-          theme={roomTheme}
+          theme={theme}
           choiceGame={choiceGame}
-          onPickTheme={handleRoomTheme}
+          onPickTheme={handleOwnTheme}
           onChat={handleChat}
           onPick={handlePick}
           onSkip={handleSkip}
@@ -693,7 +685,7 @@ function GameApp({
         <Frame
           code={null}
           line=""
-          picker={{ value: ownTheme, onPick: handleOwnTheme, disabled: false }}
+          picker={{ value: theme, onPick: handleOwnTheme }}
           {...volumeProps}
           banner={banner}
           footer={footer}
@@ -739,7 +731,7 @@ function GameApp({
       <Frame
         code={room.code}
         line={line}
-        picker={{ value: roomTheme, onPick: handleRoomTheme, disabled: !isHost }}
+        picker={{ value: theme, onPick: handleOwnTheme }}
         {...volumeProps}
         banner={banner}
         footer={footer}
@@ -750,7 +742,7 @@ function GameApp({
           players={state.players}
           error={state.error}
           notice={state.notice}
-          theme={roomTheme}
+          theme={theme}
           selection={selection}
           lobbySettings={state.lobbySettings}
           onSelectionChange={setSelection}
