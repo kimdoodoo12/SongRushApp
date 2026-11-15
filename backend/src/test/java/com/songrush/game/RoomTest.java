@@ -462,7 +462,7 @@ class RoomTest {
 	// ---- criterion 5 ----
 
 	@Test
-	void chatBeforeStartAtReachesOnlyTheSenderAsPlainChat() {
+	void chatBeforeStartAtIsPlainChatAMatchToItsSenderOnlyAMissToEveryone() {
 		build(FIVE, 0, MINA, JOON);
 		room.start(5);
 		String guess = messyGuess();
@@ -480,7 +480,7 @@ class RoomTest {
 		room.chat(MINA.id(), "not the answer at all");
 		List<Sent> miss = outbox.since(mark);
 		assertThat(miss).hasSize(1);
-		assertThat(miss.get(0).to()).isEqualTo(MINA.id());
+		assertThat(miss.get(0).toAll()).isTrue();
 		assertThat(miss.get(0).message()).containsEntry("type", "chat").containsEntry("name", "Mina")
 				.containsEntry("text", "not the answer at all");
 		assertThat(early.get(0).message().keySet()).isEqualTo(miss.get(0).message().keySet());
@@ -505,7 +505,7 @@ class RoomTest {
 		mark = outbox.mark();
 		room.chat(JOON.id(), "still guessing");
 		assertThat(outbox.since(mark)).hasSize(1);
-		assertThat(outbox.since(mark).get(0).to()).isEqualTo(JOON.id());
+		assertThat(outbox.since(mark).get(0).toAll()).isTrue();
 
 		scheduler.advance(Duration.ofMillis(1));
 		mark = outbox.mark();
