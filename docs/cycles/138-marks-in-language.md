@@ -18,3 +18,9 @@ On an English or Japanese screen, nothing in the reveal of a choice room shows K
 
 ## Out of scope
 - The card's KO/EN/JA/romaji lines (D-095); the pixel and neon captions that are fixed English text.
+
+## Result
+- Implementation and tests: commit `57fd150`, first attempt. `ChoiceGrid.jsx` puts the translated mark in `.tmark`'s `data-mark`; `choice.css` adds `html .tile.wrong .tmark::before, html .tile.correct .tmark::before {content: attr(data-mark)}` (specificity 0,3,2 over room.css's 0,3,1; no mood rule sets that content); new keys `answer.markCorrect` and `answer.markWrong` in ko, en, ja; `GameScreen.jsx` gives the deck the title in the screen's language, then Korean, then the reveal's title. New `App.markLanguage.test.jsx` (10 cases); `choiceCss.test.js` pins the new rule; `App.revealcover.test.jsx`'s English alt now expects the English title.
+- Review, run by the verifier: `npm test` 59 files, 901 tests passed; lint exit 0; build exit 0 (the built CSS keeps the rule); `room.css` unchanged. Criteria 1 to 4 confirmed.
+- Criterion 5, by the lead in Chromium against the local server, four English players in a choice room: after the reveal the tiles' computed marks read `✔ Correct` and `✕ Wrong`, the caption read the English title (`No Game, No Life`); the only Korean on the page was the card's KO line and the language switch's `한국어`.
+- Merged straight to `dev` (D-134). Before capture for issue #66 in `docs/issues/066/`.
