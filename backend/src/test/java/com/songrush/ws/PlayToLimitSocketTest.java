@@ -30,7 +30,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
-// Cycle 126 (B-034, D-129) criterion 12, end to end: with songrush.game.play-to-limit=true a real
+// Cycle 126 (B-034, D-129) criterion 12, end to end: with play-to-limit on (the default since cycle 132) a real
 // server keeps the reveal of a song decided early up until the music ends
 // (docs/cycles/126-reveal-window.md). The data folder is written into a static @TempDir before the
 // context loads: 8 anime (id 1000 + i, theme 5000 + i, its own group) with one cached theme of 30 s
@@ -38,8 +38,11 @@ import tools.jackson.databind.json.JsonMapper;
 // songs last 3 s, where the window is 5 s with the switch on or off.) Wall-clock bounds are loose: the
 // point is "the reveal lasts until the deadline" versus "5 s". The API is described in
 // GamePropertiesBindingTest and RoomPlayToLimitTest.
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		properties = "songrush.game.play-to-limit=true")
+//
+// Cycle 132 (B-037, D-129) criterion 2: play-to-limit is on by default, so this test sets no
+// songrush.game property at all and runs with the default configuration
+// (docs/cycles/132-play-to-limit-on.md).
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class PlayToLimitSocketTest {
 
 	private static final int SONGS = 8;
@@ -148,6 +151,7 @@ class PlayToLimitSocketTest {
 		}
 	}
 
+	// Cycle 132: true with no property set, from the default.
 	@Test
 	void thePropertyBindsTrue() {
 		assertThat(properties.playToLimit()).isTrue();
@@ -187,7 +191,8 @@ class PlayToLimitSocketTest {
 		assertThat(playUntil).as("playUntil is the song's deadline").isEqualTo(deadlineAt);
 		assertThat(playUntil - revealAt).as("at least 15 s of music left").isGreaterThanOrEqualTo(MIN_WINDOW_MS);
 
-		// With the switch off the next prepare would come 5 s after the reveal.
+		// With the default (play-to-limit on) nothing comes for 8 s; with play-to-limit=false the next
+		// prepare would come 5 s after the reveal.
 		client.assertNone(Set.of("prepare", "gameOver"), revealAt + QUIET_MS);
 		assertThat(System.currentTimeMillis()).isGreaterThanOrEqualTo(revealAt + QUIET_MS);
 		client.assertPingWorks();

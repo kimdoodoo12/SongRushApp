@@ -3,9 +3,10 @@
 > **이 문서는 과거 기록입니다 (2026-11-11 표시).**
 > - 여기 적힌 방식은 2026-11-04의 첫 배포입니다: DuckDNS 주소, Caddy, systemd로 jar 실행, `upload.sh`로 PC에서 파일 올리기.
 > - 지금 운영은 다릅니다. 주소는 animeopguessr.com이고, 서버에서 Docker로 게임 서버와 Nginx를 돌리며, 인증서는 certbot으로 받습니다. 이미지는 GitHub 이미지 창고에서 받고, main에 합치면 자동으로 배포됩니다. 음원과 표지는 S3에 있고 CloudFront를 거쳐 내려갑니다.
-> - 현재 서버에서 쓰는 설정값 두 개는 이 문서에 없습니다.
+> - 현재 서버에서 쓰는 설정값 세 개는 이 문서에 없습니다.
 >   - `SONGRUSH_AUDIO_CDNHOST`: CloudFront 주소. 비워 두면 S3에서 직접 받습니다.
 >   - `SONGRUSH_GAME_PREFETCHONREVEAL`: `true`면 정답 공개 중에 다음 곡을 미리 받습니다.
+>   - `SONGRUSH_GAME_PLAYTOLIMIT`: 서버에 따로 넣지 않아도 기본으로 켜져 있어, 정답이 나와도 곡이 시간 제한까지 계속 나옵니다. `false`로 두면 정답 공개가 예전처럼 5초로 돌아갑니다.
 > - 현재 절차로 다시 쓸지는 정해지지 않았습니다.
 
 이 안내서는 개발자가 아닌 분이 혼자서 따라 할 수 있게 썼습니다.

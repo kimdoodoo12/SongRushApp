@@ -80,12 +80,18 @@ export const initialState = {
   scoreboard: null, // the last scores rows { name, score }
   ranking: null, // the gameOver rows { rank, name, score }
   watching: false, // joined mid-song: watching it, playing from the next
-  started: false, // the song is between its start and its reveal
+  started: false, // the song is between its start and its reveal, or the end of its reveal window
+  // A reveal window is open (cycle 129, F-035): the revealed song plays on,
+  // with its clock, until playUntil.
+  windowOpen: false,
   // The local clock has reached the started song's startAt; set by every
   // start and tick, read only together with started (087).
   reached: false,
   skipVoted: false, // the own skip vote in this song: clicks minus tagged refusals, odd
   skipCount: null, // { votes, needed } from skipState for this song
+  // A held prepare arrived in a reveal window (cycle 130): the skip button
+  // is gone although the old music plays on until the hold ends.
+  skipClosed: false,
   // A choice song's { picked, total } from pickState (cycle 123, D-130), or
   // null. start never changes it: it is shown once the song has started.
   pickCount: null,
@@ -126,14 +132,14 @@ function choiceFields(action) {
   }
 }
 
-// The song is audible (D-101, 087): a round is current and not revealed,
-// started, the local clock past its startAt, loaded, and the sound not
-// blocked.
+// The song is audible (D-101, 087): a round is current and not revealed (or
+// in its reveal window, cycle 129), started, the local clock past its
+// startAt, loaded, and the sound not blocked.
 export function isAudible(state) {
   return (
     state.screen === 'game' &&
     state.round !== null &&
-    state.reveal === null &&
+    (state.reveal === null || state.windowOpen) &&
     state.started &&
     state.reached &&
     state.load !== 'loading' &&
@@ -261,8 +267,10 @@ function step(state, action) {
         watching: false,
         waitingNext: false,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
+        skipClosed: false,
         pickCount: null,
         ...choiceFields(action),
       }
@@ -292,11 +300,15 @@ function step(state, action) {
         notice: null,
         watching: false,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
+        skipClosed: false,
         // The snapshot's count (cycle 123), validated by the session.
         pickCount: action.pickCount ?? null,
         ...choiceFields(action),
+        // A song whose answer is already out (cycle 131) gets no song-start line.
+        announced: action.revealed === true && action.round !== null ? action.round.index : state.announced,
       }
       if (action.phase === 'lobby') {
         return {
@@ -335,10 +347,14 @@ function step(state, action) {
         settings: null,
         watching: true,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
+        skipClosed: false,
         pickCount: action.pickCount ?? null,
         ...choiceFields(action),
+        // A song whose answer is already out (cycle 131) gets no song-start line.
+        announced: action.revealed === true && action.round !== null ? action.round.index : state.announced,
       }
     case 'abandoned':
       return {
@@ -352,6 +368,7 @@ function step(state, action) {
         correctNames: [],
         watching: false,
         started: false,
+        windowOpen: false,
         skipVoted: false,
         skipCount: null,
         pickCount: null,
@@ -369,6 +386,10 @@ function step(state, action) {
       return { ...state, picked: null, pickWrong: false, pickLocked: true }
     case 'pickWrong':
       return { ...state, picked: action.choice, pickWrong: true, pickLocked: true }
+    case 'held':
+      // A held prepare in a reveal window (cycle 130): only the skip button
+      // goes; the clock and disc go on through the hold (cycle 129).
+      return { ...state, skipClosed: true }
     case 'ownSkip':
       return { ...state, skipVoted: action.voted }
     case 'skipState':
@@ -454,16 +475,30 @@ function step(state, action) {
         chatSeq: state.chatSeq + 1,
       }
     }
-    case 'reveal':
+    case 'reveal': {
+      // A reveal window (cycle 129) keeps the clock and started until its
+      // windowEnd; any other reveal ends them now.
+      const open = action.window === true
       return {
         ...state,
-        timer: null,
+        timer: open ? state.timer : null,
         reveal: action.reveal,
-        started: false,
+        started: open ? state.started : false,
+        windowOpen: open,
         skipCount: null,
         pickCount: null,
         correctChoice: action.correctChoice ?? null,
       }
+    }
+    case 'windowOpen':
+      // A snapshot's reveal window opens at the first clock estimate (cycle
+      // 131); the card, the count and the own vote stay as they are.
+      if (state.round === null || state.round.index !== action.index || state.reveal === null) return state
+      return { ...state, windowOpen: true }
+    case 'windowEnd':
+      // A late timer of another song never touches the current one.
+      if (!state.windowOpen || state.round === null || state.round.index !== action.index) return state
+      return { ...state, timer: null, started: false, windowOpen: false }
     case 'scores':
       // score is null without an own row.
       return {
@@ -479,6 +514,8 @@ function step(state, action) {
         screen: 'over',
         timer: null,
         started: false,
+        windowOpen: false,
+        skipClosed: false,
         finalScore: action.score,
         ranking: action.ranking,
         settings: null,

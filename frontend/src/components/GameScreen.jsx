@@ -406,9 +406,11 @@ function GameScreen({
     ranking,
     watching,
     started,
+    windowOpen,
     reached,
     skipVoted,
     skipCount,
+    skipClosed,
     pickCount,
     waitingNext,
     replaced,
@@ -425,7 +427,10 @@ function GameScreen({
   const own = players.find((p) => p.name === me)
   const isHost = own !== undefined && own.host
   const online = players.filter((p) => p.connected !== false).length
-  const canSkip = room !== null && screen === 'game' && started && !watching
+  // started stays true through a reveal window (cycle 129), where the skip
+  // vote goes on until a held prepare arrives (cycle 130).
+  const canSkip =
+    room !== null && screen === 'game' && started && !watching && (reveal === null || (windowOpen && !skipClosed))
   const playing = screen === 'game' && started && reveal === null
   // While the song is audible (isAudible) body.playing runs the disc and the
   // logo bars (the mockup's CSS).
