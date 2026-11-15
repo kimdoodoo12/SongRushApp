@@ -375,10 +375,10 @@ describe('language and room theme', () => {
     expect(window.localStorage.getItem(THEME_KEY)).toBe('chalk')
   })
 
-  it('in a room the room theme stays across switches and the names follow the language', async () => {
+  it('in a room the own pick stays across switches and the names follow the language', async () => {
     const env = setup()
     const socket = await hostLobby(env, ko)
-    deliver(socket, { type: 'roomTheme', theme: 'rain' })
+    fireEvent.click(within(picker(ko)).getByRole('button', { name: tr(ko, 'theme.rain') }))
     expect(rootTheme()).toBe('rain')
     expect(pickerNames(ko)).toEqual(['노을 옥상', '비 오는 밤', '벚꽃 밤', '네온 시티', '칠판 교실', '8비트 오락실', '여름 축제', '만화 원고'])
     expect(pressedThemes(ko)).toEqual(['비 오는 밤'])
@@ -402,8 +402,9 @@ describe('language and room theme', () => {
     expect(pickerNames(ja)).toEqual(['夕焼けの屋上', '雨の夜', '夜桜', 'ネオンシティ', '黒板の教室', '8ビットゲーセン', '夏祭り', '漫画原稿'])
     expect(pressedThemes(ja)).toEqual(['雨の夜'])
 
-    // A language switch sends nothing to the server and leaves the own pick.
+    // Nothing goes to the server (cycle 137: the pick is the player's own),
+    // and a language switch leaves the stored pick.
     expect(socket.sentOfType('roomTheme')).toEqual([])
-    expect(window.localStorage.getItem(THEME_KEY)).toBeNull()
+    expect(window.localStorage.getItem(THEME_KEY)).toBe('rain')
   })
 })

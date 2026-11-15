@@ -1226,10 +1226,6 @@ export function startSession({
       send({ type: 'pick', index: round.index, choice })
       dispatch({ type: 'pick', choice })
     },
-    // The host's room-look pick (F-012); the server broadcasts it back.
-    setRoomTheme(theme) {
-      if (active) send({ type: 'roomTheme', theme })
-    },
     // Leaves the room on purpose: the server is told, then the socket closes.
     leave() {
       if (active) send({ type: 'leave' })

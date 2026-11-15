@@ -3,13 +3,15 @@
 // docs/design/108-ui-design-reference.html, #gameView).
 //
 // Contract with the implementer:
-// - The mood is <html data-mood="<id>">: sunset by default, the roomTheme
-//   frame's id in a room. No element carries data-room-theme.
+// - The mood is <html data-mood="<id>">: sunset by default, the player's own
+//   pick in a room too (cycle 137, D-136; a roomTheme frame no longer sets
+//   it). No element carries data-room-theme.
 // - header: .logo (the .eq bars, three <i>, and "SongRush"); .roominfo with
 //   .code (the room code) and .settings (the one settings line);
 //   .hd-right with .vol and .moods. .moods holds the eight mood buttons in
 //   picker order, each with a .sw swatch, its i18n name and aria-pressed;
-//   enabled for the host (a click sends roomTheme), disabled for a guest.
+//   enabled for everyone (cycle 137: a click sets the own pick and sends
+//   nothing).
 // - .main holds a .stage (with .inner) and aside.chat.
 // - .stage-top: .round with .tag (the mood name and tagline) and .num
 //   "index / total"; .clock with today's whole-seconds text, .low at 10 s or
@@ -218,14 +220,16 @@ describe('mood on <html data-mood>', () => {
     expect(q('[data-room-theme]')).toBeNull()
   })
 
-  it('follows the roomTheme frame for each of the eight ids in a room game', async () => {
+  it('follows the own pick for each of the eight ids in a room game; a roomTheme frame does not move it', async () => {
     const env = setup()
     const socket = await guestPlaying(env)
     expect(mood()).toBe('sunset')
     for (const id of MOOD_IDS) {
-      deliver(socket, { type: 'roomTheme', theme: id })
+      fireEvent.click(moodButtons()[MOOD_IDS.indexOf(id)])
       expect(mood(), id).toBe(id)
     }
+    deliver(socket, { type: 'roomTheme', theme: 'neon' })
+    expect(mood()).toBe('manga')
     expect(q('[data-room-theme]')).toBeNull()
   })
 })
@@ -253,7 +257,7 @@ describe('the frame of a room game', () => {
     expect(q('header .hd-right .vol')).not.toBeNull()
   })
 
-  it('the host sees eight enabled .moods buttons with swatches, sunset pressed; a click sends roomTheme', async () => {
+  it('the host sees eight enabled .moods buttons with swatches, sunset pressed; a click presses it and sends nothing', async () => {
     const env = setup()
     const socket = await hostPlaying(env)
     const buttons = moodButtons()
@@ -264,18 +268,18 @@ describe('the frame of a room game', () => {
     }
     expect(buttons.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent.trim())).toEqual([ko.theme.sunset])
     fireEvent.click(buttons[MOOD_IDS.indexOf('chalk')])
-    await waitFor(() => expect(socket.sentOfType('roomTheme')).toEqual([{ type: 'roomTheme', theme: 'chalk' }]))
-    deliver(socket, { type: 'roomTheme', theme: 'chalk' })
+    expect(socket.sentOfType('roomTheme')).toEqual([])
     expect(moodButtons().filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.textContent.trim())).toEqual([ko.theme.chalk])
   })
 
-  it('a guest sees the eight .moods buttons disabled', async () => {
+  it('a guest sees the eight .moods buttons enabled; a click applies the mood and sends nothing', async () => {
     const env = setup()
     const socket = await guestPlaying(env)
     const buttons = moodButtons()
     expect(buttons).toHaveLength(8)
-    for (const b of buttons) expect(b.disabled, b.textContent).toBe(true)
+    for (const b of buttons) expect(b.disabled, b.textContent).toBe(false)
     fireEvent.click(buttons[1])
+    expect(mood()).toBe(MOOD_IDS[1])
     expect(socket.sentOfType('roomTheme')).toEqual([])
   })
 
@@ -284,7 +288,9 @@ describe('the frame of a room game', () => {
     const socket = await guestPlaying(env)
     expect(q('.stage-top .round .num').textContent).toBe('1 / 5')
     expect(q('.stage-top .round .tag').textContent).toContain(ko.theme.sunset)
-    deliver(socket, { type: 'roomTheme', theme: 'neon' })
+    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
+    expect(q('.stage-top .round .tag').textContent).toContain(ko.theme.sunset)
+    fireEvent.click(moodButtons()[MOOD_IDS.indexOf('neon')])
     expect(q('.stage-top .round .tag').textContent).toContain(ko.theme.neon)
   })
 
