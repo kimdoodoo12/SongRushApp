@@ -425,7 +425,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-039** backend: the next song's choice covers at the reveal (from D-133)
   - In a choice room, a song's `reveal` carries `nextChoices`: the next song's choice cover URLs exactly as its `prepare` will carry them (same shuffled order, the same opaque `/cover/` URLs). Nothing else of the next song. Not in a chat room or on the last song (cycle 134 chose a key in `reveal` over a separate frame).
   - Acceptance (JUnit): see docs/cycles/134-next-choices.md.
-- [ ] **F-038** frontend: load the next song's covers in the background (from D-133; after B-039)
+- [~] **F-038** frontend: load the next song's covers in the background (from D-133; after B-039)
   - On a `reveal` with `nextChoices`, the client preloads those cover images off screen (the existing choice preload), and the next `prepare`'s readiness finds them already loaded. Nothing is shown before that `prepare`.
   - Acceptance (Vitest): after `nextChoices` the images are requested and no tile appears; the next `prepare` with the same URLs becomes ready without waiting for new loads; a reveal without `nextChoices` changes nothing. Seen in a browser: in a choice room the next song starts without waiting for covers.
 ## Roadmap
