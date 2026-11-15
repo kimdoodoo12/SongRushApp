@@ -16,8 +16,8 @@ import com.songrush.catalog.Catalog;
 import com.songrush.game.RecordingOutbox.Sent;
 
 // Cycle 086 (D-100): a chat of only punctuation or symbols is a normal chat line that never scores.
-// It follows every visibility rule of a miss: sender only before startAt, in prepare, and for a
-// watcher; to everyone after startAt, in the lobby and after the reveal. Only an empty or
+// It follows every visibility rule of a miss: sender only for a watcher; to everyone before and
+// after startAt, in prepare, in the lobby and after the reveal (D-132, cycle 133). Only an empty or
 // whitespace-only chat is ignored (docs/cycles/086-punct-chat-paused-disc.md).
 class RoomPunctChatTest {
 
@@ -142,34 +142,34 @@ class RoomPunctChatTest {
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 
-	// ---- sender only ----
+	// ---- before the start: to everyone (D-132) ----
 
 	@Test
-	void punctuationOnlyChatsBeforeStartAtReachOnlyTheSender() {
+	void punctuationOnlyChatsBeforeStartAtGoToEveryone() {
 		build(MINA, JOON);
 		playSongZero(MINA, JOON);
 		assertThat(clock.millis()).isLessThan(num(lastStart(), "startAt"));
 
 		for (String text : List.of("?", "...")) {
-			assertOnlyToSender(chat(MINA, text), MINA, text);
+			assertToAll(chat(MINA, text), MINA, text);
 		}
 		long left = num(lastStart(), "startAt") - clock.millis();
 		scheduler.advance(Duration.ofMillis(left - 1));
 		for (String text : List.of("!!", EMOJI)) {
-			assertOnlyToSender(chat(JOON, text), JOON, text);
+			assertToAll(chat(JOON, text), JOON, text);
 		}
 		assertThat(outbox.ofType("correct")).isEmpty();
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}
 
 	@Test
-	void punctuationOnlyChatsInPrepareReachOnlyTheSender() {
+	void punctuationOnlyChatsInPrepareGoToEveryone() {
 		build(MINA, JOON);
 		room.start(5);
 		assertThat(room.phase()).isEqualTo(Room.Phase.PREPARE);
 
 		for (String text : PUNCT) {
-			assertOnlyToSender(chat(MINA, text), MINA, text);
+			assertToAll(chat(MINA, text), MINA, text);
 		}
 		assertThat(outbox.ofType("correct")).isEmpty();
 		assertThat(room.phase()).isEqualTo(Room.Phase.PREPARE);
