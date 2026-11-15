@@ -428,7 +428,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-038** frontend: load the next song's covers in the background (from D-133; after B-039)
   - On a `reveal` with `nextChoices`, the client preloads those cover images off screen (the existing choice preload), and the next `prepare`'s readiness finds them already loaded. Nothing is shown before that `prepare`.
   - Acceptance (Vitest): after `nextChoices` the images are requested and no tile appears; the next `prepare` with the same URLs becomes ready without waiting for new loads; a reveal without `nextChoices` changes nothing. Seen in a browser: in a choice room the next song starts without waiting for covers.
-- [~] **F-039** frontend: each player picks their own mood (from D-136, issue #64)
+- [x] **F-039** frontend: each player picks their own mood (from D-136, issue #64)
   - In a room the screen uses the player's own stored mood, not the room's; the mood picker is enabled for every player and stores the pick locally (`saveOwnTheme`); no `roomTheme` is sent, and a `roomTheme` from the server no longer changes the look. The label reads plainly (no "방장이 고름").
   - Acceptance (Vitest): a guest can pick a mood in the lobby and in a game and it applies to their screen at once; another player's pick changes nothing on this screen; a host's pick sends nothing; a reload keeps the pick; the start screen still uses the same stored pick.
 ## Roadmap
@@ -717,3 +717,4 @@ Decided:
 - (133) From `startAt` on in a ranked room, a player who already answered can type the title and it goes to everyone while others still guess (`Room.java` `match` excludes `rankedIds`, cycle 101 item 3). Ask the owner whether D-132's "only the answer line is hidden" should apply there too.
 - (134) Two comments in `Room.java` (the class header, about :25-27, and the `covers` field, about :98-99) still say a song's cover ids leave only in its `prepare` and the snapshot; add the next song's `nextChoices` in the reveal (D-133).
 - (135) A rejoin snapshot does not clear the cover store (`session.js` `onRejoinSnapshot`); the previous game's loaded covers stay until the next `gameOver`. Harmless and bounded; call `clearCovers()` when the snapshot is not `playing` if wanted.
+- (137) The server still keeps and relays `roomTheme` (Lobby.java, GameSocketHandler.java) and the client still stores it in `state.roomTheme` without using it (D-136). Remove both together.

@@ -17,3 +17,9 @@ Each player picks the room's mood for their own screen; the host no longer sets 
 
 ## Out of scope
 - Removing `roomTheme` from the server; any change to the eight moods themselves.
+
+## Result
+- Implementation and tests: commit `7109593`, first attempt. `App.jsx` uses the own stored pick everywhere (start screen, lobby, game); the room picker saves the own pick; `handleRoomTheme`, `session.setRoomTheme` and the picker's `disabled` were removed; `theme.labelGuest` removed from ko, en, ja. New `App.ownMood.test.jsx` (12 cases, criteria 1 to 5). Existing tests changed from the host pick to the own pick: `App.theme.test.jsx`, `App.room.test.jsx`, `App.lobbyport.test.jsx`, `App.i18n.test.jsx`, `App.deck.test.jsx` (moods set with a picker click instead of a `roomTheme` frame).
+- Review, run by the verifier: `npm test` 58 files, 890 tests passed; lint exit 0; build exit 0. Criteria 1 to 6 confirmed; no CSS edited. Left as planned: the server still relays `roomTheme`, and the client still stores it without using it (follow-up).
+- Merged straight to `dev` (D-134).
+- Before captures for issue #64 are in `docs/issues/064/` (live site, the guest's picker locked under the host's pick).
