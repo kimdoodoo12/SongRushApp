@@ -638,7 +638,8 @@ class RoomChoiceTest {
 	}
 
 	@Test
-	void anExactTitleByChatBeforeStartAtGoesToTheSenderOnly() {
+	void anExactTitleByChatBeforeStartAtGoesToEveryone() {
+		// D-135: in a choice room chat is always shown to everyone; it never scores.
 		build(MINA, JOON);
 		startChoice(DrawFilter.NONE);
 		String title = ChoiceFixture.title(currentAnimeIndex());
@@ -648,7 +649,7 @@ class RoomChoiceTest {
 		int playing = outbox.mark();
 		room.chat(JOON.id(), title);
 		List<Sent> sent = outbox.since(mark).stream().filter(s -> "chat".equals(s.type())).toList();
-		assertThat(sent).extracting(Sent::to).containsExactly(MINA.id(), JOON.id());
+		assertThat(sent).hasSize(2).allMatch(Sent::toAll);
 		assertThat(outbox.since(playing)).hasSize(1);
 		assertThat(outbox.ofType("correct")).isEmpty();
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
@@ -656,7 +657,8 @@ class RoomChoiceTest {
 	}
 
 	@Test
-	void anExactTitleByChatFromAWatcherGoesToTheWatcherOnly() {
+	void anExactTitleByChatFromAWatcherGoesToEveryone() {
+		// D-135: in a choice room a watcher's chat is shown to everyone too.
 		build(MINA, JOON);
 		startChoice(DrawFilter.NONE);
 		String title = ChoiceFixture.title(currentAnimeIndex());
@@ -666,7 +668,7 @@ class RoomChoiceTest {
 		room.chat(HANA.id(), title);
 		List<Sent> sent = outbox.since(mark);
 		assertThat(sent).hasSize(1);
-		assertThat(sent.get(0).to()).isEqualTo(HANA.id());
+		assertThat(sent.get(0).toAll()).isTrue();
 		assertThat(sent.get(0).message()).isEqualTo(msg("chat", "name", "Hana", "text", title));
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
 	}

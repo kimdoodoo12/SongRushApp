@@ -21,7 +21,8 @@ import com.songrush.game.RecordingOutbox.Sent;
 // Cycle 045 (B-006b) criterion 1: multiplayer rounds in the Room on the cycle 036 fakes (fake clock,
 // manual scheduler, seeded Random, recording Outbox, real AudioTokens): the ready rule over
 // connected players, the skip vote, the chat token bucket (capacity 5, 2 per second) and chat before
-// startAt reaching only its sender (docs/cycles/045-multiplayer-rounds.md).
+// startAt: a line matching the answer reaches only its sender, a miss reaches everyone (D-132, cycle
+// 133) (docs/cycles/045-multiplayer-rounds.md).
 class RoomRoundsTest {
 
 	private static final PlayerRef MINA = new PlayerRef("p1", "Mina");
@@ -644,7 +645,7 @@ class RoomRoundsTest {
 	// ---- before startAt ----
 
 	@Test
-	void beforeStartAtAMatchAndAMissReachOnlyTheSenderAndFromStartAtAMissReachesEveryone() {
+	void beforeStartAtAMatchReachesOnlyTheSenderAndAMissReachesEveryoneAsFromStartAt() {
 		build(MINA, JOON);
 		room.start(5);
 		String title = exactTitle();
@@ -654,7 +655,7 @@ class RoomRoundsTest {
 		assertOnlyToSender(outbox.since(mark), MINA, title);
 		mark = outbox.mark();
 		room.chat(MINA.id(), "a miss in prepare");
-		assertOnlyToSender(outbox.since(mark), MINA, "a miss in prepare");
+		assertBroadcastChat(outbox.since(mark), MINA, "a miss in prepare");
 
 		ready(0, MINA, JOON);
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);
@@ -665,7 +666,7 @@ class RoomRoundsTest {
 		assertOnlyToSender(outbox.since(mark), JOON, title);
 		mark = outbox.mark();
 		room.chat(JOON.id(), "a miss before startAt");
-		assertOnlyToSender(outbox.since(mark), JOON, "a miss before startAt");
+		assertBroadcastChat(outbox.since(mark), JOON, "a miss before startAt");
 
 		assertThat(outbox.ofType("correct")).isEmpty();
 		assertThat(room.scores()).containsEntry(MINA.id(), 0).containsEntry(JOON.id(), 0);

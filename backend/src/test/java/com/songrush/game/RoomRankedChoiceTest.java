@@ -525,8 +525,10 @@ class RoomRankedChoiceTest {
 			assertThat(text).as(sent.type()).doesNotContain("correctChoice").doesNotContain("Choice Reveal")
 					.doesNotContain("Choice Song");
 			if (text.contains("Choice Anime")) {
+				// Only Mina's own chat line names an anime; in a choice room it goes to everyone (D-135).
 				assertThat(sent.type()).isEqualTo("chat");
-				assertThat(sent.to()).as("the early title went to its sender only").isEqualTo(MINA.id());
+				assertThat(sent.message()).containsEntry("name", "Mina");
+				assertThat(sent.toAll()).as("chat in a choice room goes to everyone").isTrue();
 			}
 			switch (sent.type()) {
 				case "correct" -> assertThat(sent.message().keySet()).containsExactly("type", "index", "name", "rank");

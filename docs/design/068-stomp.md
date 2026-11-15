@@ -14,7 +14,7 @@ Owner decision D-076: STOMP over WebSocket, using Spring's `@MessageMapping` and
 - One `/ws` endpoint carries JSON frames with a `type` field.
 - Client to server: `ping`, `create`, `join`, `start`, `ready`, `chat`, `skipVote`, `leave` and `rejoin`.
 - Server to client: `pong`, `token`, `error`, `joined`, `snapshot`, `settings`, `roster`, `prepare`, `start`, `chat`, `correct`, `skipState`, `reveal`, `scores` and `gameOver`.
-- Audience: messages go either to one player or to every connected member. The `chat` echo goes to the sender only before `startAt` and for a watcher's guess.
+- Audience: messages go either to one player or to every connected member. Before `startAt`, a `chat` line that matches the answer goes to its sender only, and any other line goes to everyone (D-132); a watcher's guess still goes to its sender only.
 
 **The seam.**
 - The game layer talks only to `Outbox` (`toPlayer`, `toAll`), from one single-thread scheduler per lobby. Everything in `game/` is independent of the transport, and so are its about 240 tests.
