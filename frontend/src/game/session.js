@@ -195,6 +195,11 @@ export function startSession({
   let retryTimer = null
   let attemptTimer = null
   let limitTimer = null
+  // The next song's covers loaded during a reveal (cycle 135, F-038), by
+  // URL: { img, state, waiters }. state is 'loading' (waiters are the
+  // callbacks to run when it settles), 'loaded' or 'failed'. The Image is
+  // kept because /cover/ answers no-store. Cleared when the game ends.
+  const covers = new Map()
 
   // Dropped while the socket is not open: a connecting WebSocket throws.
   function send(message) {
@@ -446,12 +451,24 @@ export function startSession({
   // Loads the round's choice covers before the start (spec 100 A3), so every
   // player can see them from the same moment. A failed image counts as
   // settled: its tile shows the empty placeholder.
+  // A cover loaded during the reveal (cycle 135) does not count; one still
+  // loading counts and settles with that load; a failed one loads again.
   function preloadChoices(r) {
     if (r.choices === null) return
     const current = () => active && round === r && !r.over
     for (const url of r.choices) {
       if (url === null) continue
+      const stored = covers.get(url)
+      if (stored !== undefined && stored.state === 'loaded') continue
       r.imagesLeft += 1
+      if (stored !== undefined && stored.state === 'loading') {
+        stored.waiters.push(() => {
+          if (!current()) return
+          r.imagesLeft -= 1
+          maybeReady(r)
+        })
+        continue
+      }
       const img = new Image()
       let settled = false
       const done = () => {
@@ -467,6 +484,42 @@ export function startSession({
       img.onerror = done
       img.src = url
     }
+  }
+
+  // A reveal's nextChoices (cycle 134): each valid cover not already loaded
+  // or loading starts loading now, never shown, so the next prepare can use
+  // it. A failed one is left to that prepare.
+  function preloadNext(nextChoices) {
+    const urls = choiceUrls(nextChoices)
+    if (urls === null) return
+    for (const url of urls) {
+      if (url === null || covers.has(url)) continue
+      const img = new Image()
+      const entry = { img, state: 'loading', waiters: [] }
+      const settle = (state) => () => {
+        if (entry.state !== 'loading') return
+        entry.state = state
+        img.onload = null
+        img.onerror = null
+        const waiters = entry.waiters
+        entry.waiters = []
+        for (const fn of waiters) fn()
+      }
+      img.onload = settle('loaded')
+      img.onerror = settle('failed')
+      covers.set(url, entry)
+      img.src = url
+    }
+  }
+
+  // The game ended or was left: the stored covers and their waiters go.
+  function clearCovers() {
+    for (const entry of covers.values()) {
+      entry.img.onload = null
+      entry.img.onerror = null
+      entry.waiters = []
+    }
+    covers.clear()
   }
 
   // Loads the round's audio and its choice images; ready follows maybeReady.
@@ -649,6 +702,7 @@ export function startSession({
     // Without a startAt nothing can play from the right point.
     if (r.lateStart === null) r.over = true
     dispatch(revealAction(reveal, r.choices, false))
+    preloadNext(reveal.nextChoices)
     if (
       skipState !== null &&
       typeof skipState === 'object' &&
@@ -790,6 +844,7 @@ export function startSession({
     clearHold()
     dropRound()
     stopPrev()
+    clearCovers()
     dispatch({ type: 'abandoned' })
   }
 
@@ -846,6 +901,7 @@ export function startSession({
       r.windowTimer = setTimeout(() => endWindow(r), windowEnd - now())
     }
     dispatch(revealAction(msg, choices, windowEnd !== null))
+    preloadNext(msg.nextChoices)
     // In a window the skip vote goes on (cycle 130): the server cleared the
     // votes cast before the reveal, so the own vote starts as not voted.
     if (windowEnd !== null) {
@@ -889,6 +945,7 @@ export function startSession({
         // A reveal window, current or held over, ends with the game.
         stopPrev()
         if (round !== null) retire(round)
+        clearCovers()
         inGame = false
         ownPick = null
         dispatch({
@@ -990,6 +1047,7 @@ export function startSession({
     stopSource()
     if (round !== null) clearWindow(round)
     stopPrev()
+    clearCovers()
   }
 
   // Closing on purpose: handlers are cleared first, so the old socket's

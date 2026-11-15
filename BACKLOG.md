@@ -425,7 +425,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-039** backend: the next song's choice covers at the reveal (from D-133)
   - In a choice room, a song's `reveal` carries `nextChoices`: the next song's choice cover URLs exactly as its `prepare` will carry them (same shuffled order, the same opaque `/cover/` URLs). Nothing else of the next song. Not in a chat room or on the last song (cycle 134 chose a key in `reveal` over a separate frame).
   - Acceptance (JUnit): see docs/cycles/134-next-choices.md.
-- [ ] **F-038** frontend: load the next song's covers in the background (from D-133; after B-039)
+- [x] **F-038** frontend: load the next song's covers in the background (from D-133; after B-039)
   - On a `reveal` with `nextChoices`, the client preloads those cover images off screen (the existing choice preload), and the next `prepare`'s readiness finds them already loaded. Nothing is shown before that `prepare`.
   - Acceptance (Vitest): after `nextChoices` the images are requested and no tile appears; the next `prepare` with the same URLs becomes ready without waiting for new loads; a reveal without `nextChoices` changes nothing. Seen in a browser: in a choice room the next song starts without waiting for covers.
 ## Roadmap
@@ -710,3 +710,4 @@ Decided:
 - (131) No test pins that a snapshot reveal dropped before the first clock estimate (a held `prepare`, `gameOver`, another snapshot) starts nothing; the code does (`lateStart` returns for a round without `lateStart` or `over`). Add one in a later cycle.
 - (133) From `startAt` on in a ranked room, a player who already answered can type the title and it goes to everyone while others still guess (`Room.java` `match` excludes `rankedIds`, cycle 101 item 3). Ask the owner whether D-132's "only the answer line is hidden" should apply there too.
 - (134) Two comments in `Room.java` (the class header, about :25-27, and the `covers` field, about :98-99) still say a song's cover ids leave only in its `prepare` and the snapshot; add the next song's `nextChoices` in the reveal (D-133).
+- (135) A rejoin snapshot does not clear the cover store (`session.js` `onRejoinSnapshot`); the previous game's loaded covers stay until the next `gameOver`. Harmless and bounded; call `clearCovers()` when the snapshot is not `playing` if wanted.
