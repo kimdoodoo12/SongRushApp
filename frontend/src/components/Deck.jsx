@@ -127,7 +127,8 @@ function Caption({ mood, title, outcome, number }) {
 
 // idle: no song is current (before the first song, after a game).
 // revealed: the reveal is showing; reveal is the reveal frame whose cover
-// fills the frame (null: the frame is empty). title is its Korean title,
+// fills the frame (null: the frame is empty). title is its title in the
+// screen's language (the caller's fallback is the Korean one, cycle 138),
 // outcome 'me', 'other' or 'none' (who solved it), number the song number.
 // choice is App's choiceGame (body.choice-mode); #viz is re-measured on it.
 export default function Deck({ idle, revealed, reveal, title, outcome, number, missed, mood, choice = false }) {

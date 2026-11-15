@@ -7,7 +7,7 @@ import Deck from './Deck.jsx'
 import Seats from './Seats.jsx'
 import ThemePicker from './ThemePicker.jsx'
 import VolumeControl from './VolumeControl.jsx'
-import { Trans, messageText, useTranslation } from '../i18n/index.js'
+import { Trans, currentLanguage, messageText, useTranslation } from '../i18n/index.js'
 
 // The mark before a system line in the chat log.
 const CHECK = String.fromCharCode(0x2714)
@@ -449,14 +449,16 @@ function GameScreen({
   const last = round !== null && round.index + 1 >= round.total
   // The deck (the mockup's startRound, reveal and finish): idle before the
   // first song and after a game, revealed from the reveal to the next
-  // prepare. Its frame shows the reveal's cover and Korean title; the stamp
-  // reads 통과 when nobody solved the song.
+  // prepare. Its frame shows the reveal's cover and its title in the screen's
+  // language, else the Korean one (cycle 138); the stamp reads 통과 when
+  // nobody solved the song.
   const deckIdle = !(screen === 'game' && (round !== null || reveal !== null))
   const solvers = solversOf(reveal)
   const missed = reveal !== null && solvers.length === 0
   let outcome = 'none'
   if (solvers.length > 0) outcome = me !== null && solvers.includes(me) ? 'me' : 'other'
-  const coverTitle = reveal === null ? null : (lineTitle(reveal, 'ko') ?? reveal.title)
+  const coverTitle =
+    reveal === null ? null : (lineTitle(reveal, currentLanguage()) ?? lineTitle(reveal, 'ko') ?? reveal.title)
 
   useEffect(() => {
     document.body.classList.toggle('playing', audible)

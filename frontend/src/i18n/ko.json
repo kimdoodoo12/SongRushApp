@@ -67,7 +67,9 @@
     "choice": "객관식",
     "choiceN": "보기 {{n}}",
     "hintChat": "채팅으로 애니 제목을 맞혀요",
-    "hintChoice": "표지 {{k}}장 중에서 골라요 (난이도에 따라 4·6·8장)"
+    "hintChoice": "표지 {{k}}장 중에서 골라요 (난이도에 따라 4·6·8장)",
+    "markCorrect": "✔ 정답",
+    "markWrong": "✕ 오답"
   },
   "mode": {
     "label": "게임 모드",
