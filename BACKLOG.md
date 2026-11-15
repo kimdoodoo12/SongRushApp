@@ -419,7 +419,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - The default of `songrush.game.play-to-limit` becomes on. `CLAUDE.md` "Product decisions" states the new rule (D-129). The deploy guide lists the variable.
   - Acceptance: a socket test with the default configuration plays a song that is decided early and receives `reveal` with `playUntil` in the future; the binding test covers the new default.
 
-- [~] **B-038** backend: chat before the song starts is broadcast (from D-132)
+- [x] **B-038** backend: chat before the song starts is broadcast (from D-132)
   - In `Room.chat`, a line from a Room player in `PREPARE` or before `startAt` goes to everyone, unless it matches the song's accepted titles (normalized, as the answer check); a matching line goes to its sender only and never scores (as D-120). Chat and choice rooms alike (in a choice room chat never scores either way). Watchers keep today's rule.
   - Acceptance (JUnit): two players; in `PREPARE` and in `PLAYING` before `startAt`, a non-matching line reaches both, a matching line only its sender and no `correct`; after `startAt` today's behaviour; the existing tests that pin sender-only early chat are revised as declared changes. Seen in a browser with two players: a line typed while the next song loads shows on both screens.
 ## Roadmap
@@ -701,3 +701,4 @@ Decided:
 - (129) In a window the reveal card still reads "잠시 후 다음 곡이 시작돼요" while up to 85 s of music remain. Wording for the owner once the switch is on.
 - (130) A skip vote sent within about one round trip before the deciding answer reaches the server after the reveal's reset (`Room.java` `endSong` clears `votes`, `skip` accepts it in the window) and counts; the client reset its own vote at the reveal (`session.js` `onReveal`), so its button shows "not voted" for a counted vote and the next click removes it while showing "voted". Fix: tag the vote with the phase it was cast in (for example `skipVote{index, window: true}`) and have the server ignore an untagged vote in `REVEAL`. No test pins that the next song's button returns after a held hold ends (the code clears `skipClosed` on `prepare`).
 - (131) No test pins that a snapshot reveal dropped before the first clock estimate (a held `prepare`, `gameOver`, another snapshot) starts nothing; the code does (`lateStart` returns for a round without `lateStart` or `over`). Add one in a later cycle.
+- (133) From `startAt` on in a ranked room, a player who already answered can type the title and it goes to everyone while others still guess (`Room.java` `match` excludes `rankedIds`, cycle 101 item 3). Ask the owner whether D-132's "only the answer line is hidden" should apply there too.
