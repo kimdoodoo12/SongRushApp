@@ -18,3 +18,8 @@ In a choice room, chat is ordinary chat at every moment: no line is hidden from 
 
 ## Out of scope
 - Chat rooms; the client (it shows whatever chat arrives).
+
+## Result
+- Implementation and tests: commit `ebb5b42`, first attempt. `Room.chat`: in a choice room, after the flood limit and the deadline check, every line goes to everyone and returns; chat rooms take the old path. CLAUDE.md's answer format bullet says so (D-135). New `RoomChoiceChatTest` (4 cases, criteria 1 to 3). Existing tests changed, choice-room assertions only: `RoomChoiceTest.anExactTitleByChatBeforeStartAtGoesToEveryone` and `anExactTitleByChatFromAWatcherGoesToEveryone` (renamed), `RoomEarlyChatTest.inAChoiceRoomBeforeTheStartAMissAndAMatchBothReachEveryone` (renamed), `RoomRankedChoiceTest.nothingBeforeTheRevealMarksTheCorrectChoiceOrNamesTheSong` (the early title now to everyone), `ChoiceSocketTest.anExactTitleByChatInAChoiceRoomNeverScores` (both clients get the line).
+- Review, run by the verifier with `--rerun-tasks`: 1298 tests, 0 failures, 0 errors, 1 skipped. Criteria 1 to 5 confirmed; chat rooms keep D-132, D-120 and the watcher rule; a choice-room line after the deadline still ends the song first.
+- Merged straight to `dev` (D-134).
