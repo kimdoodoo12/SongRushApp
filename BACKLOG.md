@@ -422,7 +422,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-038** backend: chat before the song starts is broadcast (from D-132)
   - In `Room.chat`, a line from a Room player in `PREPARE` or before `startAt` goes to everyone, unless it matches the song's accepted titles (normalized, as the answer check); a matching line goes to its sender only and never scores (as D-120). Chat and choice rooms alike (in a choice room chat never scores either way). Watchers keep today's rule.
   - Acceptance (JUnit): two players; in `PREPARE` and in `PLAYING` before `startAt`, a non-matching line reaches both, a matching line only its sender and no `correct`; after `startAt` today's behaviour; the existing tests that pin sender-only early chat are revised as declared changes. Seen in a browser with two players: a line typed while the next song loads shows on both screens.
-- [~] **B-039** backend: the next song's choice covers at the reveal (from D-133)
+- [x] **B-039** backend: the next song's choice covers at the reveal (from D-133)
   - In a choice room, a song's `reveal` carries `nextChoices`: the next song's choice cover URLs exactly as its `prepare` will carry them (same shuffled order, the same opaque `/cover/` URLs). Nothing else of the next song. Not in a chat room or on the last song (cycle 134 chose a key in `reveal` over a separate frame).
   - Acceptance (JUnit): see docs/cycles/134-next-choices.md.
 - [ ] **F-038** frontend: load the next song's covers in the background (from D-133; after B-039)
