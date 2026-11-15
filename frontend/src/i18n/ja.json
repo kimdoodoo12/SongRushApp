@@ -17,7 +17,6 @@
   },
   "theme": {
     "label": "テーマ",
-    "labelGuest": "テーマ（ホストが選択）",
     "sunset": "夕焼けの屋上",
     "rain": "雨の夜",
     "sakura": "夜桜",

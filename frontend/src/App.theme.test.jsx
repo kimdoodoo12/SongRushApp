@@ -10,6 +10,9 @@
 // Cycle 114 (D-124, declared): the picker is the header's .moodbar on the
 // start screen and in the lobby too, the only 분위기 group on the page; its
 // .ml label reads 분위기 (방장이 고름) for a guest. The behaviour is kept.
+// Cycle 137 (D-136): each player's own pick applies in a room too; the
+// picker is enabled for everyone, sends nothing, and a roomTheme frame no
+// longer changes the look.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
@@ -205,7 +208,9 @@ describe('start screen picker', () => {
 })
 
 describe('lobby picker', () => {
-  it('the host clicking 네온 시티 sends exactly roomTheme neon; pressed changes only on the server frame', async () => {
+  // Cycle 137 (D-136): the lobby picker is the player's own pick, enabled for
+  // the host and the guest alike; it sends nothing and stores the pick.
+  it('the host clicking 네온 시티 applies and stores neon at once and sends no roomTheme', async () => {
     const env = setup()
     const socket = await hostLobby(env)
     expect(rootTheme()).toBe('sunset')
@@ -214,79 +219,74 @@ describe('lobby picker', () => {
     for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(false)
 
     fireEvent.click(themeButton('네온 시티'))
-    await waitFor(() => expect(socket.sentOfType('roomTheme')).toHaveLength(1))
-    expect(socket.sentOfType('roomTheme')).toEqual([{ type: 'roomTheme', theme: 'neon' }])
-    expect(Object.keys(socket.sentOfType('roomTheme')[0]).sort()).toEqual(['theme', 'type'])
-    // Not yet confirmed by the server.
-    expect(pressedNames()).toEqual(['노을 옥상'])
-    expect(rootTheme()).toBe('sunset')
-
-    deliver(socket, { type: 'roomTheme', theme: 'neon' })
     expect(pressedNames()).toEqual(['네온 시티'])
     expect(rootTheme()).toBe('neon')
-    // The host's lobby pick never touches the own pick.
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull()
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe('neon')
+    expect(socket.sentOfType('roomTheme')).toEqual([])
   })
 
-  it('a non-host sees every button disabled under 분위기 (방장이 고름); a server pixel frame applies and presses 8비트 오락실', async () => {
+  it('a non-host sees every button enabled under 분위기; a click applies it, a server pixel frame does not', async () => {
     const env = setup()
     const socket = await guestLobby(env)
-    expect(pickerLabel()).toBe('분위기 (방장이 고름)')
-    for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(true)
+    expect(pickerLabel()).toBe('분위기')
+    for (const name of THEME_NAMES) expect(themeButton(name).disabled).toBe(false)
     expect(pressedNames()).toEqual(['노을 옥상'])
 
     fireEvent.click(themeButton('비 오는 밤'))
+    expect(rootTheme()).toBe('rain')
+    expect(pressedNames()).toEqual(['비 오는 밤'])
     expect(socket.sentOfType('roomTheme')).toEqual([])
 
     deliver(socket, { type: 'roomTheme', theme: 'pixel' })
-    expect(rootTheme()).toBe('pixel')
-    expect(pressedNames()).toEqual(['8비트 오락실'])
+    expect(rootTheme()).toBe('rain')
+    expect(pressedNames()).toEqual(['비 오는 밤'])
   })
 
-  it('a roomTheme frame sets <html data-mood> for each of the eight ids', async () => {
+  it('the picker sets <html data-mood> for each of the eight ids in the lobby', async () => {
     const env = setup()
-    const socket = await guestLobby(env)
+    await guestLobby(env)
     for (const id of THEME_IDS) {
-      deliver(socket, { type: 'roomTheme', theme: id })
+      fireEvent.click(themeButton(NAME_OF[id]))
       expect(document.documentElement.dataset.mood, id).toBe(id)
       expect(pressedNames(), id).toEqual([NAME_OF[id]])
     }
   })
 })
 
-describe('room theme over the own pick', () => {
-  it('a room shows sunset before any frame and the room theme after, whatever the own pick', async () => {
+describe('the own pick in a room', () => {
+  it('a room keeps the own pick, whatever roomTheme frame arrives', async () => {
     window.localStorage.setItem(STORAGE_KEY, 'sakura')
     const env = setup()
     expect(rootTheme()).toBe('sakura')
     const socket = await guestLobby(env)
-    expect(rootTheme()).toBe('sunset')
+    expect(rootTheme()).toBe('sakura')
     deliver(socket, { type: 'roomTheme', theme: 'rain' })
-    expect(rootTheme()).toBe('rain')
+    expect(rootTheme()).toBe('sakura')
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe('sakura')
   })
 
-  it('leaving the room shows the own pick again', async () => {
+  it('a pick in the room stays after leaving it', async () => {
     const env = setup()
     fireEvent.click(themeButton('칠판 교실'))
     expect(rootTheme()).toBe('chalk')
-    const socket = await guestLobby(env)
-    expect(rootTheme()).toBe('sunset')
-    deliver(socket, { type: 'roomTheme', theme: 'rain' })
+    await guestLobby(env)
+    expect(rootTheme()).toBe('chalk')
+    fireEvent.click(themeButton('비 오는 밤'))
     expect(rootTheme()).toBe('rain')
 
     fireEvent.click(screen.getByRole('button', { name: '나가기' }))
     expect(screen.getByRole('button', { name: '방 만들기' })).toBeTruthy()
-    expect(rootTheme()).toBe('chalk')
-    expect(pressedNames()).toEqual(['칠판 교실'])
+    expect(rootTheme()).toBe('rain')
+    expect(pressedNames()).toEqual(['비 오는 밤'])
   })
 })
 
 describe('room game stage', () => {
-  it('after start the stage shows the hint and a clock in whole seconds, under the room theme', async () => {
+  it('after start the stage shows the hint and a clock in whole seconds, under the own pick', async () => {
+    window.localStorage.setItem(STORAGE_KEY, 'neon')
     const env = setup()
     const socket = await guestLobby(env)
-    deliver(socket, { type: 'roomTheme', theme: 'neon' })
+    deliver(socket, { type: 'roomTheme', theme: 'pixel' })
     deliver(socket, roster([player('Mina', { host: true }), player('Hana (2)'), player('Joon')], 'playing'))
     deliver(socket, { type: 'prepare', index: 0, total: 5, audioUrl: '/audio/abc' })
     await waitFor(() => expect(socket.sentOfType('ready').filter((m) => m.index === 0)).toHaveLength(1))
