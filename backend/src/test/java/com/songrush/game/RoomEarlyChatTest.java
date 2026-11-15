@@ -212,21 +212,21 @@ class RoomEarlyChatTest {
 		assertThat(room.phase()).isEqualTo(Room.Phase.REVEAL);
 	}
 
-	// ---- criterion 4: choice room ----
+	// ---- criterion 4: choice room (since D-135 every line reaches everyone; RoomChoiceChatTest) ----
 
 	@Test
-	void inAChoiceRoomBeforeTheStartAMissReachesEveryoneAndAMatchOnlyItsSender() {
+	void inAChoiceRoomBeforeTheStartAMissAndAMatchBothReachEveryone() {
 		build(MINA, JOON);
 		room.start(5, DrawFilter.NONE, AnswerMode.CHOICE);
 		assertThat(room.phase()).isEqualTo(Room.Phase.PREPARE);
 		String title = title();
 
 		assertToAll(chat(MINA, MISS), MINA, MISS);
-		assertOnlyToSender(chat(MINA, title), MINA, title);
+		assertToAll(chat(MINA, title), MINA, title);
 
 		toJustBeforeStartAt(0);
 		assertToAll(chat(JOON, "which cover"), JOON, "which cover");
-		assertOnlyToSender(chat(JOON, title), JOON, title);
+		assertToAll(chat(JOON, title), JOON, title);
 
 		assertNothingScored();
 		assertThat(room.phase()).isEqualTo(Room.Phase.PLAYING);

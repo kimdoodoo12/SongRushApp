@@ -738,6 +738,12 @@ public final class Room {
 			endSong(null, false);
 		}
 		Map<String, Object> chat = message("chat", "name", player.name(), "text", text);
+		if (answerMode == AnswerMode.CHOICE) {
+			// In a choice room chat never scores, so it is ordinary chat at every moment, watchers included
+			// (D-135): no line is hidden for matching a title, so nothing can be read off what others see.
+			outbox.toAll(chat);
+			return;
+		}
 		// While revealing (early mode) chat is as in REVEAL: broadcast, never answer-checked, also when
 		// the endSong just above started the reveal (cycle 107 item 3, review M2). One exception (D-120):
 		// in a reveal already running when the chat arrived, the next song's audio is reachable, so a line
@@ -763,16 +769,15 @@ public final class Room {
 			return;
 		}
 		Song song = songs.get(songIndex);
-		// In a choice game chat never scores (cycle 100 O4): every line takes the wrong-guess path below.
 		// In a ranked game a player who already answered this song is never answer-checked: their
 		// lines are ordinary chat, spoilers included (cycle 101 item 3).
-		boolean match = answerMode != AnswerMode.CHOICE && !normalized.isEmpty()
+		boolean match = !normalized.isEmpty()
 				&& !(gameMode == GameMode.RANKED && rankedIds.contains(playerId))
 				&& catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
 			// Too early to score (D-132): a line matching the accepted titles goes to its sender only and
 			// never scores; any other line is broadcast as ordinary chat. Checked on its own, not via match,
-			// so a ranked player who already answered and a choice room are covered too.
+			// so a ranked player who already answered is covered too.
 			boolean early = !normalized.isEmpty()
 					&& catalog.accepted(song.anime().group()).contains(normalized);
 			if (early) {
