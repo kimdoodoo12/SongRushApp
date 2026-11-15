@@ -44,3 +44,10 @@ One round. No Blocker; one High, one Medium, one Nit, all taken.
 - Medium: the design states the accepted property (a cover that was an earlier answer marks a wrong choice) and that only lead time is added.
 - Nit: criterion 6 names `assertRevealOff` and how the helpers know a next song exists. The redundant copy when `prepare` follows in the same turn is kept on purpose (one rule).
 - Checked by the critic: the list equals the later `prepare`'s (drawn once at the start); a skip, a resume or the early prepare send the same list; watchers promoted at `prepare` are as today.
+
+## Result
+- Tests first: commit `527cb3d`. `RoomNextChoicesTest` (new, 35 cases) and the declared helper change in `RoomPlayToLimitTest` (`revealKeysOf`, used by `assertRevealOn` and `assertRevealOff`). Red, run by the lead: 47 failures in the two classes, every one naming the missing `nextChoices` key.
+- Implementation: commit `a1a0170`, first attempt: `nextChoices` put in the reveal map in the choice branch, before the snapshot copy (+4); CLAUDE.md's A9 sentence names it.
+- Green, run by the verifier with `--rerun-tasks`: 1294 tests, 0 failures, 0 errors, 1 skipped. The locked tests are unchanged since `527cb3d`; against `dev` only the new test and the helper changed. Criteria 1 to 7 confirmed.
+- Review of the diff: no Blocker, High or Medium. Checked: `choices` has one entry per song for the whole game, so the index is safe; `prepare` and the reveal send the same list; the client ignores the unknown key until F-038. One Nit to Follow-ups: two comments in `Room.java` (the class header and the `covers` field) still say cover ids leave only in `prepare` and the snapshot.
+- No client change yet: F-038 makes the client use the key.
