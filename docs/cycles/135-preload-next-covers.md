@@ -43,3 +43,11 @@ One round. No Blocker; two High and two Medium, all taken.
 - Medium: eviction inside a game was not asked for and could drop a pending callback; dropped (clearing at the game's end bounds the store).
 - Medium: a cover that failed during the reveal now gets one more try at the `prepare` (criterion 4) instead of being final.
 - Checked by the critic: `nextChoices` has the shape `choiceUrls` expects; a held `prepare` loads at once and uses the store; nothing reaches the screen early; the existing image stubs can drive every criterion.
+
+## Result
+- Tests first: commit `970af79`. `App.nextCovers.test.jsx` (new, 18 cases). Red, run by the lead: 878 tests, 11 failed, all in the new file, each an assertion that the next covers were not requested.
+- Implementation: commit `f679ca9`, first attempt (`session.js` +58): a session cover store that keeps the `Image` objects, `preloadNext` from `onReveal` and `showSnapshotReveal`, `preloadChoices` reusing loaded and loading entries, the store cleared at `gameOver`, `abandon` and shutdown.
+- Green, run by the verifier: `npm test` 57 files, 878 tests passed; lint exit 0; build exit 0. The locked test is unchanged since `970af79`. Criteria 1 to 7 confirmed.
+- Review of the diff: no Blocker, High or Medium. One Nit to Follow-ups: a rejoin snapshot does not clear the store (harmless, bounded).
+- Criterion 8, by the lead in Chromium against the local server (production settings, 60 placeholder songs of distinct series, 108 placeholder covers served from disk), four players in a choice room: the reveal frame carried 6 `nextChoices`; at the frame's arrival (16.3 s) the 5 covers not already loaded were requested; song 2 showed those 6 covers with each requested once in the whole run, and played about 3 s after song 1's music ended. A first run with 16 placeholder songs could not show it: their next covers were the same as the current ones.
+- Merged straight to `dev` without a PR or CI, under the owner's new process (D-134, same day).
