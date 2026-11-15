@@ -16,6 +16,8 @@
 // - with a kept coverUrl the frame's img has that src, no loading attribute,
 //   and alt reveal.coverAlt with the Korean title: "<title> 표지" (ko),
 //   "<title> cover" (en), "<title> 表紙" (ja);
+//   cycle 138 (issue #66): the title is the one in the screen's language,
+//   else the Korean one (en reads the frame's English title, ja has none);
 // - with null, a refused URL, or after the img fires error, .shot is
 //   .missing and .noimg shows the Korean title; no img has a src then;
 // - the frame keeps its size (D-109 intent): .shot is there in every case,
@@ -229,9 +231,9 @@ describe('cover in the deck frame', () => {
 
   it.each([
     ['ko', ko, '한국어', '진격의 거인 표지'],
-    ['en', en, 'English', '진격의 거인 cover'],
+    ['en', en, 'English', 'Attack on Titan cover'],
     ['ja', ja, '日本語', '진격의 거인 表紙'],
-  ])('%s: the frame img alt is reveal.coverAlt with the Korean title', async (_lang, dict, label, alt) => {
+  ])('%s: the frame img alt is reveal.coverAlt with the title in the language, else the Korean one', async (_lang, dict, label, alt) => {
     const env = setup()
     chooseLanguage(label)
     const socket = await songStartedIn(env, dict)

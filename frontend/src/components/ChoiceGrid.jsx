@@ -29,10 +29,19 @@ function tileState(position, { revealed, picked, pickWrong, correctChoice, enabl
   return { mark: null, disabled: !enabled }
 }
 
+// The text of a tile's .tmark in the screen's language (cycle 138): room.css
+// hard-codes the Korean marks, so choice.css shows data-mark instead.
+// Empty for a tile with no correct or wrong mark.
+function markText(t, mark) {
+  if (mark === 'correct') return t('answer.markCorrect')
+  if (mark === 'wrong') return t('answer.markWrong')
+  return ''
+}
+
 // The cover tiles of a choice room's song (cycle 100, D-111) in the mockup's
 // markup (cycle 112, D-124): div.choices.k<k>, each button.tile holding
-// .tframe, the number badge .tno and the .tmark (its text comes from
-// room.css). Shown from prepare to the next prepare. enabled is the caller's
+// .tframe, the number badge .tno and the .tmark (its text is data-mark, shown
+// by choice.css over room.css's Korean text). Shown from prepare to the next prepare. enabled is the caller's
 // rule (audible, not watching, no pick, no answer yet); revealed is the
 // reveal; onPick gets the 0-based position. Before the reveal nothing marks
 // the correct tile (A9).
@@ -54,7 +63,7 @@ export default function ChoiceGrid({ choices, revealed, picked, pickWrong, corre
           >
             <ChoiceCover key={url ?? 'none'} url={url} />
             <span className="tno">{i + 1}</span>
-            <span className="tmark" />
+            <span className="tmark" data-mark={markText(t, mark)} />
           </button>
         )
       })}
