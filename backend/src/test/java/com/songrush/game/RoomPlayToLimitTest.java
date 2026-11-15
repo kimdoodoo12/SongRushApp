@@ -398,15 +398,24 @@ class RoomPlayToLimitTest {
 		return keys;
 	}
 
+	// Cycle 134 (D-133): a choice room's reveal of a song with a next song also carries nextChoices.
+	private List<String> revealKeysOf(Map<String, Object> reveal, boolean withPlayUntil) {
+		List<String> keys = revealKeys(withPlayUntil);
+		if (answer == AnswerMode.CHOICE && num(reveal, "index") + 1 < SONGS) {
+			keys.add("nextChoices");
+		}
+		return keys;
+	}
+
 	private void assertRevealOn(Map<String, Object> reveal, long playUntil) {
 		assertThat(reveal.keySet()).as("reveal keys: today's and playUntil")
-				.containsExactlyInAnyOrderElementsOf(revealKeys(true));
+				.containsExactlyInAnyOrderElementsOf(revealKeysOf(reveal, true));
 		assertThat(num(reveal, "playUntil")).as("playUntil").isEqualTo(playUntil);
 	}
 
 	private void assertRevealOff(Map<String, Object> reveal) {
 		assertThat(reveal.keySet()).as("reveal keys: no playUntil with the switch off")
-				.containsExactlyInAnyOrderElementsOf(revealKeys(false));
+				.containsExactlyInAnyOrderElementsOf(revealKeysOf(reveal, false));
 	}
 
 	private List<String> prepareKeys(boolean held) {

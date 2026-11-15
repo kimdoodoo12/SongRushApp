@@ -1010,6 +1010,10 @@ public final class Room {
 				covers.idFor(song.anime().id()).map(id -> "/cover/" + id).orElse(null));
 		if (answerMode == AnswerMode.CHOICE) {
 			reveal.put("correctChoice", choices.get(songIndex).correct());
+			// The next song's covers, as its prepare will carry them, so the client can load them during the reveal (D-133).
+			if (songIndex + 1 < songs.size()) {
+				reveal.put("nextChoices", choices.get(songIndex + 1).wire());
+			}
 		}
 		if (ranked) {
 			List<Object> ranking = new ArrayList<>();
