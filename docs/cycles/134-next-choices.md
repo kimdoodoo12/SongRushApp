@@ -14,8 +14,9 @@ In a choice room, every `reveal` of a song that has a next song carries one more
 - Not added: in a chat room; on the last song's reveal.
 - Added on every such reveal (by answers, skip or deadline; with or without prefetch or play-to-limit). When the `prepare` follows in the same turn it is redundant but harmless; one rule is simpler than a condition.
 - A separate frame was tried first (an experiment by the lead): it broke 99 existing cases in 5 classes that pin the exact frame list after a choice reveal. A key in `reveal` broke 26 cases, all through one helper (`RoomPlayToLimitTest.assertRevealOn`, which pins the reveal's exact keys).
-- The snapshot in a reveal window (cycle 128) copies the broadcast `reveal`, so a reload in the window gets `nextChoices` too.
-- CLAUDE.md "Multiplayer rules", the A9 sentence: the next song's choice cover URLs also go out in the `reveal` of the song before it (D-133), shuffled as in its `prepare`, with nothing marking the correct one.
+- The snapshot in a reveal window (cycle 128) copies the broadcast `reveal` (`lastReveal`, Room.java:1029), so a reload in the window gets `nextChoices` too, provided the key is put in the map before that copy (next to `correctChoice`, Room.java:1012).
+- CLAUDE.md "Multiplayer rules", the A9 sentence: the next song's choice cover URLs also go out in the `reveal` of the song before it (D-133), shuffled as in its `prepare`, with nothing marking the correct one. Accepted property, unchanged by this cycle: cover ids are fixed per anime, and a game uses each series once, so a choice whose cover was an earlier answer is certainly wrong; the earlier list gives everyone more time to see that, not new information.
+- What it adds: lead time only. The list is the one `prepare` carries (drawn at the game's start); everyone gets it at once; the audio stays gated (D-119).
 
 ## Acceptance criteria (JUnit)
 1. Choice room, play-to-limit and prefetch on, a song decided at 10 s: the `reveal` has `nextChoices` equal to the `choices` of the later `prepare` of song 1.
@@ -23,7 +24,7 @@ In a choice room, every `reveal` of a song that has a next song carries one more
 3. No `nextChoices` key: a chat room's reveal; the last song's reveal in a choice room.
 4. `nextChoices` is a list of opaque `/cover/` URLs, as in `prepare`; the reveal gains no other key; no theme or anime id of the next song appears in the frame.
 5. A snapshot taken in a window (cycle 128) carries `reveal.nextChoices` too.
-6. `RoomPlayToLimitTest.assertRevealOn` (and its switch-off twin) accept `nextChoices` exactly when the room is a choice room and a next song exists; nothing else in that class changes. Every other test passes unchanged.
+6. `RoomPlayToLimitTest.assertRevealOn` (:401) and `assertRevealOff` (:407) accept `nextChoices` exactly when the room is a choice room and a next song exists (the reveal's `index` + 1 below the song count); nothing else in that class changes. Every other test passes unchanged.
 7. `./gradlew test` passes from `backend/`.
 
 ## Test list
@@ -35,4 +36,11 @@ In a choice room, every `reveal` of a song that has a next song carries one more
 - Implementer: `backend/src/main/java/com/songrush/game/Room.java`, `CLAUDE.md` (the A9 sentence).
 
 ## Out of scope
-- The client (F-038), the snapshot (a reload in the window does not get `nextChoices`; the covers then load with the `prepare` as today).
+- The client (F-038). Any change to how a snapshot is built (it already copies the reveal, criterion 5).
+
+## Spec review
+One round. No Blocker; one High, one Medium, one Nit, all taken.
+- High: the out-of-scope line said a snapshot would not carry `nextChoices`, against criterion 5. Removed; the design says the key goes in before the snapshot copy.
+- Medium: the design states the accepted property (a cover that was an earlier answer marks a wrong choice) and that only lead time is added.
+- Nit: criterion 6 names `assertRevealOff` and how the helpers know a next song exists. The redundant copy when `prepare` follows in the same turn is kept on purpose (one rule).
+- Checked by the critic: the list equals the later `prepare`'s (drawn once at the start); a skip, a resume or the early prepare send the same list; watchers promoted at `prepare` are as today.
