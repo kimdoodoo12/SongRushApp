@@ -770,8 +770,17 @@ public final class Room {
 				&& !(gameMode == GameMode.RANKED && rankedIds.contains(playerId))
 				&& catalog.accepted(song.anime().group()).contains(normalized);
 		if (phase == Phase.PREPARE || now < startAt) {
-			// Too early: match or miss, only the sender sees it, so nothing tells whether it matched.
-			outbox.toPlayer(playerId, chat);
+			// Too early to score (D-132): a line matching the accepted titles goes to its sender only and
+			// never scores; any other line is broadcast as ordinary chat. Checked on its own, not via match,
+			// so a ranked player who already answered and a choice room are covered too.
+			boolean early = !normalized.isEmpty()
+					&& catalog.accepted(song.anime().group()).contains(normalized);
+			if (early) {
+				outbox.toPlayer(playerId, chat);
+			}
+			else {
+				outbox.toAll(chat);
+			}
 		}
 		else if (!match) {
 			outbox.toAll(chat);
