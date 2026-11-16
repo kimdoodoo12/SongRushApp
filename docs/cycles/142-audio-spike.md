@@ -21,3 +21,13 @@ flutter_soloud (option A of design 141) is kept; the MediaCodec fallback (B-M3) 
 - The single-threaded web build of SoLoud uses ScriptProcessor on the main thread; the AudioWorklet build needs COOP/COEP and HTTPS (an I-012 hosting question).
 - A browser always sends `Origin`; the Flutter web build must be served from the same origin as `/ws` (the server rejects a cross-origin Origin).
 - Chrome on Android may drop the socket when the screen is off or the tab is in the background: the real client's reconnect (F-M5) matters on phones.
+
+## Measured by sound on the emulator (2026-11-17)
+The owner asked the lead to check the sound itself rather than the engine's clock. Method: every local test song was rewritten as the same 70 s click track (a 3 ms 3 kHz burst at 72 irregular times); the React web (PC Chrome) and the spike (emulator Chrome) played it in the same room; the PC's speaker output was recorded by WASAPI loopback and the clicks were told apart by level (the emulator's output is about 40 times quieter: peak 0.02 against the PC's 0.5-0.85).
+- A first loopback attempt and a microphone attempt found only the PC: the emulator's session (qemu, on the Realtek speaker, volume 100%) is that quiet. Reading its level meter showed it.
+- Emulator only: the recorded gaps between clicks match the click pattern to 7.7 ms on average, so the faint output is the song.
+- Both, no adjustment: emulator minus PC was +346 ms about 4 s into the song, growing to +467 ms 11 s later.
+- Both, the spike started 300 ms earlier (`adj=300`): -4 ms, growing to +141 ms over the same span.
+- So the start itself lands where it is aimed (the 300 ms shift moved it by about 300 ms), the emulator's true output delay is about 0.35 s more than it reports (`getHardwareOutputLatency` 395 ms), and its audio clock runs about 1.2 % slow (about +12 ms per second). Both are traits of the emulator's software audio; a phone's audio clock error is typically thousands of times smaller.
+
+Consequences for F-M3: the player checks its playback position against the server-derived expected position during the song and corrects (seek) past a threshold, which also covers a device that misreports its output latency; and a manual offset setting (the spike's `adj`) is kept as a calibration option. The React web client corrects neither; the same check could be ported to it later.
