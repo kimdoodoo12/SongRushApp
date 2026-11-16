@@ -157,6 +157,10 @@
     "final": "최종 점수: {{score}}점"
   },
   "game": {
+    "leave": "나가기",
+    "leaveAsk": "게임을 나갈까요?",
+    "leaveConfirm": "나가기",
+    "leaveCancel": "취소",
     "toLobby": "대기실로",
     "reset": "처음으로",
     "disconnected": "서버와 연결이 끊어졌습니다.",

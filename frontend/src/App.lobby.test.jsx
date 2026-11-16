@@ -153,7 +153,9 @@ function expectStartScreen() {
 
 function expectNoLobby() {
   expect(startButton()).toBeNull()
-  expect(screen.queryByRole('button', { name: '나가기' })).toBeNull()
+  // Cycle 140 (D-138): the game's header has its own 나가기; the lobby's is
+  // in .start-row.
+  expect(document.querySelector('.start-row')).toBeNull()
   expect(screen.queryByText(WAITING)).toBeNull()
   expect(lobbyCode()).toBeNull()
 }

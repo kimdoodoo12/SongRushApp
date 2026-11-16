@@ -157,6 +157,10 @@
     "final": "Final score: {{score}}"
   },
   "game": {
+    "leave": "Leave",
+    "leaveAsk": "Leave the game?",
+    "leaveConfirm": "Leave",
+    "leaveCancel": "Cancel",
     "toLobby": "To lobby",
     "reset": "Home",
     "disconnected": "Disconnected from the server.",
