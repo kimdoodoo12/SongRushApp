@@ -5,9 +5,9 @@ import FilterControls from './FilterControls.jsx'
 import Seats from './Seats.jsx'
 import { messageText, useTranslation } from '../i18n/index.js'
 
-// The song counts a game can have (D-047), and the stepper's step.
+// The song counts a game can have (D-047, D-137), and the stepper's step.
 const MIN_SONGS = 5
-const MAX_SONGS = 30
+const MAX_SONGS = 100
 const SEAT_COUNT = 8
 // The stepper's minus sign (U+2212), as in the mockup.
 const MINUS = String.fromCharCode(0x2212)
@@ -65,17 +65,35 @@ function skinOf(t, theme) {
   }
 }
 
-// The mockup's 곡 수 stepper: -, the count, +, within 5-30. The selection
-// keeps the count as the select value it always was (a string); the stepper
-// reads and steps it as a number. A null count (a guest before any
+// The mockup's 곡 수 stepper: -, the count, +, within 5-100 (D-137). The
+// selection keeps the count as the select value it always was (a string);
+// the stepper reads and steps it as a number. The host can also type the
+// count: the typed text is a draft until blur or Enter, which clamps it to
+// 5-100; a draft that is not a number reverts to the current count. A guest
+// sees the count read-only, and a null count (a guest before any
 // lobbySettings) shows a dash.
 function Stepper({ selection, onSelectionChange, disabled }) {
   const { t } = useTranslation()
+  // The host's typed text, or null when not editing.
+  const [draft, setDraft] = useState(null)
   const pending = selection.songCount === null
   const count = Number(selection.songCount)
-  function step(by) {
-    const next = Math.min(MAX_SONGS, Math.max(MIN_SONGS, count + by))
+  function change(next) {
     if (next !== count) onSelectionChange({ ...selection, songCount: String(next) })
+  }
+  function step(by) {
+    setDraft(null)
+    change(Math.min(MAX_SONGS, Math.max(MIN_SONGS, count + by)))
+  }
+  function commit() {
+    if (draft === null) return
+    setDraft(null)
+    const typed = Number(draft)
+    if (draft.trim() === '' || !Number.isFinite(typed)) return
+    change(Math.min(MAX_SONGS, Math.max(MIN_SONGS, Math.round(typed))))
+  }
+  function handleKeyDown(event) {
+    if (event.key === 'Enter') commit()
   }
   return (
     <div className="opt">
@@ -84,7 +102,22 @@ function Stepper({ selection, onSelectionChange, disabled }) {
         <button type="button" className="btn" aria-label={t('lobby.songCountDown')} disabled={disabled || count <= MIN_SONGS} onClick={() => step(-1)}>
           {MINUS}
         </button>
-        <output aria-label={t('lobby.songCount')}>{pending ? DASH : count}</output>
+        {disabled ? (
+          <output aria-label={t('lobby.songCount')}>{pending ? DASH : count}</output>
+        ) : (
+          <input
+            type="number"
+            inputMode="numeric"
+            min={MIN_SONGS}
+            max={MAX_SONGS}
+            step="1"
+            aria-label={t('lobby.songCount')}
+            value={draft === null ? String(count) : draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+          />
+        )}
         <button type="button" className="btn" aria-label={t('lobby.songCountUp')} disabled={disabled || count >= MAX_SONGS} onClick={() => step(1)}>
           +
         </button>

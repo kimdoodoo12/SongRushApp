@@ -2,3 +2,6 @@
 .main.solo{grid-template-columns:minmax(0,1fr)}
 .main.solo .inner{margin-inline:auto}
 .start-screen{margin-inline:auto}
+/* Cycle 139 (D-137): the host's 곡 수 is a number input; it looks like room.css's .stepper output, without spin buttons. */
+.stepper input{width:3.2ch;min-width:3.2ch;padding:0;border:0;background:none;color:inherit;text-align:center;font-family:var(--f-display);font-size:1.6rem;font-variant-numeric:tabular-nums;appearance:textfield;-moz-appearance:textfield}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}

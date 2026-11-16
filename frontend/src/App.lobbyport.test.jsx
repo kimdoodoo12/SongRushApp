@@ -18,7 +18,8 @@
 //   copy) and .tk-stub (.tk-n connected players, .tk-of "/ 8명", .tk-admit
 //   SKIN.admit); .lobby-side with .ldisc > canvas 320x320 and .lq "?"; no
 //   .viewas. section.opts: .opts-hd (h2 게임 설정, .opts-who), .opt-grid with
-//   the .stepper (- / output named 곡 수 / +, 5-30), the .seg groups 곡 종류,
+//   the .stepper (- / 곡 수 / +, 5-100; the host's 곡 수 is a number input,
+//   cycle 139), the .seg groups 곡 종류,
 //   난이도, 정답 형식, 게임 모드 and .years (연도 시작, 연도 끝); the year
 //   warning is a p.warn in section.opts. .start-row: .btn.primary.go with
 //   SKIN.start (host) or p.waiting with .dots (guest), and the 나가기 .btn.
@@ -482,7 +483,7 @@ describe('lobby markup', () => {
     expect(grid).not.toBeNull()
     const output = songCountOutput()
     expect(screen.getByLabelText('곡 수')).toBe(output)
-    expect(output.tagName).toBe('OUTPUT')
+    expect(output.tagName).toBe('INPUT')
     expect(songCount()).toBe(10)
     const groups = ['곡 종류', '난이도', '정답 형식', '게임 모드'].map((name) => screen.getByRole('group', { name }))
     for (const g of groups) {
@@ -517,7 +518,7 @@ describe('lobby markup', () => {
     }
   })
 
-  it('the stepper: - and + move 곡 수 by one within 5-30 and start sends it as a number', async () => {
+  it('the stepper: - and + move 곡 수 by one within 5-100 and start sends it as a number', async () => {
     const env = setup()
     const socket = await hostLobby(env)
     const [down, up] = stepperButtons()
@@ -532,12 +533,12 @@ describe('lobby markup', () => {
     expect(stepperButtons()[0].disabled).toBe(true)
     fireEvent.click(stepperButtons()[0])
     expect(songCount()).toBe(5)
-    setSongCount(30)
+    setSongCount(100)
     expect(stepperButtons()[1].disabled).toBe(true)
     fireEvent.click(stepperButtons()[1])
-    expect(songCount()).toBe(30)
+    expect(songCount()).toBe(100)
     startGame()
-    await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 30 }]))
+    await waitFor(() => expect(socket.sentOfType('start')).toEqual([{ type: 'start', songCount: 100 }]))
     expect(typeof socket.sentOfType('start')[0].songCount).toBe('number')
   })
 

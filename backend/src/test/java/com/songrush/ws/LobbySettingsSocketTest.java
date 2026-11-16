@@ -222,7 +222,7 @@ class LobbySettingsSocketTest {
 		client.awaitError("bad-answer-mode");
 		client.send("lobbySettings", "songCount", 12, "gameMode", "x");
 		client.awaitError("bad-game-mode");
-		client.send("lobbySettings", "songCount", 99, "gameMode", "ranked");
+		client.send("lobbySettings", "songCount", 101, "gameMode", "ranked");
 		client.awaitError("no-room");
 		client.send("lobbySettings", "songCount", 12);
 		client.awaitError("no-room");
@@ -232,11 +232,11 @@ class LobbySettingsSocketTest {
 	@Test
 	void inTheLobbyAGuestGetsNotHostBeforeBadSongCount() throws Exception {
 		Pair p = hostAndGuest();
-		p.guest().send("lobbySettings", "songCount", 99);
+		p.guest().send("lobbySettings", "songCount", 101);
 		p.guest().awaitError("not-host");
 		p.guest().send("lobbySettings", "songCount", 12, "types", List.of("XX"));
 		p.guest().awaitError("bad-filter");
-		p.host().send("lobbySettings", "songCount", 99);
+		p.host().send("lobbySettings", "songCount", 101);
 		p.host().awaitError("bad-song-count");
 		p.host().send("lobbySettings", "songCount", 4);
 		p.host().awaitError("bad-song-count");
@@ -252,9 +252,9 @@ class LobbySettingsSocketTest {
 		p.host().send("start", "songCount", 5);
 		p.host().await("prepare");
 		p.guest().await("prepare");
-		p.host().send("lobbySettings", "songCount", 99);
+		p.host().send("lobbySettings", "songCount", 101);
 		p.host().awaitError("in-game");
-		p.guest().send("lobbySettings", "songCount", 99);
+		p.guest().send("lobbySettings", "songCount", 101);
 		p.guest().awaitError("in-game");
 		p.host().send("lobbySettings", "songCount", 12);
 		p.host().awaitError("in-game");
