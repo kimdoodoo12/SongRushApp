@@ -18,3 +18,9 @@ A player can leave during a game: a 나가기 button asks once, then takes them 
 
 ## Out of scope
 - Server changes; leaving the lobby (exists).
+
+## Result
+- Implementation and tests: commit `a60a1b4`, first attempt. New `LeaveDialog.jsx` (role dialog, aria-modal, focus on 취소, Tab kept inside, Escape/취소/backdrop cancel; the nickname dialog's look, no new CSS); `GameScreen.jsx` shows 나가기 in the header's `.hd-right` only on the game screen; `App.jsx` passes `handleLeave`; four i18n keys in ko, en, ja. New `App.leaveGame.test.jsx` (7 cases). `App.lobby.test.jsx`'s "no lobby" check now looks for the lobby's `.start-row` instead of any 나가기 button.
+- Review, run by the verifier: 61 files, 916 tests passed; lint and build exit 0; `room.css` unchanged. Criteria 1 to 6 confirmed.
+- Browser check by the lead (local server, host on a 1280 px screen, guest on a 390 px phone screen), together with cycle 139: the host typed 50, 200 (became 100) and 12; the guest saw 12 read-only; the game ran 12 songs. The guest's 나가기 sat at the top of the phone screen; the dialog read "게임을 나갈까요? / 취소 / 나가기"; Escape closed it with the song still playing; 나가기 sent one `leave` and showed the start screen; the host's game went on with 1 player online.
+- Merged straight to `dev` (D-134).
