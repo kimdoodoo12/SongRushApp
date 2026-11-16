@@ -53,7 +53,7 @@ public final class Room {
 
 	static final int MIN_SONGS = 5;
 
-	static final int MAX_SONGS = 30;
+	static final int MAX_SONGS = 100;
 
 	static final int MAX_CHAT = ChatRules.MAX_CHAT;
 

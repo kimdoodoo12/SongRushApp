@@ -331,7 +331,7 @@ class LobbyTest {
 	// ---- start rights ----
 
 	@Test
-	void onlyTheHostStartsWithACountOfFiveToThirty() {
+	void onlyTheHostStartsWithACountOfFiveToOneHundred() {
 		build();
 		joinThree();
 		int mark = outbox.mark();
@@ -342,7 +342,7 @@ class LobbyTest {
 		lobby.start(P1, 4);
 		assertLastError(P1, "bad-song-count");
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.LOBBY);
-		lobby.start(P1, 31);
+		lobby.start(P1, 101);
 		assertLastError(P1, "bad-song-count");
 		assertThat(lobby.phase()).isEqualTo(Room.Phase.LOBBY);
 		assertThat(types(outbox.since(mark))).doesNotContain("prepare", "roster");

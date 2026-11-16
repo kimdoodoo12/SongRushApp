@@ -188,7 +188,7 @@ class RoomTest {
 		assertThat(Room.REVEAL_PAUSE).isEqualTo(Duration.ofSeconds(5));
 		assertThat(Room.TOKEN_SLACK).isEqualTo(Duration.ofSeconds(30));
 		assertThat(Room.MIN_SONGS).isEqualTo(5);
-		assertThat(Room.MAX_SONGS).isEqualTo(30);
+		assertThat(Room.MAX_SONGS).isEqualTo(100);
 		assertThat(Room.MAX_CHAT).isEqualTo(200);
 	}
 
@@ -627,9 +627,9 @@ class RoomTest {
 	// ---- criterion 7 ----
 
 	@Test
-	void songCountOutsideFiveToThirtyIsRejected() {
+	void songCountOutsideFiveToOneHundredIsRejected() {
 		build(FIVE, 2, MINA);
-		for (int n : new int[] {4, 31}) {
+		for (int n : new int[] {4, 101}) {
 			int mark = outbox.mark();
 			room.start(n);
 			List<Sent> sent = outbox.since(mark);

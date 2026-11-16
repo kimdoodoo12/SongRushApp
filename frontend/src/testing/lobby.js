@@ -1,6 +1,7 @@
 // Shared lobby helpers for the cycle 114 lobby (D-124, the mockup's
 // #lobbyView in docs/design/108-ui-design-reference.html): the start button
-// is .start-row .go, 곡 수 is the .stepper (- / output / +), 곡 종류, 난이도,
+// is .start-row .go, 곡 수 is the .stepper (- / the host's number input or a
+// guest's output / +), 곡 종류, 난이도,
 // 정답 형식 and 게임 모드 are .seg groups of toggle buttons, and 연도 is two
 // selects in .years. Every test that starts a game or sets a lobby control
 // goes through these, so the next markup change touches one file (critic H1
@@ -29,16 +30,27 @@ export function startGame() {
   fireEvent.click(button)
 }
 
-// The 곡 수 output of the stepper, or null.
+// The 곡 수 of the stepper, or null: the host's number input (cycle 139,
+// D-137) or a guest's read-only output.
 export function songCountOutput() {
-  return shown('.stepper output')
+  return shown('.stepper input, .stepper output')
 }
 
 // The 곡 수 the stepper shows, as a number.
 export function songCount() {
   const output = songCountOutput()
-  if (output === null) throw new Error('no 곡 수 stepper (.stepper output) on the page')
-  return Number(output.textContent.trim())
+  if (output === null) throw new Error('no 곡 수 stepper (.stepper input or output) on the page')
+  return Number(output.tagName === 'INPUT' ? output.value : output.textContent.trim())
+}
+
+// Types `text` into the host's 곡 수 input and commits it: with Enter, or
+// with blur when `how` is 'blur'.
+export function typeSongCount(text, how = 'enter') {
+  const input = songCountOutput()
+  if (input === null || input.tagName !== 'INPUT') throw new Error('no 곡 수 input (.stepper input) on the page')
+  fireEvent.change(input, { target: { value: text } })
+  if (how === 'blur') fireEvent.blur(input)
+  else fireEvent.keyDown(input, { key: 'Enter' })
 }
 
 // The stepper's [down, up] buttons, in the mockup's order: -, output, +.
@@ -51,7 +63,7 @@ export function stepperButtons() {
 
 // Sets 곡 수 to n with the stepper's - and + buttons, one step per click.
 export function setSongCount(n) {
-  for (let i = 0; i < 40 && songCount() !== n; i += 1) {
+  for (let i = 0; i < 100 && songCount() !== n; i += 1) {
     const [down, up] = stepperButtons()
     const button = songCount() < n ? up : down
     if (button.disabled) break
