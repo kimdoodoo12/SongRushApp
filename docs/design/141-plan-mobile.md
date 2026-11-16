@@ -66,3 +66,10 @@ One round. No Blocker; three High, five Medium, two Nits, all taken.
 - High: the UI language and the D-023 credit line were missing; the credit line is in F-M4a, the language is asked.
 - Medium: a conditional fallback item B-M3 (a/b); a fixed lifecycle rule for F-M5; `roomTheme` marked legacy in the contract; the contract's examples captured from socket tests instead of a new key-checking test; a fairness section.
 - Nits: the CI job is limited to `mobile/` changes; owner-device items confirmed.
+
+## Amendment (D-140, 2026-11-16)
+The owner set the order: the Flutter client is built for the **web first** and served to phones that open the site; the Android APK is packaged from the same code once the mobile web plays correctly. The desktop keeps the React web.
+- S-009 runs the spike on Flutter web in a phone browser first (flutter_soloud supports the web), then on Android.
+- I-010 bootstraps the web target first; the Android target is added at packaging (I-011), so the Android SDK licences are not needed yet.
+- New I-012: host the Flutter web build beside the React web (for example under `/m/`), send phones there, and give a switch link both ways. The production hosting (Nginx, S3, CloudFront; D-087, D-088) is the owner's, so its change is a step for the owner.
+- Mobile web notes: browsers need a user gesture before audio (the web's sound unlock); iOS Safari plays Ogg Opus only from 18.4 (the same limit the React web has today); the Flutter web engine adds a first-load download, cached after.
