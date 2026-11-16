@@ -1,0 +1,8 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - web/**
+    # songrush_core is analyzed on its own (`dart analyze` in the package).
+    - packages/**

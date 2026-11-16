@@ -1,0 +1,24 @@
+name: songrush_mobile
+description: "SongRush mobile client (Flutter, web target first)."
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ^1.1.0
+  # Game logic lives in a pure-Dart package so it tests with `dart test` alone.
+  songrush_core:
+    path: packages/songrush_core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

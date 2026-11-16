@@ -434,7 +434,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **B-040/F-040** song count 5-100, typed directly (from D-137)
 - [x] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
 - [x] **S-009** mobile audio spike with flutter_soloud on Flutter web in a phone browser (Android Chrome first), then the same on Android; the acoustic pass check is the owner's (from M-6, design 141 item 1, order D-140)
-- [ ] **I-010** bootstrap `mobile/` (Flutter, web first; Android target added at packaging), lints, tests, `flutter build web`, CI job for `mobile/`, CLAUDE.md row, Stop hook area (design 141 item 2, D-140)
+- [x] **I-010** bootstrap `mobile/` (Flutter, web first; Android target added at packaging), lints, tests, `flutter build web`, CI job for `mobile/`, CLAUDE.md row, Stop hook area (design 141 item 2, D-140)
 - [ ] **C-020** protocol contract `contracts/protocol.md` with frames captured from the socket tests (design 141 item 3)
 - [ ] **F-M1** mobile net and session core (design 141 item 4)
 - [ ] **F-M2** mobile clock sync and playback planning, ported with the web's test vectors (design 141 item 5)
