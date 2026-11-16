@@ -433,6 +433,16 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Acceptance (Vitest): a guest can pick a mood in the lobby and in a game and it applies to their screen at once; another player's pick changes nothing on this screen; a host's pick sends nothing; a reload keeps the pick; the start screen still uses the same stored pick.
 - [x] **B-040/F-040** song count 5-100, typed directly (from D-137)
 - [x] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
+- [ ] **S-009** mobile audio spike with flutter_soloud; the acoustic pass check is the owner's (from M-6, design 141 item 1)
+- [ ] **I-010** bootstrap `mobile/` (Flutter, Android), lints, tests, CI job for `mobile/`, CLAUDE.md row, Stop hook area (design 141 item 2)
+- [ ] **C-020** protocol contract `contracts/protocol.md` with frames captured from the socket tests (design 141 item 3)
+- [ ] **F-M1** mobile net and session core (design 141 item 4)
+- [ ] **F-M2** mobile clock sync and playback planning, ported with the web's test vectors (design 141 item 5)
+- [ ] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009). Conditional **B-M3** fallback player if S-009 fails (item 6a)
+- [ ] **F-M4a** mobile start and lobby screens, with the credit line (design 141 item 7)
+- [ ] **F-M4b** mobile game and game-over screens (design 141 item 7b)
+- [ ] **F-M5** mobile reconnect and lifecycle (design 141 item 8)
+- [ ] **I-011** release APK signing (design 141 item 9; the key is the owner's)
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
