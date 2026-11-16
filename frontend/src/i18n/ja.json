@@ -157,6 +157,10 @@
     "final": "最終得点: {{score}}点"
   },
   "game": {
+    "leave": "退出",
+    "leaveAsk": "ゲームを退出しますか？",
+    "leaveConfirm": "退出",
+    "leaveCancel": "キャンセル",
     "toLobby": "ロビーへ",
     "reset": "トップへ",
     "disconnected": "サーバーとの接続が切れました。",

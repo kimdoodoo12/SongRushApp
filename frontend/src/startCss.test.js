@@ -13,8 +13,13 @@ import { fileURLToPath } from 'node:url'
 const START_CSS = fileURLToPath(new URL('./start.css', import.meta.url))
 const MAIN_JSX = fileURLToPath(new URL('./main.jsx', import.meta.url))
 
+// Cycle 139 (D-137) adds the host's 곡 수 number input, styled as room.css's
+// .stepper output with no spin buttons.
 const EXPECTED =
-  '.main.solo{grid-template-columns:minmax(0,1fr)}.main.solo .inner{margin-inline:auto}.start-screen{margin-inline:auto}'
+  '.main.solo{grid-template-columns:minmax(0,1fr)}.main.solo .inner{margin-inline:auto}.start-screen{margin-inline:auto}' +
+  '.stepper input{width:3.2ch;min-width:3.2ch;padding:0;border:0;background:none;color:inherit;text-align:center;' +
+  'font-family:var(--f-display);font-size:1.6rem;font-variant-numeric:tabular-nums;appearance:textfield;-moz-appearance:textfield}' +
+  '.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}'
 
 function read(path) {
   return fs.readFileSync(path, 'utf8').replace(/\r\n?/g, '\n')

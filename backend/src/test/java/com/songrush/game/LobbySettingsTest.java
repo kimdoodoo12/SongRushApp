@@ -203,10 +203,10 @@ class LobbySettingsTest {
 	}
 
 	@Test
-	void theSongCountBoundsFiveAndThirtyAreAccepted() {
+	void theSongCountBoundsFiveAndOneHundredAreAccepted() {
 		build();
 		joinTwo();
-		for (int count : new int[] {5, 30}) {
+		for (int count : new int[] {5, 30, 100}) {
 			int mark = outbox.mark();
 			lobby.setLobbySettings(P1, count, DrawFilter.NONE, AnswerMode.CHAT, GameMode.FIRST);
 			assertThat(lobbySettingsSince(mark)).as("count " + count).extracting(Sent::message)
@@ -231,17 +231,17 @@ class LobbySettingsTest {
 	void aGuestsBadSongCountIsNotHostBeforeBadSongCount() {
 		build();
 		joinTwo();
-		for (int bad : new int[] {4, 31, 0, -1}) {
+		for (int bad : new int[] {4, 101, 0, -1}) {
 			rejected(P2, bad, DrawFilter.NONE, AnswerMode.CHAT, GameMode.FIRST, "not-host");
 		}
 	}
 
 	@Test
-	void theHostsSongCountOutsideFiveToThirtyIsBadSongCountAndTheStoredSelectionStays() {
+	void theHostsSongCountOutsideFiveToOneHundredIsBadSongCountAndTheStoredSelectionStays() {
 		build();
 		joinTwo();
 		setFull(P1, List.of(P1, P2));
-		for (int bad : new int[] {4, 31, 0, -1, Integer.MAX_VALUE}) {
+		for (int bad : new int[] {4, 101, 0, -1, Integer.MAX_VALUE}) {
 			rejected(P1, bad, FILTER, AnswerMode.CHOICE, GameMode.RANKED, "bad-song-count");
 		}
 		int mark = outbox.mark();

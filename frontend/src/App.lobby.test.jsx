@@ -5,7 +5,7 @@
 // Cycle 114 (D-124, declared): the lobby is the mockup's #lobbyView, read
 // through src/testing/lobby.js: the room code from the ticket's .tk-code, the
 // roster rows from the seats' name lines (the lobby seats are li.seat now),
-// 곡 수 from the stepper (5-30, step 1) and the start button .start-row .go.
+// 곡 수 from the stepper (5-100, step 1) and the start button .start-row .go.
 // The behaviour checked is kept.
 // Real timers only (cycle 039 timer rule): waitFor drives every wait.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -153,7 +153,9 @@ function expectStartScreen() {
 
 function expectNoLobby() {
   expect(startButton()).toBeNull()
-  expect(screen.queryByRole('button', { name: '나가기' })).toBeNull()
+  // Cycle 140 (D-138): the game's header has its own 나가기; the lobby's is
+  // in .start-row.
+  expect(document.querySelector('.start-row')).toBeNull()
   expect(screen.queryByText(WAITING)).toBeNull()
   expect(lobbyCode()).toBeNull()
 }
@@ -297,7 +299,7 @@ describe('lobby screen', () => {
     }
   })
 
-  it('a roster that makes the player host shows 곡 수 (default 10, 5-30) and the start button, which sends start{songCount:10}', async () => {
+  it('a roster that makes the player host shows 곡 수 (default 10, 5-100) and the start button, which sends start{songCount:10}', async () => {
     const env = setup()
     const socket = await joinLobby(env)
     deliver(socket, roster([player('Hana (2)', { host: true }), player('Joon')]))
@@ -307,7 +309,7 @@ describe('lobby screen', () => {
     expect(songCount()).toBe(10)
     setSongCount(5)
     expect(stepperButtons()[0].disabled).toBe(true)
-    setSongCount(30)
+    setSongCount(100)
     expect(stepperButtons()[1].disabled).toBe(true)
     setSongCount(10)
     startGame()

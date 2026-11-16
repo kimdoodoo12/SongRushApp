@@ -668,6 +668,7 @@ function GameApp({
           onSkip={handleSkip}
           onReset={handleReset}
           onToLobby={handleToLobby}
+          onLeave={handleLeave}
           onUnlockSound={handleUnlockSound}
           {...volumeProps}
           banner={banner}

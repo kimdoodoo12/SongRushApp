@@ -154,7 +154,7 @@ async function tick(env) {
 describe('start screen', () => {
   // Cycle 119 (D-127, declared): the nickname input is in the dialog that
   // 방 만들기 opens; the start screen has none.
-  it('shows 방 만들기 and the credit line, the nickname input in its dialog; the host lobby has the song count stepper at 10 within 5-30', async () => {
+  it('shows 방 만들기 and the credit line, the nickname input in its dialog; the host lobby has the song count stepper at 10 within 5-100', async () => {
     const env = setup()
     expect(screen.getByRole('heading', { level: 1, name: 'SongRush' })).toBeTruthy()
     expect(screen.queryByLabelText('닉네임')).toBeNull()
@@ -171,7 +171,7 @@ describe('start screen', () => {
     expect(lobby.songCount()).toBe(10)
     lobby.setSongCount(5)
     expect(lobby.stepperButtons()[0].disabled).toBe(true)
-    lobby.setSongCount(30)
+    lobby.setSongCount(100)
     expect(lobby.stepperButtons()[1].disabled).toBe(true)
     expect(screen.getByText(CREDIT)).toBeTruthy()
   })
