@@ -432,7 +432,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - In a room the screen uses the player's own stored mood, not the room's; the mood picker is enabled for every player and stores the pick locally (`saveOwnTheme`); no `roomTheme` is sent, and a `roomTheme` from the server no longer changes the look. The label reads plainly (no "방장이 고름").
   - Acceptance (Vitest): a guest can pick a mood in the lobby and in a game and it applies to their screen at once; another player's pick changes nothing on this screen; a host's pick sends nothing; a reload keeps the pick; the start screen still uses the same stored pick.
 - [x] **B-040/F-040** song count 5-100, typed directly (from D-137)
-- [ ] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
+- [~] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
