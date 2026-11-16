@@ -15,3 +15,9 @@ The host can choose 5 to 100 songs and type the number directly.
 
 ## Out of scope
 - Presets; the draw's own limits (not-enough-songs stays).
+
+## Result
+- Implementation and tests: commit `26abf91`, first attempt. `Room.MAX_SONGS` 100 (`Lobby` uses it). The host's stepper middle is an `<input type="number">` (commit on Enter or blur, rounded, clamped to 5..100, non-numbers revert); guests keep the read-only output; the input's look is in `start.css` (pinned by `startCss.test.js`); `room.css` unchanged. New `RoomSongCountTest` (100 accepted, 101 and 4 refused, 99 drawable gives not-enough-songs) and `App.songCount.test.jsx` (7 cases). Existing tests moved from 30/31 to 100/101: `RoomTest`, `LobbyTest`, `LobbySettingsTest`, `LobbySettingsSocketTest` (its "bad count" 99 is now valid, so 101), `App.flow`, `App.lobby`, `App.lobbyport` (the host's control is now an INPUT); `testing/lobby.js` reads the input. CLAUDE.md says 5-100 (D-137).
+- Review, run by the verifier with `--rerun-tasks` (one `EOFException` rerun): backend 1301 tests, 0 failures, 0 errors, 1 skipped; frontend 60 files, 909 tests passed; lint and build exit 0. Criteria 1 to 3 met; no assertion weakened beyond the bound.
+- Left: the solo path's own cap (`GameSocketHandler.java:59-61`, 30) is unused by the client; Follow-ups.
+- Merged straight to `dev` (D-134).

@@ -431,7 +431,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-039** frontend: each player picks their own mood (from D-136, issue #64)
   - In a room the screen uses the player's own stored mood, not the room's; the mood picker is enabled for every player and stores the pick locally (`saveOwnTheme`); no `roomTheme` is sent, and a `roomTheme` from the server no longer changes the look. The label reads plainly (no "방장이 고름").
   - Acceptance (Vitest): a guest can pick a mood in the lobby and in a game and it applies to their screen at once; another player's pick changes nothing on this screen; a host's pick sends nothing; a reload keeps the pick; the start screen still uses the same stored pick.
-- [~] **B-040/F-040** song count 5-100, typed directly (from D-137)
+- [x] **B-040/F-040** song count 5-100, typed directly (from D-137)
 - [ ] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
 ## Roadmap
 
@@ -722,3 +722,4 @@ Decided:
 - (134) Two comments in `Room.java` (the class header, about :25-27, and the `covers` field, about :98-99) still say a song's cover ids leave only in its `prepare` and the snapshot; add the next song's `nextChoices` in the reveal (D-133).
 - (135) A rejoin snapshot does not clear the cover store (`session.js` `onRejoinSnapshot`); the previous game's loaded covers stay until the next `gameOver`. Harmless and bounded; call `clearCovers()` when the snapshot is not `playing` if wanted.
 - (137) The server still keeps and relays `roomTheme` (Lobby.java, GameSocketHandler.java) and the client still stores it in `state.roomTheme` without using it (D-136). Remove both together. Also `LobbyScreen.jsx:162-163` still says the theme is the room look from the server; it is the player's own pick (D-136). Keep the storage key `songrush.roomTheme` as is (renaming it would reset saved picks).
+- (139) The solo path (`create{nickname, songCount}`, `GameSocketHandler.java:59-61`) still has its own 5-30 bounds; the client never sends it. Point it at `Room.MAX_SONGS` or remove the path.
