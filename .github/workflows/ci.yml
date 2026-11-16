@@ -55,3 +55,42 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build
+
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # paths-filter lists a PR's changed files through the API.
+    permissions:
+      contents: read
+      pull-requests: read
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      # The job always runs (so a required check never hangs); its steps only on mobile changes.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'mobile/**'
+              - '.github/workflows/ci.yml'
+      - if: steps.filter.outputs.mobile == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+      # Core game logic: pure Dart, no Flutter needed.
+      - if: steps.filter.outputs.mobile == 'true'
+        working-directory: mobile/packages/songrush_core
+        run: dart pub get && dart test
+      - if: steps.filter.outputs.mobile == 'true'
+        run: flutter pub get
+      - if: steps.filter.outputs.mobile == 'true'
+        run: flutter analyze
+      - if: steps.filter.outputs.mobile == 'true'
+        run: flutter test
+      - if: steps.filter.outputs.mobile == 'true'
+        run: flutter build web

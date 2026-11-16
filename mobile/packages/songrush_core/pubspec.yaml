@@ -1,0 +1,11 @@
+name: songrush_core
+description: Pure-Dart game logic of the SongRush client (no Flutter imports).
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.14.0
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

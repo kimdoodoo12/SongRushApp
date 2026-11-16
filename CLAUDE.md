@@ -62,10 +62,11 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 | backend | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
 | frontend | `npm test` (from `frontend/`); `npm ci` once after a fresh clone | `npm run lint`; build `npm run build` |
 | data | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet. Setup once from `data/`: `python -m venv .venv`, then `.venv\Scripts\python.exe -m pip install -r requirements.txt` |
+| mobile | core: `C:\src\flutter\bin\dart.bat test` (from `mobile/packages/songrush_core`); app: `C:\src\flutter\bin\flutter.bat test` (from `mobile/`). Flutter 3.50.0 is at `C:\src\flutter\bin`, not on PATH | `flutter.bat analyze` (core: `dart.bat analyze`); build `flutter.bat build web` (from `mobile/`) |
 
 Drop "(verified once bootstrapped)" from a row only after its bootstrap cycle has run that command successfully.
 
-The Stop hook runs the tests of each area whose files changed: `frontend` (`npm test --silent`), `backend` (`gradlew test`), and `data` (`.venv` python `-m pytest`). It runs an area only once it is bootstrapped; otherwise the area is reported UNVERIFIED, never as a pass. A change under `contracts/` runs both `backend` and `data`. settings.json caps the hook at 900 s, so each runner is limited to 850 s.
+The Stop hook runs the tests of each area whose files changed: `frontend` (`npm test --silent`), `backend` (`gradlew test`), `data` (`.venv` python `-m pytest`), and `mobile` (`dart test` in `mobile/packages/songrush_core`). It runs an area only once it is bootstrapped; otherwise the area is reported UNVERIFIED, never as a pass. A change under `contracts/` runs both `backend` and `data`. settings.json caps the hook at 900 s, so each runner is limited to 850 s.
 
 ## External source rules
 
