@@ -4,6 +4,7 @@ import { isAudible } from '../game/state.js'
 import { nameColour } from '../game/themes.js'
 import ChoiceGrid from './ChoiceGrid.jsx'
 import Deck from './Deck.jsx'
+import LeaveDialog from './LeaveDialog.jsx'
 import Seats from './Seats.jsx'
 import ThemePicker from './ThemePicker.jsx'
 import VolumeControl from './VolumeControl.jsx'
@@ -289,10 +290,24 @@ function ScoreLists({ score, scoreboard, me }) {
 // everyone (D-136, cycle 137). banner is the reconnecting line, the first child of
 // .stage .inner; footer the page footer, its last. chat is null (no chat
 // aside) or { lines, me, online, onSend }, onSend null without the form.
+// leave is null or a node after the volume in .hd-right (the game's 나가기).
 // The header's height is measured (cycle 119 review) and set as --hd (px) on
 // .app, for scroll.css and choice.css: longer mood names in en or ja wrap the
 // mood bar. Without ResizeObserver it is measured once, on mount.
-export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute, banner, footer, chat, solo = false, children }) {
+export function Frame({
+  code,
+  line,
+  picker,
+  volume,
+  onVolumeLevel,
+  onToggleMute,
+  banner,
+  footer,
+  chat,
+  solo = false,
+  leave = null,
+  children,
+}) {
   const { t } = useTranslation()
   const headerRef = useRef(null)
   const [headerHeight, setHeaderHeight] = useState(null)
@@ -327,6 +342,7 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
           </div>
           <div className="hd-right">
             <VolumeControl volume={volume} onLevel={onVolumeLevel} onToggleMute={onToggleMute} />
+            {leave}
           </div>
           {picker !== null && (
             <div className="moodbar">
@@ -369,6 +385,9 @@ export function Frame({ code, line, picker, volume, onVolumeLevel, onToggleMute,
 // reconnecting line and footer the page footer, both from App. A room shows
 // its code and the mood picker (the own pick, for everyone); before joined (room
 // null) neither. choiceGame is App's body.choice-mode flag, for the deck.
+// During a game (players and watchers) the header has 나가기 (cycle 140,
+// D-138): it opens LeaveDialog, whose 나가기 calls onLeave; 취소 or Escape
+// closes it and gives focus back to the button.
 function GameScreen({
   state,
   theme,
@@ -379,6 +398,7 @@ function GameScreen({
   onSkip,
   onReset,
   onToLobby,
+  onLeave,
   onUnlockSound,
   volume,
   onVolumeLevel,
@@ -387,6 +407,8 @@ function GameScreen({
   footer,
 }) {
   const { t } = useTranslation()
+  const leaveButtonRef = useRef(null)
+  const [leaveOpen, setLeaveOpen] = useState(false)
   const {
     screen,
     round,
@@ -465,6 +487,20 @@ function GameScreen({
     return () => document.body.classList.remove('playing')
   }, [audible])
 
+  function handleCancelLeave() {
+    setLeaveOpen(false)
+    leaveButtonRef.current?.focus()
+  }
+
+  // Only during a game: the game-over and disconnected screens keep their
+  // own buttons.
+  const leaveShown = screen === 'game'
+  const leaveButton = leaveShown ? (
+    <button ref={leaveButtonRef} type="button" className="btn" onClick={() => setLeaveOpen(true)}>
+      {t('game.leave')}
+    </button>
+  ) : null
+
   let panel
   if (screen === 'disconnected') {
     panel = (
@@ -530,6 +566,7 @@ function GameScreen({
       banner={banner}
       footer={footer}
       chat={{ lines: chat, me, online, onSend: screen === 'game' ? onChat : null }}
+      leave={leaveButton}
     >
       <div className="stage-top">
         <div className="round">
@@ -614,6 +651,7 @@ function GameScreen({
         />
       </div>
       <ScoreLists score={score} scoreboard={scoreboard} me={me} />
+      {leaveShown && leaveOpen && <LeaveDialog onConfirm={onLeave} onCancel={handleCancelLeave} />}
     </Frame>
   )
 }
