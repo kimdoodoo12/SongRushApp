@@ -1,8 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:songrush_core/songrush_core.dart';
-
 import '../app/app_controller.dart';
+import '../app/game_model.dart';
 import '../l10n/app_localizations.dart';
 import 'palette.dart';
 import 'widgets.dart';
@@ -10,27 +9,43 @@ import 'widgets.dart';
 /// The log's height on a phone; it scrolls inside.
 const double _logHeight = 260;
 
-/// The lobby chat (GameScreen.jsx Frame's aside.chat with ChatLog and
-/// ChatForm, the sunset look): 채팅 with the connected count, the log (the
-/// join line, then each line as the name colour's dot and a bubble, the
-/// own ones on the right), and the form. The log follows new lines while it
-/// is scrolled to the bottom. A blank line is not sent; the field takes 200
-/// characters.
+// The mark before a correct line (GameScreen.jsx CHECK, U+2714).
+final String _check = String.fromCharCode(0x2714);
+
+// choice.css `.msg.wrong`.
+const Color _wrongRed = Color(0xFFFF6B7A);
+
+/// A notice's text in the current language.
+String noticeText(AppLocalizations t, NoticeLine line) => switch (line.kind) {
+      NoticeKind.lobbyJoined => t.chatLobbyJoined(line.value),
+      NoticeKind.lobbyBack => t.chatLobbyBack,
+      NoticeKind.gameStart => t.chatGameStart,
+      NoticeKind.songStart => t.chatSongStart(line.value),
+      NoticeKind.gameOver => t.chatGameOver,
+      NoticeKind.wrongPick => t.chatWrongLine(line.value),
+    };
+
+/// The lobby and game chat (GameScreen.jsx Frame's aside.chat with ChatLog
+/// and ChatForm, the sunset look): 채팅 with the connected count, the log
+/// (each said line as the name colour's dot and a bubble, the own ones on
+/// the right; notices as centred system lines; a correct answer as
+/// `✔ <name> 정답!`, a wrong pick in red), and the form, absent without
+/// [onSend] (the game-over screen). The log follows new lines while it is
+/// scrolled to the bottom, and always after an own line. A blank line is
+/// not sent; the field takes 200 characters.
 class ChatPanel extends StatefulWidget {
   const ChatPanel({
     super.key,
     required this.lines,
     required this.me,
-    required this.roomCode,
     required this.online,
     required this.onSend,
   });
 
-  final List<ChatLine> lines;
+  final List<LogLine> lines;
   final String? me;
-  final String roomCode;
   final int online;
-  final ValueChanged<String> onSend;
+  final ValueChanged<String>? onSend;
 
   @override
   State<ChatPanel> createState() => _ChatPanelState();
@@ -46,7 +61,7 @@ class _ChatPanelState extends State<ChatPanel> {
     super.didUpdateWidget(old);
     if (widget.lines.length == old.lines.length) return;
     final last = widget.lines.isEmpty ? null : widget.lines.last;
-    final mine = last != null && last.name == widget.me;
+    final mine = last is SaidLine && last.name == widget.me;
     final atEnd = !_scroll.hasClients || _scroll.position.extentAfter < 40;
     if (atEnd || mine) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -65,11 +80,22 @@ class _ChatPanelState extends State<ChatPanel> {
 
   void _send() {
     final text = _text.text;
-    if (text.trim().isEmpty) return;
-    widget.onSend(text);
+    final send = widget.onSend;
+    if (send == null || text.trim().isEmpty) return;
+    send(text);
     _text.clear();
     _focus.requestFocus();
   }
+
+  Widget _logLine(AppLocalizations t, LogLine line) => switch (line) {
+        SaidLine() => _Line(name: line.name, text: line.text, mine: line.name == widget.me),
+        CorrectLine(:final winner, :final rank) => _SystemLine(
+            text: '$_check ${rank == null ? t.chatCorrectLine(winner) : t.chatCorrectRanked(winner, rank)}',
+            color: Palette.ok,
+          ),
+        NoticeLine(kind: NoticeKind.wrongPick) => _SystemLine(text: t.chatWrongLine(line.value), color: _wrongRed),
+        NoticeLine() => _SystemLine(text: noticeText(t, line)),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -110,33 +136,33 @@ class _ChatPanelState extends State<ChatPanel> {
                 controller: _scroll,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 children: [
-                  _SystemLine(text: t.chatLobbyJoined(widget.roomCode)),
-                  for (final line in widget.lines) _Line(line: line, mine: line.name == widget.me),
+                  for (final line in widget.lines) _logLine(t, line),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const ValueKey('chat-input'),
-                      controller: _text,
-                      focusNode: _focus,
-                      autocorrect: false,
-                      inputFormatters: [LengthLimitingTextInputFormatter(chatMax)],
-                      textInputAction: TextInputAction.send,
-                      style: Fonts.bodyStyle(size: 14.5),
-                      decoration: InputDecoration(hintText: t.chatPlaceholder),
-                      onSubmitted: (_) => _send(),
+            if (widget.onSend != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const ValueKey('chat-input'),
+                        controller: _text,
+                        focusNode: _focus,
+                        autocorrect: false,
+                        inputFormatters: [LengthLimitingTextInputFormatter(chatMax)],
+                        textInputAction: TextInputAction.send,
+                        style: Fonts.bodyStyle(size: 14.5),
+                        decoration: InputDecoration(hintText: t.chatPlaceholder),
+                        onSubmitted: (_) => _send(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  RoomButton(key: const ValueKey('chat-send'), label: t.chatSend, kind: ButtonKind.primary, compact: true, onPressed: _send),
-                ],
+                    const SizedBox(width: 8),
+                    RoomButton(key: const ValueKey('chat-send'), label: t.chatSend, kind: ButtonKind.primary, compact: true, onPressed: _send),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -144,11 +170,13 @@ class _ChatPanelState extends State<ChatPanel> {
   }
 }
 
-/// `.msg.sys`: a centred dim line between dashed rules.
+/// `.msg.sys`: a centred dim line between dashed rules; a correct line
+/// (`.msg.sys.correct`) and a wrong pick (`.msg.wrong`) in their colours.
 class _SystemLine extends StatelessWidget {
-  const _SystemLine({required this.text});
+  const _SystemLine({required this.text, this.color = Palette.dim});
 
   final String text;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -157,16 +185,25 @@ class _SystemLine extends StatelessWidget {
         decoration: const BoxDecoration(
           border: Border.symmetric(horizontal: BorderSide(color: Palette.line)),
         ),
-        child: Text(text, textAlign: TextAlign.center, style: Fonts.bodyStyle(size: 12.5, color: Palette.dim)),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: Fonts.bodyStyle(
+            size: 12.5,
+            color: color,
+            weight: color == Palette.dim ? FontWeight.w400 : FontWeight.w700,
+          ),
+        ),
       );
 }
 
 /// `.msg`: the name colour's dot and the line in a bubble (sunset), the own
 /// ones reversed and tinted.
 class _Line extends StatelessWidget {
-  const _Line({required this.line, required this.mine});
+  const _Line({required this.name, required this.text, required this.mine});
 
-  final ChatLine line;
+  final String name;
+  final String text;
   final bool mine;
 
   @override
@@ -174,7 +211,7 @@ class _Line extends StatelessWidget {
     final dot = Container(
       width: 8,
       height: 8,
-      decoration: BoxDecoration(color: nameColour(line.name), shape: BoxShape.circle),
+      decoration: BoxDecoration(color: nameColour(name), shape: BoxShape.circle),
     );
     final bubble = Flexible(
       child: Container(
@@ -196,9 +233,9 @@ class _Line extends StatelessWidget {
                 ),
         ),
         child: Semantics(
-          label: '${line.name}: ${line.text}',
+          label: '$name: $text',
           excludeSemantics: true,
-          child: Text(line.text, style: Fonts.bodyStyle(size: 14.5)),
+          child: Text(text, style: Fonts.bodyStyle(size: 14.5)),
         ),
       ),
     );

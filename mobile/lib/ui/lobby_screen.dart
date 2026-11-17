@@ -81,6 +81,10 @@ class LobbyScreen extends StatelessWidget {
             RoomButton(key: const ValueKey('leave'), label: t.lobbyLeave, onPressed: c.leave),
           ],
         ),
+        if (c.abandonedNotice) ...[
+          const SizedBox(height: 12),
+          WarnText(t.lobbyAbandoned),
+        ],
         if (error != null) ...[
           const SizedBox(height: 12),
           WarnText(errorText(t, error)),
@@ -89,9 +93,8 @@ class LobbyScreen extends StatelessWidget {
         _Seats(players: state.players, me: state.myName),
         const SizedBox(height: 24),
         ChatPanel(
-          lines: c.chat,
+          lines: c.lobbyLog,
           me: state.myName,
-          roomCode: code,
           online: online,
           onSend: c.sendChat,
         ),

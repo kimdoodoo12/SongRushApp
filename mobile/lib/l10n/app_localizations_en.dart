@@ -243,6 +243,239 @@ class AppLocalizationsEn extends AppLocalizations {
       'You connected from another window, so this one was closed.';
 
   @override
+  String get lobbyAbandoned =>
+      'The game was stopped, so you are back in the lobby.';
+
+  @override
+  String get stageLabel => 'Stage';
+
+  @override
+  String get stageTimeLeft => 'Time left';
+
+  @override
+  String get stageConnecting => 'Connecting to the server...';
+
+  @override
+  String get stageWaitingNext => 'Waiting for the next song...';
+
+  @override
+  String stageRound(Object index, Object total) {
+    return '<lead>Song</lead><num>$index / $total</num>';
+  }
+
+  @override
+  String stageScore(Object score) {
+    return 'Score: $score';
+  }
+
+  @override
+  String stageSeconds(Object seconds) {
+    return '${seconds}s';
+  }
+
+  @override
+  String get stageWatching =>
+      'You are watching this song. You play from the next one.';
+
+  @override
+  String get stageLoading => 'Loading the audio...';
+
+  @override
+  String get stageLoadFailed => 'This song could not be played.';
+
+  @override
+  String get stageHint => 'Type the anime title in the chat to guess the song';
+
+  @override
+  String get stageSkip => 'Skip';
+
+  @override
+  String get stageSkipCancel => 'Unskip';
+
+  @override
+  String stageSkipCount(Object votes, Object needed) {
+    return 'Skip $votes/$needed';
+  }
+
+  @override
+  String stagePickCount(Object picked, Object total) {
+    return 'Picked $picked/$total';
+  }
+
+  @override
+  String get stageSub =>
+      'Korean, English, Japanese and romaji titles all count. Spaces and punctuation are ignored.';
+
+  @override
+  String get stageSoon =>
+      'When the song plays, type the anime title in the chat';
+
+  @override
+  String get stageSoonSub => 'Everyone hears the same song at the same moment.';
+
+  @override
+  String get stageChoiceSoon =>
+      'When the song plays, pick its anime from the covers';
+
+  @override
+  String get stageChoiceHint =>
+      'Pick the anime of the song you hear from the covers';
+
+  @override
+  String get stageChoiceSub =>
+      'You can pick only once. If you miss, watch the rest of this song. Nobody else sees your pick, and the chat is just for talking.';
+
+  @override
+  String stagePickWrong(Object n) {
+    return 'No. $n is wrong. Wait for the answer.';
+  }
+
+  @override
+  String get revealHeading => 'Answer';
+
+  @override
+  String get revealNoWinner => 'Nobody got it';
+
+  @override
+  String revealWinner(Object name) {
+    return 'Winner: $name';
+  }
+
+  @override
+  String get revealRanking => 'This song\'s ranking';
+
+  @override
+  String get revealLabelKo => 'KO';
+
+  @override
+  String get revealLabelEn => 'EN';
+
+  @override
+  String get revealLabelJa => 'JA';
+
+  @override
+  String get revealLabelRomaji => 'Romaji';
+
+  @override
+  String revealSolvers(Object names) {
+    return 'Solved: $names';
+  }
+
+  @override
+  String get revealNext => 'The next song starts in a moment';
+
+  @override
+  String get revealNextFinal => 'The final ranking is up in a moment';
+
+  @override
+  String revealRankPlace(Object rank) {
+    return '#$rank';
+  }
+
+  @override
+  String revealRankPoints(Object points) {
+    return '+$points';
+  }
+
+  @override
+  String get revealStampHit => 'Correct';
+
+  @override
+  String get revealStampPass => 'Pass';
+
+  @override
+  String revealCoverAlt(Object title) {
+    return '$title cover';
+  }
+
+  @override
+  String get revealCoverAltIdle => 'Anime cover';
+
+  @override
+  String get scoreBoard => 'Scoreboard';
+
+  @override
+  String get scoreRanking => 'Final ranking';
+
+  @override
+  String scorePoints(Object score) {
+    return '$score pt';
+  }
+
+  @override
+  String scoreRank(Object rank) {
+    return '#$rank';
+  }
+
+  @override
+  String scoreFinal(Object score) {
+    return 'Final score: $score';
+  }
+
+  @override
+  String get gameLeave => 'Leave';
+
+  @override
+  String get gameLeaveAsk => 'Leave the game?';
+
+  @override
+  String get gameLeaveConfirm => 'Leave';
+
+  @override
+  String get gameLeaveCancel => 'Cancel';
+
+  @override
+  String get gameToLobby => 'To lobby';
+
+  @override
+  String chatCorrectLine(Object name) {
+    return '$name got it!';
+  }
+
+  @override
+  String chatWrongLine(Object name) {
+    return '✘ $name picked wrong';
+  }
+
+  @override
+  String chatCorrectRanked(Object name, Object rank) {
+    return '$name got it! (#$rank)';
+  }
+
+  @override
+  String get chatGameStart => 'Game starting';
+
+  @override
+  String chatSongStart(Object n) {
+    return 'Song $n started';
+  }
+
+  @override
+  String get chatGameOver => 'Game over';
+
+  @override
+  String get chatLobbyBack => 'Back in the lobby';
+
+  @override
+  String answerChoiceN(Object n) {
+    return 'Choice $n';
+  }
+
+  @override
+  String get answerMarkCorrect => '✔ Correct';
+
+  @override
+  String get answerMarkWrong => '✕ Wrong';
+
+  @override
+  String get seatCorrect => 'Got it!';
+
+  @override
+  String seatScore(Object score) {
+    return '$score pt';
+  }
+
+  @override
   String get errorAlreadyInRoom => 'You are already in a room.';
 
   @override

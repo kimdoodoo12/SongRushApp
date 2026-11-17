@@ -532,6 +532,378 @@ abstract class AppLocalizations {
   /// **'다른 창에서 접속해 이 연결이 끊겼습니다.'**
   String get gameReplaced;
 
+  /// web: lobby.abandoned
+  ///
+  /// In ko, this message translates to:
+  /// **'게임이 중단되어 대기실로 돌아왔습니다.'**
+  String get lobbyAbandoned;
+
+  /// web: stage.label
+  ///
+  /// In ko, this message translates to:
+  /// **'무대'**
+  String get stageLabel;
+
+  /// web: stage.timeLeft
+  ///
+  /// In ko, this message translates to:
+  /// **'남은 시간'**
+  String get stageTimeLeft;
+
+  /// web: stage.connecting
+  ///
+  /// In ko, this message translates to:
+  /// **'서버에 연결하는 중...'**
+  String get stageConnecting;
+
+  /// web: stage.waitingNext
+  ///
+  /// In ko, this message translates to:
+  /// **'다음 곡을 기다리는 중...'**
+  String get stageWaitingNext;
+
+  /// web: stage.round
+  ///
+  /// In ko, this message translates to:
+  /// **'<num>{index} / {total}</num> 번째 곡'**
+  String stageRound(Object index, Object total);
+
+  /// web: stage.score
+  ///
+  /// In ko, this message translates to:
+  /// **'점수: {score}'**
+  String stageScore(Object score);
+
+  /// web: stage.seconds
+  ///
+  /// In ko, this message translates to:
+  /// **'{seconds}초'**
+  String stageSeconds(Object seconds);
+
+  /// web: stage.watching
+  ///
+  /// In ko, this message translates to:
+  /// **'이번 곡은 구경 중입니다. 다음 곡부터 참가합니다.'**
+  String get stageWatching;
+
+  /// web: stage.loading
+  ///
+  /// In ko, this message translates to:
+  /// **'음원을 불러오는 중...'**
+  String get stageLoading;
+
+  /// web: stage.loadFailed
+  ///
+  /// In ko, this message translates to:
+  /// **'이번 곡을 재생하지 못했습니다.'**
+  String get stageLoadFailed;
+
+  /// web: stage.hint
+  ///
+  /// In ko, this message translates to:
+  /// **'들리는 곡의 애니 제목을 채팅으로 맞혀 보세요'**
+  String get stageHint;
+
+  /// web: stage.skip
+  ///
+  /// In ko, this message translates to:
+  /// **'스킵'**
+  String get stageSkip;
+
+  /// web: stage.skipCancel
+  ///
+  /// In ko, this message translates to:
+  /// **'스킵 취소'**
+  String get stageSkipCancel;
+
+  /// web: stage.skipCount
+  ///
+  /// In ko, this message translates to:
+  /// **'스킵 {votes}/{needed}'**
+  String stageSkipCount(Object votes, Object needed);
+
+  /// web: stage.pickCount
+  ///
+  /// In ko, this message translates to:
+  /// **'선택 {picked}/{total}'**
+  String stagePickCount(Object picked, Object total);
+
+  /// web: stage.sub
+  ///
+  /// In ko, this message translates to:
+  /// **'한국어, 영어, 일본어, 로마자 제목 모두 정답이에요. 띄어쓰기와 문장부호는 무시해요.'**
+  String get stageSub;
+
+  /// web: stage.soon
+  ///
+  /// In ko, this message translates to:
+  /// **'곡이 나오면 애니 제목을 채팅으로 맞혀 보세요'**
+  String get stageSoon;
+
+  /// web: stage.soonSub
+  ///
+  /// In ko, this message translates to:
+  /// **'모두가 같은 순간에 같은 곡을 들어요.'**
+  String get stageSoonSub;
+
+  /// web: stage.choiceSoon
+  ///
+  /// In ko, this message translates to:
+  /// **'곡이 나오면 표지 중에서 그 애니를 골라 보세요'**
+  String get stageChoiceSoon;
+
+  /// web: stage.choiceHint
+  ///
+  /// In ko, this message translates to:
+  /// **'들리는 곡의 애니를 표지에서 골라 보세요'**
+  String get stageChoiceHint;
+
+  /// web: stage.choiceSub
+  ///
+  /// In ko, this message translates to:
+  /// **'한 번만 고를 수 있어요. 틀리면 이번 곡은 끝까지 구경해요. 내가 고른 표지는 다른 사람에게 보이지 않고, 채팅은 대화용이에요.'**
+  String get stageChoiceSub;
+
+  /// web: stage.pickWrong
+  ///
+  /// In ko, this message translates to:
+  /// **'{n}번은 오답이에요. 정답 공개를 기다려 주세요.'**
+  String stagePickWrong(Object n);
+
+  /// web: reveal.heading
+  ///
+  /// In ko, this message translates to:
+  /// **'정답 공개'**
+  String get revealHeading;
+
+  /// web: reveal.noWinner
+  ///
+  /// In ko, this message translates to:
+  /// **'정답자 없음'**
+  String get revealNoWinner;
+
+  /// web: reveal.winner
+  ///
+  /// In ko, this message translates to:
+  /// **'정답: {name}'**
+  String revealWinner(Object name);
+
+  /// web: reveal.ranking
+  ///
+  /// In ko, this message translates to:
+  /// **'이번 곡 순위'**
+  String get revealRanking;
+
+  /// web: reveal.label.ko
+  ///
+  /// In ko, this message translates to:
+  /// **'KO'**
+  String get revealLabelKo;
+
+  /// web: reveal.label.en
+  ///
+  /// In ko, this message translates to:
+  /// **'EN'**
+  String get revealLabelEn;
+
+  /// web: reveal.label.ja
+  ///
+  /// In ko, this message translates to:
+  /// **'JA'**
+  String get revealLabelJa;
+
+  /// web: reveal.label.romaji
+  ///
+  /// In ko, this message translates to:
+  /// **'Romaji'**
+  String get revealLabelRomaji;
+
+  /// web: reveal.solvers
+  ///
+  /// In ko, this message translates to:
+  /// **'정답자: {names}'**
+  String revealSolvers(Object names);
+
+  /// web: reveal.next
+  ///
+  /// In ko, this message translates to:
+  /// **'잠시 후 다음 곡이 시작돼요'**
+  String get revealNext;
+
+  /// web: reveal.nextFinal
+  ///
+  /// In ko, this message translates to:
+  /// **'잠시 후 최종 순위를 보여 줘요'**
+  String get revealNextFinal;
+
+  /// web: reveal.rankPlace
+  ///
+  /// In ko, this message translates to:
+  /// **'{rank}등'**
+  String revealRankPlace(Object rank);
+
+  /// web: reveal.rankPoints
+  ///
+  /// In ko, this message translates to:
+  /// **'+{points}점'**
+  String revealRankPoints(Object points);
+
+  /// web: reveal.stampHit
+  ///
+  /// In ko, this message translates to:
+  /// **'정답'**
+  String get revealStampHit;
+
+  /// web: reveal.stampPass
+  ///
+  /// In ko, this message translates to:
+  /// **'통과'**
+  String get revealStampPass;
+
+  /// web: reveal.coverAlt
+  ///
+  /// In ko, this message translates to:
+  /// **'{title} 표지'**
+  String revealCoverAlt(Object title);
+
+  /// web: reveal.coverAltIdle
+  ///
+  /// In ko, this message translates to:
+  /// **'애니 표지'**
+  String get revealCoverAltIdle;
+
+  /// web: score.board
+  ///
+  /// In ko, this message translates to:
+  /// **'점수판'**
+  String get scoreBoard;
+
+  /// web: score.ranking
+  ///
+  /// In ko, this message translates to:
+  /// **'최종 순위'**
+  String get scoreRanking;
+
+  /// web: score.points
+  ///
+  /// In ko, this message translates to:
+  /// **'{score}점'**
+  String scorePoints(Object score);
+
+  /// web: score.rank
+  ///
+  /// In ko, this message translates to:
+  /// **'{rank}위'**
+  String scoreRank(Object rank);
+
+  /// web: score.final
+  ///
+  /// In ko, this message translates to:
+  /// **'최종 점수: {score}점'**
+  String scoreFinal(Object score);
+
+  /// web: game.leave
+  ///
+  /// In ko, this message translates to:
+  /// **'나가기'**
+  String get gameLeave;
+
+  /// web: game.leaveAsk
+  ///
+  /// In ko, this message translates to:
+  /// **'게임을 나갈까요?'**
+  String get gameLeaveAsk;
+
+  /// web: game.leaveConfirm
+  ///
+  /// In ko, this message translates to:
+  /// **'나가기'**
+  String get gameLeaveConfirm;
+
+  /// web: game.leaveCancel
+  ///
+  /// In ko, this message translates to:
+  /// **'취소'**
+  String get gameLeaveCancel;
+
+  /// web: game.toLobby
+  ///
+  /// In ko, this message translates to:
+  /// **'대기실로'**
+  String get gameToLobby;
+
+  /// web: chat.correctLine
+  ///
+  /// In ko, this message translates to:
+  /// **'{name} 정답!'**
+  String chatCorrectLine(Object name);
+
+  /// web: chat.wrongLine
+  ///
+  /// In ko, this message translates to:
+  /// **'✘ {name} 오답'**
+  String chatWrongLine(Object name);
+
+  /// web: chat.correctRanked
+  ///
+  /// In ko, this message translates to:
+  /// **'{name} 정답! ({rank}등)'**
+  String chatCorrectRanked(Object name, Object rank);
+
+  /// web: chat.gameStart
+  ///
+  /// In ko, this message translates to:
+  /// **'게임을 시작해요'**
+  String get chatGameStart;
+
+  /// web: chat.songStart
+  ///
+  /// In ko, this message translates to:
+  /// **'{n}번째 곡 시작'**
+  String chatSongStart(Object n);
+
+  /// web: chat.gameOver
+  ///
+  /// In ko, this message translates to:
+  /// **'게임 종료'**
+  String get chatGameOver;
+
+  /// web: chat.lobbyBack
+  ///
+  /// In ko, this message translates to:
+  /// **'대기실로 돌아왔어요'**
+  String get chatLobbyBack;
+
+  /// web: answer.choiceN
+  ///
+  /// In ko, this message translates to:
+  /// **'보기 {n}'**
+  String answerChoiceN(Object n);
+
+  /// web: answer.markCorrect
+  ///
+  /// In ko, this message translates to:
+  /// **'✔ 정답'**
+  String get answerMarkCorrect;
+
+  /// web: answer.markWrong
+  ///
+  /// In ko, this message translates to:
+  /// **'✕ 오답'**
+  String get answerMarkWrong;
+
+  /// web: seat.correct
+  ///
+  /// In ko, this message translates to:
+  /// **'정답!'**
+  String get seatCorrect;
+
+  /// web: seat.score
+  ///
+  /// In ko, this message translates to:
+  /// **'{score}점'**
+  String seatScore(Object score);
+
   /// web: error.already-in-room
   ///
   /// In ko, this message translates to:
