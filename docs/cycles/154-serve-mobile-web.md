@@ -21,3 +21,9 @@ The Android APK (later item), the deploy itself (owner merges to main).
 - Flutter: footer link PC 버전 / PC version / PC版 on the start screen and lobby (web only) stores `songrush.ui = "pc"` and goes to `/` or `/r/<code>`.
 - Evidence: implementer `docker build -t songrush-local .` OK and the image checked with curl (`/m` 302 to `/m/`, `/m/` and `/m/r/ABCDE` 200 html with `<base href="/m/">` and no-cache, `/m/main.dart.js` 200 text/javascript no-cache, `/`, `/r/ABCDE`, `/admin` React); app tests +136 in a copy without flutter_soloud. Verifier: backend 1310 tests 0 failures (MobilePageTest 4/4), frontend 932 passed, lint clean, `flutter analyze` no issues, room.css untouched.
 - Not covered: the old non-Docker upload path (`deploy/upload.sh`, `songrush.service`) does not ship `/m/`; the live site deploys the Docker image (docker.yml). A phone downloads the React bundle before it is redirected (the redirect runs in main.jsx, not inline).
+
+## Phone-like check (lead, after the merge)
+- The built image (`songrush-local`) run on this PC with the local test songs; GitHub: CI success (backend, frontend, mobile) and the Docker image build success on dev (`d1b760b`), deploy skipped (main only).
+- PC Chromium on `/` stayed on the React web. The Android emulator's Chrome (Medium Phone API 36) on `/` landed on `/m/`, and on the room link `/r/VXMB8` landed on `/m/r/VXMB8` (the redirect works on a real coarse-pointer device).
+- The phone joined the PC host's room in the Flutter app (English UI from the device locale); the PC listed it; the game started and the phone showed "Song 1 started" with the time bar running (`docs/cycles/154/phone-playing.png`); no console errors.
+- The phone's soloud AudioContext: `{"state":"running","outputLatency":0.304,"baseLatency":0.0989}`; the app now uses 0.304 s (the React formula). The emulator's real delay was measured about 0.35 s longer in cycle 142, so the acoustic check stays a real-phone item.
