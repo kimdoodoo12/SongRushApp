@@ -1,6 +1,9 @@
 /// Pure-Dart game logic of the SongRush client (no Flutter imports).
 library;
 
+export 'src/audio/playback_settings.dart';
+export 'src/audio/player.dart';
+export 'src/audio/round_controller.dart';
 export 'src/limits.dart';
 export 'src/net/game_socket.dart';
 export 'src/protocol/client_message.dart';

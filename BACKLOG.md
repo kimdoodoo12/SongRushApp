@@ -438,7 +438,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **C-020** protocol contract `contracts/protocol.md` with frames captured from the socket tests (design 141 item 3)
 - [x] **F-M1** mobile net and session core (design 141 item 4)
 - [x] **F-M2** mobile clock sync and playback planning, ported with the web's test vectors (design 141 item 5)
-- [ ] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009), with an in-song position check that corrects drift and a misreported output latency, and a manual offset setting (cycle 142's emulator measurement). The fallback B-M3 is not needed (S-009 passed)
+- [x] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009), with an in-song position check that corrects drift and a misreported output latency, and a manual offset setting (cycle 142's emulator measurement). The fallback B-M3 is not needed (S-009 passed)
 - [ ] **F-M4a** mobile start and lobby screens, with the credit line (design 141 item 7)
 - [ ] **F-M4b** mobile game and game-over screens (design 141 item 7b)
 - [ ] **F-M5** mobile reconnect and lifecycle (design 141 item 8)

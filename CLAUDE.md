@@ -62,7 +62,7 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 | backend | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
 | frontend | `npm test` (from `frontend/`); `npm ci` once after a fresh clone | `npm run lint`; build `npm run build` |
 | data | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet. Setup once from `data/`: `python -m venv .venv`, then `.venv\Scripts\python.exe -m pip install -r requirements.txt` |
-| mobile | core: `C:\src\flutter\bin\dart.bat test` (from `mobile/packages/songrush_core`); app: `C:\src\flutter\bin\flutter.bat test` (from `mobile/`). Flutter 3.50.0 is at `C:\src\flutter\bin`, not on PATH | `flutter.bat analyze` (core: `dart.bat analyze`); build `flutter.bat build web` (from `mobile/`) |
+| mobile | core: `C:\src\flutter\bin\dart.bat test` (from `mobile/packages/songrush_core`); app: `C:\src\flutter\bin\flutter.bat test` (from `mobile/`), which cannot run on this PC since cycle 147: flutter_soloud's native build hook needs the MSVC C++ tools ("No compiler configured on host 'windows_x64'"), so the app's tests run in CI (Linux) and the local app check is analyze + build web. Flutter 3.50.0 is at `C:\src\flutter\bin`, not on PATH | `flutter.bat analyze` (core: `dart.bat analyze`); build `flutter.bat build web` (from `mobile/`) |
 
 Drop "(verified once bootstrapped)" from a row only after its bootstrap cycle has run that command successfully.
 

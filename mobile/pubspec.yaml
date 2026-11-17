@@ -14,6 +14,9 @@ dependencies:
   # Game logic lives in a pure-Dart package so it tests with `dart test` alone.
   songrush_core:
     path: packages/songrush_core
+  # Audio (cycle 147, as the S-009 spike): Ogg Opus from memory, engine-clock starts.
+  flutter_soloud: ^5.3.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:
