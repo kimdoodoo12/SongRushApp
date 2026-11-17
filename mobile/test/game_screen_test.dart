@@ -114,6 +114,21 @@ List<String> logTexts(WidgetTester tester) {
   ];
 }
 
+/// The latest chat lines above the form (a choice room, the game over),
+/// oldest first; the oldest may be cut off at the box's top.
+List<String> previewTexts(WidgetTester tester) {
+  final preview = find.byKey(const ValueKey('chat-preview-lines'));
+  return [
+    for (final w in tester.widgetList<Text>(find.descendant(of: preview, matching: find.byType(Text)))) w.data ?? '',
+  ];
+}
+
+/// Opens the full chat from the latest lines.
+Future<void> openChat(WidgetTester tester, Harness h) async {
+  await tester.tap(find.byKey(const ValueKey('chat-preview')));
+  await h.settle(tester);
+}
+
 String textOf(WidgetTester tester, String key) {
   final widget = tester.widget(find.byKey(ValueKey(key)));
   if (widget is Text) return widget.data ?? widget.textSpan!.toPlainText();
@@ -273,7 +288,13 @@ void main() {
     h.receive({'type': 'wrong', 'index': 0, 'name': 'Aki'});
     h.receive({'type': 'chat', 'name': 'Aki', 'text': '진격의 거인'});
     await h.settle(tester);
+    // A choice room shows the latest lines above the form (D-142); a tap
+    // opens the full log.
+    expect(previewTexts(tester).sublist(previewTexts(tester).length - 2), ['✘ Aki 오답', '진격의 거인']);
+    await openChat(tester, h);
     expect(logTexts(tester).sublist(logTexts(tester).length - 2), ['✘ Aki 오답', '진격의 거인']);
+    await tester.tap(find.byKey(const ValueKey('chat-close')));
+    await h.settle(tester);
 
     h.receive(revealFrame(0, correctChoice: 2));
     await h.settle(tester);
@@ -450,10 +471,13 @@ void main() {
     expect(find.text('10점'), findsOneWidget);
     expect(find.text('5점 (나)'), findsOneWidget);
     expect(textOf(tester, 'final-score'), '최종 점수: 5점');
-    // The last card stays under the ranking; no 나가기, no chat form.
-    expect(find.byKey(const ValueKey('reveal')), findsOneWidget);
+    // The ranking replaces the middle (D-142: the last card goes); no
+    // 나가기, no chat form; the latest lines open the full log.
+    expect(find.byKey(const ValueKey('reveal')), findsNothing);
     expect(find.byKey(const ValueKey('game-leave')), findsNothing);
     expect(find.byKey(const ValueKey('chat-input')), findsNothing);
+    expect(previewTexts(tester).last, '게임 종료');
+    await openChat(tester, h);
     expect(logTexts(tester).last, '게임 종료');
     expect(find.byKey(const ValueKey('to-lobby')), findsNothing);
 
