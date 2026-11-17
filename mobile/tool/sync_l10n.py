@@ -67,6 +67,9 @@ APP_KEYS = {
     "offsetClose": ("닫기", "Close", "閉じる", "closes the sound offset setting"),
     # cycle 153: chat never scores in a choice room (D-135), so its input
     # does not ask for a title; the web has no such key.
+    # cycle 154 (D-140): the footer's link from the mobile web build to the
+    # React web; the web's opposite link is app.mobileVersion.
+    "appPcVersion": ("PC 버전", "PC version", "PC版", "the footer link to the PC (React) web version"),
     "chatTalkPlaceholder": (
         "채팅으로 이야기해요",
         "Chat with everyone",

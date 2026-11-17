@@ -101,7 +101,11 @@ class _StartScreenState extends State<StartScreen> {
                 ],
               ),
             ),
-            Footer(language: c.language, onLanguage: c.setLanguage),
+            Footer(
+              language: c.language,
+              onLanguage: c.setLanguage,
+              onPcVersion: c.canSwitchToPc ? c.switchToPc : null,
+            ),
           ],
         ),
         if (c.dialog != null) NicknameDialog(controller: c),

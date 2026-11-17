@@ -2,7 +2,8 @@
   "app": {
     "title": "SongRush",
     "credit": "Data sources: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata",
-    "reconnecting": "Connection lost. Reconnecting..."
+    "reconnecting": "Connection lost. Reconnecting...",
+    "mobileVersion": "Mobile version"
   },
   "start": {
     "nickname": "Nickname",

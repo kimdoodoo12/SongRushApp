@@ -1102,6 +1102,12 @@ abstract class AppLocalizations {
   /// **'닫기'**
   String get offsetClose;
 
+  /// app only: the footer link to the PC (React) web version
+  ///
+  /// In ko, this message translates to:
+  /// **'PC 버전'**
+  String get appPcVersion;
+
   /// app only: the chat input's placeholder in a choice room, where chat is only talk
   ///
   /// In ko, this message translates to:

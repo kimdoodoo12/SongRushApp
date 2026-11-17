@@ -1,8 +1,16 @@
 *
 !backend
 !frontend
+!mobile
 backend/build
 backend/bin
 backend/.gradle
 frontend/node_modules
 frontend/dist
+mobile/build
+mobile/.dart_tool
+mobile/.flutter-plugins*
+mobile/.idea
+mobile/packages/*/.dart_tool
+mobile/packages/*/build
+mobile/tool/fonts-src
