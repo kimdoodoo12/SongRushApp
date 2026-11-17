@@ -23,8 +23,9 @@ Future<Harness> enterGame(
   WidgetTester tester, {
   Map<String, Object?> options = const {},
   String language = 'ko',
+  Map<String, String> prefs = const {},
 }) async {
-  final h = Harness(prefs: {nicknameKey: 'Mina', 'songrush.lang': language});
+  final h = Harness(prefs: {nicknameKey: 'Mina', 'songrush.lang': language, ...prefs});
   h.fetcher.responses[audio(0)] = Uint8List(8);
   h.fetcher.responses[audio(1)] = Uint8List(8);
   await h.pumpApp(tester);

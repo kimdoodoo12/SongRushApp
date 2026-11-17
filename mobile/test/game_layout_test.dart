@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:songrush_mobile/app/game_model.dart';
 import 'package:songrush_mobile/ui/chat_panel.dart';
 import 'package:songrush_mobile/ui/game_screen.dart';
+import 'package:songrush_mobile/ui/offset_dialog.dart';
 
 import 'game_screen_test.dart' show enterGame, logTexts, prepare, previewTexts, revealFrame, start;
 import 'reconnect_test.dart' show playingSnapshot, reloadInto, reconnecting;
@@ -66,7 +67,6 @@ void expectOneScreen(WidgetTester tester, String state, {double inset = 0}) {
   for (final key in [
     'clock',
     'round',
-    'offset-open',
     'game-leave',
     'skip',
     'skip-count',
@@ -327,15 +327,34 @@ void main() {
   }
 
   for (final (lang, name) in [('ko', '싱크'), ('en', 'Sync'), ('ja', '同期')]) {
-    testWidgets('the offset button is an icon only in $lang; its name is in the tooltip and semantics', (tester) async {
+    testWidgets('the game header has no offset button in $lang, playing or at game over (cycle 152)', (tester) async {
       final h = await enterGame(tester, language: lang);
       await prepare(tester, h, 0);
-      final button = find.byKey(const ValueKey('offset-open'));
-      expect(find.descendant(of: button, matching: find.byType(Icon)), findsOneWidget);
-      expect(find.descendant(of: button, matching: find.byType(Text)), findsNothing);
-      expect(find.text(name), findsNothing, reason: 'no visible text');
-      expect(find.byTooltip(name), findsOneWidget);
-      expect(find.bySemanticsLabel(name), findsOneWidget);
+      await start(tester, h, 0);
+      void expectNone(String state) {
+        expect(find.byKey(const ValueKey('offset-open')), findsNothing, reason: state);
+        expect(find.byType(OffsetButton), findsNothing, reason: state);
+        expect(find.byTooltip(name), findsNothing, reason: state);
+        expect(find.bySemanticsLabel(name), findsNothing, reason: state);
+        expect(find.byIcon(Icons.tune), findsNothing, reason: state);
+      }
+
+      expectNone('playing');
+      // 나가기 alone at the end of the top bar's first line (12 px side
+      // padding on the 390 px phone), on the line of song n / N.
+      final leave = tester.getRect(find.byKey(const ValueKey('game-leave')));
+      expect(leave.right, closeTo(phone.width - 12, 0.5));
+      final round = tester.getRect(find.byKey(const ValueKey('round')));
+      expect(leave.center.dy, closeTo(round.center.dy, 4));
+      h.receive({
+        'type': 'gameOver',
+        'ranking': [
+          {'rank': 1, 'name': 'Mina', 'score': 5},
+        ],
+      });
+      await h.settle(tester);
+      expectNone('game over');
+      expect(find.byKey(const ValueKey('game-leave')), findsNothing);
       await h.tearDown(tester);
     });
   }

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:songrush_core/songrush_core.dart';
 import 'package:songrush_mobile/app/app_controller.dart';
 import 'package:songrush_mobile/store/playback_settings_store.dart';
+import 'package:songrush_mobile/ui/offset_dialog.dart';
 
 import 'game_screen_test.dart' show audio, buttonText, enterGame, prepare, revealFrame, start, textOf;
 import 'support/harness.dart';
@@ -84,6 +85,17 @@ void show(WidgetTester tester) {
 }
 
 double playOffset(Harness h) => h.players.last.last('play')!.args['offset']! as double;
+
+/// The sound offset setting over the app's screen while the controller's
+/// offsetOpen is set, as app.dart showed it before cycle 152 took it out of
+/// the UI. Remove and dispose the entry before the harness's tearDown.
+OverlayEntry showOffsetSetting(WidgetTester tester, Harness h) => overApp(
+      tester,
+      (_) => ListenableBuilder(
+        listenable: h.controller,
+        builder: (_, _) => h.controller.offsetOpen ? SoundOffsetDialog(controller: h.controller) : const SizedBox.shrink(),
+      ),
+    );
 
 void main() {
   group('reconnect UI', () {
@@ -365,9 +377,24 @@ void main() {
   });
 
   group('manual sound offset', () {
-    testWidgets('from the lobby header: steps of 10, stored, given to the round controller', (tester) async {
+    for (final (lang, name) in [('ko', '싱크'), ('en', 'Sync'), ('ja', '同期')]) {
+      testWidgets('the lobby header has no offset button in $lang (cycle 152)', (tester) async {
+        final h = await enterLobby(tester, prefs: {'songrush.lang': lang});
+        expect(h.controller.screen, Screen.lobby);
+        expect(find.byKey(const ValueKey('offset-open')), findsNothing);
+        expect(find.byType(OffsetButton), findsNothing);
+        expect(find.byTooltip(name), findsNothing);
+        expect(find.bySemanticsLabel(name), findsNothing);
+        expect(find.byIcon(Icons.tune), findsNothing);
+        await h.tearDown(tester);
+      });
+    }
+
+    testWidgets('the setting: steps of 10, stored, given to the round controller', (tester) async {
       final h = await enterLobby(tester);
-      await tester.tap(find.byKey(const ValueKey('offset-open')));
+      final entry = showOffsetSetting(tester, h);
+      expect(find.byKey(const ValueKey('offset-dialog')), findsNothing, reason: 'closed until opened');
+      h.controller.openOffset();
       await h.settle(tester);
       expect(find.byKey(const ValueKey('offset-dialog')), findsOneWidget);
       expect(textOf(tester, 'offset-value'), '0ms');
@@ -390,14 +417,19 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('offset-close')));
       await h.settle(tester);
       expect(find.byKey(const ValueKey('offset-dialog')), findsNothing);
+      expect(h.controller.offsetOpen, isFalse);
       expect(h.controller.screen, Screen.lobby);
+      entry
+        ..remove()
+        ..dispose();
       await h.tearDown(tester);
     });
 
     testWidgets('the slider covers -500..+500 and stops at its ends', (tester) async {
       final h = await enterLobby(tester, prefs: {manualOffsetKey: '490'});
       expect(h.controller.manualOffsetMs, 490);
-      await tester.tap(find.byKey(const ValueKey('offset-open')));
+      final entry = showOffsetSetting(tester, h);
+      h.controller.openOffset();
       await h.settle(tester);
       final slider = tester.widget<Slider>(find.byKey(const ValueKey('offset-slider')));
       expect((slider.min, slider.max, slider.divisions, slider.value), (-500.0, 500.0, 100, 490.0));
@@ -409,15 +441,35 @@ void main() {
       await h.settle(tester);
       expect(h.controller.manualOffsetMs, -500);
       expect(h.prefs.read(manualOffsetKey), '-500');
+      entry
+        ..remove()
+        ..dispose();
       await h.tearDown(tester);
     });
 
-    testWidgets('from the game header, in English; the next song plays with it', (tester) async {
+    testWidgets('a stored offset still applies with no button: the next song plays with it', (tester) async {
+      final h = await enterGame(tester, language: 'en', prefs: {manualOffsetKey: '100'});
+      await prepare(tester, h, 0);
+      expect(h.controller.screen, Screen.game);
+      expect(find.byTooltip('Sync'), findsNothing);
+      expect(h.controller.manualOffsetMs, 100);
+
+      final startAt = h.nowMs + 500;
+      h.receive({'type': 'start', 'index': 0, 'startAt': startAt, 'deadlineAt': startAt + 90000, 'serverTime': h.nowMs});
+      await h.settle(tester);
+      // 0.5 s ahead on the player's clock, 0.1 s later for the offset.
+      expect(h.players.last.last('play')!.args['when']! as double, closeTo(0.6, 1e-6));
+      await h.tearDown(tester);
+    });
+
+    testWidgets('the setting over the game, in English; the next song plays with it', (tester) async {
       final h = await enterGame(tester, language: 'en');
       await prepare(tester, h, 0);
       expect(h.controller.screen, Screen.game);
-      expect(find.byTooltip('Sync'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('offset-open')));
+      expect(find.byTooltip('Sync'), findsNothing);
+      expect(find.byKey(const ValueKey('offset-open')), findsNothing);
+      final entry = showOffsetSetting(tester, h);
+      h.controller.openOffset();
       await h.settle(tester);
       expect(find.text('Sound sync'), findsOneWidget);
       for (var i = 0; i < 10; i++) {
@@ -434,16 +486,45 @@ void main() {
       await h.settle(tester);
       // 0.5 s ahead on the player's clock, 0.1 s later for the offset.
       expect(h.players.last.last('play')!.args['when']! as double, closeTo(0.6, 1e-6));
+      entry
+        ..remove()
+        ..dispose();
       await h.tearDown(tester);
     });
 
     testWidgets('the setting in Japanese', (tester) async {
       final h = await enterLobby(tester, prefs: {'songrush.lang': 'ja'});
-      await tester.tap(find.byKey(const ValueKey('offset-open')));
+      final entry = showOffsetSetting(tester, h);
+      h.controller.openOffset();
       await h.settle(tester);
       expect(find.text('音ズレ調整'), findsOneWidget);
       expect(buttonText(tester, 'offset-close'), '閉じる');
+      entry
+        ..remove()
+        ..dispose();
       await h.tearDown(tester);
     });
+
+    for (final (lang, name) in [('ko', '싱크'), ('en', 'Sync'), ('ja', '同期')]) {
+      testWidgets('the kept offset button is an icon only in $lang; its name is in the tooltip and semantics',
+          (tester) async {
+        final h = await enterLobby(tester, prefs: {'songrush.lang': lang});
+        final entry = overApp(tester, (_) => Center(child: OffsetButton(controller: h.controller)));
+        await h.settle(tester);
+        final button = find.byKey(const ValueKey('offset-open'));
+        expect(find.descendant(of: button, matching: find.byType(Icon)), findsOneWidget);
+        expect(find.descendant(of: button, matching: find.byType(Text)), findsNothing);
+        expect(find.text(name), findsNothing, reason: 'no visible text');
+        expect(find.byTooltip(name), findsOneWidget);
+        expect(find.bySemanticsLabel(name), findsOneWidget);
+        await tester.tap(button);
+        await h.settle(tester);
+        expect(h.controller.offsetOpen, isTrue);
+        entry
+          ..remove()
+          ..dispose();
+        await h.tearDown(tester);
+      });
+    }
   });
 }

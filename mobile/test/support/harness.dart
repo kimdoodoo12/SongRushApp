@@ -140,6 +140,15 @@ bool isEnabled(WidgetTester tester, Key key) {
   return button.onPressed != null;
 }
 
+/// Puts [builder]'s widget over the app's screen, in the app's overlay (so
+/// it has the app's localizations and theme). Remove and dispose the entry
+/// before [Harness.tearDown].
+OverlayEntry overApp(WidgetTester tester, WidgetBuilder builder) {
+  final entry = OverlayEntry(builder: builder);
+  tester.state<NavigatorState>(find.byType(Navigator)).overlay!.insert(entry);
+  return entry;
+}
+
 /// Scrolls [finder] into view and taps it.
 Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
