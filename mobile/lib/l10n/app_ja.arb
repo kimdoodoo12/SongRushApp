@@ -134,6 +134,8 @@
   "answerMarkWrong": "✕ 不正解",
   "seatCorrect": "正解！",
   "seatScore": "{score}点",
+  "stageUnlockSound": "タップして音を出す",
+  "gameReset": "トップへ",
   "errorAlreadyInRoom": "すでにルームに参加しています。",
   "errorAvailable": "出題できる曲は{available}曲だけです。",
   "errorAvailableSeries": "出題できる作品は{available}作品だけです。",
@@ -156,5 +158,13 @@
   "errorServerFull": "サーバーが混み合っています。しばらくしてからもう一度お試しください。",
   "errorTooLarge": "メッセージが大きすぎます。",
   "errorTooLong": "チャットは200文字まで入力できます。",
-  "errorUnknown": "エラーが発生しました（{code}）"
+  "errorUnknown": "エラーが発生しました（{code}）",
+  "offsetOpen": "同期",
+  "offsetTitle": "音ズレ調整",
+  "offsetHint": "自分の音がほかの人より遅れて聞こえるなら − に、早く聞こえるなら + に動かしてください。次の曲から反映されます。",
+  "offsetValue": "{ms}ms",
+  "offsetEarlier": "早く",
+  "offsetLater": "遅く",
+  "offsetReset": "リセット",
+  "offsetClose": "閉じる"
 }

@@ -18,7 +18,10 @@ class Harness {
     String initialCode = '',
     List<Locale> deviceLocales = const [Locale('ko')],
     Map<String, String>? prefs,
+    RejoinEntry? stored,
+    bool reloaded = false,
   }) : prefs = MemoryPrefs(prefs) {
+    if (stored != null) tokens.write(stored);
     controller = AppController(
       socketFactory: sockets.call,
       tokenStore: tokens,
@@ -26,6 +29,8 @@ class Harness {
       fetcher: fetcher,
       localPrefs: this.prefs,
       unlockSound: () async => unlocks++,
+      keepAwake: awake.add,
+      pageReloaded: reloaded,
       deviceLocales: deviceLocales,
       initialCode: initialCode,
       pageOrigin: 'https://songrush.test',
@@ -45,6 +50,9 @@ class Harness {
   int nowMs = 1000000;
   final List<String> warnings = [];
   int unlocks = 0;
+
+  /// Every wake lock switch, in order.
+  final List<bool> awake = [];
   late final AppController controller;
 
   FakeGameSocket get socket => sockets.last;
@@ -75,6 +83,17 @@ class Harness {
   }
 
   void receive(Map<String, Object?> frame) => socket.receiveJson(frame);
+
+  final Set<Object?> _pinged = {};
+
+  /// Answers every ping on the last socket not answered yet, with the
+  /// server clock [serverAheadMs] ahead of the app's (rtt 0).
+  void answerPings({int serverAheadMs = 0}) {
+    for (final m in socket.sentJson) {
+      if (m['type'] != 'ping' || !_pinged.add((socket, m['id']))) continue;
+      receive({'type': 'pong', 'id': m['id'], 'serverTime': nowMs + serverAheadMs});
+    }
+  }
 
   /// Moves the app's clock and the test's fake time together by [by], in
   /// steps of [step].

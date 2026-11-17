@@ -3,8 +3,10 @@
 # (lib/l10n/app_<lng>.arb), cycle 148. Key names: the web's dotted key in
 # camelCase, dots and dashes dropped (lobby.songCount -> lobbySongCount,
 # error.bad-nickname -> errorBadNickname); each key's @description in
-# app_ko.arb names the web key. {{x}} becomes {x}. Add keys to KEYS, then,
-# from mobile/:
+# app_ko.arb names the web key. {{x}} becomes {x}. Texts the web has no key
+# for (cycle 150: the sound offset setting) live in APP_KEYS below, in all
+# three languages, so a rerun keeps them. Add keys to KEYS (or APP_KEYS),
+# then, from mobile/:
 #   python -I tool/sync_l10n.py ../frontend/src/i18n lib/l10n
 #   flutter gen-l10n
 import json, re, sys
@@ -42,7 +44,27 @@ KEYS = (
                             "lobbyBack"]]
     + [f"answer.{k}" for k in ["choiceN", "markCorrect", "markWrong"]]
     + [f"seat.{k}" for k in ["correct", "score"]]
+    # cycle 150: reconnect and lifecycle.
+    + ["stage.unlockSound", "game.reset"]
 )
+
+# The app's own texts (no web key), by ARB name: ko, en, ja, and the
+# description. Placeholders are written {x}.
+APP_KEYS = {
+    "offsetOpen": ("싱크", "Sync", "同期", "the header button that opens the sound offset setting"),
+    "offsetTitle": ("소리 싱크 조절", "Sound sync", "音ズレ調整", "the sound offset setting's title"),
+    "offsetHint": (
+        "내 소리가 다른 사람보다 늦게 들리면 − 쪽으로, 빨리 들리면 + 쪽으로 옮겨 주세요. 다음 곡부터 적용됩니다.",
+        "If your sound comes later than everyone else's, move it toward −; if earlier, toward +. It applies from the next song.",
+        "自分の音がほかの人より遅れて聞こえるなら − に、早く聞こえるなら + に動かしてください。次の曲から反映されます。",
+        "the sound offset setting's explanation",
+    ),
+    "offsetValue": ("{ms}ms", "{ms}ms", "{ms}ms", "the sound offset in ms, signed"),
+    "offsetEarlier": ("더 빠르게", "Earlier", "早く", "moves the offset 10 ms earlier"),
+    "offsetLater": ("더 늦게", "Later", "遅く", "moves the offset 10 ms later"),
+    "offsetReset": ("0으로", "Reset", "リセット", "sets the offset back to 0"),
+    "offsetClose": ("닫기", "Close", "閉じる", "closes the sound offset setting"),
+}
 
 
 def lookup(d, key):
@@ -68,6 +90,7 @@ dicts = {lng: json.loads((web / f"{lng}.json").read_text(encoding="utf-8")) for 
 keys = KEYS + sorted(f"error.{k}" for k in dicts["ko"]["error"])
 names = [arb_name(k) for k in keys]
 assert len(set(names)) == len(names), "duplicate ARB names"
+assert not set(names) & set(APP_KEYS), "an app key shadows a web key"
 for lng, d in dicts.items():
     arb = {"@@locale": lng}
     if lng == "ko":
@@ -81,5 +104,14 @@ for lng, d in dicts.items():
             if ph:
                 meta["placeholders"] = {p: {} for p in dict.fromkeys(ph)}
             arb["@" + name] = meta
+    for name, (*texts, description) in APP_KEYS.items():
+        text = dict(zip(("ko", "en", "ja"), texts))[lng]
+        arb[name] = text
+        if lng == "ko":
+            meta = {"description": f"app only (cycle 150): {description}"}
+            ph = re.findall(r"\{(\w+)\}", text)
+            if ph:
+                meta["placeholders"] = {p: {} for p in dict.fromkeys(ph)}
+            arb["@" + name] = meta
     (out / f"app_{lng}.arb").write_text(json.dumps(arb, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-print(len(keys), "keys")
+print(len(keys), "web keys,", len(APP_KEYS), "app keys")

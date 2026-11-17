@@ -134,6 +134,8 @@
   "answerMarkWrong": "✕ Wrong",
   "seatCorrect": "Got it!",
   "seatScore": "{score} pt",
+  "stageUnlockSound": "Tap for sound",
+  "gameReset": "Home",
   "errorAlreadyInRoom": "You are already in a room.",
   "errorAvailable": "Songs available: {available}",
   "errorAvailableSeries": "Series available: {available}",
@@ -156,5 +158,13 @@
   "errorServerFull": "The server is full. Please try again shortly.",
   "errorTooLarge": "The message is too large.",
   "errorTooLong": "Chat messages can be up to 200 characters.",
-  "errorUnknown": "An error occurred ({code})"
+  "errorUnknown": "An error occurred ({code})",
+  "offsetOpen": "Sync",
+  "offsetTitle": "Sound sync",
+  "offsetHint": "If your sound comes later than everyone else's, move it toward −; if earlier, toward +. It applies from the next song.",
+  "offsetValue": "{ms}ms",
+  "offsetEarlier": "Earlier",
+  "offsetLater": "Later",
+  "offsetReset": "Reset",
+  "offsetClose": "Close"
 }

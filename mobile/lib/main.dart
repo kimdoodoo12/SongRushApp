@@ -6,6 +6,7 @@ import 'audio/soloud_player.dart';
 import 'net/http_fetcher.dart';
 import 'net/server_url.dart';
 import 'net/websocket_game_socket.dart';
+import 'platform/page.dart';
 import 'store/browser_storage.dart';
 import 'store/prefs.dart';
 import 'store/session_token_store.dart';
@@ -14,7 +15,9 @@ import 'store/session_token_store.dart';
 /// `--dart-define=SONGRUSH_SERVER=ws://...`), the SoLoud engine (started by
 /// the first 확인 tap, the browser's sound unlock), the HTTP fetcher, and the
 /// browser's storage (sessionStorage for the rejoin entry and localStorage
-/// for the nickname and language, as the web client; memory off the web).
+/// for the nickname, the language and the sound offset, as the web client;
+/// memory off the web), the page's reload check (a reload rejoins the stored
+/// room) and the Screen Wake Lock (none off the web).
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final socket = socketUrl();
@@ -28,6 +31,8 @@ void main() {
     fetcher: HttpFetcher(base: httpBase(socket)),
     localPrefs: browserLocalStorage() ?? MemoryPrefs(),
     unlockSound: engine.start,
+    keepAwake: screenWakeLock(),
+    pageReloaded: web && pageWasReloaded(),
     deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
     initialCode: web ? codeFromPath(page.path) : '',
     pageOrigin: web ? page.origin : '',

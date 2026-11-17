@@ -362,7 +362,7 @@ class RoomHeader extends StatelessWidget {
       child: Row(
         children: [
           Text('SongRush', style: Fonts.displayStyle(size: 23)),
-          const SizedBox(width: 18),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

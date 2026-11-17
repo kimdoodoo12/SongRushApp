@@ -6,6 +6,7 @@ import '../app/app_controller.dart';
 import '../app/game_model.dart';
 import '../l10n/app_localizations.dart';
 import 'chat_panel.dart';
+import 'offset_dialog.dart';
 import 'palette.dart';
 import 'texts.dart';
 import 'widgets.dart';
@@ -93,15 +94,22 @@ class _GameBodyState extends State<_GameBody> {
       header: RoomHeader(
         code: state.roomCode,
         line: settings == null ? '' : settingsLine(t, settings),
-        trailing: over
-            ? null
-            : RoomButton(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OffsetButton(controller: c),
+            if (!over) ...[
+              const SizedBox(width: 4),
+              RoomButton(
                 key: const ValueKey('game-leave'),
                 label: t.gameLeave,
                 compact: true,
                 focusNode: _leaveButton,
                 onPressed: () => setState(() => _leaveOpen = true),
               ),
+            ],
+          ],
+        ),
       ),
       children: [
         if (state.status == SessionStatus.reconnecting) ...[
@@ -129,6 +137,20 @@ class _GameBodyState extends State<_GameBody> {
               if (!over && game.watching && (game.round != null || game.waitingNext)) ...[
                 const SizedBox(height: 8),
                 OptHint(t.stageWatching),
+              ],
+              // The sound is still locked (no tap yet, as after a reload
+              // rejoin): one tap unlocks it and the song joins where it is.
+              if (!over && c.soundBlocked) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: RoomButton(
+                    key: const ValueKey('unlock-sound'),
+                    label: t.stageUnlockSound,
+                    kind: ButtonKind.primary,
+                    onPressed: c.unlockSound,
+                  ),
+                ),
               ],
               if (!over && (game.canSkip || game.pickShown)) ...[
                 const SizedBox(height: 14),

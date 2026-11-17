@@ -904,6 +904,18 @@ abstract class AppLocalizations {
   /// **'{score}점'**
   String seatScore(Object score);
 
+  /// web: stage.unlockSound
+  ///
+  /// In ko, this message translates to:
+  /// **'탭하여 소리 켜기'**
+  String get stageUnlockSound;
+
+  /// web: game.reset
+  ///
+  /// In ko, this message translates to:
+  /// **'처음으로'**
+  String get gameReset;
+
   /// web: error.already-in-room
   ///
   /// In ko, this message translates to:
@@ -1041,6 +1053,54 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'오류가 발생했습니다 ({code})'**
   String errorUnknown(Object code);
+
+  /// app only (cycle 150): the header button that opens the sound offset setting
+  ///
+  /// In ko, this message translates to:
+  /// **'싱크'**
+  String get offsetOpen;
+
+  /// app only (cycle 150): the sound offset setting's title
+  ///
+  /// In ko, this message translates to:
+  /// **'소리 싱크 조절'**
+  String get offsetTitle;
+
+  /// app only (cycle 150): the sound offset setting's explanation
+  ///
+  /// In ko, this message translates to:
+  /// **'내 소리가 다른 사람보다 늦게 들리면 − 쪽으로, 빨리 들리면 + 쪽으로 옮겨 주세요. 다음 곡부터 적용됩니다.'**
+  String get offsetHint;
+
+  /// app only (cycle 150): the sound offset in ms, signed
+  ///
+  /// In ko, this message translates to:
+  /// **'{ms}ms'**
+  String offsetValue(Object ms);
+
+  /// app only (cycle 150): moves the offset 10 ms earlier
+  ///
+  /// In ko, this message translates to:
+  /// **'더 빠르게'**
+  String get offsetEarlier;
+
+  /// app only (cycle 150): moves the offset 10 ms later
+  ///
+  /// In ko, this message translates to:
+  /// **'더 늦게'**
+  String get offsetLater;
+
+  /// app only (cycle 150): sets the offset back to 0
+  ///
+  /// In ko, this message translates to:
+  /// **'0으로'**
+  String get offsetReset;
+
+  /// app only (cycle 150): closes the sound offset setting
+  ///
+  /// In ko, this message translates to:
+  /// **'닫기'**
+  String get offsetClose;
 }
 
 class _AppLocalizationsDelegate

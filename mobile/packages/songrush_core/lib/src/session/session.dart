@@ -195,6 +195,19 @@ class Session {
   /// the token is cleared all the same.
   void close() => _close(SessionEnd.left);
 
+  /// While [SessionStatus.reconnecting] and waiting before the next attempt,
+  /// opens that attempt now: the app is back from the background, where the
+  /// wait may have run long or the network was away. Changes nothing
+  /// otherwise: an attempt in flight keeps its [attemptLimit], the limit from
+  /// the drop stays, and a socket in the room is left as it is (its close,
+  /// if it died meanwhile, starts the reconnect).
+  void reconnectNow() {
+    final retry = _retryTimer;
+    if (!_active || !_reconnecting || retry == null) return;
+    retry.cancel();
+    _openAttempt();
+  }
+
   /// Ready for song [index] once its audio is loaded; the link is idle now,
   /// so it re-syncs (session.js `sendReady`). For the player of F-M3.
   void sendReady(int index) {
