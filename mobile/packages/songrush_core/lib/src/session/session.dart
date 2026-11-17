@@ -168,6 +168,12 @@ class Session {
   /// Every new state; done after the one with [SessionStatus.ended].
   Stream<SessionState> get states => _states.stream;
 
+  /// The socket is a rejoin socket (a resume, or any socket after a drop):
+  /// its `snapshot` rebuilds the room for a player, while the snapshot after
+  /// a first join only lets the player watch the current song (session.js
+  /// `onSnapshot`). For the round controller.
+  bool get isRejoin => _rejoined;
+
   /// Every accepted server frame except `token` (kept private), delivered
   /// after [state] reflects it.
   Stream<ServerMessage> get messages => _messages.stream;

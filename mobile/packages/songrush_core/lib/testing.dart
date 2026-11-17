@@ -2,3 +2,4 @@
 library;
 
 export 'src/testing/fake_game_socket.dart';
+export 'src/testing/fake_player.dart';
