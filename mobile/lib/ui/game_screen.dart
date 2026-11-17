@@ -8,7 +8,6 @@ import '../app/app_controller.dart';
 import '../app/game_model.dart';
 import '../l10n/app_localizations.dart';
 import 'chat_panel.dart';
-import 'offset_dialog.dart';
 import 'palette.dart';
 import 'texts.dart';
 import 'widgets.dart';
@@ -230,22 +229,15 @@ class _GameBodyState extends State<_GameBody> {
                 _TopBar(
                   game: game,
                   codeLine: codeLine,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      OffsetButton(controller: c),
-                      if (!over) ...[
-                        const SizedBox(width: 4),
-                        RoomButton(
+                  trailing: over
+                      ? null
+                      : RoomButton(
                           key: const ValueKey('game-leave'),
                           label: t.gameLeave,
                           compact: true,
                           focusNode: _leaveButton,
                           onPressed: () => setState(() => _leaveOpen = true),
                         ),
-                      ],
-                    ],
-                  ),
                 ),
                 _PlayersStrip(players: state.players, me: me, scoreboard: game.scoreboard, correct: _winners(game)),
                 _Notices(controller: c, game: game, over: over),
@@ -311,15 +303,15 @@ class _GameBodyState extends State<_GameBody> {
 }
 
 /// The compact top bar (the header and `.stage-top`): song n / N, the room
-/// code with the game's settings, [trailing] (the offset button and
-/// 나가기); then the time bar, the seconds left, and 스킵 (or 스킵 취소)
-/// with the vote count.
+/// code with the game's settings, [trailing] (나가기, none at game over);
+/// then the time bar, the seconds left, and 스킵 (or 스킵 취소) with the
+/// vote count.
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.game, required this.codeLine, required this.trailing});
+  const _TopBar({required this.game, required this.codeLine, this.trailing});
 
   final GameModel game;
   final String codeLine;
-  final Widget trailing;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -355,8 +347,10 @@ class _TopBar extends StatelessWidget {
                   style: Fonts.monoStyle(size: 11.5, letterSpacingEm: 0.04),
                 ),
               ),
-              const SizedBox(width: 6),
-              trailing,
+              if (trailing != null) ...[
+                const SizedBox(width: 6),
+                trailing!,
+              ],
             ],
           ),
           const SizedBox(height: 6),

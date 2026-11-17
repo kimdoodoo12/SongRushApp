@@ -8,7 +8,6 @@ import 'l10n/app_localizations.dart';
 import 'ui/connection_screens.dart';
 import 'ui/game_screen.dart';
 import 'ui/lobby_screen.dart';
-import 'ui/offset_dialog.dart';
 import 'ui/palette.dart';
 import 'ui/start_screen.dart';
 
@@ -70,25 +69,14 @@ class _SongRushAppState extends State<SongRushApp> {
     );
   }
 
-  // The screen, and over a room's screen the sound offset setting.
-  static Widget _home(AppController controller) {
-    final screen = switch (controller.screen) {
-      Screen.start => StartScreen(controller: controller),
-      Screen.rejoining => RejoiningScreen(controller: controller),
-      Screen.lobby => LobbyScreen(controller: controller),
-      Screen.game || Screen.over => GameScreen(controller: controller),
-      Screen.disconnected => DisconnectedScreen(controller: controller),
-    };
-    final room = switch (controller.screen) {
-      Screen.lobby || Screen.game || Screen.over => true,
-      _ => false,
-    };
-    // Always a Stack, so opening the setting keeps the screen's state.
-    return Stack(
-      children: [
-        Positioned.fill(child: screen),
-        if (room && controller.offsetOpen) Positioned.fill(child: SoundOffsetDialog(controller: controller)),
-      ],
-    );
-  }
+  // The screen. The sound offset setting (ui/offset_dialog.dart) is not
+  // shown for now (cycle 152): nothing opens it, and a stored offset still
+  // applies.
+  static Widget _home(AppController controller) => switch (controller.screen) {
+        Screen.start => StartScreen(controller: controller),
+        Screen.rejoining => RejoiningScreen(controller: controller),
+        Screen.lobby => LobbyScreen(controller: controller),
+        Screen.game || Screen.over => GameScreen(controller: controller),
+        Screen.disconnected => DisconnectedScreen(controller: controller),
+      };
 }

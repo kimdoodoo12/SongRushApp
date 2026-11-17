@@ -8,7 +8,6 @@ import '../app/app_controller.dart';
 import '../app/lobby_selection.dart';
 import '../l10n/app_localizations.dart';
 import 'chat_panel.dart';
-import 'offset_dialog.dart';
 import 'palette.dart';
 import 'texts.dart';
 import 'widgets.dart';
@@ -46,7 +45,7 @@ class LobbyScreen extends StatelessWidget {
             : settingsLine(t, received.options);
     final error = state.error;
     return PageFrame(
-      header: RoomHeader(code: code, line: line, trailing: OffsetButton(controller: c)),
+      header: RoomHeader(code: code, line: line),
       children: [
         if (state.status == SessionStatus.reconnecting) ...[
           WarnText(t.appReconnecting),

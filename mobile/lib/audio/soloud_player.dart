@@ -3,8 +3,11 @@ import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:songrush_core/songrush_core.dart';
+
+import '../platform/audio_latency.dart';
 
 // The SongPlayer of the app on flutter_soloud, as the S-009 spike proved it
 // on the web (spikes/s009-audio, cycle 142): Ogg Opus from memory with
@@ -88,10 +91,18 @@ class SoloudEngine {
     return (last.local + best) / 1000;
   }
 
-  /// SoLoud's own mix cushion plus the hardware's output latency, in
-  /// seconds; 0 before [start].
+  /// The output latency in seconds; 0 before [start].
+  ///
+  /// On the web only the browser's `AudioContext.outputLatency` of SoLoud's
+  /// context, or 0 where it is missing, exactly as the React web
+  /// (session.js `outputLatency`), so both clients start a song at the same
+  /// moment (cycle 152). SoLoud's own getHardwareOutputLatency on the web
+  /// adds `baseLatency`, which the React web does not.
+  ///
+  /// Elsewhere SoLoud's own mix cushion plus the hardware's output latency.
   double get outputLatencySec {
     if (!_soloud.isInitialized) return 0;
+    if (kIsWeb) return browserOutputLatency() ?? 0;
     final total = _soloud.getOutputLatency() + _soloud.getHardwareOutputLatency();
     return total.inMicroseconds / 1e6;
   }

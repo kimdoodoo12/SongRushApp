@@ -17,9 +17,9 @@ final String _minus = String.fromCharCode(0x2212);
 String offsetLabel(AppLocalizations t, int ms) =>
     t.offsetValue(ms > 0 ? '+$ms' : ms < 0 ? '$_minus${-ms}' : '0');
 
-/// The header's sound offset button (lobby and game): a compact `.btn`
-/// with the tune icon, named 싱크 by its tooltip and semantics, so it fits
-/// beside 나가기 on a 360 px phone. Opens [SoundOffsetDialog].
+/// The sound offset button: a compact `.btn` with the tune icon, named 싱크
+/// by its tooltip and semantics, so it fits beside 나가기 on a 360 px phone.
+/// Opens [SoundOffsetDialog]. Not placed in any header for now (cycle 152).
 class OffsetButton extends StatelessWidget {
   const OffsetButton({super.key, required this.controller});
 
