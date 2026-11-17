@@ -4,6 +4,8 @@ import 'dart:developer' as developer;
 import '../net/game_socket.dart';
 import '../protocol/client_message.dart';
 import '../protocol/server_message.dart';
+import '../sync/clock_sync.dart';
+import '../sync/playback.dart';
 import 'session_state.dart';
 import 'token_store.dart';
 
@@ -23,6 +25,13 @@ const Duration attemptLimit = Duration(seconds: 5);
 
 /// The limit from the drop: the server's grace (`Lobby.GRACE`).
 const Duration reconnectLimit = Duration(seconds: 30);
+
+/// Room clock sync (F-004, as session.js): a burst of 8 pings on joined, 3
+/// after each load ([Session.sendReady]), 3 every 30 s, and 3 when a start's
+/// receipt offset drifts beyond rtt + 50 ([Session.startOffsetFor]).
+const int joinPings = 8;
+const int resyncPings = 3;
+const Duration resyncInterval = Duration(seconds: 30);
 
 // Frames handled on a rejoin socket before its snapshot (spec 049 H1):
 // queued broadcasts may reach it before joined.
@@ -56,7 +65,11 @@ enum _Mode { create, join, resume }
 /// `joined`, or no `joined` within [attemptLimit] ends it, with no retries.
 ///
 /// Every frame except `token` is also on [messages], for the game logic of
-/// later items; this class acts on none of the game frames yet.
+/// later items; of the game frames this class acts only on `pong`.
+///
+/// The clock sync starts on each `joined` (also after a rejoin) and stops on
+/// a drop; its estimate is [SessionState.clock]. [now] (local epoch ms)
+/// defaults to the system clock.
 class Session {
   /// Opens a lobby with the player as host.
   Session.create({
@@ -64,7 +77,8 @@ class Session {
     required TokenStore tokenStore,
     required String nickname,
     void Function(String message)? warn,
-  }) : this._(socketFactory, tokenStore, warn, _Mode.create, nickname: nickname);
+    int Function()? now,
+  }) : this._(socketFactory, tokenStore, warn, now, _Mode.create, nickname: nickname);
 
   /// Joins the room [code].
   Session.join({
@@ -73,7 +87,8 @@ class Session {
     required String code,
     required String nickname,
     void Function(String message)? warn,
-  }) : this._(socketFactory, tokenStore, warn, _Mode.join, code: code, nickname: nickname);
+    int Function()? now,
+  }) : this._(socketFactory, tokenStore, warn, now, _Mode.join, code: code, nickname: nickname);
 
   /// Takes back the seat of a stored [entry] (after an app restart).
   Session.resume({
@@ -81,17 +96,20 @@ class Session {
     required TokenStore tokenStore,
     required RejoinEntry entry,
     void Function(String message)? warn,
-  }) : this._(socketFactory, tokenStore, warn, _Mode.resume, code: entry.code, token: entry.token);
+    int Function()? now,
+  }) : this._(socketFactory, tokenStore, warn, now, _Mode.resume, code: entry.code, token: entry.token);
 
   Session._(
     this._socketFactory,
     this._tokenStore,
     void Function(String message)? warn,
+    int Function()? now,
     this._mode, {
     String? code,
     this._nickname,
     this._token,
   })  : _warn = warn ?? _log,
+        _now = now ?? _systemNow,
         _code = code,
         _roomCode = _mode == _Mode.resume ? code : null,
         _rejoined = _mode == _Mode.resume,
@@ -109,9 +127,12 @@ class Session {
 
   static void _log(String message) => developer.log(message, name: 'songrush.session');
 
+  static int _systemNow() => DateTime.now().millisecondsSinceEpoch;
+
   final GameSocketFactory _socketFactory;
   final TokenStore _tokenStore;
   final void Function(String message) _warn;
+  final int Function() _now;
   final _Mode _mode;
   final String? _code;
   final String? _nickname;
@@ -138,6 +159,8 @@ class Session {
   Timer? _retryTimer;
   Timer? _attemptTimer;
   Timer? _limitTimer;
+  late final ClockSync _sync = ClockSync(now: _now, send: _send, schedule: _scheduleTimer);
+  Timer? _resyncTimer;
 
   /// The current state.
   SessionState get state => _state;
@@ -166,11 +189,35 @@ class Session {
   /// the token is cleared all the same.
   void close() => _close(SessionEnd.left);
 
+  /// Ready for song [index] once its audio is loaded; the link is idle now,
+  /// so it re-syncs (session.js `sendReady`). For the player of F-M3.
+  void sendReady(int index) {
+    if (!_active) return;
+    _send(ReadyRequest(index: index));
+    _sync.burst(resyncPings);
+  }
+
+  /// The offset a `start` with [serverTime] uses ([startOffset] over the
+  /// current estimate). A drifted receipt clears the samples and bursts, as
+  /// session.js `startOffset` does. Call it once per start that is played.
+  StartOffset startOffsetFor(int serverTime) {
+    final result = startOffset(serverTime: serverTime, nowMs: _now(), estimate: _sync.current());
+    if (result.resync && _active) {
+      _sync.clear();
+      _publishClock();
+      _sync.burst(resyncPings);
+    }
+    return result;
+  }
+
   void _send(ClientMessage message) {
     final link = _link;
     if (!link.live || !link.open) return;
     link.socket.send(message.encode());
   }
+
+  static void Function() _scheduleTimer(void Function() fn, int ms) =>
+      Timer(Duration(milliseconds: ms), fn).cancel;
 
   void _setState(SessionState next) {
     _state = next;
@@ -261,8 +308,10 @@ class Session {
         if (_state.error != null) _setState(_state.copyWith(error: null));
       case UnknownMessage():
         _warn('unknown message ${msg.type}');
-      case PongMessage() ||
-            SettingsMessage() ||
+      case PongMessage():
+        _sync.onPong(msg);
+        _publishClock();
+      case SettingsMessage() ||
             RoomThemeMessage() ||
             StartMessage() ||
             CorrectMessage() ||
@@ -300,6 +349,23 @@ class Session {
         chat: const [],
       ));
     }
+    if (_resyncTimer == null) {
+      _sync.burst(joinPings);
+      _resyncTimer = Timer.periodic(resyncInterval, (_) => _sync.burst(resyncPings));
+    }
+  }
+
+  void _publishClock() {
+    final clock = _sync.current();
+    final bound = _sync.lowerBound();
+    if (clock == _state.clock && bound == _state.clockLowerBoundMs) return;
+    _setState(_state.copyWith(clock: clock, clockLowerBoundMs: bound));
+  }
+
+  void _stopSync() {
+    _resyncTimer?.cancel();
+    _resyncTimer = null;
+    _sync.stop();
   }
 
   // joined, then a snapshot: of a playing game for a late joiner (only the
@@ -337,6 +403,7 @@ class Session {
   void _shutdown() {
     _active = false;
     _cancelReconnect();
+    _stopSync();
   }
 
   void _end(SessionEnd reason, {ErrorMessage? error}) {
@@ -414,7 +481,10 @@ class Session {
     _awaitingSnapshot = true;
     _joined = false;
     _attempts = 0;
-    _setState(_state.copyWith(status: SessionStatus.reconnecting));
+    _stopSync();
+    // The next joined starts a fresh clock sync.
+    _sync.clear();
+    _setState(_state.copyWith(status: SessionStatus.reconnecting, clock: null, clockLowerBoundMs: null));
     _limitTimer = Timer(reconnectLimit, _giveUp);
     _scheduleAttempt();
   }

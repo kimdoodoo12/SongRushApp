@@ -1,5 +1,6 @@
 import '../protocol/models.dart';
 import '../protocol/server_message.dart';
+import '../sync/clock_sync.dart';
 
 /// Where the session is.
 enum SessionStatus {
@@ -72,6 +73,8 @@ class SessionState {
     this.chat = const [],
     this.error,
     this.lobbyRestores = 0,
+    this.clock,
+    this.clockLowerBoundMs,
   });
 
   final SessionStatus status;
@@ -107,6 +110,15 @@ class SessionState {
   /// changed meanwhile, so a host sends its lobby selection again.
   final int lobbyRestores;
 
+  /// The server clock estimate over the last 8 pongs (offset = server time
+  /// minus local time); null before the first pong of a sync, after a drop
+  /// and after a drifted start cleared the samples.
+  final ClockEstimate? clock;
+
+  /// The largest `serverTime - t1` over the same pongs, never above the true
+  /// offset (cycle 051): what moves a provisional start. Null with [clock].
+  final double? clockLowerBoundMs;
+
   /// The own roster row says host.
   bool get isHost => players.any((p) => p.host && p.name == myName);
 
@@ -121,6 +133,8 @@ class SessionState {
     List<ChatLine>? chat,
     Object? error = _unset,
     int? lobbyRestores,
+    Object? clock = _unset,
+    Object? clockLowerBoundMs = _unset,
   }) =>
       SessionState(
         status: status ?? this.status,
@@ -135,9 +149,12 @@ class SessionState {
         chat: chat == null ? this.chat : List.unmodifiable(chat),
         error: identical(error, _unset) ? this.error : error as ErrorMessage?,
         lobbyRestores: lobbyRestores ?? this.lobbyRestores,
+        clock: identical(clock, _unset) ? this.clock : clock as ClockEstimate?,
+        clockLowerBoundMs:
+            identical(clockLowerBoundMs, _unset) ? this.clockLowerBoundMs : clockLowerBoundMs as double?,
       );
 
   @override
   String toString() => 'SessionState($status, end: $end, room: $roomCode, me: $myName, '
-      'phase: $phase, players: ${players.length}, chat: ${chat.length}, error: ${error?.code})';
+      'phase: $phase, players: ${players.length}, chat: ${chat.length}, error: ${error?.code}, clock: $clock)';
 }
