@@ -106,9 +106,10 @@ class _Cover {
 // not told yet; outcome is its load's result, told when the hold ends.
 // lateStart: a snapshot song's moments, kept until a clock estimate exists.
 class _Round {
-  _Round(this.index, {required this.watching, required this.lateStart, required this.choices});
+  _Round(this.index, this.audioUrl, {required this.watching, required this.lateStart, required this.choices});
 
   final int index;
+  final String audioUrl;
   final bool watching;
   final ({int startAt, int deadlineAt})? lateStart;
   final List<String?>? choices;
@@ -120,6 +121,8 @@ class _Round {
   double? windowEndMs;
   SongPlayer? player;
   bool loaded = false;
+  // A [RoundController.reloadAudio] load is running.
+  bool reloading = false;
   bool playing = false;
   _Start? start;
   bool provisional = false;
@@ -246,6 +249,37 @@ class RoundController {
   /// The current song's last measured drift in ms (positive: the player is
   /// ahead), or null before the first check.
   double? get lastDriftMs => _round?.lastDriftMs;
+
+  /// Loads the current song's audio again after its load failed, as when
+  /// the app's sound unlock started the engine after the song had loaded
+  /// (a reload rejoin has no tap): a new player fetches and loads it, and
+  /// once loaded it plays from where the song is now ([RoundEventType.loaded]
+  /// follows). Does nothing while the first load or a reload runs, once the
+  /// audio is loaded, or when the song's music is over. No second `ready`
+  /// is sent.
+  void reloadAudio() {
+    final r = _round;
+    if (!_active || r == null || r.over || r.loaded || !r.audioDone || r.reloading) return;
+    r.reloading = true;
+    r.player?.dispose();
+    final player = _createPlayer();
+    r.player = player;
+    bool current() => _current(r) && identical(r.player, player);
+    _loadAudio(player, r.audioUrl, current).then(
+      (_) {
+        if (!current()) return;
+        r.reloading = false;
+        r.loaded = true;
+        _loadOutcome(r, RoundEventType.loaded);
+        _schedule(r);
+      },
+      onError: (Object error) {
+        if (!current()) return;
+        r.reloading = false;
+        _warn('audio reload failed twice: $error');
+      },
+    );
+  }
 
   /// Stops every sound and timer; the controller is done. Called when the
   /// session's messages end.
@@ -393,7 +427,7 @@ class RoundController {
         _retire(last);
       }
     }
-    final r = _Round(msg.index, watching: false, lateStart: null, choices: choiceUrls(msg.choices));
+    final r = _Round(msg.index, msg.audioUrl, watching: false, lateStart: null, choices: choiceUrls(msg.choices));
     _round = r;
     _inGame = true;
     if (hold) {
@@ -406,7 +440,7 @@ class RoundController {
     } else {
       _showPrepared(r);
     }
-    _load(r, msg.audioUrl);
+    _load(r);
   }
 
   // The round shows as the current song: the covers of older songs go.
@@ -442,11 +476,11 @@ class RoundController {
     _session.sendReady(r.index);
   }
 
-  void _load(_Round r, String audioUrl) {
+  void _load(_Round r) {
     _preloadChoices(r);
     final player = _createPlayer();
     r.player = player;
-    _loadAudio(player, audioUrl, () => _current(r)).then(
+    _loadAudio(player, r.audioUrl, () => _current(r)).then(
       (_) {
         if (!_current(r)) return;
         r.loaded = true;
@@ -770,7 +804,7 @@ class RoundController {
     final startAt = song.startAt;
     final deadlineAt = song.deadlineAt;
     final late = startAt != null && deadlineAt != null ? (startAt: startAt, deadlineAt: deadlineAt) : null;
-    final r = _Round(song.index, watching: watching, lateStart: late, choices: choiceUrls(song.choices));
+    final r = _Round(song.index, song.audioUrl, watching: watching, lateStart: late, choices: choiceUrls(song.choices));
     _round = r;
     final reveal = song.reveal;
     if (reveal != null) {
@@ -783,7 +817,7 @@ class RoundController {
       _emit(RoundEventType.revealed, r.index);
       _preloadNext(reveal.nextChoices);
     }
-    _load(r, song.audioUrl);
+    _load(r);
     _lateStart(r);
   }
 

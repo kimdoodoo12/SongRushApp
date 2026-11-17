@@ -476,6 +476,12 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get stageUnlockSound => 'Tap for sound';
+
+  @override
+  String get gameReset => 'Home';
+
+  @override
   String get errorAlreadyInRoom => 'You are already in a room.';
 
   @override
@@ -550,4 +556,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String errorUnknown(Object code) {
     return 'An error occurred ($code)';
   }
+
+  @override
+  String get offsetOpen => 'Sync';
+
+  @override
+  String get offsetTitle => 'Sound sync';
+
+  @override
+  String get offsetHint =>
+      'If your sound comes later than everyone else\'s, move it toward −; if earlier, toward +. It applies from the next song.';
+
+  @override
+  String offsetValue(Object ms) {
+    return '${ms}ms';
+  }
+
+  @override
+  String get offsetEarlier => 'Earlier';
+
+  @override
+  String get offsetLater => 'Later';
+
+  @override
+  String get offsetReset => 'Reset';
+
+  @override
+  String get offsetClose => 'Close';
 }

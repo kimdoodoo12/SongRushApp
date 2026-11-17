@@ -466,6 +466,12 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
+  String get stageUnlockSound => 'タップして音を出す';
+
+  @override
+  String get gameReset => 'トップへ';
+
+  @override
   String get errorAlreadyInRoom => 'すでにルームに参加しています。';
 
   @override
@@ -539,4 +545,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String errorUnknown(Object code) {
     return 'エラーが発生しました（$code）';
   }
+
+  @override
+  String get offsetOpen => '同期';
+
+  @override
+  String get offsetTitle => '音ズレ調整';
+
+  @override
+  String get offsetHint =>
+      '自分の音がほかの人より遅れて聞こえるなら − に、早く聞こえるなら + に動かしてください。次の曲から反映されます。';
+
+  @override
+  String offsetValue(Object ms) {
+    return '${ms}ms';
+  }
+
+  @override
+  String get offsetEarlier => '早く';
+
+  @override
+  String get offsetLater => '遅く';
+
+  @override
+  String get offsetReset => 'リセット';
+
+  @override
+  String get offsetClose => '閉じる';
 }

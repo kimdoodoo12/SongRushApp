@@ -222,6 +222,53 @@ void main() {
       });
     });
 
+    test('reloadAudio loads a failed song again and joins it where it is now', () {
+      fakeAsync((async) {
+        final h = Harness(async)..joinRoom();
+        h.players.failLoads = 2;
+        h.prepare(0);
+        h.start(0);
+        h.elapseMs(13000);
+        final failed = h.player;
+        expect(failed.callNames, isNot(contains('play')));
+        h.players.failLoads = 0;
+        h.controller.reloadAudio();
+        async.flushMicrotasks();
+        expect(failed.disposed, isTrue);
+        expect(h.player, isNot(same(failed)));
+        expect(h.fetcher.count(audio0), 3);
+        expect(h.events.last, const RoundEvent(RoundEventType.loaded, 0));
+        final args = playArgs(h.player);
+        expect(args['when'] as double, closeTo(h.engineNow, 1e-9));
+        expect(args['offset'] as double, closeTo(10.1, 1e-6));
+        expect(h.readies, [0], reason: 'no second ready');
+        // Loaded now: a second call does nothing.
+        h.controller.reloadAudio();
+        async.flushMicrotasks();
+        expect(h.fetcher.count(audio0), 3);
+      });
+    });
+
+    test('reloadAudio does nothing once the song is revealed, or while the first load runs', () {
+      fakeAsync((async) {
+        final h = Harness(async)..joinRoom();
+        h.fetcher.held.add(audio0);
+        h.prepare(0);
+        h.controller.reloadAudio();
+        async.flushMicrotasks();
+        expect(h.players.players, hasLength(1));
+        h.fetcher.fail(audio0);
+        async.flushMicrotasks();
+        h.fetcher.fail(audio0);
+        async.flushMicrotasks();
+        h.start(0);
+        h.receive(reveal(0));
+        h.controller.reloadAudio();
+        async.flushMicrotasks();
+        expect(h.players.players, hasLength(1));
+      });
+    });
+
     test('one failed load is retried and the song loads', () {
       fakeAsync((async) {
         final h = Harness(async)..joinRoom();

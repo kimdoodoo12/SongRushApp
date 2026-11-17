@@ -5,6 +5,7 @@ import 'dart:ui' show Locale;
 import 'package:flutter/foundation.dart';
 import 'package:songrush_core/songrush_core.dart';
 
+import '../store/playback_settings_store.dart';
 import '../store/prefs.dart';
 import 'game_model.dart';
 import 'language.dart';
@@ -37,7 +38,10 @@ const Set<String> _selectionRefusals = {
   'bad-game-mode',
 };
 
-enum Screen { start, lobby, game, over }
+/// [rejoining]: a reload rejoin before its `joined` (the web's game frame
+/// with the reconnecting line); [disconnected]: the room was lost (the web's
+/// disconnected screen, see [LostRoom]).
+enum Screen { start, rejoining, lobby, game, over, disconnected }
 
 enum DialogMode { create, join }
 
@@ -62,6 +66,20 @@ class StartProblem {
   final SessionEnd? end;
 }
 
+/// A room that ended without the player leaving or the server refusing
+/// (state.js `disconnected` and `replaced`): the connection could not be
+/// taken back within 30 s, or another window took the seat (4001). The
+/// disconnected screen shows it until 처음으로.
+class LostRoom {
+  const LostRoom({required this.replaced, this.code, this.finalScore});
+
+  final bool replaced;
+  final String? code;
+
+  /// The own final score, when the game had ended.
+  final int? finalScore;
+}
+
 /// The app's one controller (Flutter built-ins only): the screen, the
 /// nickname dialog, the language, the host's lobby selection, and the room
 /// [Session] with its [RoundController] and [GameModel], made together when
@@ -73,9 +91,22 @@ class StartProblem {
 ///
 /// The first tap that opens a session (확인) also runs [unlockSound], the
 /// browser's audio unlock (SoloudEngine.start on the web); 시작 runs it again
-/// when the first one failed. As the web App does, the host sends its
+/// when the first one failed, and so does the game's 탭하여 소리 켜기 prompt,
+/// shown while the unlock has not completed (a reload rejoin has no tap):
+/// once it completes, the current song loads again and joins where it is
+/// ([RoundController.reloadAudio]). As the web App does, the host sends its
 /// selection as `lobbySettings` on entering the lobby, on every change and
 /// after a rejoin into the lobby; a reversed year range is not sent.
+///
+/// Reconnecting and lifecycle (cycle 150, design 141's rule): on a page
+/// reload (`pageReloaded`) a stored rejoin entry resumes its room with
+/// [Session.resume], as App.jsx's reload rejoin; any other start drops the
+/// entry. The session's own reconnect keeps the room through a drop; a lost
+/// room shows the disconnected screen. [pageShown] (the page or app back in
+/// view) asks a reconnecting session for its next attempt at once. During a
+/// game the screen is kept awake through `keepAwake` (the Screen Wake Lock
+/// on the web). The manual sound offset is kept in the local prefs and used
+/// by the round controller from the next song.
 class AppController extends ChangeNotifier {
   AppController({
     required this._socketFactory,
@@ -84,18 +115,31 @@ class AppController extends ChangeNotifier {
     required this._fetcher,
     required Prefs localPrefs,
     this._unlockSound,
+    this._keepAwake,
+    bool pageReloaded = false,
     List<Locale> deviceLocales = const [],
     String initialCode = '',
     this.pageOrigin = '',
     int Function()? now,
     void Function(String message)? warn,
   })  : _prefs = localPrefs,
+        _playback = PrefsPlaybackSettingsStore(localPrefs),
         _now = now ?? _systemNow,
         _warn = warn ?? _log,
         initialCode = initialCode.length > codeLength ? initialCode.substring(0, codeLength) : initialCode {
     _language = pickLanguage(stored: _prefs.read(languageKey), deviceLocales: deviceLocales);
     dialogName = _prefs.read(nicknameKey) ?? '';
-    // A share link opens the join dialog at once (App.jsx), once per load.
+    addListener(_syncAwake);
+    // A reload takes the room back (App.jsx reloadPlan); any other start
+    // drops the entry, as does a malformed one.
+    final stored = _tokenStore.read();
+    if (stored != null && pageReloaded) {
+      _resume(stored);
+      return;
+    }
+    _tokenStore.clear();
+    // A share link opens the join dialog at once (App.jsx), once per load,
+    // not on a reload rejoin.
     if (this.initialCode.length == codeLength) {
       _dialog = NicknameDialogState(mode: DialogMode.join, code: this.initialCode);
     }
@@ -110,7 +154,9 @@ class AppController extends ChangeNotifier {
   final SongPlayerFactory _createPlayer;
   final Fetcher _fetcher;
   final Prefs _prefs;
+  final PlaybackSettingsStore _playback;
   final Future<void> Function()? _unlockSound;
+  final void Function(bool on)? _keepAwake;
   final int Function() _now;
   final void Function(String message) _warn;
 
@@ -137,6 +183,14 @@ class AppController extends ChangeNotifier {
   // The sound unlock: running or done (null when not started or failed).
   Future<void>? _unlocking;
   bool _soundReady = false;
+  bool _disposed = false;
+
+  // The room code of a reload rejoin not joined yet.
+  String? _resumingCode;
+  LostRoom? _lost;
+  bool _offsetOpen = false;
+  // The wake lock was last asked on.
+  bool _awake = false;
 
   // lobbySettings bookkeeping: whether the last state was host-in-lobby and
   // the lobbyRestores it saw.
@@ -162,7 +216,8 @@ class AppController extends ChangeNotifier {
   String get language => _language;
 
   Screen get screen {
-    if (_state?.roomCode == null) return Screen.start;
+    if (_lost != null) return Screen.disconnected;
+    if (_state?.roomCode == null) return _resumingCode != null ? Screen.rejoining : Screen.start;
     return switch (_gameView) {
       GameView.game => Screen.game,
       GameView.over => Screen.over,
@@ -235,6 +290,22 @@ class AppController extends ChangeNotifier {
 
   /// The audio unlock has completed.
   bool get soundReady => _soundReady;
+
+  /// The sound is still locked (no completed unlock): the game shows the
+  /// 탭하여 소리 켜기 prompt (state.js soundBlocked).
+  bool get soundBlocked => _unlockSound != null && !_soundReady;
+
+  /// The room code of a reload rejoin still connecting.
+  String? get rejoiningCode => _resumingCode;
+
+  /// The lost room of the disconnected screen.
+  LostRoom? get lostRoom => _lost;
+
+  /// The sound offset setting is open.
+  bool get offsetOpen => _offsetOpen;
+
+  /// The manual sound offset in ms (positive plays later).
+  int get manualOffsetMs => _rounds?.manualOffsetMs ?? clampManualOffset(_playback.readManualOffsetMs() ?? 0);
 
   /// The round controller of the room, for the game screens to come.
   RoundController? get rounds => _rounds;
@@ -345,6 +416,55 @@ class AppController extends ChangeNotifier {
     game.toLobby();
   }
 
+  /// 탭하여 소리 켜기: the sound unlock, inside the tap.
+  void unlockSound() => _unlock();
+
+  /// 처음으로 on the disconnected screen: the start screen.
+  void reset() {
+    if (_lost == null) return;
+    _lost = null;
+    _startError = null;
+    notifyListeners();
+  }
+
+  void openOffset() {
+    if (_offsetOpen) return;
+    _offsetOpen = true;
+    notifyListeners();
+  }
+
+  void closeOffset() {
+    if (!_offsetOpen) return;
+    _offsetOpen = false;
+    notifyListeners();
+  }
+
+  /// Sets the manual sound offset ([manualOffsetMinMs]..[manualOffsetMaxMs]),
+  /// stored at once and used from the next song.
+  void setManualOffset(int ms) {
+    final value = clampManualOffset(ms);
+    if (value == manualOffsetMs) return;
+    final rounds = _rounds;
+    if (rounds != null) {
+      rounds.manualOffsetMs = value;
+    } else {
+      _playback.writeManualOffsetMs(value);
+    }
+    notifyListeners();
+  }
+
+  /// The page (or the app) is back in view. Decided by the session's state:
+  /// a reconnecting session tries now instead of after its back-off wait; a
+  /// session in the room keeps its socket (if it died meanwhile, its close
+  /// starts the reconnect, and the rejoin snapshot the late start), and its
+  /// song goes on where the drift check puts it. The wake lock, released by
+  /// the browser on hiding, is asked again during a game.
+  void pageShown() {
+    final session = _session;
+    if (session != null && session.state.status == SessionStatus.reconnecting) session.reconnectNow();
+    if (_awake) _keepAwake?.call(true);
+  }
+
   /// 나가기: tells the server and returns to the start screen.
   void leave() {
     final session = _session;
@@ -357,9 +477,12 @@ class AppController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     final session = _session;
     _detach();
     session?.close();
+    if (_awake) _keepAwake?.call(false);
+    _awake = false;
     super.dispose();
   }
 
@@ -373,6 +496,7 @@ class AppController extends ChangeNotifier {
       session: session,
       createPlayer: _createPlayer,
       fetcher: _fetcher,
+      settings: _playback,
       now: _now,
       warn: _warn,
     );
@@ -387,6 +511,20 @@ class AppController extends ChangeNotifier {
     _messageSub = session.messages.listen((m) {
       if (identical(_session, session)) _onMessage(m);
     });
+  }
+
+  void _resume(RejoinEntry entry) {
+    _resumingCode = entry.code;
+    _open((factory, now) => Session.resume(
+        socketFactory: factory, tokenStore: _tokenStore, entry: entry, now: now, warn: _warn));
+  }
+
+  // The screen is kept awake while a game is on screen (not its game-over).
+  void _syncAwake() {
+    final want = _session != null && _gameView == GameView.game;
+    if (want == _awake) return;
+    _awake = want;
+    _keepAwake?.call(want);
   }
 
   // Forgets the session without closing it.
@@ -433,6 +571,8 @@ class AppController extends ChangeNotifier {
   void _resetRoom() {
     _state = null;
     _joining = false;
+    _resumingCode = null;
+    _offsetOpen = false;
     _hostInLobby = false;
     _restoresSeen = 0;
     _startPending = null;
@@ -453,6 +593,7 @@ class AppController extends ChangeNotifier {
     if (next.status == SessionStatus.inRoom && previous?.roomCode == null) {
       // joined: the lobby replaces the start screen and its dialog.
       _joining = false;
+      _resumingCode = null;
       _dialog = null;
       _startError = null;
     }
@@ -481,9 +622,20 @@ class AppController extends ChangeNotifier {
 
   void _onEnded(SessionState ended) {
     final everJoined = ended.roomCode != null;
+    final finalScore = _game?.finalScore;
     _detach();
     if (ended.end == SessionEnd.left) {
       _resetRoom();
+      return;
+    }
+    final replaced = ended.end == SessionEnd.replaced;
+    if (replaced || (ended.end == SessionEnd.disconnected && everJoined)) {
+      // The disconnected screen (state.js disconnected / replaced), which
+      // closes the dialog.
+      _resetRoom();
+      _startError = null;
+      _dialog = null;
+      _lost = LostRoom(replaced: replaced, code: ended.roomCode, finalScore: finalScore);
       return;
     }
     final problem = StartProblem(error: ended.error, end: ended.end);
@@ -515,8 +667,12 @@ class AppController extends ChangeNotifier {
     _unlocking = running;
     running.then((_) {
       _soundReady = true;
+      if (_disposed) return;
+      // A song whose load failed while the sound was locked joins now.
+      _rounds?.reloadAudio();
+      notifyListeners();
     }, onError: (Object e) {
-      // The next start tap tries again.
+      // The next start tap or the sound prompt tries again.
       _warn('sound unlock failed: $e');
       _unlocking = null;
     });

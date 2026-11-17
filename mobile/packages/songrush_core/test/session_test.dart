@@ -422,6 +422,61 @@ void main() {
     });
   });
 
+  group('reconnectNow', () {
+    test('opens the waiting attempt at once; the back-off and the limit go on', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        h.factory.autoOpen = false;
+        h.drop(1006);
+        async.elapse(const Duration(milliseconds: 500));
+        h.socket.failConnect();
+        async.flushMicrotasks();
+        // Waiting 1 s for attempt 2: it opens now instead.
+        expect(h.factory.sockets, hasLength(2));
+        h.session.reconnectNow();
+        async.flushMicrotasks();
+        expect(h.factory.sockets, hasLength(3));
+        // In flight: a second call opens nothing more.
+        h.session.reconnectNow();
+        async.flushMicrotasks();
+        expect(h.factory.sockets, hasLength(3));
+        h.socket.open();
+        async.flushMicrotasks();
+        expect(h.socket.sentJson.first, {'type': 'rejoin', 'token': 'tok-1'});
+        h.receive(const JoinedMessage(code: 'K7XQM', name: 'Alice'));
+        expect(h.session.state.status, SessionStatus.inRoom);
+        async.elapse(const Duration(minutes: 1));
+        expect(h.factory.sockets, hasLength(3));
+      });
+    });
+
+    test('does nothing in the room or after the end', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        h.session.reconnectNow();
+        async.flushMicrotasks();
+        expect(h.factory.sockets, hasLength(1));
+        expect(h.session.state.status, SessionStatus.inRoom);
+        h.drop(replacedCloseCode);
+        h.session.reconnectNow();
+        async.elapse(const Duration(minutes: 1));
+        expect(h.factory.sockets, hasLength(1));
+      });
+    });
+
+    test('the limit still counts from the drop', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        h.factory.autoOpen = false;
+        h.drop(1006);
+        async.elapse(const Duration(seconds: 29));
+        h.session.reconnectNow();
+        async.elapse(const Duration(seconds: 1));
+        expect(h.session.state.end, SessionEnd.disconnected);
+      });
+    });
+  });
+
   group('4001', () {
     test('a replaced socket never reconnects and clears the token', () {
       fakeAsync((async) {

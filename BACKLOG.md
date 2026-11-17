@@ -441,7 +441,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009), with an in-song position check that corrects drift and a misreported output latency, and a manual offset setting (cycle 142's emulator measurement). The fallback B-M3 is not needed (S-009 passed)
 - [x] **F-M4a** mobile start and lobby screens, with the credit line (design 141 item 7)
 - [x] **F-M4b** mobile game and game-over screens (design 141 item 7b)
-- [ ] **F-M5** mobile reconnect and lifecycle (design 141 item 8)
+- [x] **F-M5** mobile reconnect and lifecycle (design 141 item 8)
 - [ ] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
 - [ ] **I-011** Android packaging and release APK signing, after the mobile web plays correctly (design 141 item 9, D-140; the Android SDK licences and the key are the owner's)
 ## Roadmap

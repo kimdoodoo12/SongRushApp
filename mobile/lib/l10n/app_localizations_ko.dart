@@ -466,6 +466,12 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
+  String get stageUnlockSound => '탭하여 소리 켜기';
+
+  @override
+  String get gameReset => '처음으로';
+
+  @override
   String get errorAlreadyInRoom => '이미 방에 참가해 있습니다.';
 
   @override
@@ -539,4 +545,31 @@ class AppLocalizationsKo extends AppLocalizations {
   String errorUnknown(Object code) {
     return '오류가 발생했습니다 ($code)';
   }
+
+  @override
+  String get offsetOpen => '싱크';
+
+  @override
+  String get offsetTitle => '소리 싱크 조절';
+
+  @override
+  String get offsetHint =>
+      '내 소리가 다른 사람보다 늦게 들리면 − 쪽으로, 빨리 들리면 + 쪽으로 옮겨 주세요. 다음 곡부터 적용됩니다.';
+
+  @override
+  String offsetValue(Object ms) {
+    return '${ms}ms';
+  }
+
+  @override
+  String get offsetEarlier => '더 빠르게';
+
+  @override
+  String get offsetLater => '더 늦게';
+
+  @override
+  String get offsetReset => '0으로';
+
+  @override
+  String get offsetClose => '닫기';
 }
