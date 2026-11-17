@@ -1,42 +1,36 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:songrush_core/songrush_core.dart';
 
+import 'app.dart';
+import 'app/app_controller.dart';
+import 'audio/soloud_player.dart';
+import 'net/http_fetcher.dart';
+import 'net/server_url.dart';
+import 'net/websocket_game_socket.dart';
+import 'store/browser_storage.dart';
+import 'store/prefs.dart';
+import 'store/session_token_store.dart';
+
+/// Wires the real adapters: the WebSocket to `/ws` on the page's origin (or
+/// `--dart-define=SONGRUSH_SERVER=ws://...`), the SoLoud engine (started by
+/// the first 확인 tap, the browser's sound unlock), the HTTP fetcher, and the
+/// browser's storage (sessionStorage for the rejoin entry and localStorage
+/// for the nickname and language, as the web client; memory off the web).
 void main() {
-  runApp(const SongRushApp());
-}
-
-class SongRushApp extends StatelessWidget {
-  const SongRushApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SongRush',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const StartScreen(),
-    );
-  }
-}
-
-/// Placeholder start screen; the real screens follow the owner's mockup (F-M4a).
-class StartScreen extends StatelessWidget {
-  const StartScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('SongRush', style: Theme.of(context).textTheme.headlineMedium),
-            const SizedBox(height: 8),
-            Text('$minSongs-$maxSongs songs'),
-          ],
-        ),
-      ),
-    );
-  }
+  WidgetsFlutterBinding.ensureInitialized();
+  final socket = socketUrl();
+  final engine = SoloudEngine();
+  final page = Uri.base;
+  final web = page.scheme == 'http' || page.scheme == 'https';
+  final controller = AppController(
+    socketFactory: () => WebSocketGameSocket(socket),
+    tokenStore: PrefsTokenStore(browserSessionStorage() ?? MemoryPrefs()),
+    createPlayer: engine.createPlayer,
+    fetcher: HttpFetcher(base: httpBase(socket)),
+    localPrefs: browserLocalStorage() ?? MemoryPrefs(),
+    unlockSound: engine.start,
+    deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
+    initialCode: web ? codeFromPath(page.path) : '',
+    pageOrigin: web ? page.origin : '',
+  );
+  runApp(SongRushApp(controller: controller));
 }

@@ -1,0 +1,315 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for Korean (`ko`).
+class AppLocalizationsKo extends AppLocalizations {
+  AppLocalizationsKo([String locale = 'ko']) : super(locale);
+
+  @override
+  String get appTitle => 'SongRush';
+
+  @override
+  String get appCredit =>
+      '데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata';
+
+  @override
+  String get appReconnecting => '연결이 끊겨 다시 연결하는 중...';
+
+  @override
+  String get startNickname => '닉네임';
+
+  @override
+  String get startCreateRoom => '방 만들기';
+
+  @override
+  String get startOrCode => '또는 코드로 참가';
+
+  @override
+  String get startRoomCode => '방 코드';
+
+  @override
+  String get startJoin => '참가';
+
+  @override
+  String startJoinTitle(Object code) {
+    return '$code 방 참가';
+  }
+
+  @override
+  String get startConfirm => '확인';
+
+  @override
+  String get startCancel => '취소';
+
+  @override
+  String get themeSunset => '노을 옥상';
+
+  @override
+  String get moodTagSunset => '애니 OP·ED 맞히기';
+
+  @override
+  String get skinSunsetTitle => '노을';
+
+  @override
+  String get skinSunsetLabel => '방 코드';
+
+  @override
+  String get skinSunsetAdmit => 'ADMIT ONE';
+
+  @override
+  String get skinSunsetStart => 'Play Song';
+
+  @override
+  String get skinSunsetSeats => '대기실';
+
+  @override
+  String get skinSunsetReady => '참가';
+
+  @override
+  String get skinSunsetEmpty => '빈 자리';
+
+  @override
+  String get lobbyCopy => '복사';
+
+  @override
+  String get lobbyWaiting => '방장이 게임을 시작하기를 기다리는 중...';
+
+  @override
+  String get lobbySongCount => '곡 수';
+
+  @override
+  String get lobbyLeave => '나가기';
+
+  @override
+  String lobbySeats(Object seats, Object n) {
+    return '$seats · 참가자 $n / 8';
+  }
+
+  @override
+  String get lobbyHostSeat => '방장';
+
+  @override
+  String lobbyOf(Object n) {
+    return '/ $n명';
+  }
+
+  @override
+  String get lobbySettingsTitle => '게임 설정';
+
+  @override
+  String get lobbyWhoHost => '방장만 바꿀 수 있어요';
+
+  @override
+  String get lobbyWhoGuest => '방장이 정한 설정이에요';
+
+  @override
+  String get lobbyWhoPending => '방장이 설정을 고르는 중이에요';
+
+  @override
+  String get lobbyShareHint => '링크를 보내면 친구가 닉네임만 넣고 바로 들어와요';
+
+  @override
+  String get lobbyCopied => '링크를 복사했어요';
+
+  @override
+  String get lobbyCopyFailed => '복사하지 못했어요. 주소를 길게 눌러 복사해 주세요';
+
+  @override
+  String get lobbySongCountDown => '곡 수 줄이기';
+
+  @override
+  String get lobbySongCountUp => '곡 수 늘리기';
+
+  @override
+  String get filterType => '곡 종류';
+
+  @override
+  String get filterTier => '난이도';
+
+  @override
+  String get filterFrom => '연도 시작';
+
+  @override
+  String get filterTo => '연도 끝';
+
+  @override
+  String get filterFromAny => '처음부터';
+
+  @override
+  String get filterToAny => '지금까지';
+
+  @override
+  String get filterReversed => '시작 연도가 끝 연도보다 늦습니다.';
+
+  @override
+  String get filterAll => '전체';
+
+  @override
+  String get filterOp => '오프닝만';
+
+  @override
+  String get filterEd => '엔딩만';
+
+  @override
+  String get filterEasy => '쉬움';
+
+  @override
+  String get filterNormal => '보통';
+
+  @override
+  String get filterHard => '어려움';
+
+  @override
+  String get filterYears => '연도';
+
+  @override
+  String get answerLabel => '정답 형식';
+
+  @override
+  String get answerChat => '채팅';
+
+  @override
+  String get answerChoice => '객관식';
+
+  @override
+  String get answerHintChat => '채팅으로 애니 제목을 맞혀요';
+
+  @override
+  String answerHintChoice(Object k) {
+    return '표지 $k장 중에서 골라요 (난이도에 따라 4·6·8장)';
+  }
+
+  @override
+  String get modeLabel => '게임 모드';
+
+  @override
+  String get modeFirst => '선착순';
+
+  @override
+  String get modeRanked => '순위전';
+
+  @override
+  String get modeHintFirst => '가장 먼저 맞힌 한 명만 점수를 받아요';
+
+  @override
+  String get modeHintRanked => '모두 맞히거나 고를 때까지 곡이 이어지고 순위대로 점수를 받아요';
+
+  @override
+  String get seatList => '자리';
+
+  @override
+  String get seatEmpty => '빈 자리';
+
+  @override
+  String get seatHost => '(방장)';
+
+  @override
+  String get seatMe => '(나)';
+
+  @override
+  String get chatLabel => '채팅';
+
+  @override
+  String get chatInput => '정답 입력';
+
+  @override
+  String get chatPlaceholder => '애니 제목을 입력하세요';
+
+  @override
+  String get chatSend => '보내기';
+
+  @override
+  String chatLive(Object n) {
+    return '$n명 접속 중';
+  }
+
+  @override
+  String chatLobbyJoined(Object code) {
+    return '$code 방에 들어왔어요. 방장이 설정을 고르는 중이에요';
+  }
+
+  @override
+  String get gameDisconnected => '서버와 연결이 끊어졌습니다.';
+
+  @override
+  String get gameReplaced => '다른 창에서 접속해 이 연결이 끊겼습니다.';
+
+  @override
+  String get errorAlreadyInRoom => '이미 방에 참가해 있습니다.';
+
+  @override
+  String errorAvailable(Object available) {
+    return '출제할 수 있는 곡이 $available곡뿐입니다.';
+  }
+
+  @override
+  String errorAvailableSeries(Object available) {
+    return '출제할 수 있는 작품이 $available개뿐입니다.';
+  }
+
+  @override
+  String get errorBadAnswerMode => '알 수 없는 정답 형식입니다.';
+
+  @override
+  String get errorBadFilter => '조건이 올바르지 않습니다.';
+
+  @override
+  String get errorBadGameMode => '알 수 없는 게임 모드입니다.';
+
+  @override
+  String get errorBadMessage => '잘못된 요청입니다.';
+
+  @override
+  String get errorBadNickname => '닉네임은 1~16자로 입력해 주세요.';
+
+  @override
+  String get errorBadRoomTheme => '알 수 없는 분위기입니다.';
+
+  @override
+  String get errorBadSongCount => '곡 수는 5~30곡입니다.';
+
+  @override
+  String get errorInGame => '게임이 진행 중입니다. 끝난 뒤에 참가해 주세요.';
+
+  @override
+  String get errorNoRoom => '참가한 방이 없습니다.';
+
+  @override
+  String get errorNotEnoughSongs => '출제할 곡이 부족합니다.';
+
+  @override
+  String get errorNotHost => '방장만 시작할 수 있습니다.';
+
+  @override
+  String get errorRateLimited => '너무 빨리 보내고 있어요.';
+
+  @override
+  String get errorRejoinFailed => '다시 연결하지 못했습니다. 방에 다시 참가해 주세요.';
+
+  @override
+  String get errorRoomClosed => '방이 닫혔습니다.';
+
+  @override
+  String get errorRoomFull => '방이 가득 찼습니다 (최대 8명).';
+
+  @override
+  String get errorRoomNotFound => '방을 찾을 수 없습니다.';
+
+  @override
+  String get errorServerFull => '서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.';
+
+  @override
+  String get errorTooLarge => '메시지가 너무 깁니다.';
+
+  @override
+  String get errorTooLong => '채팅은 200자까지 입력할 수 있습니다.';
+
+  @override
+  String errorUnknown(Object code) {
+    return '오류가 발생했습니다 ($code)';
+  }
+}
