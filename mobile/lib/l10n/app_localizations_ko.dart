@@ -239,6 +239,233 @@ class AppLocalizationsKo extends AppLocalizations {
   String get gameReplaced => '다른 창에서 접속해 이 연결이 끊겼습니다.';
 
   @override
+  String get lobbyAbandoned => '게임이 중단되어 대기실로 돌아왔습니다.';
+
+  @override
+  String get stageLabel => '무대';
+
+  @override
+  String get stageTimeLeft => '남은 시간';
+
+  @override
+  String get stageConnecting => '서버에 연결하는 중...';
+
+  @override
+  String get stageWaitingNext => '다음 곡을 기다리는 중...';
+
+  @override
+  String stageRound(Object index, Object total) {
+    return '<num>$index / $total</num> 번째 곡';
+  }
+
+  @override
+  String stageScore(Object score) {
+    return '점수: $score';
+  }
+
+  @override
+  String stageSeconds(Object seconds) {
+    return '$seconds초';
+  }
+
+  @override
+  String get stageWatching => '이번 곡은 구경 중입니다. 다음 곡부터 참가합니다.';
+
+  @override
+  String get stageLoading => '음원을 불러오는 중...';
+
+  @override
+  String get stageLoadFailed => '이번 곡을 재생하지 못했습니다.';
+
+  @override
+  String get stageHint => '들리는 곡의 애니 제목을 채팅으로 맞혀 보세요';
+
+  @override
+  String get stageSkip => '스킵';
+
+  @override
+  String get stageSkipCancel => '스킵 취소';
+
+  @override
+  String stageSkipCount(Object votes, Object needed) {
+    return '스킵 $votes/$needed';
+  }
+
+  @override
+  String stagePickCount(Object picked, Object total) {
+    return '선택 $picked/$total';
+  }
+
+  @override
+  String get stageSub => '한국어, 영어, 일본어, 로마자 제목 모두 정답이에요. 띄어쓰기와 문장부호는 무시해요.';
+
+  @override
+  String get stageSoon => '곡이 나오면 애니 제목을 채팅으로 맞혀 보세요';
+
+  @override
+  String get stageSoonSub => '모두가 같은 순간에 같은 곡을 들어요.';
+
+  @override
+  String get stageChoiceSoon => '곡이 나오면 표지 중에서 그 애니를 골라 보세요';
+
+  @override
+  String get stageChoiceHint => '들리는 곡의 애니를 표지에서 골라 보세요';
+
+  @override
+  String get stageChoiceSub =>
+      '한 번만 고를 수 있어요. 틀리면 이번 곡은 끝까지 구경해요. 내가 고른 표지는 다른 사람에게 보이지 않고, 채팅은 대화용이에요.';
+
+  @override
+  String stagePickWrong(Object n) {
+    return '$n번은 오답이에요. 정답 공개를 기다려 주세요.';
+  }
+
+  @override
+  String get revealHeading => '정답 공개';
+
+  @override
+  String get revealNoWinner => '정답자 없음';
+
+  @override
+  String revealWinner(Object name) {
+    return '정답: $name';
+  }
+
+  @override
+  String get revealRanking => '이번 곡 순위';
+
+  @override
+  String get revealLabelKo => 'KO';
+
+  @override
+  String get revealLabelEn => 'EN';
+
+  @override
+  String get revealLabelJa => 'JA';
+
+  @override
+  String get revealLabelRomaji => 'Romaji';
+
+  @override
+  String revealSolvers(Object names) {
+    return '정답자: $names';
+  }
+
+  @override
+  String get revealNext => '잠시 후 다음 곡이 시작돼요';
+
+  @override
+  String get revealNextFinal => '잠시 후 최종 순위를 보여 줘요';
+
+  @override
+  String revealRankPlace(Object rank) {
+    return '$rank등';
+  }
+
+  @override
+  String revealRankPoints(Object points) {
+    return '+$points점';
+  }
+
+  @override
+  String get revealStampHit => '정답';
+
+  @override
+  String get revealStampPass => '통과';
+
+  @override
+  String revealCoverAlt(Object title) {
+    return '$title 표지';
+  }
+
+  @override
+  String get revealCoverAltIdle => '애니 표지';
+
+  @override
+  String get scoreBoard => '점수판';
+
+  @override
+  String get scoreRanking => '최종 순위';
+
+  @override
+  String scorePoints(Object score) {
+    return '$score점';
+  }
+
+  @override
+  String scoreRank(Object rank) {
+    return '$rank위';
+  }
+
+  @override
+  String scoreFinal(Object score) {
+    return '최종 점수: $score점';
+  }
+
+  @override
+  String get gameLeave => '나가기';
+
+  @override
+  String get gameLeaveAsk => '게임을 나갈까요?';
+
+  @override
+  String get gameLeaveConfirm => '나가기';
+
+  @override
+  String get gameLeaveCancel => '취소';
+
+  @override
+  String get gameToLobby => '대기실로';
+
+  @override
+  String chatCorrectLine(Object name) {
+    return '$name 정답!';
+  }
+
+  @override
+  String chatWrongLine(Object name) {
+    return '✘ $name 오답';
+  }
+
+  @override
+  String chatCorrectRanked(Object name, Object rank) {
+    return '$name 정답! ($rank등)';
+  }
+
+  @override
+  String get chatGameStart => '게임을 시작해요';
+
+  @override
+  String chatSongStart(Object n) {
+    return '$n번째 곡 시작';
+  }
+
+  @override
+  String get chatGameOver => '게임 종료';
+
+  @override
+  String get chatLobbyBack => '대기실로 돌아왔어요';
+
+  @override
+  String answerChoiceN(Object n) {
+    return '보기 $n';
+  }
+
+  @override
+  String get answerMarkCorrect => '✔ 정답';
+
+  @override
+  String get answerMarkWrong => '✕ 오답';
+
+  @override
+  String get seatCorrect => '정답!';
+
+  @override
+  String seatScore(Object score) {
+    return '$score점';
+  }
+
+  @override
   String get errorAlreadyInRoom => '이미 방에 참가해 있습니다.';
 
   @override

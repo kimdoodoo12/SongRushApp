@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'app/app_controller.dart';
 import 'app/language.dart';
 import 'l10n/app_localizations.dart';
+import 'ui/game_screen.dart';
 import 'ui/lobby_screen.dart';
 import 'ui/palette.dart';
 import 'ui/start_screen.dart';
@@ -37,6 +38,7 @@ class SongRushApp extends StatelessWidget {
         home: switch (controller.screen) {
           Screen.start => StartScreen(controller: controller),
           Screen.lobby => LobbyScreen(controller: controller),
+          Screen.game || Screen.over => GameScreen(controller: controller),
         },
       ),
     );

@@ -21,6 +21,8 @@ class RoomButton extends StatelessWidget {
     required this.onPressed,
     this.kind = ButtonKind.plain,
     this.compact = false,
+    this.autofocus = false,
+    this.focusNode,
   });
 
   final String label;
@@ -31,6 +33,9 @@ class RoomButton extends StatelessWidget {
 
   /// The share row's and the stepper's smaller padding.
   final bool compact;
+
+  final bool autofocus;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +69,13 @@ class RoomButton extends StatelessWidget {
     // .btn.go:disabled and the stepper's disabled buttons fade.
     return Opacity(
       opacity: onPressed == null ? 0.5 : 1,
-      child: TextButton(onPressed: onPressed, style: style, child: Text(label)),
+      child: TextButton(
+        onPressed: onPressed,
+        autofocus: autofocus,
+        focusNode: focusNode,
+        style: style,
+        child: Text(label),
+      ),
     );
   }
 }
@@ -331,12 +342,14 @@ class PageFrame extends StatelessWidget {
 }
 
 /// The header (room.css `header`): the logo, then the room code and the
-/// settings line when in a room.
+/// settings line when in a room, and [trailing] at the end (the game's
+/// 나가기, `.hd-right`).
 class RoomHeader extends StatelessWidget {
-  const RoomHeader({super.key, this.code, this.line = ''});
+  const RoomHeader({super.key, this.code, this.line = '', this.trailing});
 
   final String? code;
   final String line;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -367,6 +380,7 @@ class RoomHeader extends StatelessWidget {
               ],
             ),
           ),
+          ?trailing,
         ],
       ),
     );

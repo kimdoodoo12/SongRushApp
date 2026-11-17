@@ -27,6 +27,21 @@ KEYS = (
     + [f"seat.{k}" for k in ["list", "empty", "host", "me"]]
     + [f"chat.{k}" for k in ["label", "input", "placeholder", "send", "live", "lobbyJoined"]]
     + ["game.disconnected", "game.replaced"]
+    # cycle 149: the game and game-over screens.
+    + ["lobby.abandoned"]
+    + [f"stage.{k}" for k in ["label", "timeLeft", "connecting", "waitingNext", "round", "score", "seconds",
+                             "watching", "loading", "loadFailed", "hint", "skip", "skipCancel", "skipCount",
+                             "pickCount", "sub", "soon", "soonSub", "choiceSoon", "choiceHint", "choiceSub",
+                             "pickWrong"]]
+    + [f"reveal.{k}" for k in ["heading", "noWinner", "winner", "ranking", "label.ko", "label.en", "label.ja",
+                              "label.romaji", "solvers", "next", "nextFinal", "rankPlace", "rankPoints",
+                              "stampHit", "stampPass", "coverAlt", "coverAltIdle"]]
+    + [f"score.{k}" for k in ["board", "ranking", "points", "rank", "final"]]
+    + [f"game.{k}" for k in ["leave", "leaveAsk", "leaveConfirm", "leaveCancel", "toLobby"]]
+    + [f"chat.{k}" for k in ["correctLine", "wrongLine", "correctRanked", "gameStart", "songStart", "gameOver",
+                            "lobbyBack"]]
+    + [f"answer.{k}" for k in ["choiceN", "markCorrect", "markWrong"]]
+    + [f"seat.{k}" for k in ["correct", "score"]]
 )
 
 

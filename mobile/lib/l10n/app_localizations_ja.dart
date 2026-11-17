@@ -239,6 +239,233 @@ class AppLocalizationsJa extends AppLocalizations {
   String get gameReplaced => '別のウィンドウから接続したため、この接続は切れました。';
 
   @override
+  String get lobbyAbandoned => 'ゲームが中断されたため、ロビーに戻りました。';
+
+  @override
+  String get stageLabel => 'ステージ';
+
+  @override
+  String get stageTimeLeft => '残り時間';
+
+  @override
+  String get stageConnecting => 'サーバーに接続しています...';
+
+  @override
+  String get stageWaitingNext => '次の曲を待っています...';
+
+  @override
+  String stageRound(Object index, Object total) {
+    return '<num>$index / $total</num> 曲目';
+  }
+
+  @override
+  String stageScore(Object score) {
+    return '得点: $score';
+  }
+
+  @override
+  String stageSeconds(Object seconds) {
+    return '$seconds秒';
+  }
+
+  @override
+  String get stageWatching => 'この曲は観戦中です。次の曲から参加します。';
+
+  @override
+  String get stageLoading => '音声を読み込んでいます...';
+
+  @override
+  String get stageLoadFailed => 'この曲を再生できませんでした。';
+
+  @override
+  String get stageHint => '流れている曲のアニメのタイトルをチャットで当てよう';
+
+  @override
+  String get stageSkip => 'スキップ';
+
+  @override
+  String get stageSkipCancel => '取り消し';
+
+  @override
+  String stageSkipCount(Object votes, Object needed) {
+    return 'スキップ$votes/$needed';
+  }
+
+  @override
+  String stagePickCount(Object picked, Object total) {
+    return '選択 $picked/$total';
+  }
+
+  @override
+  String get stageSub => '韓国語・英語・日本語・ローマ字のタイトル、どれでも正解です。スペースと記号は無視します。';
+
+  @override
+  String get stageSoon => '曲が流れたら、アニメのタイトルをチャットで当てよう';
+
+  @override
+  String get stageSoonSub => '全員が同じ瞬間に同じ曲を聴きます。';
+
+  @override
+  String get stageChoiceSoon => '曲が流れたら、表紙の中からそのアニメを選ぼう';
+
+  @override
+  String get stageChoiceHint => '流れている曲のアニメを表紙から選ぼう';
+
+  @override
+  String get stageChoiceSub =>
+      '選べるのは一度だけです。外れたらこの曲は最後まで見学です。自分が選んだ表紙は他の人には見えず、チャットは会話用です。';
+
+  @override
+  String stagePickWrong(Object n) {
+    return '$n番は不正解です。正解発表を待ってください。';
+  }
+
+  @override
+  String get revealHeading => '正解発表';
+
+  @override
+  String get revealNoWinner => '正解者なし';
+
+  @override
+  String revealWinner(Object name) {
+    return '正解: $name';
+  }
+
+  @override
+  String get revealRanking => 'この曲の順位';
+
+  @override
+  String get revealLabelKo => 'KO';
+
+  @override
+  String get revealLabelEn => 'EN';
+
+  @override
+  String get revealLabelJa => 'JA';
+
+  @override
+  String get revealLabelRomaji => 'Romaji';
+
+  @override
+  String revealSolvers(Object names) {
+    return '正解者: $names';
+  }
+
+  @override
+  String get revealNext => 'まもなく次の曲が始まります';
+
+  @override
+  String get revealNextFinal => 'まもなく最終順位を発表します';
+
+  @override
+  String revealRankPlace(Object rank) {
+    return '$rank位';
+  }
+
+  @override
+  String revealRankPoints(Object points) {
+    return '+$points点';
+  }
+
+  @override
+  String get revealStampHit => '正解';
+
+  @override
+  String get revealStampPass => 'パス';
+
+  @override
+  String revealCoverAlt(Object title) {
+    return '$title 表紙';
+  }
+
+  @override
+  String get revealCoverAltIdle => 'アニメの表紙';
+
+  @override
+  String get scoreBoard => 'スコアボード';
+
+  @override
+  String get scoreRanking => '最終順位';
+
+  @override
+  String scorePoints(Object score) {
+    return '$score点';
+  }
+
+  @override
+  String scoreRank(Object rank) {
+    return '$rank位';
+  }
+
+  @override
+  String scoreFinal(Object score) {
+    return '最終得点: $score点';
+  }
+
+  @override
+  String get gameLeave => '退出';
+
+  @override
+  String get gameLeaveAsk => 'ゲームを退出しますか？';
+
+  @override
+  String get gameLeaveConfirm => '退出';
+
+  @override
+  String get gameLeaveCancel => 'キャンセル';
+
+  @override
+  String get gameToLobby => 'ロビーへ';
+
+  @override
+  String chatCorrectLine(Object name) {
+    return '$name 正解！';
+  }
+
+  @override
+  String chatWrongLine(Object name) {
+    return '✘ $name 不正解';
+  }
+
+  @override
+  String chatCorrectRanked(Object name, Object rank) {
+    return '$name 正解！（$rank位）';
+  }
+
+  @override
+  String get chatGameStart => 'ゲームを始めます';
+
+  @override
+  String chatSongStart(Object n) {
+    return '$n曲目スタート';
+  }
+
+  @override
+  String get chatGameOver => 'ゲーム終了';
+
+  @override
+  String get chatLobbyBack => 'ロビーに戻りました';
+
+  @override
+  String answerChoiceN(Object n) {
+    return '選択肢$n';
+  }
+
+  @override
+  String get answerMarkCorrect => '✔ 正解';
+
+  @override
+  String get answerMarkWrong => '✕ 不正解';
+
+  @override
+  String get seatCorrect => '正解！';
+
+  @override
+  String seatScore(Object score) {
+    return '$score点';
+  }
+
+  @override
   String get errorAlreadyInRoom => 'すでにルームに参加しています。';
 
   @override

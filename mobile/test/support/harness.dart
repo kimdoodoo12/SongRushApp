@@ -23,20 +23,26 @@ class Harness {
       socketFactory: sockets.call,
       tokenStore: tokens,
       createPlayer: players.call,
-      fetcher: FakeFetcher(),
+      fetcher: fetcher,
       localPrefs: this.prefs,
       unlockSound: () async => unlocks++,
       deviceLocales: deviceLocales,
       initialCode: initialCode,
       pageOrigin: 'https://songrush.test',
       warn: warnings.add,
+      now: () => nowMs,
     );
   }
 
   final FakeSocketFactory sockets = FakeSocketFactory();
   final MemoryTokenStore tokens = MemoryTokenStore();
   final FakePlayerFactory players = FakePlayerFactory(FakeAudioClock(() => 0));
+  final FakeFetcher fetcher = FakeFetcher();
   final MemoryPrefs prefs;
+
+  /// The app's clock (local epoch ms): fixed unless a test moves it, with
+  /// [advance] for the game's time bar.
+  int nowMs = 1000000;
   final List<String> warnings = [];
   int unlocks = 0;
   late final AppController controller;
@@ -69,6 +75,18 @@ class Harness {
   }
 
   void receive(Map<String, Object?> frame) => socket.receiveJson(frame);
+
+  /// Moves the app's clock and the test's fake time together by [by], in
+  /// steps of [step].
+  Future<void> advance(WidgetTester tester, Duration by, {Duration step = const Duration(milliseconds: 250)}) async {
+    var left = by;
+    while (left > Duration.zero) {
+      final d = left < step ? left : step;
+      nowMs += d.inMilliseconds;
+      await tester.pump(d);
+      left -= d;
+    }
+  }
 
   /// The server's answer to a create or join: joined, then the roster.
   Future<void> admit(

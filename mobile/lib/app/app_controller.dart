@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:songrush_core/songrush_core.dart';
 
 import '../store/prefs.dart';
+import 'game_model.dart';
 import 'language.dart';
 import 'lobby_selection.dart';
 
@@ -36,7 +37,7 @@ const Set<String> _selectionRefusals = {
   'bad-game-mode',
 };
 
-enum Screen { start, lobby }
+enum Screen { start, lobby, game, over }
 
 enum DialogMode { create, join }
 
@@ -63,9 +64,12 @@ class StartProblem {
 
 /// The app's one controller (Flutter built-ins only): the screen, the
 /// nickname dialog, the language, the host's lobby selection, and the room
-/// [Session] with its [RoundController], made together when 확인 opens a
-/// create or join (cycle 147: the round controller exists before any frame
-/// arrives, on the same clock).
+/// [Session] with its [RoundController] and [GameModel], made together when
+/// 확인 opens a create or join (cycle 147: the round controller exists
+/// before any frame arrives, on the same clock). The game screens follow
+/// the [GameModel] (cycle 149); this controller tells its listeners only
+/// when the game's screen changes, so the time bar's ticks rebuild the game
+/// screen alone.
 ///
 /// The first tap that opens a session (확인) also runs [unlockSound], the
 /// browser's audio unlock (SoloudEngine.start on the web); 시작 runs it again
@@ -124,6 +128,8 @@ class AppController extends ChangeNotifier {
 
   Session? _session;
   RoundController? _rounds;
+  GameModel? _game;
+  GameView? _gameView;
   StreamSubscription<SessionState>? _stateSub;
   StreamSubscription<ServerMessage>? _messageSub;
   SessionState? _state;
@@ -137,6 +143,12 @@ class AppController extends ChangeNotifier {
   bool _hostInLobby = false;
   int _restoresSeen = 0;
 
+  // The lobby's log (state.js lobbyLog): the session's chat lines from this
+  // index, after the intro line (none after an abandoned game).
+  int _lobbyChatFrom = 0;
+  NoticeKind? _lobbyIntro = NoticeKind.lobbyJoined;
+  bool _abandonedNotice = false;
+
   // The selection of a start not answered yet, and of the last refused one.
   LobbySelection? _startPending;
   LobbySelection? _refused;
@@ -149,7 +161,14 @@ class AppController extends ChangeNotifier {
   /// ko, en or ja.
   String get language => _language;
 
-  Screen get screen => _state?.roomCode != null ? Screen.lobby : Screen.start;
+  Screen get screen {
+    if (_state?.roomCode == null) return Screen.start;
+    return switch (_gameView) {
+      GameView.game => Screen.game,
+      GameView.over => Screen.over,
+      null => Screen.lobby,
+    };
+  }
 
   NicknameDialogState? get dialog => _dialog;
 
@@ -162,8 +181,28 @@ class AppController extends ChangeNotifier {
   /// The room as the session sees it; null on the start screen.
   SessionState? get session => _state;
 
-  /// The room's chat, oldest first.
-  List<ChatLine> get chat => _state?.chat ?? const [];
+  /// The lobby's chat lines, oldest first (since the room was entered, or
+  /// since the lobby came back after a game).
+  List<ChatLine> get chat {
+    final all = _state?.chat ?? const <ChatLine>[];
+    return _lobbyChatFrom <= all.length ? all.sublist(_lobbyChatFrom) : all;
+  }
+
+  /// The lobby's log: its intro line (joined, or back after a game), then
+  /// the [chat] lines.
+  List<LogLine> get lobbyLog {
+    final intro = _lobbyIntro;
+    return [
+      if (intro != null) NoticeLine(intro, _state?.roomCode ?? ''),
+      for (final line in chat) SaidLine(name: line.name, text: line.text),
+    ];
+  }
+
+  /// The lobby's notice after an abandoned game (state.js ABANDONED_NOTICE).
+  bool get abandonedNotice => _abandonedNotice;
+
+  /// The game's display state while in a room.
+  GameModel? get game => _game;
 
   /// The own selection (the host's controls).
   LobbySelection get selection => _selection;
@@ -295,6 +334,17 @@ class AppController extends ChangeNotifier {
     session.send(ChatRequest(text: text));
   }
 
+  /// 대기실로 on the game-over screen: the lobby, its log starting again
+  /// with the back line (state.js toLobby).
+  void toLobby() {
+    final game = _game;
+    if (game == null || game.view != GameView.over) return;
+    _lobbyChatFrom = _state?.chat.length ?? 0;
+    _lobbyIntro = NoticeKind.lobbyBack;
+    _abandonedNotice = false;
+    game.toLobby();
+  }
+
   /// 나가기: tells the server and returns to the start screen.
   void leave() {
     final session = _session;
@@ -326,8 +376,11 @@ class AppController extends ChangeNotifier {
       now: _now,
       warn: _warn,
     );
+    final game = GameModel(session: session, rounds: rounds, fetcher: _fetcher, now: _now, warn: _warn);
+    game.addListener(_onGame);
     _session = session;
     _rounds = rounds;
+    _game = game;
     _stateSub = session.states.listen((s) {
       if (identical(_session, session)) _onState(s);
     });
@@ -345,6 +398,29 @@ class AppController extends ChangeNotifier {
     _session = null;
     // The round controller ends with the session's messages.
     _rounds = null;
+    _game?.removeListener(_onGame);
+    _game?.dispose();
+    _game = null;
+    _gameView = null;
+  }
+
+  // The game's screen changed: the app's home follows.
+  void _onGame() {
+    final game = _game;
+    if (game == null) return;
+    final view = game.view;
+    if (view == _gameView && !game.abandoned) return;
+    if (game.abandoned) {
+      // Back in the lobby with the notice; its log starts again, empty.
+      game.abandoned = false;
+      _abandonedNotice = true;
+      _lobbyChatFrom = _state?.chat.length ?? 0;
+      _lobbyIntro = null;
+    } else if (view != null) {
+      _abandonedNotice = false;
+    }
+    _gameView = view;
+    notifyListeners();
   }
 
   void _closeSession() {
@@ -361,6 +437,9 @@ class AppController extends ChangeNotifier {
     _restoresSeen = 0;
     _startPending = null;
     _refused = null;
+    _lobbyChatFrom = 0;
+    _lobbyIntro = NoticeKind.lobbyJoined;
+    _abandonedNotice = false;
   }
 
   void _onState(SessionState next) {
@@ -378,6 +457,11 @@ class AppController extends ChangeNotifier {
       _startError = null;
     }
     if (next.phase != 'lobby') _startPending = null;
+    if (next.lobbyRestores != _restoresSeen) {
+      // A rejoin into the lobby: the session's log started again.
+      _lobbyChatFrom = 0;
+      _lobbyIntro = null;
+    }
     final hostInLobby = next.status == SessionStatus.inRoom && next.phase == 'lobby' && next.isHost;
     if (hostInLobby && (!_hostInLobby || next.lobbyRestores != _restoresSeen)) _sendLobbySettings();
     _hostInLobby = hostInLobby;

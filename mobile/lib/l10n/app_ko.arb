@@ -308,6 +308,318 @@
   "@gameReplaced": {
     "description": "web: game.replaced"
   },
+  "lobbyAbandoned": "게임이 중단되어 대기실로 돌아왔습니다.",
+  "@lobbyAbandoned": {
+    "description": "web: lobby.abandoned"
+  },
+  "stageLabel": "무대",
+  "@stageLabel": {
+    "description": "web: stage.label"
+  },
+  "stageTimeLeft": "남은 시간",
+  "@stageTimeLeft": {
+    "description": "web: stage.timeLeft"
+  },
+  "stageConnecting": "서버에 연결하는 중...",
+  "@stageConnecting": {
+    "description": "web: stage.connecting"
+  },
+  "stageWaitingNext": "다음 곡을 기다리는 중...",
+  "@stageWaitingNext": {
+    "description": "web: stage.waitingNext"
+  },
+  "stageRound": "<num>{index} / {total}</num> 번째 곡",
+  "@stageRound": {
+    "description": "web: stage.round",
+    "placeholders": {
+      "index": {},
+      "total": {}
+    }
+  },
+  "stageScore": "점수: {score}",
+  "@stageScore": {
+    "description": "web: stage.score",
+    "placeholders": {
+      "score": {}
+    }
+  },
+  "stageSeconds": "{seconds}초",
+  "@stageSeconds": {
+    "description": "web: stage.seconds",
+    "placeholders": {
+      "seconds": {}
+    }
+  },
+  "stageWatching": "이번 곡은 구경 중입니다. 다음 곡부터 참가합니다.",
+  "@stageWatching": {
+    "description": "web: stage.watching"
+  },
+  "stageLoading": "음원을 불러오는 중...",
+  "@stageLoading": {
+    "description": "web: stage.loading"
+  },
+  "stageLoadFailed": "이번 곡을 재생하지 못했습니다.",
+  "@stageLoadFailed": {
+    "description": "web: stage.loadFailed"
+  },
+  "stageHint": "들리는 곡의 애니 제목을 채팅으로 맞혀 보세요",
+  "@stageHint": {
+    "description": "web: stage.hint"
+  },
+  "stageSkip": "스킵",
+  "@stageSkip": {
+    "description": "web: stage.skip"
+  },
+  "stageSkipCancel": "스킵 취소",
+  "@stageSkipCancel": {
+    "description": "web: stage.skipCancel"
+  },
+  "stageSkipCount": "스킵 {votes}/{needed}",
+  "@stageSkipCount": {
+    "description": "web: stage.skipCount",
+    "placeholders": {
+      "votes": {},
+      "needed": {}
+    }
+  },
+  "stagePickCount": "선택 {picked}/{total}",
+  "@stagePickCount": {
+    "description": "web: stage.pickCount",
+    "placeholders": {
+      "picked": {},
+      "total": {}
+    }
+  },
+  "stageSub": "한국어, 영어, 일본어, 로마자 제목 모두 정답이에요. 띄어쓰기와 문장부호는 무시해요.",
+  "@stageSub": {
+    "description": "web: stage.sub"
+  },
+  "stageSoon": "곡이 나오면 애니 제목을 채팅으로 맞혀 보세요",
+  "@stageSoon": {
+    "description": "web: stage.soon"
+  },
+  "stageSoonSub": "모두가 같은 순간에 같은 곡을 들어요.",
+  "@stageSoonSub": {
+    "description": "web: stage.soonSub"
+  },
+  "stageChoiceSoon": "곡이 나오면 표지 중에서 그 애니를 골라 보세요",
+  "@stageChoiceSoon": {
+    "description": "web: stage.choiceSoon"
+  },
+  "stageChoiceHint": "들리는 곡의 애니를 표지에서 골라 보세요",
+  "@stageChoiceHint": {
+    "description": "web: stage.choiceHint"
+  },
+  "stageChoiceSub": "한 번만 고를 수 있어요. 틀리면 이번 곡은 끝까지 구경해요. 내가 고른 표지는 다른 사람에게 보이지 않고, 채팅은 대화용이에요.",
+  "@stageChoiceSub": {
+    "description": "web: stage.choiceSub"
+  },
+  "stagePickWrong": "{n}번은 오답이에요. 정답 공개를 기다려 주세요.",
+  "@stagePickWrong": {
+    "description": "web: stage.pickWrong",
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "revealHeading": "정답 공개",
+  "@revealHeading": {
+    "description": "web: reveal.heading"
+  },
+  "revealNoWinner": "정답자 없음",
+  "@revealNoWinner": {
+    "description": "web: reveal.noWinner"
+  },
+  "revealWinner": "정답: {name}",
+  "@revealWinner": {
+    "description": "web: reveal.winner",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "revealRanking": "이번 곡 순위",
+  "@revealRanking": {
+    "description": "web: reveal.ranking"
+  },
+  "revealLabelKo": "KO",
+  "@revealLabelKo": {
+    "description": "web: reveal.label.ko"
+  },
+  "revealLabelEn": "EN",
+  "@revealLabelEn": {
+    "description": "web: reveal.label.en"
+  },
+  "revealLabelJa": "JA",
+  "@revealLabelJa": {
+    "description": "web: reveal.label.ja"
+  },
+  "revealLabelRomaji": "Romaji",
+  "@revealLabelRomaji": {
+    "description": "web: reveal.label.romaji"
+  },
+  "revealSolvers": "정답자: {names}",
+  "@revealSolvers": {
+    "description": "web: reveal.solvers",
+    "placeholders": {
+      "names": {}
+    }
+  },
+  "revealNext": "잠시 후 다음 곡이 시작돼요",
+  "@revealNext": {
+    "description": "web: reveal.next"
+  },
+  "revealNextFinal": "잠시 후 최종 순위를 보여 줘요",
+  "@revealNextFinal": {
+    "description": "web: reveal.nextFinal"
+  },
+  "revealRankPlace": "{rank}등",
+  "@revealRankPlace": {
+    "description": "web: reveal.rankPlace",
+    "placeholders": {
+      "rank": {}
+    }
+  },
+  "revealRankPoints": "+{points}점",
+  "@revealRankPoints": {
+    "description": "web: reveal.rankPoints",
+    "placeholders": {
+      "points": {}
+    }
+  },
+  "revealStampHit": "정답",
+  "@revealStampHit": {
+    "description": "web: reveal.stampHit"
+  },
+  "revealStampPass": "통과",
+  "@revealStampPass": {
+    "description": "web: reveal.stampPass"
+  },
+  "revealCoverAlt": "{title} 표지",
+  "@revealCoverAlt": {
+    "description": "web: reveal.coverAlt",
+    "placeholders": {
+      "title": {}
+    }
+  },
+  "revealCoverAltIdle": "애니 표지",
+  "@revealCoverAltIdle": {
+    "description": "web: reveal.coverAltIdle"
+  },
+  "scoreBoard": "점수판",
+  "@scoreBoard": {
+    "description": "web: score.board"
+  },
+  "scoreRanking": "최종 순위",
+  "@scoreRanking": {
+    "description": "web: score.ranking"
+  },
+  "scorePoints": "{score}점",
+  "@scorePoints": {
+    "description": "web: score.points",
+    "placeholders": {
+      "score": {}
+    }
+  },
+  "scoreRank": "{rank}위",
+  "@scoreRank": {
+    "description": "web: score.rank",
+    "placeholders": {
+      "rank": {}
+    }
+  },
+  "scoreFinal": "최종 점수: {score}점",
+  "@scoreFinal": {
+    "description": "web: score.final",
+    "placeholders": {
+      "score": {}
+    }
+  },
+  "gameLeave": "나가기",
+  "@gameLeave": {
+    "description": "web: game.leave"
+  },
+  "gameLeaveAsk": "게임을 나갈까요?",
+  "@gameLeaveAsk": {
+    "description": "web: game.leaveAsk"
+  },
+  "gameLeaveConfirm": "나가기",
+  "@gameLeaveConfirm": {
+    "description": "web: game.leaveConfirm"
+  },
+  "gameLeaveCancel": "취소",
+  "@gameLeaveCancel": {
+    "description": "web: game.leaveCancel"
+  },
+  "gameToLobby": "대기실로",
+  "@gameToLobby": {
+    "description": "web: game.toLobby"
+  },
+  "chatCorrectLine": "{name} 정답!",
+  "@chatCorrectLine": {
+    "description": "web: chat.correctLine",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "chatWrongLine": "✘ {name} 오답",
+  "@chatWrongLine": {
+    "description": "web: chat.wrongLine",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "chatCorrectRanked": "{name} 정답! ({rank}등)",
+  "@chatCorrectRanked": {
+    "description": "web: chat.correctRanked",
+    "placeholders": {
+      "name": {},
+      "rank": {}
+    }
+  },
+  "chatGameStart": "게임을 시작해요",
+  "@chatGameStart": {
+    "description": "web: chat.gameStart"
+  },
+  "chatSongStart": "{n}번째 곡 시작",
+  "@chatSongStart": {
+    "description": "web: chat.songStart",
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "chatGameOver": "게임 종료",
+  "@chatGameOver": {
+    "description": "web: chat.gameOver"
+  },
+  "chatLobbyBack": "대기실로 돌아왔어요",
+  "@chatLobbyBack": {
+    "description": "web: chat.lobbyBack"
+  },
+  "answerChoiceN": "보기 {n}",
+  "@answerChoiceN": {
+    "description": "web: answer.choiceN",
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "answerMarkCorrect": "✔ 정답",
+  "@answerMarkCorrect": {
+    "description": "web: answer.markCorrect"
+  },
+  "answerMarkWrong": "✕ 오답",
+  "@answerMarkWrong": {
+    "description": "web: answer.markWrong"
+  },
+  "seatCorrect": "정답!",
+  "@seatCorrect": {
+    "description": "web: seat.correct"
+  },
+  "seatScore": "{score}점",
+  "@seatScore": {
+    "description": "web: seat.score",
+    "placeholders": {
+      "score": {}
+    }
+  },
   "errorAlreadyInRoom": "이미 방에 참가해 있습니다.",
   "@errorAlreadyInRoom": {
     "description": "web: error.already-in-room"
