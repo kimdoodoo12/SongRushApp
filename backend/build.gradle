@@ -33,4 +33,10 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// Opt-in example capture for contracts/protocol.md (cycle 144): passed to the test JVM only when set,
+	// e.g. .\gradlew.bat cleanTest test "-Dsongrush.captureFrames=<absolute path to contracts/messages>".
+	def captureFrames = System.getProperty('songrush.captureFrames')
+	if (captureFrames != null) {
+		systemProperty 'songrush.captureFrames', captureFrames
+	}
 }

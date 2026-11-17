@@ -1,0 +1,10 @@
+{
+  "type" : "lobbySettings",
+  "songCount" : 12,
+  "types" : [ "OP" ],
+  "yearFrom" : 2000,
+  "yearTo" : 2010,
+  "tier" : "easy",
+  "answerMode" : "choice",
+  "gameMode" : "ranked"
+}

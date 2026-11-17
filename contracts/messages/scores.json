@@ -1,0 +1,13 @@
+{
+  "type" : "scores",
+  "scores" : [ {
+    "name" : "Host",
+    "score" : 3
+  }, {
+    "name" : "Guest",
+    "score" : 2
+  }, {
+    "name" : "Third",
+    "score" : 1
+  } ]
+}

@@ -1,0 +1,20 @@
+{
+  "type" : "roster",
+  "phase" : "playing",
+  "players" : [ {
+    "name" : "Host",
+    "score" : 3,
+    "host" : false,
+    "connected" : false
+  }, {
+    "name" : "Guest",
+    "score" : 2,
+    "host" : false,
+    "connected" : false
+  }, {
+    "name" : "Third",
+    "score" : 1,
+    "host" : true,
+    "connected" : true
+  } ]
+}
