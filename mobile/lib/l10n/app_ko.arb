@@ -1,0 +1,412 @@
+{
+  "@@locale": "ko",
+  "@@x-source": "frontend/src/i18n/{ko,en,ja}.json; each @key description names the web key",
+  "appTitle": "SongRush",
+  "@appTitle": {
+    "description": "web: app.title"
+  },
+  "appCredit": "데이터 출처: AnimeThemes, AniList, anime-offline-database, AniDB, Wikidata",
+  "@appCredit": {
+    "description": "web: app.credit"
+  },
+  "appReconnecting": "연결이 끊겨 다시 연결하는 중...",
+  "@appReconnecting": {
+    "description": "web: app.reconnecting"
+  },
+  "startNickname": "닉네임",
+  "@startNickname": {
+    "description": "web: start.nickname"
+  },
+  "startCreateRoom": "방 만들기",
+  "@startCreateRoom": {
+    "description": "web: start.createRoom"
+  },
+  "startOrCode": "또는 코드로 참가",
+  "@startOrCode": {
+    "description": "web: start.orCode"
+  },
+  "startRoomCode": "방 코드",
+  "@startRoomCode": {
+    "description": "web: start.roomCode"
+  },
+  "startJoin": "참가",
+  "@startJoin": {
+    "description": "web: start.join"
+  },
+  "startJoinTitle": "{code} 방 참가",
+  "@startJoinTitle": {
+    "description": "web: start.joinTitle",
+    "placeholders": {
+      "code": {}
+    }
+  },
+  "startConfirm": "확인",
+  "@startConfirm": {
+    "description": "web: start.confirm"
+  },
+  "startCancel": "취소",
+  "@startCancel": {
+    "description": "web: start.cancel"
+  },
+  "themeSunset": "노을 옥상",
+  "@themeSunset": {
+    "description": "web: theme.sunset"
+  },
+  "moodTagSunset": "애니 OP·ED 맞히기",
+  "@moodTagSunset": {
+    "description": "web: mood.tag.sunset"
+  },
+  "skinSunsetTitle": "노을",
+  "@skinSunsetTitle": {
+    "description": "web: skin.sunset.title"
+  },
+  "skinSunsetLabel": "방 코드",
+  "@skinSunsetLabel": {
+    "description": "web: skin.sunset.label"
+  },
+  "skinSunsetAdmit": "ADMIT ONE",
+  "@skinSunsetAdmit": {
+    "description": "web: skin.sunset.admit"
+  },
+  "skinSunsetStart": "Play Song",
+  "@skinSunsetStart": {
+    "description": "web: skin.sunset.start"
+  },
+  "skinSunsetSeats": "대기실",
+  "@skinSunsetSeats": {
+    "description": "web: skin.sunset.seats"
+  },
+  "skinSunsetReady": "참가",
+  "@skinSunsetReady": {
+    "description": "web: skin.sunset.ready"
+  },
+  "skinSunsetEmpty": "빈 자리",
+  "@skinSunsetEmpty": {
+    "description": "web: skin.sunset.empty"
+  },
+  "lobbyCopy": "복사",
+  "@lobbyCopy": {
+    "description": "web: lobby.copy"
+  },
+  "lobbyWaiting": "방장이 게임을 시작하기를 기다리는 중...",
+  "@lobbyWaiting": {
+    "description": "web: lobby.waiting"
+  },
+  "lobbySongCount": "곡 수",
+  "@lobbySongCount": {
+    "description": "web: lobby.songCount"
+  },
+  "lobbyLeave": "나가기",
+  "@lobbyLeave": {
+    "description": "web: lobby.leave"
+  },
+  "lobbySeats": "{seats} · 참가자 {n} / 8",
+  "@lobbySeats": {
+    "description": "web: lobby.seats",
+    "placeholders": {
+      "seats": {},
+      "n": {}
+    }
+  },
+  "lobbyHostSeat": "방장",
+  "@lobbyHostSeat": {
+    "description": "web: lobby.hostSeat"
+  },
+  "lobbyOf": "/ {n}명",
+  "@lobbyOf": {
+    "description": "web: lobby.of",
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "lobbySettingsTitle": "게임 설정",
+  "@lobbySettingsTitle": {
+    "description": "web: lobby.settingsTitle"
+  },
+  "lobbyWhoHost": "방장만 바꿀 수 있어요",
+  "@lobbyWhoHost": {
+    "description": "web: lobby.whoHost"
+  },
+  "lobbyWhoGuest": "방장이 정한 설정이에요",
+  "@lobbyWhoGuest": {
+    "description": "web: lobby.whoGuest"
+  },
+  "lobbyWhoPending": "방장이 설정을 고르는 중이에요",
+  "@lobbyWhoPending": {
+    "description": "web: lobby.whoPending"
+  },
+  "lobbyShareHint": "링크를 보내면 친구가 닉네임만 넣고 바로 들어와요",
+  "@lobbyShareHint": {
+    "description": "web: lobby.shareHint"
+  },
+  "lobbyCopied": "링크를 복사했어요",
+  "@lobbyCopied": {
+    "description": "web: lobby.copied"
+  },
+  "lobbyCopyFailed": "복사하지 못했어요. 주소를 길게 눌러 복사해 주세요",
+  "@lobbyCopyFailed": {
+    "description": "web: lobby.copyFailed"
+  },
+  "lobbySongCountDown": "곡 수 줄이기",
+  "@lobbySongCountDown": {
+    "description": "web: lobby.songCountDown"
+  },
+  "lobbySongCountUp": "곡 수 늘리기",
+  "@lobbySongCountUp": {
+    "description": "web: lobby.songCountUp"
+  },
+  "filterType": "곡 종류",
+  "@filterType": {
+    "description": "web: filter.type"
+  },
+  "filterTier": "난이도",
+  "@filterTier": {
+    "description": "web: filter.tier"
+  },
+  "filterFrom": "연도 시작",
+  "@filterFrom": {
+    "description": "web: filter.from"
+  },
+  "filterTo": "연도 끝",
+  "@filterTo": {
+    "description": "web: filter.to"
+  },
+  "filterFromAny": "처음부터",
+  "@filterFromAny": {
+    "description": "web: filter.fromAny"
+  },
+  "filterToAny": "지금까지",
+  "@filterToAny": {
+    "description": "web: filter.toAny"
+  },
+  "filterReversed": "시작 연도가 끝 연도보다 늦습니다.",
+  "@filterReversed": {
+    "description": "web: filter.reversed"
+  },
+  "filterAll": "전체",
+  "@filterAll": {
+    "description": "web: filter.all"
+  },
+  "filterOp": "오프닝만",
+  "@filterOp": {
+    "description": "web: filter.op"
+  },
+  "filterEd": "엔딩만",
+  "@filterEd": {
+    "description": "web: filter.ed"
+  },
+  "filterEasy": "쉬움",
+  "@filterEasy": {
+    "description": "web: filter.easy"
+  },
+  "filterNormal": "보통",
+  "@filterNormal": {
+    "description": "web: filter.normal"
+  },
+  "filterHard": "어려움",
+  "@filterHard": {
+    "description": "web: filter.hard"
+  },
+  "filterYears": "연도",
+  "@filterYears": {
+    "description": "web: filter.years"
+  },
+  "answerLabel": "정답 형식",
+  "@answerLabel": {
+    "description": "web: answer.label"
+  },
+  "answerChat": "채팅",
+  "@answerChat": {
+    "description": "web: answer.chat"
+  },
+  "answerChoice": "객관식",
+  "@answerChoice": {
+    "description": "web: answer.choice"
+  },
+  "answerHintChat": "채팅으로 애니 제목을 맞혀요",
+  "@answerHintChat": {
+    "description": "web: answer.hintChat"
+  },
+  "answerHintChoice": "표지 {k}장 중에서 골라요 (난이도에 따라 4·6·8장)",
+  "@answerHintChoice": {
+    "description": "web: answer.hintChoice",
+    "placeholders": {
+      "k": {}
+    }
+  },
+  "modeLabel": "게임 모드",
+  "@modeLabel": {
+    "description": "web: mode.label"
+  },
+  "modeFirst": "선착순",
+  "@modeFirst": {
+    "description": "web: mode.first"
+  },
+  "modeRanked": "순위전",
+  "@modeRanked": {
+    "description": "web: mode.ranked"
+  },
+  "modeHintFirst": "가장 먼저 맞힌 한 명만 점수를 받아요",
+  "@modeHintFirst": {
+    "description": "web: mode.hintFirst"
+  },
+  "modeHintRanked": "모두 맞히거나 고를 때까지 곡이 이어지고 순위대로 점수를 받아요",
+  "@modeHintRanked": {
+    "description": "web: mode.hintRanked"
+  },
+  "seatList": "자리",
+  "@seatList": {
+    "description": "web: seat.list"
+  },
+  "seatEmpty": "빈 자리",
+  "@seatEmpty": {
+    "description": "web: seat.empty"
+  },
+  "seatHost": "(방장)",
+  "@seatHost": {
+    "description": "web: seat.host"
+  },
+  "seatMe": "(나)",
+  "@seatMe": {
+    "description": "web: seat.me"
+  },
+  "chatLabel": "채팅",
+  "@chatLabel": {
+    "description": "web: chat.label"
+  },
+  "chatInput": "정답 입력",
+  "@chatInput": {
+    "description": "web: chat.input"
+  },
+  "chatPlaceholder": "애니 제목을 입력하세요",
+  "@chatPlaceholder": {
+    "description": "web: chat.placeholder"
+  },
+  "chatSend": "보내기",
+  "@chatSend": {
+    "description": "web: chat.send"
+  },
+  "chatLive": "{n}명 접속 중",
+  "@chatLive": {
+    "description": "web: chat.live",
+    "placeholders": {
+      "n": {}
+    }
+  },
+  "chatLobbyJoined": "{code} 방에 들어왔어요. 방장이 설정을 고르는 중이에요",
+  "@chatLobbyJoined": {
+    "description": "web: chat.lobbyJoined",
+    "placeholders": {
+      "code": {}
+    }
+  },
+  "gameDisconnected": "서버와 연결이 끊어졌습니다.",
+  "@gameDisconnected": {
+    "description": "web: game.disconnected"
+  },
+  "gameReplaced": "다른 창에서 접속해 이 연결이 끊겼습니다.",
+  "@gameReplaced": {
+    "description": "web: game.replaced"
+  },
+  "errorAlreadyInRoom": "이미 방에 참가해 있습니다.",
+  "@errorAlreadyInRoom": {
+    "description": "web: error.already-in-room"
+  },
+  "errorAvailable": "출제할 수 있는 곡이 {available}곡뿐입니다.",
+  "@errorAvailable": {
+    "description": "web: error.available",
+    "placeholders": {
+      "available": {}
+    }
+  },
+  "errorAvailableSeries": "출제할 수 있는 작품이 {available}개뿐입니다.",
+  "@errorAvailableSeries": {
+    "description": "web: error.availableSeries",
+    "placeholders": {
+      "available": {}
+    }
+  },
+  "errorBadAnswerMode": "알 수 없는 정답 형식입니다.",
+  "@errorBadAnswerMode": {
+    "description": "web: error.bad-answer-mode"
+  },
+  "errorBadFilter": "조건이 올바르지 않습니다.",
+  "@errorBadFilter": {
+    "description": "web: error.bad-filter"
+  },
+  "errorBadGameMode": "알 수 없는 게임 모드입니다.",
+  "@errorBadGameMode": {
+    "description": "web: error.bad-game-mode"
+  },
+  "errorBadMessage": "잘못된 요청입니다.",
+  "@errorBadMessage": {
+    "description": "web: error.bad-message"
+  },
+  "errorBadNickname": "닉네임은 1~16자로 입력해 주세요.",
+  "@errorBadNickname": {
+    "description": "web: error.bad-nickname"
+  },
+  "errorBadRoomTheme": "알 수 없는 분위기입니다.",
+  "@errorBadRoomTheme": {
+    "description": "web: error.bad-room-theme"
+  },
+  "errorBadSongCount": "곡 수는 5~30곡입니다.",
+  "@errorBadSongCount": {
+    "description": "web: error.bad-song-count"
+  },
+  "errorInGame": "게임이 진행 중입니다. 끝난 뒤에 참가해 주세요.",
+  "@errorInGame": {
+    "description": "web: error.in-game"
+  },
+  "errorNoRoom": "참가한 방이 없습니다.",
+  "@errorNoRoom": {
+    "description": "web: error.no-room"
+  },
+  "errorNotEnoughSongs": "출제할 곡이 부족합니다.",
+  "@errorNotEnoughSongs": {
+    "description": "web: error.not-enough-songs"
+  },
+  "errorNotHost": "방장만 시작할 수 있습니다.",
+  "@errorNotHost": {
+    "description": "web: error.not-host"
+  },
+  "errorRateLimited": "너무 빨리 보내고 있어요.",
+  "@errorRateLimited": {
+    "description": "web: error.rate-limited"
+  },
+  "errorRejoinFailed": "다시 연결하지 못했습니다. 방에 다시 참가해 주세요.",
+  "@errorRejoinFailed": {
+    "description": "web: error.rejoin-failed"
+  },
+  "errorRoomClosed": "방이 닫혔습니다.",
+  "@errorRoomClosed": {
+    "description": "web: error.room-closed"
+  },
+  "errorRoomFull": "방이 가득 찼습니다 (최대 8명).",
+  "@errorRoomFull": {
+    "description": "web: error.room-full"
+  },
+  "errorRoomNotFound": "방을 찾을 수 없습니다.",
+  "@errorRoomNotFound": {
+    "description": "web: error.room-not-found"
+  },
+  "errorServerFull": "서버가 가득 찼습니다. 잠시 후 다시 시도해 주세요.",
+  "@errorServerFull": {
+    "description": "web: error.server-full"
+  },
+  "errorTooLarge": "메시지가 너무 깁니다.",
+  "@errorTooLarge": {
+    "description": "web: error.too-large"
+  },
+  "errorTooLong": "채팅은 200자까지 입력할 수 있습니다.",
+  "@errorTooLong": {
+    "description": "web: error.too-long"
+  },
+  "errorUnknown": "오류가 발생했습니다 ({code})",
+  "@errorUnknown": {
+    "description": "web: error.unknown",
+    "placeholders": {
+      "code": {}
+    }
+  }
+}

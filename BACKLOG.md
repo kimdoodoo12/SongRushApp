@@ -439,7 +439,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-M1** mobile net and session core (design 141 item 4)
 - [x] **F-M2** mobile clock sync and playback planning, ported with the web's test vectors (design 141 item 5)
 - [x] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009), with an in-song position check that corrects drift and a misreported output latency, and a manual offset setting (cycle 142's emulator measurement). The fallback B-M3 is not needed (S-009 passed)
-- [ ] **F-M4a** mobile start and lobby screens, with the credit line (design 141 item 7)
+- [x] **F-M4a** mobile start and lobby screens, with the credit line (design 141 item 7)
 - [ ] **F-M4b** mobile game and game-over screens (design 141 item 7b)
 - [ ] **F-M5** mobile reconnect and lifecycle (design 141 item 8)
 - [ ] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
@@ -620,6 +620,8 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (from 148) subset the mobile app's bundled fonts (18 MB, Gowun Dodum 7.2 MB) before phones load the Flutter web on the live site
+- (from 148) web dictionaries: `error.bad-song-count` still says 5~30 in ko/en/ja (D-137 made it 5-100); fix, then re-run `mobile/tool/sync_l10n.py`
 - (from 144) a socket test that rejoins a choice room in a reveal window, so `contracts/messages/snapshot.json` shows the full song object
 - (106) Log one INFO line at S3-mode startup saying whether redirects go via the CDN host (and which) or direct to S3; a misspelt env var (`SONGRUSH_AUDIO_CDN_HOST` (the real name is `SONGRUSH_AUDIO_CDNHOST`)) silently leaves the switch off.
 - (104) **Fixed in cycle 112** (`stage.choiceHint` in ko/en/ja). The original text follows. In a choice room the stage hint still says to answer by chat (`GameScreen.jsx` uses `t('stage.hint')` for both formats). Add a choice-room hint in ko/en/ja; it is visible in the portfolio captures.
