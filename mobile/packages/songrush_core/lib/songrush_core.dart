@@ -2,3 +2,10 @@
 library;
 
 export 'src/limits.dart';
+export 'src/net/game_socket.dart';
+export 'src/protocol/client_message.dart';
+export 'src/protocol/models.dart';
+export 'src/protocol/server_message.dart';
+export 'src/session/session.dart';
+export 'src/session/session_state.dart';
+export 'src/session/token_store.dart';
