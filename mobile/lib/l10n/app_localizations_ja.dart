@@ -574,5 +574,8 @@ class AppLocalizationsJa extends AppLocalizations {
   String get offsetClose => '閉じる';
 
   @override
+  String get appPcVersion => 'PC版';
+
+  @override
   String get chatTalkPlaceholder => 'チャットで話そう';
 }

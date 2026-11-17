@@ -20,6 +20,7 @@ class Harness {
     Map<String, String>? prefs,
     RejoinEntry? stored,
     bool reloaded = false,
+    bool canNavigate = false,
   }) : prefs = MemoryPrefs(prefs) {
     if (stored != null) tokens.write(stored);
     controller = AppController(
@@ -30,6 +31,7 @@ class Harness {
       localPrefs: this.prefs,
       unlockSound: () async => unlocks++,
       keepAwake: awake.add,
+      navigate: canNavigate ? navigations.add : null,
       pageReloaded: reloaded,
       deviceLocales: deviceLocales,
       initialCode: initialCode,
@@ -50,6 +52,10 @@ class Harness {
   int nowMs = 1000000;
   final List<String> warnings = [];
   int unlocks = 0;
+
+  /// Every page navigation (the PC version link), in order; only with
+  /// `canNavigate` (the web build).
+  final List<String> navigations = [];
 
   /// Every wake lock switch, in order.
   final List<bool> awake = [];

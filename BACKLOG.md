@@ -446,7 +446,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-M7** take out the sound-offset button; Flutter web latency = React's `outputLatency` (D-143)
 - [x] **F-M8** mobile chat stacks from the bottom; the choice room's input reads as talk (from 151)
 - [x] **F-M9** subset the mobile app's bundled fonts (from 148)
-- [ ] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
+- [x] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
 - [ ] **I-011** Android packaging and release APK signing, after the mobile web plays correctly (design 141 item 9, D-140; the Android SDK licences and the key are the owner's)
 ## Roadmap
 

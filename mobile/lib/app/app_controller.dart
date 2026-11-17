@@ -15,6 +15,10 @@ import 'lobby_selection.dart';
 /// `NICKNAME_KEY`).
 const String nicknameKey = 'songrush.nickname';
 
+/// The site's UI choice (cycle 154, D-140; mobileRedirect.js `UI_KEY`):
+/// "pc" keeps a phone on the React web, "mobile" was picked there.
+const String uiKey = 'songrush.ui';
+
 /// Room codes are 5 characters (StartScreen.jsx `CODE_LENGTH`).
 const int codeLength = 5;
 
@@ -116,6 +120,7 @@ class AppController extends ChangeNotifier {
     required Prefs localPrefs,
     this._unlockSound,
     this._keepAwake,
+    this._navigate,
     bool pageReloaded = false,
     List<Locale> deviceLocales = const [],
     String initialCode = '',
@@ -157,6 +162,7 @@ class AppController extends ChangeNotifier {
   final PlaybackSettingsStore _playback;
   final Future<void> Function()? _unlockSound;
   final void Function(bool on)? _keepAwake;
+  final void Function(String path)? _navigate;
   final int Function() _now;
   final void Function(String message) _warn;
 
@@ -311,6 +317,26 @@ class AppController extends ChangeNotifier {
   RoundController? get rounds => _rounds;
 
   // --- start screen ---
+
+  /// The PC version link shows only where the page can navigate (the web
+  /// build, `navigate`; cycle 154, D-140).
+  bool get canSwitchToPc => _navigate != null;
+
+  /// The React web's path for this screen: `/r/<code>` in a room (or while
+  /// rejoining one), `/` otherwise.
+  String get pcPath {
+    final code = _state?.roomCode ?? _resumingCode;
+    return code == null || code.isEmpty ? '/' : '/r/$code';
+  }
+
+  /// The PC version link: stores the choice so the React web keeps this
+  /// device (`songrush.ui` = "pc"), then leaves for [pcPath].
+  void switchToPc() {
+    final navigate = _navigate;
+    if (navigate == null) return;
+    _prefs.write(uiKey, 'pc');
+    navigate(pcPath);
+  }
 
   void setLanguage(String code) {
     if (!languages.contains(code) || code == _language) return;

@@ -17,7 +17,8 @@ import 'store/session_token_store.dart';
 /// browser's storage (sessionStorage for the rejoin entry and localStorage
 /// for the nickname, the language and the sound offset, as the web client;
 /// memory off the web), the page's reload check (a reload rejoins the stored
-/// room) and the Screen Wake Lock (none off the web).
+/// room), the Screen Wake Lock and the page navigation of the PC version
+/// link (both none off the web).
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final socket = socketUrl();
@@ -32,6 +33,7 @@ void main() {
     localPrefs: browserLocalStorage() ?? MemoryPrefs(),
     unlockSound: engine.start,
     keepAwake: screenWakeLock(),
+    navigate: pageNavigator(),
     pageReloaded: web && pageWasReloaded(),
     deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
     initialCode: web ? codeFromPath(page.path) : '',

@@ -574,5 +574,8 @@ class AppLocalizationsKo extends AppLocalizations {
   String get offsetClose => '닫기';
 
   @override
+  String get appPcVersion => 'PC 버전';
+
+  @override
   String get chatTalkPlaceholder => '채팅으로 이야기해요';
 }

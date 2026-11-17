@@ -20,6 +20,16 @@ bool pageWasReloaded() {
   }
 }
 
+/// Leaves this page for [path] on the same origin (the PC version link,
+/// cycle 154): a normal navigation, so Back returns here.
+void Function(String path)? pageNavigator() => (path) {
+      try {
+        web.window.location.assign(path);
+      } catch (e) {
+        _warn('navigation to $path failed: $e');
+      }
+    };
+
 /// The Screen Wake Lock as an on/off switch, or null where the browser has
 /// none (`navigator.wakeLock`).
 void Function(bool on)? screenWakeLock() {

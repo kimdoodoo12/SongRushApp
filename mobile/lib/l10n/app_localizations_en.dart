@@ -585,5 +585,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get offsetClose => 'Close';
 
   @override
+  String get appPcVersion => 'PC version';
+
+  @override
   String get chatTalkPlaceholder => 'Chat with everyone';
 }

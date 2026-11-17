@@ -280,12 +280,17 @@ class LanguageSwitcher extends StatelessWidget {
   }
 }
 
-/// The footer: the language switcher and the credit line (D-023).
+/// The footer: the language switcher, the PC version link when
+/// [onPcVersion] is given (the web build on the start screen and the lobby,
+/// cycle 154, D-140), and the credit line (D-023).
 class Footer extends StatelessWidget {
-  const Footer({super.key, required this.language, required this.onLanguage});
+  const Footer({super.key, required this.language, required this.onLanguage, this.onPcVersion});
 
   final String language;
   final ValueChanged<String> onLanguage;
+
+  /// Null hides the PC version link.
+  final VoidCallback? onPcVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -295,6 +300,10 @@ class Footer extends StatelessWidget {
       child: Column(
         children: [
           LanguageSwitcher(current: language, onPick: onLanguage),
+          if (onPcVersion != null) ...[
+            const SizedBox(height: 8),
+            RoomButton(key: const ValueKey('pc-version'), label: t.appPcVersion, compact: true, onPressed: onPcVersion),
+          ],
           const SizedBox(height: 8),
           Text(
             t.appCredit,

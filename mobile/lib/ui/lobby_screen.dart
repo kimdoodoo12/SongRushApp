@@ -98,7 +98,11 @@ class LobbyScreen extends StatelessWidget {
           online: online,
           onSend: c.sendChat,
         ),
-        Footer(language: c.language, onLanguage: c.setLanguage),
+        Footer(
+          language: c.language,
+          onLanguage: c.setLanguage,
+          onPcVersion: c.canSwitchToPc ? c.switchToPc : null,
+        ),
       ],
     );
   }
