@@ -9,3 +9,5 @@ export 'src/protocol/server_message.dart';
 export 'src/session/session.dart';
 export 'src/session/session_state.dart';
 export 'src/session/token_store.dart';
+export 'src/sync/clock_sync.dart';
+export 'src/sync/playback.dart';

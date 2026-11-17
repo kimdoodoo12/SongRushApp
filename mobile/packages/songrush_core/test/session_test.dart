@@ -18,6 +18,10 @@ class Harness {
   final List<ServerMessage> messages = [];
   late Session session;
 
+  /// The local clock: epoch ms that follows the fake time.
+  static const int clockBase = 1000000;
+  int now() => clockBase + async.elapsed.inMilliseconds;
+
   FakeGameSocket get socket => factory.last;
 
   void listen() {
@@ -32,6 +36,7 @@ class Harness {
       tokenStore: store,
       nickname: nickname,
       warn: warnings.add,
+      now: now,
     );
     listen();
   }
@@ -43,12 +48,13 @@ class Harness {
       code: code,
       nickname: nickname,
       warn: warnings.add,
+      now: now,
     );
     listen();
   }
 
   void resume(RejoinEntry entry) {
-    session = Session.resume(socketFactory: factory.call, tokenStore: store, entry: entry, warn: warnings.add);
+    session = Session.resume(socketFactory: factory.call, tokenStore: store, entry: entry, warn: warnings.add, now: now);
     listen();
   }
 
@@ -511,6 +517,185 @@ void main() {
         h.drop(1006);
         expect(h.session.state.end, SessionEnd.refused);
         expect(h.factory.sockets, hasLength(1));
+      });
+    });
+  });
+
+  group('clock sync', () {
+    List<Map<String, Object?>> pingsOf(FakeGameSocket s) => [
+          for (final m in s.sentJson)
+            if (m['type'] == 'ping') m
+        ];
+
+    // session.js 'joined': sync.burst(JOIN_PINGS) and the 30 s interval.
+    test('joined starts a burst of 8 pings, 150 ms apart', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        expect(pingsOf(h.socket), [
+          {'type': 'ping', 'id': 1},
+        ]);
+        async.elapse(const Duration(milliseconds: 149));
+        expect(pingsOf(h.socket), hasLength(1));
+        async.elapse(const Duration(milliseconds: 1));
+        expect(pingsOf(h.socket), hasLength(2));
+        async.elapse(const Duration(milliseconds: 900));
+        expect(pingsOf(h.socket).map((m) => m['id']), [1, 2, 3, 4, 5, 6, 7, 8]);
+        expect(h.session.state.clock, isNull);
+      });
+    });
+
+    // session.js 'pong': sync.onPong(msg); the estimate is in the state.
+    test('pongs feed the estimate, exposed in the state', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        final t0 = h.now();
+        async.elapse(const Duration(milliseconds: 40));
+        // offset = serverTime - (t0 + 20) = 5000
+        h.receive(PongMessage(id: 1, serverTime: t0 + 20 + 5000));
+        final clock = h.session.state.clock!;
+        expect(clock.offsetMs, 5000);
+        expect(clock.rttMs, 40);
+        expect(h.session.state.clockLowerBoundMs, 4980);
+        // The pong is on the message stream too.
+        expect(h.messages.last, isA<PongMessage>());
+
+        // A pong for no pending ping changes nothing.
+        final before = h.states.length;
+        h.receive(PongMessage(id: 99, serverTime: t0));
+        expect(h.session.state.clock, clock);
+        expect(h.states, hasLength(before));
+      });
+    });
+
+    test('3 more pings every 30 s while in the room', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        async.elapse(const Duration(seconds: 29));
+        expect(pingsOf(h.socket), hasLength(8));
+        async.elapse(const Duration(seconds: 1));
+        expect(pingsOf(h.socket), hasLength(9));
+        async.elapse(const Duration(milliseconds: 300));
+        expect(pingsOf(h.socket).map((m) => m['id']).skip(8), [9, 10, 11]);
+        async.elapse(const Duration(seconds: 30));
+        expect(pingsOf(h.socket), hasLength(14));
+      });
+    });
+
+    // session.js beginReconnect: stopSync, sync.clear; the next joined
+    // starts a fresh sync.
+    test('a drop stops and clears the sync; the rejoin starts a fresh burst', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        final first = h.socket;
+        final t0 = h.now();
+        async.elapse(const Duration(milliseconds: 20));
+        h.receive(PongMessage(id: 1, serverTime: t0 + 10 + 3000));
+        expect(h.session.state.clock!.offsetMs, 3000);
+        async.elapse(const Duration(milliseconds: 200));
+        expect(pingsOf(first), hasLength(2));
+
+        h.drop(1006);
+        expect(h.session.state.clock, isNull);
+        expect(h.session.state.clockLowerBoundMs, isNull);
+        // The rest of the burst and the interval are gone.
+        async.elapse(const Duration(milliseconds: 500));
+        final second = h.socket;
+        expect(second, isNot(same(first)));
+        expect(pingsOf(first), hasLength(2));
+        expect(pingsOf(second), isEmpty);
+
+        h.receive(const JoinedMessage(code: 'K7XQM', name: 'Alice'));
+        // A pong for a ping of the old socket is ignored.
+        h.receive(PongMessage(id: 2, serverTime: h.now()));
+        expect(h.session.state.clock, isNull);
+        async.elapse(const Duration(seconds: 2));
+        expect(pingsOf(second).map((m) => m['id']), [3, 4, 5, 6, 7, 8, 9, 10]);
+        async.elapse(const Duration(milliseconds: 28500));
+        expect(pingsOf(second), hasLength(11));
+      });
+    });
+
+    test('a joined on the same socket does not start a second interval', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        h.receive(const JoinedMessage(code: 'K7XQM', name: 'Alice'));
+        async.elapse(const Duration(seconds: 31));
+        expect(pingsOf(h.socket), hasLength(11));
+      });
+    });
+
+    test('a resume starts the sync on its joined', () {
+      fakeAsync((async) {
+        final h = Harness(async);
+        h.resume(const RejoinEntry(token: 'tok-9', code: 'K7XQM'));
+        expect(pingsOf(h.socket), isEmpty);
+        h.receive(const JoinedMessage(code: 'K7XQM', name: 'Alice'));
+        expect(pingsOf(h.socket), hasLength(1));
+      });
+    });
+
+    test('leaving stops every ping', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        h.session.leave();
+        async.flushMicrotasks();
+        final sent = h.socket.sent.length;
+        async.elapse(const Duration(minutes: 2));
+        expect(h.socket.sent, hasLength(sent));
+        expect(async.pendingTimers, isEmpty);
+      });
+    });
+
+    // session.js sendReady: ready, then sync.burst(RESYNC_PINGS).
+    test('sendReady sends ready and 3 pings', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        async.elapse(const Duration(seconds: 2));
+        h.session.sendReady(4);
+        async.elapse(const Duration(milliseconds: 300));
+        expect(h.socket.sentJson.skip(9), [
+          {'type': 'ready', 'index': 4},
+          {'type': 'ping', 'id': 9},
+          {'type': 'ping', 'id': 10},
+          {'type': 'ping', 'id': 11},
+        ]);
+      });
+    });
+
+    // session.js startOffset: a drifted receipt clears the samples and bursts.
+    test('startOffsetFor uses the estimate, and a drifted receipt re-syncs', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        final t0 = h.now();
+        async.elapse(const Duration(milliseconds: 20));
+        h.receive(PongMessage(id: 1, serverTime: t0 + 10 + 3000));
+        async.elapse(const Duration(seconds: 2));
+        final sent = pingsOf(h.socket).length;
+
+        // receipt 3060: within rtt 20 + 50.
+        final near = h.session.startOffsetFor(h.now() + 3060);
+        expect(near.offsetMs, 3000);
+        expect(near.provisional, isFalse);
+        expect(pingsOf(h.socket), hasLength(sent));
+        expect(h.session.state.clock, isNotNull);
+
+        // receipt 2500: drifted below, provisional, and a fresh sync.
+        final drifted = h.session.startOffsetFor(h.now() + 2500);
+        expect(drifted.offsetMs, 2500);
+        expect(drifted.provisional, isTrue);
+        expect(h.session.state.clock, isNull);
+        async.elapse(const Duration(milliseconds: 300));
+        expect(pingsOf(h.socket), hasLength(sent + 3));
+      });
+    });
+
+    test('startOffsetFor with no estimate uses the receipt', () {
+      fakeAsync((async) {
+        final h = Harness(async)..createdRoom();
+        final r = h.session.startOffsetFor(h.now() + 700);
+        expect(r.offsetMs, 700);
+        expect(r.provisional, isFalse);
+        expect(r.resync, isFalse);
       });
     });
   });
