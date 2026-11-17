@@ -3,6 +3,12 @@ package com.songrush.ws;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +39,11 @@ final class TestClient extends TextWebSocketHandler {
 
 	private static final AtomicInteger PING_IDS = new AtomicInteger(1000);
 
+	static final String CAPTURE_PROPERTY = "songrush.captureFrames";
+
+	// Frame type to the length of the frame captured for it in this JVM (guarded by itself).
+	private static final Map<String, Integer> CAPTURED = new HashMap<>();
+
 	private final BlockingQueue<String> frames = new LinkedBlockingQueue<>();
 
 	private final List<String> all = new CopyOnWriteArrayList<>();
@@ -57,6 +68,40 @@ final class TestClient extends TextWebSocketHandler {
 		String payload = message.getPayload();
 		all.add(payload);
 		frames.add(payload);
+		capture(payload);
+	}
+
+	// Opt-in example capture for contracts/protocol.md (cycle 144): with the system property
+	// songrush.captureFrames set to a folder, each received JSON object frame is written there as
+	// <type>.json, pretty-printed with LF line ends. Per type the largest frame of this run is kept,
+	// so the richest one (prepare with choices, reveal with nextChoices) wins. Unset: nothing is written.
+	static void capture(String payload) {
+		String folder = System.getProperty(CAPTURE_PROPERTY);
+		if (folder == null || folder.isBlank()) {
+			return;
+		}
+		JsonNode node = MAPPER.readTree(payload);
+		if (node == null || !node.isObject() || !node.path("type").isString()) {
+			return;
+		}
+		String type = node.path("type").stringValue();
+		synchronized (CAPTURED) {
+			Integer best = CAPTURED.get(type);
+			if (best != null && best >= payload.length()) {
+				return;
+			}
+			String pretty = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(node).replace("\r\n", "\n") + "\n";
+			try {
+				Path dir = Path.of(folder);
+				Files.createDirectories(dir);
+				Files.writeString(dir.resolve(type + ".json"), pretty, StandardCharsets.UTF_8);
+			}
+			catch (IOException e) {
+				// Asked-for capture that cannot write must fail loudly, not leave a stale example behind.
+				throw new UncheckedIOException("frame capture to " + folder + " failed", e);
+			}
+			CAPTURED.put(type, payload.length());
+		}
 	}
 
 	@Override

@@ -1,0 +1,16 @@
+{
+  "type" : "gameOver",
+  "ranking" : [ {
+    "rank" : 1,
+    "name" : "Host",
+    "score" : 0
+  }, {
+    "rank" : 1,
+    "name" : "Guest",
+    "score" : 0
+  }, {
+    "rank" : 1,
+    "name" : "Late",
+    "score" : 0
+  } ]
+}

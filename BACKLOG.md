@@ -435,7 +435,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
 - [x] **S-009** mobile audio spike with flutter_soloud on Flutter web in a phone browser (Android Chrome first), then the same on Android; the acoustic pass check is the owner's (from M-6, design 141 item 1, order D-140)
 - [x] **I-010** bootstrap `mobile/` (Flutter, web first; Android target added at packaging), lints, tests, `flutter build web`, CI job for `mobile/`, CLAUDE.md row, Stop hook area (design 141 item 2, D-140)
-- [ ] **C-020** protocol contract `contracts/protocol.md` with frames captured from the socket tests (design 141 item 3)
+- [x] **C-020** protocol contract `contracts/protocol.md` with frames captured from the socket tests (design 141 item 3)
 - [ ] **F-M1** mobile net and session core (design 141 item 4)
 - [ ] **F-M2** mobile clock sync and playback planning, ported with the web's test vectors (design 141 item 5)
 - [ ] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009), with an in-song position check that corrects drift and a misreported output latency, and a manual offset setting (cycle 142's emulator measurement). The fallback B-M3 is not needed (S-009 passed)
@@ -620,6 +620,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (from 144) a socket test that rejoins a choice room in a reveal window, so `contracts/messages/snapshot.json` shows the full song object
 - (106) Log one INFO line at S3-mode startup saying whether redirects go via the CDN host (and which) or direct to S3; a misspelt env var (`SONGRUSH_AUDIO_CDN_HOST` (the real name is `SONGRUSH_AUDIO_CDNHOST`)) silently leaves the switch off.
 - (104) **Fixed in cycle 112** (`stage.choiceHint` in ko/en/ja). The original text follows. In a choice room the stage hint still says to answer by chat (`GameScreen.jsx` uses `t('stage.hint')` for both formats). Add a choice-room hint in ko/en/ja; it is visible in the portfolio captures.
 
