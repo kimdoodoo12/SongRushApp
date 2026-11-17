@@ -166,5 +166,6 @@
   "offsetEarlier": "早く",
   "offsetLater": "遅く",
   "offsetReset": "リセット",
-  "offsetClose": "閉じる"
+  "offsetClose": "閉じる",
+  "chatTalkPlaceholder": "チャットで話そう"
 }

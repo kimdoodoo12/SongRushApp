@@ -263,7 +263,11 @@ class _GameBodyState extends State<_GameBody> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (!over)
-                        ChatForm(key: const ValueKey('chat-form'), onSend: c.sendChat)
+                        ChatForm(
+                          key: const ValueKey('chat-form'),
+                          onSend: c.sendChat,
+                          hint: choiceRoom ? t.chatTalkPlaceholder : null,
+                        )
                       else if (game.lobbyOpen)
                         Align(
                           alignment: Alignment.centerLeft,

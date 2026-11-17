@@ -98,9 +98,11 @@ class LiveDot extends StatelessWidget {
 /// The chat log: each said line as the name colour's dot and a bubble, the
 /// own ones on the right; notices as centred system lines; a correct answer
 /// as `✔ <name> 정답!`, a wrong pick in red. It fills the height it is
-/// given and scrolls inside. It opens on the newest line, follows new lines
-/// while it is at the bottom (and always after an own line), and keeps the
-/// newest line in view when its height changes (the on-screen keyboard).
+/// given and scrolls inside; the lines stack from its bottom, next to the
+/// form, so a few lines sit at the bottom (cycle 153). It opens on the
+/// newest line, follows new lines while it is at the bottom (and always
+/// after an own line), and keeps the newest line in view when its height
+/// changes (the on-screen keyboard).
 class ChatLog extends StatefulWidget {
   const ChatLog({
     super.key,
@@ -166,13 +168,23 @@ class _ChatLogState extends State<ChatLog> {
           _atEnd = n.metrics.extentAfter < 40;
           return false;
         },
-        child: ListView(
-          key: const ValueKey('chat-log'),
-          controller: _scroll,
-          padding: widget.padding,
-          children: [
-            for (final line in widget.lines) logLine(t, line, me: widget.me),
-          ],
+        child: LayoutBuilder(
+          builder: (context, box) => SingleChildScrollView(
+            key: const ValueKey('chat-log'),
+            controller: _scroll,
+            padding: widget.padding,
+            child: ConstrainedBox(
+              // At least the viewport's height, so the lines sit at its bottom.
+              constraints: BoxConstraints(minHeight: math.max(0, box.maxHeight - widget.padding.vertical)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final line in widget.lines) logLine(t, line, me: widget.me),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -193,12 +205,14 @@ Widget logLine(AppLocalizations t, LogLine line, {required String? me, bool comp
     };
 
 /// The chat form: the field (200 characters; a blank line is not sent) and
-/// 보내기. Sending keeps the focus in the field.
+/// 보내기. Sending keeps the focus in the field. [hint] replaces the field's
+/// 애니 제목을 입력하세요 (a choice room, where chat is only talk, D-135).
 class ChatForm extends StatefulWidget {
-  const ChatForm({super.key, required this.onSend, this.padding = EdgeInsets.zero});
+  const ChatForm({super.key, required this.onSend, this.padding = EdgeInsets.zero, this.hint});
 
   final ValueChanged<String> onSend;
   final EdgeInsets padding;
+  final String? hint;
 
   @override
   State<ChatForm> createState() => _ChatFormState();
@@ -239,7 +253,7 @@ class _ChatFormState extends State<ChatForm> {
               inputFormatters: [LengthLimitingTextInputFormatter(chatMax)],
               textInputAction: TextInputAction.send,
               style: Fonts.bodyStyle(size: 14.5),
-              decoration: InputDecoration(hintText: t.chatPlaceholder),
+              decoration: InputDecoration(hintText: widget.hint ?? t.chatPlaceholder),
               onSubmitted: (_) => _send(),
             ),
           ),
@@ -311,6 +325,9 @@ class ChatPreview extends StatelessWidget {
                         height: box.maxHeight,
                         child: ClipRect(
                           child: OverflowBox(
+                            // Lines take their own height and sit at the
+                            // bottom, next to the form (cycle 153).
+                            minHeight: 0,
                             maxHeight: double.infinity,
                             alignment: Alignment.bottomCenter,
                             child: latest.isEmpty

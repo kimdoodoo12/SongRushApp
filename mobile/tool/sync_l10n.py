@@ -4,8 +4,9 @@
 # camelCase, dots and dashes dropped (lobby.songCount -> lobbySongCount,
 # error.bad-nickname -> errorBadNickname); each key's @description in
 # app_ko.arb names the web key. {{x}} becomes {x}. Texts the web has no key
-# for (cycle 150: the sound offset setting) live in APP_KEYS below, in all
-# three languages, so a rerun keeps them. Add keys to KEYS (or APP_KEYS),
+# for (cycle 150: the sound offset setting; cycle 153: the choice room's
+# chat placeholder) live in APP_KEYS below, in all three languages, so a
+# rerun keeps them. Add keys to KEYS (or APP_KEYS),
 # then, from mobile/:
 #   python -I tool/sync_l10n.py ../frontend/src/i18n lib/l10n
 #   flutter gen-l10n
@@ -64,6 +65,14 @@ APP_KEYS = {
     "offsetLater": ("더 늦게", "Later", "遅く", "moves the offset 10 ms later"),
     "offsetReset": ("0으로", "Reset", "リセット", "sets the offset back to 0"),
     "offsetClose": ("닫기", "Close", "閉じる", "closes the sound offset setting"),
+    # cycle 153: chat never scores in a choice room (D-135), so its input
+    # does not ask for a title; the web has no such key.
+    "chatTalkPlaceholder": (
+        "채팅으로 이야기해요",
+        "Chat with everyone",
+        "チャットで話そう",
+        "the chat input's placeholder in a choice room, where chat is only talk",
+    ),
 }
 
 
@@ -108,7 +117,7 @@ for lng, d in dicts.items():
         text = dict(zip(("ko", "en", "ja"), texts))[lng]
         arb[name] = text
         if lng == "ko":
-            meta = {"description": f"app only (cycle 150): {description}"}
+            meta = {"description": f"app only: {description}"}
             ph = re.findall(r"\{(\w+)\}", text)
             if ph:
                 meta["placeholders"] = {p: {} for p in dict.fromkeys(ph)}

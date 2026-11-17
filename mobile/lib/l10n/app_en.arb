@@ -166,5 +166,6 @@
   "offsetEarlier": "Earlier",
   "offsetLater": "Later",
   "offsetReset": "Reset",
-  "offsetClose": "Close"
+  "offsetClose": "Close",
+  "chatTalkPlaceholder": "Chat with everyone"
 }

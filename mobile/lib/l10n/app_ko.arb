@@ -731,37 +731,41 @@
   },
   "offsetOpen": "싱크",
   "@offsetOpen": {
-    "description": "app only (cycle 150): the header button that opens the sound offset setting"
+    "description": "app only: the header button that opens the sound offset setting"
   },
   "offsetTitle": "소리 싱크 조절",
   "@offsetTitle": {
-    "description": "app only (cycle 150): the sound offset setting's title"
+    "description": "app only: the sound offset setting's title"
   },
   "offsetHint": "내 소리가 다른 사람보다 늦게 들리면 − 쪽으로, 빨리 들리면 + 쪽으로 옮겨 주세요. 다음 곡부터 적용됩니다.",
   "@offsetHint": {
-    "description": "app only (cycle 150): the sound offset setting's explanation"
+    "description": "app only: the sound offset setting's explanation"
   },
   "offsetValue": "{ms}ms",
   "@offsetValue": {
-    "description": "app only (cycle 150): the sound offset in ms, signed",
+    "description": "app only: the sound offset in ms, signed",
     "placeholders": {
       "ms": {}
     }
   },
   "offsetEarlier": "더 빠르게",
   "@offsetEarlier": {
-    "description": "app only (cycle 150): moves the offset 10 ms earlier"
+    "description": "app only: moves the offset 10 ms earlier"
   },
   "offsetLater": "더 늦게",
   "@offsetLater": {
-    "description": "app only (cycle 150): moves the offset 10 ms later"
+    "description": "app only: moves the offset 10 ms later"
   },
   "offsetReset": "0으로",
   "@offsetReset": {
-    "description": "app only (cycle 150): sets the offset back to 0"
+    "description": "app only: sets the offset back to 0"
   },
   "offsetClose": "닫기",
   "@offsetClose": {
-    "description": "app only (cycle 150): closes the sound offset setting"
+    "description": "app only: closes the sound offset setting"
+  },
+  "chatTalkPlaceholder": "채팅으로 이야기해요",
+  "@chatTalkPlaceholder": {
+    "description": "app only: the chat input's placeholder in a choice room, where chat is only talk"
   }
 }
