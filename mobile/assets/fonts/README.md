@@ -84,3 +84,6 @@ a6e457933227483a11758fd0947bc74422a106d46f0bf057fdaa5af94a30067d  gowundodum/Gow
 9d82a8be5330f6d7b53121262867b402baca672eb69b852928f06d185d357f7d  ibmplexsanskr/IBMPlexSansKR-Bold.ttf
 48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda  jetbrainsmono/JetBrainsMono-wght.ttf
 ```
+
+## Late loading (cycle 159)
+Only Jua and Gowun Dodum are declared under `fonts:` and load at startup. IBM Plex Sans KR (fallback) and JetBrains Mono are plain assets loaded by `lib/ui/late_fonts.dart` right after the first frame, so the first screen waits for less.
