@@ -4,9 +4,11 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
 
 import 'keyboard_inset_value.dart';
+import 'stale_view_guard.dart';
 
 void _warn(String message) => developer.log(message, name: 'songrush.keyboard');
 
@@ -28,6 +30,9 @@ ValueListenable<double>? browserKeyboardInset() {
     } catch (e) {
       _warn('visual viewport unavailable: $e');
     }
+    final keyboard = _keyboard;
+    // Lives with the page, as the reader does (held by the inset's listener).
+    if (keyboard != null) _staleViewGuard(keyboard.inset).start();
   }
   return _keyboard?.inset;
 }
@@ -41,6 +46,30 @@ void reportAppliedKeyboardInset(double inset) {
     _warn('applied inset not recorded: $e');
   }
 }
+
+// Cycle 163: the view left at the keyboard-open height is measured again
+// ([StaleViewGuard]). The engine re-measures on the `resize` event of its
+// resize target, the visual viewport (window when there is none:
+// FullPageDimensionsProvider), and only with text editing off, hence the
+// unfocus first.
+StaleViewGuard _staleViewGuard(ValueListenable<double> inset) => StaleViewGuard(
+      inset: inset,
+      viewHeight: () {
+        final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+        return view == null ? double.nan : view.physicalSize.height / view.devicePixelRatio;
+      },
+      innerHeight: () => web.window.innerHeight.toDouble(),
+      unfocus: () => FocusManager.instance.primaryFocus?.unfocus(),
+      remeasure: () {
+        try {
+          final web.EventTarget target = web.window.visualViewport ?? web.window;
+          target.dispatchEvent(web.Event('resize'));
+        } catch (e) {
+          _warn('view not re-measured: $e');
+        }
+      },
+      warn: _warn,
+    );
 
 class _BrowserKeyboard {
   final ValueNotifier<double> inset = ValueNotifier(0);
