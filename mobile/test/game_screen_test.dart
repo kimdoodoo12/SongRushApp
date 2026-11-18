@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -24,8 +25,9 @@ Future<Harness> enterGame(
   Map<String, Object?> options = const {},
   String language = 'ko',
   Map<String, String> prefs = const {},
+  ValueListenable<double>? keyboardInset,
 }) async {
-  final h = Harness(prefs: {nicknameKey: 'Mina', 'songrush.lang': language, ...prefs});
+  final h = Harness(prefs: {nicknameKey: 'Mina', 'songrush.lang': language, ...prefs}, keyboardInset: keyboardInset);
   h.fetcher.responses[audio(0)] = Uint8List(8);
   h.fetcher.responses[audio(1)] = Uint8List(8);
   await h.pumpApp(tester);
