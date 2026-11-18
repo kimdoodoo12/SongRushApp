@@ -13,6 +13,7 @@
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -47,6 +48,19 @@ def changed_files():
 EXTRA_AREAS = {"contracts": {"backend", "data"}, "deploy": {"data"}, "docs": {"data"}}
 
 
+def dart_exe():
+    """The Dart SDK bundled with Flutter: FLUTTER_ROOT, then PATH, then the dev PC's install. None if absent."""
+    name = "dart.bat" if WIN else "dart"
+    root = os.environ.get("FLUTTER_ROOT")
+    if root and os.path.exists(os.path.join(root, "bin", name)):
+        return os.path.join(root, "bin", name)
+    found = shutil.which("dart")
+    if found:
+        return found
+    local = r"C:\src\flutter\bin\dart.bat"
+    return local if WIN and os.path.exists(local) else None
+
+
 def runners():
     """area -> (ready, cmd, cwd, timeout)."""
     frontend = os.path.join(PROJECT, "frontend")
@@ -61,12 +75,18 @@ def runners():
     py = os.path.join(data, ".venv", "Scripts", "python.exe") if WIN else os.path.join(data, ".venv", "bin", "python")
     data_ready = os.path.exists(py) and os.path.isdir(os.path.join(data, "tests"))
 
+    # Only the pure-Dart core runs here: the app's `flutter test` is slower and runs in CI.
+    core = os.path.join(PROJECT, "mobile", "packages", "songrush_core")
+    dart = dart_exe()
+    mobile_ready = bool(dart) and os.path.exists(os.path.join(core, "pubspec.yaml"))
+
     return {
         # settings.json caps the whole Stop hook at 900 s, so each runner stays below it.
         # The first Gradle download is done manually in the bootstrap cycle, never here.
         "frontend": (frontend_ready, [npm, "test", "--silent"], frontend, 850),
         "backend": (os.path.exists(gradlew), [gradlew, "test", "--console=plain", "-q"], backend, 850),
         "data": (data_ready, [py, "-m", "pytest", "-q"], data, 850),
+        "mobile": (mobile_ready, [dart, "test"], core, 850),
     }
 
 

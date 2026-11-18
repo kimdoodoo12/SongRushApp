@@ -1,0 +1,10 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**
+    - web/**
+    # gen-l10n output; it names the SDK's deprecated material delegates.
+    - lib/l10n/app_localizations*.dart
+    # songrush_core is analyzed on its own (`dart analyze` in the package).
+    - packages/**

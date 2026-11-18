@@ -1,0 +1,10 @@
+{
+  "type": "start",
+  "songCount": 10,
+  "types": ["OP"],
+  "yearFrom": 2010,
+  "yearTo": 2020,
+  "tier": "easy",
+  "answerMode": "choice",
+  "gameMode": "ranked"
+}

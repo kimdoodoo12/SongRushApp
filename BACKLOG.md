@@ -433,6 +433,22 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
   - Acceptance (Vitest): a guest can pick a mood in the lobby and in a game and it applies to their screen at once; another player's pick changes nothing on this screen; a host's pick sends nothing; a reload keeps the pick; the start screen still uses the same stored pick.
 - [x] **B-040/F-040** song count 5-100, typed directly (from D-137)
 - [x] **F-041** frontend: 나가기 during a game, with a confirmation (from D-138)
+- [x] **S-009** mobile audio spike with flutter_soloud on Flutter web in a phone browser (Android Chrome first), then the same on Android; the acoustic pass check is the owner's (from M-6, design 141 item 1, order D-140)
+- [x] **I-010** bootstrap `mobile/` (Flutter, web first; Android target added at packaging), lints, tests, `flutter build web`, CI job for `mobile/`, CLAUDE.md row, Stop hook area (design 141 item 2, D-140)
+- [x] **C-020** protocol contract `contracts/protocol.md` with frames captured from the socket tests (design 141 item 3)
+- [x] **F-M1** mobile net and session core (design 141 item 4)
+- [x] **F-M2** mobile clock sync and playback planning, ported with the web's test vectors (design 141 item 5)
+- [x] **F-M3** mobile audio playback behind a `Player` interface (design 141 item 6; after S-009), with an in-song position check that corrects drift and a misreported output latency, and a manual offset setting (cycle 142's emulator measurement). The fallback B-M3 is not needed (S-009 passed)
+- [x] **F-M4a** mobile start and lobby screens, with the credit line (design 141 item 7)
+- [x] **F-M4b** mobile game and game-over screens (design 141 item 7b)
+- [x] **F-M5** mobile reconnect and lifecycle (design 141 item 8)
+- [x] **F-M6** mobile one-screen game layout (D-142)
+- [x] **F-M7** take out the sound-offset button; Flutter web latency = React's `outputLatency` (D-143)
+- [x] **F-M8** mobile chat stacks from the bottom; the choice room's input reads as talk (from 151)
+- [x] **F-M9** subset the mobile app's bundled fonts (from 148)
+- [x] **F-M10** release fixes: escape to the PC web, no 모바일 버전 link mid-game, local CanvasKit, old upload path labelled (release check 2026-11-18)
+- [x] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
+- [ ] **I-011** Android packaging and release APK signing, after the mobile web plays correctly (design 141 item 9, D-140; the Android SDK licences and the key are the owner's)
 ## Roadmap
 
 Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
@@ -442,7 +458,7 @@ Milestones in order. Planning cycles break the first `[ ]` one into Ready items.
 - [x] **M-3** *(planned in design 034: B-005b, B-006b, F-004, F-005)* Synchronized multiplayer rounds: every player hears the same song at the same server-announced time, the first correct answer scores, players can vote to skip, round results and a final ranking are shown.
 - [x] **M-4** *(planned in design 052: S-003, B-009, I-004, I-005, I-006; I-007 needs the owner)* Deploy: a public URL friends can use, with the credit line (D-023). Hosting (D-010) needs a user decision first. Revisit D-025 and D-057 (audio fingerprints) before planning.
 - [x] **M-5** *(planned in design 059: B-011, F-008; tiers wait on D-069, widening on D-070)* Anime-specific modes: OP/ED filter, year range, popularity difficulty. Widening the draw range beyond the cached set brings back D-026's lobby fetch of uncached songs (design 029).
-- [ ] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
+- [~] **M-6** Mobile app (D-063): a mobile-only client built with Flutter that plays against the same Spring Boot server and WebSocket protocol as the web client. Planning it first needs a design cycle (Flutter project layout, audio playback and clock sync on Android/iOS, store distribution). Order and platforms: after M-4, Android and iOS (D-064).
 
 ## Needs decision
 
@@ -465,6 +481,12 @@ Decided:
 - **D-122** Eight moods replace the six room themes (user, 2026-11-10, choosing "시안 8종으로 교체" and "방장이 고르기 (지금처럼)"): 노을 옥상 `sunset` (default), 비 오는 밤 `rain`, 벚꽃 밤 `sakura`, 네온 시티 `neon`, 칠판 교실 `chalk`, 8비트 오락실 `pixel`, 여름 축제 `matsuri`, 만화 원고 `manga`. The host still picks one in the lobby and every member sees it (D-090 unchanged); solo players pick their own.
 - **D-123** From the mockup's new features (user, 2026-11-10, multi-select): **yes** to number badges 1..N on choice tiles and **yes** to lobby chat (chat before a game starts, broadcast to the room; never answer-checked). **No** to the "맞힌 시간" line and **no** to the SSR/SR/R/N speed grade.
 - **D-126** Choice-room deck size (user, 2026-11-11: "채팅모드는 음반하고 애니메이션 크기가 적당한데, 객관식은 좀 크기가 작은 것 같아. 채팅모드의 크기를 따라가는게 좋은것 같은데", then "레코드 아래가 좋아. 그러나 레코드의 비율을 약간 줄이고 밑의 표지 2줄이 한 화면에 보일정도는 좋을것 같은데"): in a choice game the deck (record and visualizer) uses the chat-mode layout (deck left, panel right) with the tiles in the row below, and its size follows the screen height so that two rows of tiles stay on one screen, up to the chat-mode size. The deck keeps the same size during the reveal. Phones keep the mockup layout.
+- **D-141** The Flutter client speaks ko, en and ja (user, 2026-11-16: "어 셋 다 해"): the mobile web and app have the same three UI languages as the React web, with the same texts where they overlap.
+- **D-142** Mobile game screen layout (user, 2026-11-17: "Flutter에서는 배치를 신경써야 해. 채팅을 쳐야하기도 하고, 객관식인경우 표지도 봐야하고"; picked "한 화면 고정" and "최근 1~2줄 + 입력칸"): the phone game screen fits one screen with no page scroll. Top: a thin bar with song n/N, the time bar, seconds left and skip, and one line of names with points. Middle: in a chat room the chat log fills it; in a choice room the cover tiles fill it, sized so 4, 6 or 8 fit. Bottom: the input always fixed and lifted by the keyboard; in a choice room the latest one or two chat lines sit above it and a tap opens the full chat.
+- **D-143** No manual sound-timing button in the mobile app (user, 2026-11-17: "일단 빼. 그리고 이건 다른걸로 해야할것 같은데. 어차피 같은 웹에 접속하는건데"): the Flutter web syncs like the React web, using the browser's `AudioContext.outputLatency`; the setting stays in the code, hidden, until a real-phone check shows a need.
+- **D-144** Phones go to the Flutter web at /m/ from the first deploy (user, 2026-11-18, release check: picked "자동 이동도 바로 켜기" over keeping the redirect off until a real-phone check): the redirect ships on; an escape to the PC web (`?ui=pc` and a static link on the app page) must exist so no phone is stuck.
+- **D-140** The Flutter client ships as the mobile web first, the Android app second (user, 2026-11-16: "그냥 웹을 먼저 만드는게 맞지 않아? 그렇게 해야 웹으로도 정상동작하는거 확인하고 앱으로도 패키징할거 아니야"): the Flutter code of D-139 is built for the web first and served to phones that open the site (a phone is sent to the Flutter build, a desktop keeps the React web; a link lets either switch). Once it plays correctly in phone browsers, the same code is packaged as the Android APK. Amends D-139's order; its scope and look stand.
+- **D-139** The mobile app is a separate Flutter client (user, 2026-11-16: "모바일전용은 따로 플러터로 쓰게 못하나? 어차피 모바일은 다르게 해야할것 같아서", with "안드로이드 먼저", "일단 설치 파일로", "웹 디자인을 폰에 맞게"): the web stays React; the mobile-only app (M-6) is written in Flutter in `mobile/`, speaks the same server and WebSocket protocol, and gets its own phone-first screens that carry the web's colours and feel. Android first; distributed as an APK for now (store listing later). The first version is the core game (create/join, lobby settings, synchronized play, chat and choice answers, 선착순 and 순위전, skip, scores, leaving); the eight moods come later. Confirms D-063/D-064 and sets their order.
 - **D-138** Leaving during a game (user, 2026-11-16: "나가기 기능도 만들어. 게임 도중에 나가는 게 없어", then choosing "한 번 확인 후 나가기"): the game screen has a 나가기 button; it asks once in an in-app dialog, and on yes the player leaves the room (as the lobby's 나가기 does) and returns to the start screen. The game goes on for the others.
 - **D-137** Song count up to 100, typed directly (user, 2026-11-16: "곡 수를 하나씩밖에 못늘리는것도 불편해", then "이제는 굳이 30까지 제한할 필요가 없어"): the host chooses 5 to 100 songs (the lead's pick of an upper bound, open to change), can type the number directly as well as use −/+, and a value outside the range snaps to the nearest bound. The draw still refuses with not-enough-songs when the filters leave too few. Replaces D-058's 5-30.
 - **D-136** Each player picks their own mood (user, 2026-11-16, on issue #64, a request from the person who commissioned the app: "make themes client sided ... so host doesn't pick theme, let people choose their own one"; the owner: "반영하자"): the mood is a personal setting. Everyone has the picker in the room as on the start screen, the pick applies to their own screen only and is remembered in their browser (default 노을 옥상 `sunset`). The host no longer sets the room's look. Replaces the host pick of D-090 and D-122 (the eight moods stay).
@@ -606,6 +628,12 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
+- (from 155, release critic M4) the protocol contract test checks message type names only: capture live frames each backend test run and compare their field sets with `contracts/messages/*.json`
+- (from 151) mobile game chat: with few lines, stack them at the bottom of the log and the choice box (next to the input), and give the choice room's input a talk placeholder instead of "애니 제목을 입력하세요"
+- (from 149) mobile choice tiles need a semantic label and button role (`answer.choiceN`), like the web's tiles, so screen readers can pick
+- (from 148) subset the mobile app's bundled fonts (18 MB, Gowun Dodum 7.2 MB) before phones load the Flutter web on the live site
+- (from 148) web dictionaries: `error.bad-song-count` still says 5~30 in ko/en/ja (D-137 made it 5-100); fix, then re-run `mobile/tool/sync_l10n.py`
+- (from 144) a socket test that rejoins a choice room in a reveal window, so `contracts/messages/snapshot.json` shows the full song object
 - (106) Log one INFO line at S3-mode startup saying whether redirects go via the CDN host (and which) or direct to S3; a misspelt env var (`SONGRUSH_AUDIO_CDN_HOST` (the real name is `SONGRUSH_AUDIO_CDNHOST`)) silently leaves the switch off.
 - (104) **Fixed in cycle 112** (`stage.choiceHint` in ko/en/ja). The original text follows. In a choice room the stage hint still says to answer by chat (`GameScreen.jsx` uses `t('stage.hint')` for both formats). Add a choice-room hint in ko/en/ja; it is visible in the portfolio captures.
 

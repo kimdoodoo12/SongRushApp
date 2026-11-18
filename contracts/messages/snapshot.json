@@ -1,0 +1,32 @@
+{
+  "type" : "snapshot",
+  "phase" : "playing",
+  "players" : [ {
+    "name" : "Host",
+    "score" : 0,
+    "host" : true,
+    "connected" : true
+  }, {
+    "name" : "Guest",
+    "score" : 0,
+    "host" : false,
+    "connected" : true
+  }, {
+    "name" : "Third",
+    "score" : 0,
+    "host" : false,
+    "connected" : true
+  } ],
+  "song" : {
+    "index" : 0,
+    "total" : 5,
+    "audioUrl" : "/audio/fZH8HqUhMqJ4vaonSN8TjA"
+  },
+  "scores" : [ {
+    "name" : "Host",
+    "score" : 0
+  }, {
+    "name" : "Guest",
+    "score" : 0
+  } ]
+}

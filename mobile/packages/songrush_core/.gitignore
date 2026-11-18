@@ -1,0 +1,5 @@
+# https://dart.dev/tools/private-files
+.dart_tool/
+build/
+pubspec_overrides.yaml
+# pubspec.lock is committed so CI resolves the same test dependencies.

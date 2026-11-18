@@ -52,6 +52,7 @@ final class StatusClient extends TextWebSocketHandler {
 		String payload = message.getPayload();
 		all.add(payload);
 		frames.add(payload);
+		TestClient.capture(payload);
 	}
 
 	@Override

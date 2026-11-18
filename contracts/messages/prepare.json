@@ -1,0 +1,19 @@
+{
+  "type" : "prepare",
+  "index" : 0,
+  "total" : 5,
+  "audioUrl" : "/audio/uogMOtXodC6ngS9JXvR-Aw",
+  "choices" : [ {
+    "coverUrl" : "/cover/ChoiceSock6x"
+  }, {
+    "coverUrl" : "/cover/ChoiceSock5x"
+  }, {
+    "coverUrl" : "/cover/ChoiceSock9x"
+  }, {
+    "coverUrl" : "/cover/ChoiceSock11x"
+  }, {
+    "coverUrl" : "/cover/ChoiceSock8x"
+  }, {
+    "coverUrl" : "/cover/ChoiceSock10x"
+  } ]
+}

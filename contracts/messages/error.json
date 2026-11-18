@@ -1,0 +1,6 @@
+{
+  "type" : "error",
+  "code" : "not-enough-songs",
+  "available" : 5,
+  "unit" : "series"
+}

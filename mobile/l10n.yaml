@@ -1,0 +1,7 @@
+# gen-l10n (cycle 148): the ARB files are copied from the web's dictionaries
+# by tool/sync_l10n.py; the generated Dart files sit next to them.
+arb-dir: lib/l10n
+template-arb-file: app_ko.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

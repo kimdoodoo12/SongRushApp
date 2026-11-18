@@ -1,0 +1,41 @@
+{
+  "type" : "reveal",
+  "index" : 0,
+  "reveal" : "Rank Sock Reveal 3",
+  "titles" : {
+    "ko" : [ ],
+    "en" : [ "Rank Sock Anime 3x" ],
+    "ja" : [ ],
+    "romaji" : [ ]
+  },
+  "song" : "Rank Sock Song 3",
+  "artists" : [ "Rank Sock Singer 3" ],
+  "themeType" : "OP",
+  "themeSlug" : "OP1",
+  "winner" : "Guest",
+  "coverUrl" : "/cover/RankSock3x",
+  "correctChoice" : 4,
+  "nextChoices" : [ {
+    "coverUrl" : "/cover/RankSock3x"
+  }, {
+    "coverUrl" : "/cover/RankSock4x"
+  }, {
+    "coverUrl" : "/cover/RankSock1x"
+  }, {
+    "coverUrl" : "/cover/RankSock9x"
+  }, {
+    "coverUrl" : "/cover/RankSock10x"
+  }, {
+    "coverUrl" : "/cover/RankSock6x"
+  } ],
+  "ranking" : [ {
+    "name" : "Guest",
+    "rank" : 1,
+    "points" : 3
+  }, {
+    "name" : "Host",
+    "rank" : 2,
+    "points" : 2
+  } ],
+  "playUntil" : 1794872632518
+}

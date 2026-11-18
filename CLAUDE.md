@@ -62,10 +62,11 @@ Development runs as autonomous cycles. Run them with `/vibe-cycle`, or `/loop /v
 | backend | `.\gradlew.bat test` (from `backend/`; `./gradlew test` off Windows) | compile is part of `test`; build `.\gradlew.bat build` |
 | frontend | `npm test` (from `frontend/`); `npm ci` once after a fresh clone | `npm run lint`; build `npm run build` |
 | data | `.venv\Scripts\python.exe -m pytest` (from `data/`) | none yet. Setup once from `data/`: `python -m venv .venv`, then `.venv\Scripts\python.exe -m pip install -r requirements.txt` |
+| mobile | core: `C:\src\flutter\bin\dart.bat test` (from `mobile/packages/songrush_core`); app: `C:\src\flutter\bin\flutter.bat test` (from `mobile/`), which cannot run on this PC since cycle 147: flutter_soloud's native build hook needs the MSVC C++ tools ("No compiler configured on host 'windows_x64'"), so the app's tests run in CI (Linux) and the local app check is analyze + build web. Flutter 3.50.0 is at `C:\src\flutter\bin`, not on PATH | `flutter.bat analyze` (core: `dart.bat analyze`); build `flutter.bat build web` (from `mobile/`) |
 
 Drop "(verified once bootstrapped)" from a row only after its bootstrap cycle has run that command successfully.
 
-The Stop hook runs the tests of each area whose files changed: `frontend` (`npm test --silent`), `backend` (`gradlew test`), and `data` (`.venv` python `-m pytest`). It runs an area only once it is bootstrapped; otherwise the area is reported UNVERIFIED, never as a pass. A change under `contracts/` runs both `backend` and `data`. settings.json caps the hook at 900 s, so each runner is limited to 850 s.
+The Stop hook runs the tests of each area whose files changed: `frontend` (`npm test --silent`), `backend` (`gradlew test`), `data` (`.venv` python `-m pytest`), and `mobile` (`dart test` in `mobile/packages/songrush_core`). It runs an area only once it is bootstrapped; otherwise the area is reported UNVERIFIED, never as a pass. A change under `contracts/` runs both `backend` and `data`. settings.json caps the hook at 900 s, so each runner is limited to 850 s.
 
 ## External source rules
 
@@ -89,6 +90,7 @@ The Stop hook runs the tests of each area whose files changed: `frontend` (`npm 
 - **The server is the authority.** The backend owns the answer, the round clock, and scores. Never send the answer, or anything that reveals the song, to clients before the round ends; audio URLs are opaque. Catalog anime and theme ids are the public AnimeThemes ids, so an id alone identifies the song: never send them (or any catalog record) to a client before the reveal. One exception (D-111, A9): in a multiple-choice room the cover URLs of a song's choices go out in `prepare`, shuffled, with nothing marking the correct one; the next song's also go out in the `reveal` of the song before it, as `nextChoices`, shuffled as in its `prepare`, again with nothing marking the correct one (D-133).
 - **Arrival order is enforced on the server** (D-016). The first correct answer by server arrival order wins, including when messages arrive concurrently.
 - **Fairness bugs**, such as one client hearing the song earlier, are High severity. The one accepted exception: a modified client can hear the next song's file once it is prefetched, one reveal pause (5 s) before the next song starts: at the start of a reveal with no music left, or 5 s before the end of a reveal window where the music plays on (D-025, D-119, D-129). During those 5 s, a chat line that matches the next song's titles goes to its sender only (D-120).
+- **The protocol contract is `contracts/protocol.md`** (cycle 144). A change to a WebSocket message changes `contracts/protocol.md` and its example in `contracts/messages/` in the same cycle; `ProtocolContractTest` checks they match the code.
 
 ## Environment pitfalls
 
