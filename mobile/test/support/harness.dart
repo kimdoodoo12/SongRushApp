@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:songrush_core/songrush_core.dart';
@@ -21,6 +22,7 @@ class Harness {
     RejoinEntry? stored,
     bool reloaded = false,
     bool canNavigate = false,
+    this.keyboardInset,
   }) : prefs = MemoryPrefs(prefs) {
     if (stored != null) tokens.write(stored);
     controller = AppController(
@@ -46,6 +48,10 @@ class Harness {
   final FakePlayerFactory players = FakePlayerFactory(FakeAudioClock(() => 0));
   final FakeFetcher fetcher = FakeFetcher();
   final MemoryPrefs prefs;
+
+  /// The keyboard's height as the web build reads it from the browser
+  /// (cycle 161), in place of Flutter's view inset; null keeps Flutter's.
+  final ValueListenable<double>? keyboardInset;
 
   /// The app's clock (local epoch ms): fixed unless a test moves it, with
   /// [advance] for the game's time bar.
@@ -76,7 +82,7 @@ class Harness {
     tester.view.physicalSize = phone * 3;
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(SongRushApp(controller: controller));
+    await tester.pumpWidget(SongRushApp(controller: controller, keyboardInset: keyboardInset));
     await settle(tester);
   }
 

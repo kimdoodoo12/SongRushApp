@@ -11,7 +11,10 @@ import 'widgets.dart';
 /// 참가 open it. A modal card over a barrier; the field has the focus on
 /// open. Escape, 취소 or a tap on the barrier cancel; Enter or 확인 confirm
 /// with the trimmed name. A blank name, or an attempt connecting, keeps 확인
-/// disabled. The attempt's error shows under the field.
+/// disabled. The attempt's error shows under the field. The card centres
+/// in the part of the screen above the on-screen keyboard (cycle 161: it
+/// lies over the start screen's Scaffold, so nothing resizes it for the
+/// keyboard otherwise and 확인 sat under it).
 class NicknameDialog extends StatefulWidget {
   const NicknameDialog({super.key, required this.controller});
 
@@ -64,57 +67,60 @@ class _NicknameDialogState extends State<NicknameDialog> {
               child: ColoredBox(color: Palette.bg.withValues(alpha: 0.72)),
             ),
           ),
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(12),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 384),
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: Semantics(
-                    scopesRoute: true,
-                    namesRoute: true,
-                    explicitChildNodes: true,
-                    label: t.startNickname,
-                    child: Panel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(t.startNickname, style: Fonts.displayStyle(size: 21)),
-                          Text(sub, key: const ValueKey('nick-sub'), style: Fonts.bodyStyle(size: 13, color: Palette.dim)),
-                          const SizedBox(height: 16),
-                          OptLabel(t.startNickname),
-                          const SizedBox(height: 6),
-                          TextField(
-                            key: const ValueKey('nickname'),
-                            controller: _name,
-                            autofocus: true,
-                            autofillHints: const [AutofillHints.nickname],
-                            inputFormatters: [LengthLimitingTextInputFormatter(nicknameMax)],
-                            textInputAction: TextInputAction.done,
-                            style: Fonts.bodyStyle(size: 15),
-                            onSubmitted: (_) => _confirm(),
-                          ),
-                          if (dialog.attempted && problem != null) ...[
-                            const SizedBox(height: 12),
-                            WarnText(problemText(t, problem)),
-                          ],
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              RoomButton(key: const ValueKey('nick-cancel'), label: t.startCancel, onPressed: c.cancelDialog),
-                              const SizedBox(width: 8),
-                              RoomButton(
-                                key: const ValueKey('nick-confirm'),
-                                label: t.startConfirm,
-                                kind: ButtonKind.primary,
-                                onPressed: _canConfirm ? _confirm : null,
-                              ),
+          Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 384),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Semantics(
+                      scopesRoute: true,
+                      namesRoute: true,
+                      explicitChildNodes: true,
+                      label: t.startNickname,
+                      child: Panel(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(t.startNickname, style: Fonts.displayStyle(size: 21)),
+                            Text(sub, key: const ValueKey('nick-sub'), style: Fonts.bodyStyle(size: 13, color: Palette.dim)),
+                            const SizedBox(height: 16),
+                            OptLabel(t.startNickname),
+                            const SizedBox(height: 6),
+                            TextField(
+                              key: const ValueKey('nickname'),
+                              controller: _name,
+                              autofocus: true,
+                              autofillHints: const [AutofillHints.nickname],
+                              inputFormatters: [LengthLimitingTextInputFormatter(nicknameMax)],
+                              textInputAction: TextInputAction.done,
+                              style: Fonts.bodyStyle(size: 15),
+                              onSubmitted: (_) => _confirm(),
+                            ),
+                            if (dialog.attempted && problem != null) ...[
+                              const SizedBox(height: 12),
+                              WarnText(problemText(t, problem)),
                             ],
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                RoomButton(key: const ValueKey('nick-cancel'), label: t.startCancel, onPressed: c.cancelDialog),
+                                const SizedBox(width: 8),
+                                RoomButton(
+                                  key: const ValueKey('nick-confirm'),
+                                  label: t.startConfirm,
+                                  kind: ButtonKind.primary,
+                                  onPressed: _canConfirm ? _confirm : null,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

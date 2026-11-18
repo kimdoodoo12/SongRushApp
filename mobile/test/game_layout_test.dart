@@ -479,6 +479,42 @@ void main() {
     });
   }
 
+  // Cycle 161: Chrome on Android hides the keyboard without the page
+  // resizing; the browser's keyboard inset (in place of Flutter's) going
+  // back to 0 brings back the top bar's second line and the panel's height.
+  testWidgets('a choice room with the chat panel: the keyboard going 300 -> 0 restores the layout', (tester) async {
+    final inset = ValueNotifier<double>(0);
+    final h = await enterGame(tester, options: {'answerMode': 'choice'}, keyboardInset: inset);
+    await prepare(tester, h, 0, choices: ['a', 'b', 'c', 'd']);
+    await start(tester, h, 0);
+    await openChat(tester, h);
+    final panel = rectOf(tester, 'chat-panel');
+    final input = rectOf(tester, 'chat-input');
+    expect(shown('my-rank'), isTrue);
+    expect(shown('skip'), isTrue);
+    expect(shown('game-leave'), isTrue);
+
+    inset.value = keyboard;
+    await h.settle(tester);
+    expect(shown('my-rank'), isFalse, reason: 'typing in the panel: the first line only');
+    expect(shown('game-leave'), isFalse);
+    expect(rectOf(tester, 'chat-input').bottom, lessThanOrEqualTo(phone.height - keyboard));
+    expectOneScreen(tester, 'panel, keyboard', inset: keyboard);
+
+    // Hidden while the field keeps the focus.
+    inset.value = 0;
+    await h.settle(tester);
+    expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
+    expect(shown('my-rank'), isTrue);
+    expect(shown('skip'), isTrue);
+    expect(shown('game-leave'), isTrue);
+    expect(rectOf(tester, 'chat-panel'), panel);
+    expect(rectOf(tester, 'chat-input'), input);
+    expect(find.byKey(const ValueKey('game-leave')).hitTestable(), findsOneWidget);
+    expectOneScreen(tester, 'panel, keyboard hidden');
+    await h.tearDown(tester);
+  });
+
   testWidgets('내 순위: the rank by score with ties shared, the scores list with the solvers marked', (tester) async {
     final h = await enterGame(tester);
     h.receive({
