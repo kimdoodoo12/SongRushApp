@@ -142,6 +142,27 @@ void expectChatBox(WidgetTester tester, Harness h, String state) {
   }
 }
 
+/// A choice room with the keyboard up (cycle 159): no chat box at all, and
+/// the tiles never larger than with the keyboard down ([down], tile 0's
+/// size then); either at that size, or as large as the space down to the
+/// form lets [tileLayout] make them.
+void expectTypingTiles(WidgetTester tester, int count, Size down, String state) {
+  expect(find.byKey(const ValueKey('chat-preview')), findsNothing, reason: '$state: no chat box with the keyboard up');
+  final tile = tester.getSize(find.byKey(const ValueKey('tile-0')));
+  expect(tile.width, lessThanOrEqualTo(down.width + 0.01), reason: '$state: not larger than with the keyboard down');
+  if ((tile.width - down.width).abs() < 0.01) {
+    expect(tile.height, closeTo(down.height, 0.01), reason: '$state: the size with the keyboard down');
+    return;
+  }
+  final grid = tester.getRect(find.byKey(const ValueKey('choices')));
+  final space = tester.getRect(find.byKey(const ValueKey('chat-form'))).top - 8 - grid.top;
+  final fit = tileLayout(count, grid.width, space).coverWidth;
+  // Within 1 px: the grid box is the tiles' height with the cover height
+  // rounded down, and laying the tiles out again in it can round the cover
+  // width down by one more.
+  expect(tile.width, greaterThanOrEqualTo(fit - 1), reason: '$state: as large as $space px allow');
+}
+
 /// The newest chat line [text] is inside the log's box.
 void expectNewestShown(WidgetTester tester, String text, String state) {
   final log = tester.getRect(find.byKey(const ValueKey('chat-log')));
@@ -274,11 +295,14 @@ void main() {
           expectChatBox(tester, h, 'choice picked');
           // More lines than the 3 of a fixed box on every size (it flexes).
           expect(shownPreviewLines(tester), greaterThan(3));
+          // Cycle 159: with the keyboard up the chat box gives way to the
+          // tiles (it used to keep two lines and shrink the tiles).
+          final picking = tester.getSize(find.byKey(const ValueKey('tile-0')));
           await keyboardUp(tester, h);
           expectOneScreen(tester, 'choice picked, keyboard', inset: keyboard);
-          expectChatBox(tester, h, 'choice picked, keyboard');
-          expect(find.byKey(const ValueKey('tile-0')), findsOneWidget, reason: 'the tiles stay, smaller');
+          expectTypingTiles(tester, count, picking, 'choice picked, keyboard');
           await keyboardDown(tester, h);
+          expectChatBox(tester, h, 'choice picked, keyboard down');
 
           // The box opens the full chat over the tiles; 닫기 closes it.
           await tester.tap(find.byKey(const ValueKey('chat-preview')));
@@ -304,10 +328,13 @@ void main() {
           expect(tester.getRect(find.byKey(const ValueKey('tile-0'))).top,
               greaterThan(tester.getRect(find.byKey(const ValueKey('reveal'))).top));
           expectChatBox(tester, h, 'choice reveal');
+          // Cycle 159: as while picking, no chat box with the keyboard up.
+          final revealed = tester.getSize(find.byKey(const ValueKey('tile-0')));
           await keyboardUp(tester, h);
           expectOneScreen(tester, 'choice reveal, keyboard', inset: keyboard);
-          expectChatBox(tester, h, 'choice reveal, keyboard');
-          expect(find.byKey(const ValueKey('tile-0')), findsOneWidget, reason: 'the tiles stay, smaller');
+          expectTypingTiles(tester, count, revealed, 'choice reveal, keyboard');
+          expect(tester.getRect(find.byKey(const ValueKey('tile-0'))).top,
+              greaterThan(tester.getRect(find.byKey(const ValueKey('reveal'))).top));
           await keyboardDown(tester, h);
 
           h.receive({
@@ -325,6 +352,89 @@ void main() {
       }
     }
   }
+
+  // Cycle 159: the owner's phone showed the covers shrinking to a sliver
+  // when the keyboard opened for a chat line.
+  for (final count in [4, 6, 8]) {
+    Future<(Harness, Size)> pickedRoom(WidgetTester tester, Size size) async {
+      final h = await enterGame(tester, options: {'answerMode': 'choice', 'gameMode': 'ranked'});
+      await resize(tester, h, size);
+      h.receive({'type': 'roster', 'phase': 'playing', 'players': eight()});
+      await prepare(tester, h, 0, total: 1, choices: [for (var i = 0; i < count; i++) 'c$i']);
+      await start(tester, h, 0);
+      h.receive({'type': 'pickState', 'index': 0, 'picked': 1, 'total': 8});
+      for (var i = 0; i < 6; i++) {
+        h.receive({'type': 'chat', 'name': 'Aki', 'text': 'line $i'});
+      }
+      await h.settle(tester);
+      expectChatBox(tester, h, 'keyboard down');
+      return (h, tester.getSize(find.byKey(const ValueKey('tile-0'))));
+    }
+
+    testWidgets('keyboard up in a choice room with $count tiles at 390x844: no chat box, the tiles as without it',
+        (tester) async {
+      final (h, down) = await pickedRoom(tester, const Size(390, 844));
+      await keyboardUp(tester, h);
+      expectOneScreen(tester, 'keyboard up', inset: keyboard);
+      expect(find.byKey(const ValueKey('chat-preview')), findsNothing);
+      expect(find.byKey(const ValueKey('chat-preview-lines')), findsNothing);
+      for (var i = 0; i < count; i++) {
+        final tile = tester.getSize(find.byKey(ValueKey('tile-$i')));
+        expect(tile.width, closeTo(down.width, 0.01), reason: 'tile $i');
+        expect(tile.height, closeTo(down.height, 0.01), reason: 'tile $i');
+      }
+      // The disc and the hint keep their row above the tiles.
+      expect(find.byKey(const ValueKey('disc')), findsOneWidget);
+      expect(tester.getRect(find.byKey(const ValueKey('hint'))).bottom,
+          lessThanOrEqualTo(tester.getRect(find.byKey(const ValueKey('tile-0'))).top));
+      expect(find.byKey(const ValueKey('pick-count')), findsOneWidget);
+      // The chat box returns with the keyboard down.
+      await keyboardDown(tester, h);
+      expectChatBox(tester, h, 'keyboard down again');
+      expect(tester.getSize(find.byKey(const ValueKey('tile-0'))), down);
+      await h.tearDown(tester);
+    });
+
+    testWidgets('keyboard up in a choice room with $count tiles at 360x640: no chat box, the tiles as large as fits',
+        (tester) async {
+      final (h, down) = await pickedRoom(tester, const Size(360, 640));
+      await keyboardUp(tester, h);
+      expectOneScreen(tester, 'keyboard up', inset: keyboard);
+      expectTypingTiles(tester, count, down, 'keyboard up');
+      final tile = tester.getSize(find.byKey(const ValueKey('tile-0')));
+      if (count == 4) {
+        // One row of 4 stays readable (48 px covers) under the hint.
+        expect(tile.width, greaterThanOrEqualTo(48));
+        expect(find.byKey(const ValueKey('hint')), findsOneWidget);
+      } else {
+        // Two rows would drop below that under the hint: the disc and the
+        // hint make way, and the tiles take the whole middle.
+        expect(find.byKey(const ValueKey('hint')), findsNothing);
+        expect(find.byKey(const ValueKey('disc')), findsNothing);
+        final grid = tester.getRect(find.byKey(const ValueKey('choices')));
+        expect(grid.top, closeTo(tester.getRect(find.byKey(const ValueKey('players'))).bottom + 8, 1),
+            reason: 'the tiles start at the top of the middle');
+      }
+      await keyboardDown(tester, h);
+      expectChatBox(tester, h, 'keyboard down again');
+      expect(tester.getSize(find.byKey(const ValueKey('tile-0'))), down);
+      expect(find.byKey(const ValueKey('hint')), findsOneWidget);
+      await h.tearDown(tester);
+    });
+  }
+
+  test('the least grid height for a cover width', () {
+    // 4 tiles side by side in 336 px: one row of 48 px covers (64 + 19 high).
+    expect(gridHeightAt(4, 336, 48), 64 + 19);
+    // 8 tiles: two rows of 4.
+    expect(gridHeightAt(8, 336, 48), 2 * (64 + 19) + 8);
+    // Too narrow for even one column of that width.
+    expect(gridHeightAt(4, 50, 48), double.infinity);
+    // tileLayout reaches the width in that height.
+    for (final n in [4, 6, 8]) {
+      expect(tileLayout(n, 336, gridHeightAt(n, 336, 48)).coverWidth, greaterThanOrEqualTo(48));
+    }
+  });
 
   for (final (lang, name) in [('ko', '싱크'), ('en', 'Sync'), ('ja', '同期')]) {
     testWidgets('the game header has no offset button in $lang, playing or at game over (cycle 152)', (tester) async {
