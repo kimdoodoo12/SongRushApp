@@ -22,7 +22,8 @@ final String _dash = String.fromCharCode(0x2014);
 /// (code, share link with 복사, connected count), the settings card (the
 /// host's controls, read-only for a guest), the start row (Play Song for
 /// the host, the waiting line for a guest, 나가기), the server's error, the
-/// eight seats, the chat and the footer.
+/// eight seats, the chat and the footer. A back asks 방에서 나갈까요? first
+/// (cycle 164), whose 나가기 does what the lobby's 나가기 does.
 class LobbyScreen extends StatelessWidget {
   const LobbyScreen({super.key, required this.controller});
 
@@ -44,7 +45,7 @@ class LobbyScreen extends StatelessWidget {
             ? ''
             : settingsLine(t, received.options);
     final error = state.error;
-    return PageFrame(
+    final page = PageFrame(
       header: RoomHeader(code: code, line: line),
       children: [
         if (state.status == SessionStatus.reconnecting) ...[
@@ -103,6 +104,15 @@ class LobbyScreen extends StatelessWidget {
           onLanguage: c.setLanguage,
           onPcVersion: c.canSwitchToPc ? c.switchToPc : null,
         ),
+      ],
+    );
+    // Always a Stack, so the page keeps its state (scroll, chat field)
+    // when the confirm opens.
+    return Stack(
+      children: [
+        page,
+        if (c.leaveAsked)
+          Positioned.fill(child: LeaveDialog(onConfirm: c.leave, onCancel: c.cancelLeave, ask: t.roomLeaveAsk)),
       ],
     );
   }

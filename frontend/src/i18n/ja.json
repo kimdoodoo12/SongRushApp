@@ -169,7 +169,7 @@
   },
   "error": {
     "bad-nickname": "ニックネームは1〜16文字で入力してください。",
-    "bad-song-count": "曲数は5〜30曲です。",
+    "bad-song-count": "曲数は5〜100曲です。",
     "not-enough-songs": "出題できる曲が足りません。",
     "too-long": "チャットは200文字まで入力できます。",
     "room-not-found": "ルームが見つかりません。",

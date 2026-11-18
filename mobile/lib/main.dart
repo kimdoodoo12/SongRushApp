@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app.dart';
@@ -19,7 +20,9 @@ import 'ui/late_fonts.dart';
 /// for the nickname, the language and the sound offset, as the web client;
 /// memory off the web), the page's reload check (a reload rejoins the stored
 /// room), the Screen Wake Lock and the page navigation of the PC version
-/// link (both none off the web). The fonts the start screen does not need
+/// link (both none off the web), and leaving the app from the start
+/// screen's exit confirm (SystemNavigator.pop: the history back past the
+/// app's entries on the web, the activity closed on Android). The fonts the start screen does not need
 /// load after its first frame.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +39,7 @@ void main() {
     unlockSound: engine.start,
     keepAwake: screenWakeLock(),
     navigate: pageNavigator(),
+    exitApp: () => SystemNavigator.pop(),
     pageReloaded: web && pageWasReloaded(),
     deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
     initialCode: web ? codeFromPath(page.path) : '',

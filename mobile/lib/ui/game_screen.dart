@@ -58,6 +58,10 @@ const double _side = 12;
 // The round 채팅 button of a choice room.
 const double _chatButton = 56;
 
+// The floating chat's inset from the covers' left edge, so a bubble's
+// rounded left end lies over the covers whole (cycle 164).
+const double floatInset = 6;
+
 /// The game and game-over screens (GameScreen.jsx, the sunset mood) on one
 /// phone screen with no page scroll, in the v2 layout (D-145). Top: the
 /// small spinning disc, song n / N, the time bar and the seconds left; then
@@ -105,11 +109,12 @@ class _GameBody extends StatefulWidget {
   State<_GameBody> createState() => _GameBodyState();
 }
 
-// The leave dialog, the scores, the chat panel and the reveal's fold live
-// in this screen (as LeaveDialog inside GameScreen on the web), so they go
-// with the screen when it ends.
+// The scores, the chat panel and the reveal's fold live in this screen, so
+// they go with the screen when it ends; a back closes the scores, then the
+// chat panel ([AppController.registerScreenBack]). The leave dialog (as
+// LeaveDialog inside GameScreen on the web) is the controller's, which a
+// back opens too.
 class _GameBodyState extends State<_GameBody> {
-  bool _leaveOpen = false;
   bool _scoresOpen = false;
   bool _chatOpen = false;
   final FocusNode _leaveButton = FocusNode();
@@ -131,6 +136,7 @@ class _GameBodyState extends State<_GameBody> {
   void initState() {
     super.initState();
     _syncReveal();
+    widget.controller.registerScreenBack(_back);
   }
 
   @override
@@ -142,6 +148,7 @@ class _GameBodyState extends State<_GameBody> {
 
   @override
   void dispose() {
+    widget.controller.unregisterScreenBack(_back);
     _fold?.cancel();
     _leaveButton.dispose();
     _rankButton.dispose();
@@ -172,8 +179,22 @@ class _GameBodyState extends State<_GameBody> {
       });
 
   void _cancelLeave() {
-    setState(() => _leaveOpen = false);
-    _leaveButton.requestFocus();
+    widget.controller.cancelLeave();
+    // No 나가기 after the game.
+    if (_leaveButton.context != null) _leaveButton.requestFocus();
+  }
+
+  // A back: the scores close first, then the chat panel.
+  bool _back() {
+    if (_scoresOpen) {
+      _closeScores();
+      return true;
+    }
+    if (_chatOpen) {
+      _toggleChat();
+      return true;
+    }
+    return false;
   }
 
   void _closeScores() {
@@ -242,7 +263,7 @@ class _GameBodyState extends State<_GameBody> {
                           label: t.gameLeave,
                           compact: true,
                           focusNode: _leaveButton,
-                          onPressed: () => setState(() => _leaveOpen = true),
+                          onPressed: c.askLeave,
                         ),
                 ),
                 _Notices(controller: c, game: game, over: over),
@@ -292,9 +313,11 @@ class _GameBodyState extends State<_GameBody> {
           Positioned.fill(
             child: _ScoresSheet(scores: scores, me: me, solvers: _solvers(game), onClose: _closeScores),
           ),
-        if (_leaveOpen && !over)
+        // The game's 나가기 or a back; after the game (a back only) it asks
+        // about the room.
+        if (c.leaveAsked)
           Positioned.fill(
-            child: LeaveDialog(onConfirm: c.leave, onCancel: _cancelLeave),
+            child: LeaveDialog(onConfirm: c.leave, onCancel: _cancelLeave, ask: over ? t.roomLeaveAsk : null),
           ),
       ],
     );
@@ -378,7 +401,7 @@ class _GameBodyState extends State<_GameBody> {
                   ),
           ),
           Positioned(
-            left: _side,
+            left: _side + floatInset,
             right: _side + _chatButton + 12,
             bottom: 12,
             child: Align(
@@ -1862,86 +1885,4 @@ class _Tile extends StatelessWidget {
     0.1278, 0.4292, 0.0430, 0, 0, //
     0, 0, 0, 1, 0,
   ];
-}
-
-/// The leave confirmation (LeaveDialog.jsx, D-138): 게임을 나갈까요? with
-/// 취소 (focused on open; also Escape or a tap outside the card) and
-/// 나가기, over a modal barrier.
-class LeaveDialog extends StatelessWidget {
-  const LeaveDialog({super.key, required this.onConfirm, required this.onCancel});
-
-  final VoidCallback onConfirm;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context);
-    return CallbackShortcuts(
-      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onCancel},
-      child: FocusScope(
-        autofocus: true,
-        child: Stack(
-          children: [
-            ModalBarrier(
-              key: const ValueKey('leave-barrier'),
-              color: const Color(0x99000000),
-              onDismiss: onCancel,
-              semanticsLabel: t.gameLeaveCancel,
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 384),
-                  child: Material(
-                    key: const ValueKey('leave-dialog'),
-                    color: Palette.panel,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Palette.radius),
-                      side: const BorderSide(color: Palette.line),
-                    ),
-                    child: Semantics(
-                      scopesRoute: true,
-                      namesRoute: true,
-                      explicitChildNodes: true,
-                      label: t.gameLeaveAsk,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Semantics(header: true, child: Text(t.gameLeaveAsk, style: Fonts.displayStyle(size: 21))),
-                            const SizedBox(height: 18),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                RoomButton(
-                                  key: const ValueKey('leave-cancel'),
-                                  label: t.gameLeaveCancel,
-                                  autofocus: true,
-                                  onPressed: onCancel,
-                                ),
-                                const SizedBox(width: 8),
-                                RoomButton(
-                                  key: const ValueKey('leave-confirm'),
-                                  label: t.gameLeaveConfirm,
-                                  kind: ButtonKind.primary,
-                                  onPressed: onConfirm,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

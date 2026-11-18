@@ -513,7 +513,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorBadRoomTheme => 'Unknown theme.';
 
   @override
-  String get errorBadSongCount => 'A game has 5 to 30 songs.';
+  String get errorBadSongCount => 'A game has 5 to 100 songs.';
 
   @override
   String get errorInGame => 'A game is in progress. Please join after it ends.';
@@ -600,4 +600,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get revealLess => 'Less';
+
+  @override
+  String get roomLeaveAsk => 'Leave the room?';
+
+  @override
+  String get exitAsk => 'Leave SongRush?';
 }

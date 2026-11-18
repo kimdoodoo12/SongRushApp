@@ -450,6 +450,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-M11** mobile game layout v2 (D-145)
 - [x] **F-M12** the mobile web follows the real keyboard (visualViewport), cycle 161
 - [x] **F-M13** sending a chat line keeps the text connection; a guard restores a stuck view (cycle 163)
+- [x] **F-M14** phone back button: close overlays, then confirm leaving the room or the site; bubble inset; 5-100 error text (cycle 164)
 - [x] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
 - [ ] **I-011** Android packaging and release APK signing, after the mobile web plays correctly (design 141 item 9, D-140; the Android SDK licences and the key are the owner's)
 ## Roadmap
@@ -632,12 +633,7 @@ Decided:
 - **D-032** Fresh documents (user, 2026-11-02): delete every earlier design, research and planning document, because their standards came partly from the TypeScript attempt. Keep only the user's game-rule decisions above, the raw API fixtures (`data/tests/fixtures/`) and the vibe-cycle tooling. Research and design restart as S-001..S-003.
 
 ## Follow-ups
-- (from 160) mobile choice room: the floating chat bubbles' left edge is clipped at the covers' edge; inset them a few px
 - (from 155, release critic M4) the protocol contract test checks message type names only: capture live frames each backend test run and compare their field sets with `contracts/messages/*.json`
-- (from 151) mobile game chat: with few lines, stack them at the bottom of the log and the choice box (next to the input), and give the choice room's input a talk placeholder instead of "애니 제목을 입력하세요"
-- (from 149) mobile choice tiles need a semantic label and button role (`answer.choiceN`), like the web's tiles, so screen readers can pick
-- (from 148) subset the mobile app's bundled fonts (18 MB, Gowun Dodum 7.2 MB) before phones load the Flutter web on the live site
-- (from 148) web dictionaries: `error.bad-song-count` still says 5~30 in ko/en/ja (D-137 made it 5-100); fix, then re-run `mobile/tool/sync_l10n.py`
 - (from 144) a socket test that rejoins a choice room in a reveal window, so `contracts/messages/snapshot.json` shows the full song object
 - (106) Log one INFO line at S3-mode startup saying whether redirects go via the CDN host (and which) or direct to S3; a misspelt env var (`SONGRUSH_AUDIO_CDN_HOST` (the real name is `SONGRUSH_AUDIO_CDNHOST`)) silently leaves the switch off.
 - (104) **Fixed in cycle 112** (`stage.choiceHint` in ko/en/ja). The original text follows. In a choice room the stage hint still says to answer by chat (`GameScreen.jsx` uses `t('stage.hint')` for both formats). Add a choice-room hint in ko/en/ja; it is visible in the portfolio captures.

@@ -526,7 +526,7 @@ describe('game over and errors', () => {
     clickStartGame()
     await waitFor(() => expect(socket.sentOfType('start')).toHaveLength(1))
     deliver(socket, { type: 'error', code: 'bad-song-count' })
-    expect(screen.getByText('곡 수는 5~30곡입니다.')).toBeTruthy()
+    expect(screen.getByText('곡 수는 5~100곡입니다.')).toBeTruthy()
     expect(lobby.startButton()).not.toBeNull()
     expect(socket.closed).toBe(false)
   })
