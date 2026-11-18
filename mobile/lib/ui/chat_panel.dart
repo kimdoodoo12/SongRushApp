@@ -30,7 +30,7 @@ String noticeText(AppLocalizations t, NoticeLine line) => switch (line.kind) {
 /// The lobby chat (GameScreen.jsx Frame's aside.chat with ChatLog and
 /// ChatForm, the sunset look): 채팅 with the connected count, the log in a
 /// fixed height, and the form, absent without [onSend]. The game screen
-/// places [ChatLog], [ChatPreview] and [ChatForm] itself (D-142).
+/// places [ChatLog], [FloatingChat] and [ChatForm] itself (D-142, D-145).
 class ChatPanel extends StatelessWidget {
   const ChatPanel({
     super.key,
@@ -95,9 +95,10 @@ class LiveDot extends StatelessWidget {
       );
 }
 
-/// The chat log: each said line as the name colour's dot and a bubble, the
-/// own ones on the right; notices as centred system lines; a correct answer
-/// as `✔ <name> 정답!`, a wrong pick in red. It fills the height it is
+/// The chat log: each said line as the name colour's dot, the name and a
+/// bubble, the own ones on the right in the accent colour (D-145); notices
+/// as centred system lines; a correct answer prominent, as
+/// `✔ <name> 정답!`; a wrong pick in red. It fills the height it is
 /// given and scrolls inside; the lines stack from its bottom, next to the
 /// form, so a few lines sit at the bottom (cycle 153). It opens on the
 /// newest line, follows new lines while it is at the bottom (and always
@@ -191,28 +192,27 @@ class _ChatLogState extends State<ChatLog> {
   }
 }
 
-/// A log line's widget; [compact] keeps it to one line (the preview).
-Widget logLine(AppLocalizations t, LogLine line, {required String? me, bool compact = false}) => switch (line) {
-      SaidLine() => _Line(name: line.name, text: line.text, mine: line.name == me, compact: compact),
-      CorrectLine(:final winner, :final rank) => _SystemLine(
-          text: '$_check ${rank == null ? t.chatCorrectLine(winner) : t.chatCorrectRanked(winner, rank)}',
-          color: Palette.ok,
-          compact: compact,
-        ),
-      NoticeLine(kind: NoticeKind.wrongPick) =>
-        _SystemLine(text: t.chatWrongLine(line.value), color: _wrongRed, compact: compact),
-      NoticeLine() => _SystemLine(text: noticeText(t, line), compact: compact),
+/// A log line's widget.
+Widget logLine(AppLocalizations t, LogLine line, {required String? me}) => switch (line) {
+      SaidLine() => _Line(name: line.name, text: line.text, mine: line.name == me),
+      CorrectLine(:final winner, :final rank) =>
+        _CorrectLine(text: '$_check ${rank == null ? t.chatCorrectLine(winner) : t.chatCorrectRanked(winner, rank)}'),
+      NoticeLine(kind: NoticeKind.wrongPick) => _SystemLine(text: t.chatWrongLine(line.value), color: _wrongRed),
+      NoticeLine() => _SystemLine(text: noticeText(t, line)),
     };
 
 /// The chat form: the field (200 characters; a blank line is not sent) and
 /// 보내기. Sending keeps the focus in the field. [hint] replaces the field's
 /// 애니 제목을 입력하세요 (a choice room, where chat is only talk, D-135).
+/// [autofocus]: the field takes the focus when it shows (a choice room's
+/// chat panel, D-145).
 class ChatForm extends StatefulWidget {
-  const ChatForm({super.key, required this.onSend, this.padding = EdgeInsets.zero, this.hint});
+  const ChatForm({super.key, required this.onSend, this.padding = EdgeInsets.zero, this.hint, this.autofocus = false});
 
   final ValueChanged<String> onSend;
   final EdgeInsets padding;
   final String? hint;
+  final bool autofocus;
 
   @override
   State<ChatForm> createState() => _ChatFormState();
@@ -249,6 +249,7 @@ class _ChatFormState extends State<ChatForm> {
               key: const ValueKey('chat-input'),
               controller: _text,
               focusNode: _focus,
+              autofocus: widget.autofocus,
               autocorrect: false,
               inputFormatters: [LengthLimitingTextInputFormatter(chatMax)],
               textInputAction: TextInputAction.send,
@@ -271,92 +272,127 @@ class _ChatFormState extends State<ChatForm> {
   }
 }
 
-// The up-pointing triangle after 전체 (U+25B2).
-final String _up = String.fromCharCode(0x25B2);
+/// How long a floating line stays over the covers (D-145): fully shown,
+/// then faded out over its last second.
+const Duration floatLife = Duration(seconds: 6);
 
-/// One compact line's height in [ChatPreview] (the bubble's 13 px text at
-/// 1.5, rounded up, and its 2 px gap).
-const double previewLineHeight = 22;
+/// How many of the latest lines float over the covers at most.
+const int floatMax = 3;
 
-/// The least height of [ChatPreview]: two lines and its frame.
-const double chatBoxMinHeight = 2 * previewLineHeight + 10;
-
-/// The chat in short (D-142, a choice room and the game over): a box that
-/// fills the height it is given with as many of the latest lines as fit,
-/// the newest at the bottom, and 전체 ▲; a tap anywhere on it opens the
-/// full chat.
-class ChatPreview extends StatelessWidget {
-  const ChatPreview({super.key, required this.lines, required this.me, required this.onOpen});
+/// A choice room's latest chat over its covers (D-145): the last
+/// [floatMax] lines not yet [gone], oldest on top, as translucent bubbles
+/// (the newer, the more opaque). Each fades out [floatLife] after it first
+/// shows and is then reported to [onGone]. Taps pass through to the tiles.
+class FloatingChat extends StatelessWidget {
+  const FloatingChat({super.key, required this.lines, required this.me, required this.gone, required this.onGone});
 
   final List<LogLine> lines;
   final String? me;
-  final VoidCallback onOpen;
+  final Set<LogLine> gone;
+  final ValueChanged<LogLine> onGone;
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    return Semantics(
-      button: true,
-      label: t.chatLabel,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          key: const ValueKey('chat-preview'),
-          onTap: onOpen,
-          borderRadius: BorderRadius.circular(Palette.radius / 2),
-          child: Ink(
-            padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
-            decoration: BoxDecoration(
-              color: Palette.panelAlpha(0.9),
-              border: Border.all(color: Palette.line),
-              borderRadius: BorderRadius.circular(Palette.radius / 2),
+    final latest = lines.length <= floatMax ? lines : lines.sublist(lines.length - floatMax);
+    final shown = [
+      for (final line in latest)
+        if (!gone.contains(line)) line,
+    ];
+    return IgnorePointer(
+      child: Column(
+        key: const ValueKey('chat-float'),
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final (i, line) in shown.indexed)
+            _FloatLine(
+              key: ObjectKey(line),
+              text: _floatSpan(t, line),
+              depth: shown.length - 1 - i,
+              onGone: () => onGone(line),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, box) {
-                      // Each compact line is at most [previewLineHeight] tall.
-                      final fit = math.max(0, (box.maxHeight / previewLineHeight).floor());
-                      final latest = lines.length <= fit ? lines : lines.sublist(lines.length - fit);
-                      return SizedBox(
-                        key: const ValueKey('chat-preview-lines'),
-                        height: box.maxHeight,
-                        child: ClipRect(
-                          child: OverflowBox(
-                            // Lines take their own height and sit at the
-                            // bottom, next to the form (cycle 153).
-                            minHeight: 0,
-                            maxHeight: double.infinity,
-                            alignment: Alignment.bottomCenter,
-                            child: latest.isEmpty
-                                ? Align(
-                                    alignment: Alignment.bottomLeft,
-                                    child: Text(t.chatLabel, style: Fonts.bodyStyle(size: 12.5, color: Palette.dim)),
-                                  )
-                                : Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [for (final line in latest) logLine(t, line, me: me, compact: true)],
-                                  ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  key: const ValueKey('chat-all'),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Palette.line),
-                    borderRadius: BorderRadius.circular(Palette.radius),
-                  ),
-                  child: Text('${t.filterAll} $_up', style: Fonts.bodyStyle(size: 12, color: Palette.dim)),
-                ),
-              ],
+        ],
+      ),
+    );
+  }
+
+  // A line in short: the name in its colour and what was said, or the
+  // system line in its colour.
+  TextSpan _floatSpan(AppLocalizations t, LogLine line) => switch (line) {
+        SaidLine(:final name, :final text) => TextSpan(children: [
+            TextSpan(
+              text: name,
+              style: Fonts.bodyStyle(size: 13, color: nameColour(name), weight: FontWeight.w700),
+            ),
+            TextSpan(text: ' $text'),
+          ]),
+        CorrectLine(:final winner, :final rank) => TextSpan(
+            text: '$_check ${rank == null ? t.chatCorrectLine(winner) : t.chatCorrectRanked(winner, rank)}',
+            style: Fonts.bodyStyle(size: 13, color: Palette.ok, weight: FontWeight.w700),
+          ),
+        NoticeLine(kind: NoticeKind.wrongPick) => TextSpan(
+            text: t.chatWrongLine(line.value),
+            style: Fonts.bodyStyle(size: 13, color: _wrongRed, weight: FontWeight.w700),
+          ),
+        NoticeLine() => TextSpan(text: noticeText(t, line), style: Fonts.bodyStyle(size: 13, color: Palette.dim)),
+      };
+}
+
+// The floating bubbles' background and text opacity, newest ([depth] 0)
+// first.
+const List<double> _floatBack = [0.85, 0.72, 0.55];
+const List<double> _floatInk = [1, 0.85, 0.6];
+
+class _FloatLine extends StatefulWidget {
+  const _FloatLine({super.key, required this.text, required this.depth, required this.onGone});
+
+  final TextSpan text;
+  final int depth;
+  final VoidCallback onGone;
+
+  @override
+  State<_FloatLine> createState() => _FloatLineState();
+}
+
+class _FloatLineState extends State<_FloatLine> with SingleTickerProviderStateMixin {
+  late final AnimationController _life = AnimationController(vsync: this, duration: floatLife)
+    ..addStatusListener((status) {
+      if (status == AnimationStatus.completed) widget.onGone();
+    })
+    ..forward();
+
+  // Shown in full for the first five sixths, then faded out.
+  late final Animation<double> _fade = ReverseAnimation(
+    CurvedAnimation(parent: _life, curve: const Interval(5 / 6, 1)),
+  );
+
+  @override
+  void dispose() {
+    _life.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final depth = math.min(widget.depth, _floatBack.length - 1);
+    return FadeTransition(
+      opacity: _fade,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+          decoration: BoxDecoration(
+            color: Palette.bg.withValues(alpha: _floatBack[depth]),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Opacity(
+            opacity: _floatInk[depth],
+            child: Text.rich(
+              widget.text,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Fonts.bodyStyle(size: 13),
             ),
           ),
         ),
@@ -365,29 +401,23 @@ class ChatPreview extends StatelessWidget {
   }
 }
 
-/// `.msg.sys`: a centred dim line between dashed rules; a correct line
-/// (`.msg.sys.correct`) and a wrong pick (`.msg.wrong`) in their colours.
-/// [compact]: one line without the rules.
+/// `.msg.sys`: a centred dim line between dashed rules; a wrong pick
+/// (`.msg.wrong`) in its colour.
 class _SystemLine extends StatelessWidget {
-  const _SystemLine({required this.text, this.color = Palette.dim, this.compact = false});
+  const _SystemLine({required this.text, this.color = Palette.dim});
 
   final String text;
   final Color color;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: EdgeInsets.symmetric(vertical: compact ? 1 : 4),
-        padding: EdgeInsets.symmetric(vertical: compact ? 0 : 5),
-        decoration: compact
-            ? null
-            : const BoxDecoration(
-                border: Border.symmetric(horizontal: BorderSide(color: Palette.line)),
-              ),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        decoration: const BoxDecoration(
+          border: Border.symmetric(horizontal: BorderSide(color: Palette.line)),
+        ),
         child: Text(
           text,
-          maxLines: compact ? 1 : null,
-          overflow: compact ? TextOverflow.ellipsis : null,
           textAlign: TextAlign.center,
           style: Fonts.bodyStyle(
             size: 12.5,
@@ -398,57 +428,80 @@ class _SystemLine extends StatelessWidget {
       );
 }
 
-/// `.msg`: the name colour's dot and the line in a bubble (sunset), the own
-/// ones reversed and tinted. [compact]: one smaller line.
+/// A correct answer's line (D-094), prominent (D-145): centred on a green
+/// tint, in the display face.
+class _CorrectLine extends StatelessWidget {
+  const _CorrectLine({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(top: 2, bottom: 8),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Palette.ok.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(text, textAlign: TextAlign.center, style: Fonts.displayStyle(size: 16, color: Palette.ok, height: 1.25)),
+      );
+}
+
+/// `.msg` (D-145): another player's line as the name colour's dot, the name
+/// (key `chat-name`) and a bubble; the own line alone on the right, in the
+/// accent colour with dark text.
 class _Line extends StatelessWidget {
-  const _Line({required this.name, required this.text, required this.mine, this.compact = false});
+  const _Line({required this.name, required this.text, required this.mine});
 
   final String name;
   final String text;
   final bool mine;
-  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final dot = Container(
-      width: 8,
-      height: 8,
-      decoration: BoxDecoration(color: nameColour(name), shape: BoxShape.circle),
-    );
     final bubble = Flexible(
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 12, vertical: compact ? 0 : 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
-          color: mine ? Color.lerp(Palette.panel2, Palette.a1, 0.3) : Palette.panel2,
-          borderRadius: mine
-              ? const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomLeft: Radius.circular(14),
-                  bottomRight: Radius.circular(4),
-                )
-              : const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                  bottomLeft: Radius.circular(4),
-                  bottomRight: Radius.circular(14),
-                ),
+          color: mine ? Palette.a1 : Palette.panel2,
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Semantics(
           label: '$name: $text',
           excludeSemantics: true,
-          child: compact
-              ? Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: Fonts.bodyStyle(size: 13))
-              : Text(text, style: Fonts.bodyStyle(size: 14.5)),
+          child: Text(text, style: Fonts.bodyStyle(size: 14.5, color: mine ? Palette.bg : Palette.ink)),
         ),
       ),
     );
     return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 2 : 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: mine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: mine ? [bubble, const SizedBox(width: 8), dot] : [dot, const SizedBox(width: 8), bubble],
+        children: mine
+            ? [bubble]
+            : [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: nameColour(name), shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                ExcludeSemantics(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    child: Text(
+                      name,
+                      key: const ValueKey('chat-name'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Fonts.bodyStyle(size: 12, color: Palette.dim),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                bubble,
+              ],
       ),
     );
   }

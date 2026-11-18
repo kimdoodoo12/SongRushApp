@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:songrush_mobile/ui/chat_panel.dart';
 
 import 'game_screen_test.dart' show enterGame, openChat, prepare, start;
 import 'lobby_screen_test.dart' show enterLobby;
@@ -8,9 +7,8 @@ import 'lobby_screen_test.dart' show enterLobby;
 // Cycle 153: chat lines stack from the bottom, next to the input, like a
 // chat app (the chat room's log, a choice room's box, the full chat, the
 // lobby chat); a choice room's input asks for talk, not a title (D-135).
-
-/// The rect of the [n]th widget found by [finder].
-Rect rectOf(WidgetTester tester, Finder finder, [int n = 0]) => tester.getRect(finder.at(n));
+// Cycle 160 (D-145): a choice room's chat is the panel the 채팅 button
+// opens; its input shows only then.
 
 /// [text]'s rect inside the chat log.
 Rect lineIn(WidgetTester tester, String text) =>
@@ -67,28 +65,15 @@ void main() {
     await h.tearDown(tester);
   });
 
-  testWidgets('choice room: the box and the full chat stack from the bottom', (tester) async {
+  testWidgets('choice room: the open chat panel stacks from the bottom', (tester) async {
     final h = await enterGame(tester, options: {'answerMode': 'choice'});
     await prepare(tester, h, 0, choices: ['a', 'b', 'c', 'd']);
     await start(tester, h, 0);
     h.receive({'type': 'chat', 'name': 'Aki', 'text': 'hello'});
     await h.settle(tester);
-
-    final box = tester.getRect(find.byKey(const ValueKey('chat-preview-lines')));
-    final lines = find.descendant(of: find.byKey(const ValueKey('chat-preview-lines')), matching: find.byType(Text));
-    final n = lines.evaluate().length;
-    expect(n, 3, reason: 'game start, song start, hello');
-    expect((box.height / previewLineHeight).floor(), greaterThan(n), reason: 'room for more lines than shown');
-    final newest = rectOf(tester, lines, n - 1);
-    final first = rectOf(tester, lines);
-    expect(tester.widget<Text>(lines.at(n - 1)).data, 'hello');
-    expect(box.bottom - newest.bottom, inInclusiveRange(0, previewLineHeight), reason: 'the newest at the box bottom');
-    expect(first.top, greaterThanOrEqualTo(box.bottom - n * previewLineHeight - 1), reason: 'the lines at the bottom');
-    expect(first.top - box.top, greaterThan(previewLineHeight), reason: 'the first line not at the top');
-
     await openChat(tester, h);
-    expect(find.byKey(const ValueKey('chat-full')), findsOneWidget);
-    expectBottomStacked(tester, '게임을 시작해요', 'hello', 'full chat');
+    expect(find.byKey(const ValueKey('chat-panel')), findsOneWidget);
+    expectBottomStacked(tester, '게임을 시작해요', 'hello', 'chat panel');
     await h.tearDown(tester);
   });
 
@@ -112,6 +97,8 @@ void main() {
     testWidgets('a choice room\'s input asks for talk, not a title ($lang)', (tester) async {
       final h = await enterGame(tester, language: lang, options: {'answerMode': 'choice'});
       await prepare(tester, h, 0, choices: ['a', 'b', 'c', 'd']);
+      expect(find.byKey(const ValueKey('chat-input')), findsNothing, reason: 'no input until 채팅 opens the panel');
+      await openChat(tester, h);
       expect(hintOf(tester), talkHint[lang]);
       expect(find.text(titleHint[lang]!), findsNothing);
       await h.tearDown(tester);
