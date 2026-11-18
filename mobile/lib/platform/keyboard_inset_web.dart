@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
@@ -29,6 +30,16 @@ ValueListenable<double>? browserKeyboardInset() {
     }
   }
   return _keyboard?.inset;
+}
+
+/// Records [inset], the bottom view inset the app applied, as the page's
+/// `window.__srMqInset` for the `?debug=1` overlay in index.html (cycle 162).
+void reportAppliedKeyboardInset(double inset) {
+  try {
+    web.window.setProperty('__srMqInset'.toJS, inset.toJS);
+  } catch (e) {
+    _warn('applied inset not recorded: $e');
+  }
 }
 
 class _BrowserKeyboard {
@@ -66,6 +77,8 @@ class _BrowserKeyboard {
       if (viewport == null) return;
       final value = keyboardInsetFrom(web.window.innerHeight, viewport.height, viewport.offsetTop);
       inset.value = value;
+      // Cycle 162: read by the ?debug=1 overlay in index.html.
+      web.window.setProperty('__srInset'.toJS, value.toJS);
       // With the keyboard gone the page must be at its top: the browser
       // may have scrolled it to show the focused field.
       if (value == 0 && web.window.scrollY != 0) web.window.scrollTo(0.toJS, 0);
