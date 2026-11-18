@@ -19,6 +19,47 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="SongRush mobile: guess the anime from its OP/ED.">
+  <meta name="theme-color" content="#1c0f1a">
+
+  <!--
+    Cycle 157: records what goes wrong while the app loads, from the very
+    start, so the loading screen can show it on a phone with no dev tools.
+    Keeps the last 10 short entries in window.__srDiag.
+  -->
+  <script>
+    (function () {
+      var diag = window.__srDiag = [];
+      function add(text) {
+        text = String(text).replace(/\s+/g, ' ').slice(0, 160);
+        diag.push(text);
+        if (diag.length > 10) diag.shift();
+      }
+      window.addEventListener('error', function (e) {
+        var t = e && e.target;
+        if (t && t !== window && (t.src || t.href)) {
+          // A <script>, <link> or <img> that failed to load.
+          add('load failed: <' + String(t.tagName).toLowerCase() + '> ' + (t.src || t.href));
+        } else {
+          add('error: ' + (e && e.message) + (e && e.filename ? ' @ ' + e.filename + ':' + e.lineno : ''));
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e && e.reason;
+        add('rejection: ' + (r && r.message ? r.message : r));
+      });
+      var original = console.error;
+      console.error = function () {
+        try {
+          add('console: ' + Array.prototype.map.call(arguments, function (a) {
+            return a && a.message ? a.message : String(a);
+          }).join(' '));
+        } catch (ignored) {
+          // Recording must never break the page's own logging.
+        }
+        return original.apply(console, arguments);
+      };
+    })();
+  </script>
 
   <!--
     Uncomment the tag below to lay the app out underneath the parts of the
@@ -35,7 +76,7 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="songrush_mobile">
+  <meta name="apple-mobile-web-app-title" content="SongRush">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
@@ -51,14 +92,78 @@
     reach the React web. ?ui=pc keeps it there even with blocked localStorage.
   -->
   <div id="loading" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1c0f1a;color:#fff1e6;font:16px/1.5 sans-serif;text-align:center;padding:16px">
-    <div>불러오는 중… / Loading…</div>
-    <a href="/?ui=pc" style="color:#ff8a4c">PC 버전으로 보기 / PC version</a>
+    <div id="loading-text">불러오는 중… / Loading…</div>
+    <div>
+      <a href="/?ui=pc" style="color:#ff8a4c">PC 버전으로 보기 / PC version</a>
+      <a id="loading-retry" href="#" style="color:#ff8a4c;margin-left:16px;display:none">다시 시도 / Retry</a>
+    </div>
+    <div id="loading-diag" style="display:none;max-width:100%;color:#c4a3a8;font:11px/1.4 monospace;text-align:left;white-space:pre-wrap;word-break:break-all"></div>
   </div>
   <script>
-    window.addEventListener('flutter-first-frame', function () {
-      var loading = document.getElementById('loading');
-      if (loading) loading.remove();
-    });
+    (function () {
+      var started = Date.now();
+      var timer = null;
+
+      function hide() {
+        var loading = document.getElementById('loading');
+        if (loading) loading.remove();
+        if (timer) clearInterval(timer);
+        timer = null;
+      }
+
+      function hasSize(el) {
+        if (!el) return false;
+        var r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }
+
+      // Cycle 157: the safety net for a browser where the first-frame event
+      // never arrives: Flutter's view is on the page and has drawn something.
+      function flutterDrawn() {
+        var hosts = document.querySelectorAll('flutter-view, flt-glass-pane');
+        for (var i = 0; i < hosts.length; i++) {
+          var roots = [hosts[i]];
+          if (hosts[i].shadowRoot) roots.push(hosts[i].shadowRoot);
+          for (var j = 0; j < roots.length; j++) {
+            var found = roots[j].querySelectorAll('canvas, flt-scene-host, flt-semantics-host');
+            for (var k = 0; k < found.length; k++) {
+              if (hasSize(found[k])) return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function showSlow() {
+        document.getElementById('loading-text').textContent = '오래 걸리고 있어요… / Still loading…';
+        var retry = document.getElementById('loading-retry');
+        retry.style.display = 'inline';
+        retry.onclick = function (e) {
+          e.preventDefault();
+          location.reload();
+        };
+        var ua = String(navigator.userAgent).replace(/Mozilla\/5\.0 /, '').slice(0, 140);
+        var diag = window.__srDiag || [];
+        var lines = [
+          'UA: ' + ua,
+          'flutter-view: ' + (document.querySelector('flutter-view') ? 'yes' : 'no'),
+          'crossOriginIsolated: ' + String(window.crossOriginIsolated),
+          '_flutter: ' + (window._flutter ? 'yes' : 'no'),
+          diag.length ? diag.join('\n') : '오류 없음 / no errors'
+        ];
+        var box = document.getElementById('loading-diag');
+        box.textContent = lines.join('\n');
+        box.style.display = 'block';
+      }
+
+      window.addEventListener('flutter-first-frame', hide);
+      timer = setInterval(function () {
+        if (!document.getElementById('loading')) return hide();
+        if (flutterDrawn()) return hide();
+        // Refreshed on every tick so later diagnostics show up too.
+        if (Date.now() - started >= 10000) showSlow();
+      }, 500);
+    })();
   </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
