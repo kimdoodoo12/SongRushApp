@@ -578,4 +578,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get chatTalkPlaceholder => 'チャットで話そう';
+
+  @override
+  String myRank(Object rank, Object points) {
+    return '$rank位 · $points点';
+  }
+
+  @override
+  String get revealMore => '詳しく';
+
+  @override
+  String get revealLess => '閉じる';
 }

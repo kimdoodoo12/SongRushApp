@@ -578,4 +578,15 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get chatTalkPlaceholder => '채팅으로 이야기해요';
+
+  @override
+  String myRank(Object rank, Object points) {
+    return '내 순위 $rank위 · $points점';
+  }
+
+  @override
+  String get revealMore => '자세히';
+
+  @override
+  String get revealLess => '접기';
 }

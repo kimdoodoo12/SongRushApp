@@ -76,6 +76,15 @@ APP_KEYS = {
         "チャットで話そう",
         "the chat input's placeholder in a choice room, where chat is only talk",
     ),
+    # cycle 160 (D-145): the game screen's rank button and the reveal strip.
+    "myRank": (
+        "내 순위 {rank}위 · {points}점",
+        "Rank {rank} · {points} pt",
+        "{rank}位 · {points}点",
+        "the game's own rank and points; a tap opens the scores",
+    ),
+    "revealMore": ("자세히", "More", "詳しく", "expands the folded reveal strip into the full card"),
+    "revealLess": ("접기", "Less", "閉じる", "folds the full reveal card back into its strip"),
 }
 
 

@@ -771,5 +771,21 @@
   "chatTalkPlaceholder": "채팅으로 이야기해요",
   "@chatTalkPlaceholder": {
     "description": "app only: the chat input's placeholder in a choice room, where chat is only talk"
+  },
+  "myRank": "내 순위 {rank}위 · {points}점",
+  "@myRank": {
+    "description": "app only: the game's own rank and points; a tap opens the scores",
+    "placeholders": {
+      "rank": {},
+      "points": {}
+    }
+  },
+  "revealMore": "자세히",
+  "@revealMore": {
+    "description": "app only: expands the folded reveal strip into the full card"
+  },
+  "revealLess": "접기",
+  "@revealLess": {
+    "description": "app only: folds the full reveal card back into its strip"
   }
 }

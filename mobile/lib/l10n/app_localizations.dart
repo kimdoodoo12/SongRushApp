@@ -1113,6 +1113,24 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'채팅으로 이야기해요'**
   String get chatTalkPlaceholder;
+
+  /// app only: the game's own rank and points; a tap opens the scores
+  ///
+  /// In ko, this message translates to:
+  /// **'내 순위 {rank}위 · {points}점'**
+  String myRank(Object rank, Object points);
+
+  /// app only: expands the folded reveal strip into the full card
+  ///
+  /// In ko, this message translates to:
+  /// **'자세히'**
+  String get revealMore;
+
+  /// app only: folds the full reveal card back into its strip
+  ///
+  /// In ko, this message translates to:
+  /// **'접기'**
+  String get revealLess;
 }
 
 class _AppLocalizationsDelegate
