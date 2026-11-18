@@ -37,7 +37,9 @@ flutter:
   uses-material-design: true
   generate: true
   # The room stylesheet's four families (frontend/src/room.css :root), from
-  # the Google Fonts repository; see assets/fonts/README.md.
+  # the Google Fonts repository; see assets/fonts/README.md. Jua and Gowun
+  # Dodum load with the app; the web build waits for every family listed
+  # here before its first frame.
   fonts:
     - family: Jua
       fonts:
@@ -45,14 +47,10 @@ flutter:
     - family: Gowun Dodum
       fonts:
         - asset: assets/fonts/gowundodum/GowunDodum-Regular.ttf
-    - family: IBM Plex Sans KR
-      fonts:
-        - asset: assets/fonts/ibmplexsanskr/IBMPlexSansKR-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/ibmplexsanskr/IBMPlexSansKR-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/ibmplexsanskr/IBMPlexSansKR-Bold.ttf
-          weight: 700
-    - family: JetBrains Mono
-      fonts:
-        - asset: assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf
+  # IBM Plex Sans KR (the fallback) and JetBrains Mono load after the first
+  # frame instead (lib/ui/late_fonts.dart, cycle 159).
+  assets:
+    - assets/fonts/ibmplexsanskr/IBMPlexSansKR-Regular.ttf
+    - assets/fonts/ibmplexsanskr/IBMPlexSansKR-Medium.ttf
+    - assets/fonts/ibmplexsanskr/IBMPlexSansKR-Bold.ttf
+    - assets/fonts/jetbrainsmono/JetBrainsMono-wght.ttf

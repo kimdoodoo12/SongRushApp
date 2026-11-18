@@ -8,6 +8,7 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:songrush_core/songrush_core.dart';
 
 import '../platform/audio_latency.dart';
+import '../platform/soloud_script.dart';
 
 // The SongPlayer of the app on flutter_soloud, as the S-009 spike proved it
 // on the web (spikes/s009-audio, cycle 142): Ogg Opus from memory with
@@ -25,8 +26,13 @@ Duration _duration(double seconds) =>
 /// gesture (the sound unlock), since browsers keep audio off until one.
 /// Until then [createPlayer]'s players fail to load, so a round is silent
 /// but still sends `ready`.
+///
+/// On the web the engine's script and WASM load with [start], not with the
+/// page (cycle 159); the page's first tap starts that download early.
 class SoloudEngine {
-  SoloudEngine({SoLoud? soloud}) : _soloud = soloud ?? SoLoud.instance;
+  SoloudEngine({SoLoud? soloud}) : _soloud = soloud ?? SoLoud.instance {
+    preloadSoloudScriptOnFirstTouch();
+  }
 
   final SoLoud _soloud;
   final Stopwatch _mono = Stopwatch()..start();
@@ -47,11 +53,19 @@ class SoloudEngine {
   /// The engine is initialized.
   bool get isStarted => _soloud.isInitialized;
 
-  /// Initializes the engine (once) and starts reading its clock.
+  /// Loads the engine's web script (once), initializes the engine (once)
+  /// and starts reading its clock. Fails when the browser still holds the
+  /// sound off after that (a suspended AudioContext, as when the awaited
+  /// download outlasted the tap): the sound prompt then stays, and its tap
+  /// runs [start] again, which resumes the context inside that tap.
   Future<void> start() async {
-    if (!_soloud.isInitialized) await _soloud.init();
+    if (!_soloud.isInitialized) {
+      await loadSoloudScript();
+      await _soloud.init();
+    }
     _sampler ??= Timer.periodic(_sampleEvery, (_) => _sample());
     _sample();
+    if (!await soundContextRunning()) throw StateError('the browser holds the sound off (AudioContext suspended)');
   }
 
   /// Stops reading the clock. The engine itself stays up for the app.

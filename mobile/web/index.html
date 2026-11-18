@@ -264,8 +264,12 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <!-- flutter_soloud: picks the single- or multi-threaded WASM build. -->
-  <script src="assets/packages/flutter_soloud/web/init_soloud.js" defer></script>
+  <!--
+    flutter_soloud's init_soloud.js (it picks the single- or multi-threaded
+    WASM build) is not loaded here: cycle 159 loads it from Dart when the
+    sound engine starts (lib/platform/soloud_script_web.dart), so its 2 MB
+    stay off the first load.
+  -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

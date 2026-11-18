@@ -10,6 +10,7 @@ import 'platform/page.dart';
 import 'store/browser_storage.dart';
 import 'store/prefs.dart';
 import 'store/session_token_store.dart';
+import 'ui/late_fonts.dart';
 
 /// Wires the real adapters: the WebSocket to `/ws` on the page's origin (or
 /// `--dart-define=SONGRUSH_SERVER=ws://...`), the SoLoud engine (started by
@@ -18,7 +19,8 @@ import 'store/session_token_store.dart';
 /// for the nickname, the language and the sound offset, as the web client;
 /// memory off the web), the page's reload check (a reload rejoins the stored
 /// room), the Screen Wake Lock and the page navigation of the PC version
-/// link (both none off the web).
+/// link (both none off the web). The fonts the start screen does not need
+/// load after its first frame.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final socket = socketUrl();
@@ -40,4 +42,6 @@ void main() {
     pageOrigin: web ? page.origin : '',
   );
   runApp(SongRushApp(controller: controller));
+  // The fallback and mono fonts, once the start screen is drawn (cycle 159).
+  WidgetsBinding.instance.addPostFrameCallback((_) => loadLateFonts());
 }

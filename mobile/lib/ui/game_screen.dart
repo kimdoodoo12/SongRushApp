@@ -54,10 +54,15 @@ const double _finalShare = 0.6;
 const double _tileMin = 40;
 
 // A choice room's reveal card: at most its share of the middle, and less
-// when the keyboard leaves too little for the tiles and two chat lines
-// (the card scrolls inside).
-double _choiceCardMax(double middle) =>
-    math.max(0, math.min(middle * _revealShareChoice, middle - 16 - chatBoxMinHeight - _tileMin));
+// when the space leaves too little for the tiles and two chat lines, or
+// with the keyboard up (no chat box then, [chat] false) for the tiles
+// alone (the card scrolls inside).
+double _choiceCardMax(double middle, {bool chat = true}) => math.max(
+    0, math.min(middle * _revealShareChoice, middle - 8 - (chat ? 8 + chatBoxMinHeight : 0) - _tileMin));
+
+// The least cover width of a choice room's tiles with the keyboard up
+// (cycle 159): below it the disc and the hint give their row to the tiles.
+const double _coverReadable = 48;
 
 // The side padding of the screen's parts.
 const double _side = 12;
@@ -75,7 +80,10 @@ const double _side = 12;
 /// chat form. In a choice room the tiles take a box of 45 % of the middle
 /// under the small disc and the hint, and a box of the latest chat lines
 /// with 전체 ▲ takes the rest (after the game, under the ranking); it opens
-/// the full chat over the middle.
+/// the full chat over the middle. With the keyboard up a choice room shows
+/// no chat box, and its tiles keep their size as far as the space allows
+/// (cycle 159): they shrink only to a readable size, then the disc and the
+/// hint make way, then they shrink again.
 class GameScreen extends StatelessWidget {
   const GameScreen({super.key, required this.controller});
 
@@ -157,17 +165,40 @@ class _GameBodyState extends State<_GameBody> {
         ),
       );
     } else {
+      // A choice room with the on-screen keyboard up (cycle 159): no chat
+      // box, the tiles at their size with the keyboard down as far as the
+      // space allows. The Scaffold below takes the keyboard out of its
+      // body's MediaQuery, so it is read here. [lifted] is how much lower
+      // the middle is than with the keyboard down: the keyboard's height,
+      // less the bottom safe-area padding it covers.
+      final inset = MediaQuery.viewInsetsOf(context).bottom;
+      final typing = choiceRoom && inset > 0;
+      final lifted = typing ? inset - math.min(inset, MediaQuery.viewPaddingOf(context).bottom) : 0.0;
+      final textScaler = MediaQuery.textScalerOf(context);
       middle = LayoutBuilder(
         builder: (context, box) {
           final reveal = game.reveal;
           final share = choiceRoom ? _revealShareChoice : _revealShareChat;
           final choices = game.choices;
+          final count = choices?.length ?? 0;
+          // The middle's height with the keyboard down, and the tiles' box
+          // there at most: 45 % of it.
+          final middleDown = box.maxHeight + lifted;
+          final tilesDown = middleDown * _tileShare;
+          // With the keyboard up the disc and the hint keep their row only
+          // while the tiles under it stay readable (or at their size with
+          // the keyboard down, when that is smaller).
+          final headerShown = !typing ||
+              choices == null ||
+              box.maxHeight - _hintRowHeight(game, textScaler, disc: box.maxHeight >= _smallDiscMin) - 8 >=
+                  math.min(gridHeight(count, box.maxWidth, tilesDown), gridHeightAt(count, box.maxWidth, _coverReadable));
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (reveal != null)
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: choiceRoom ? _choiceCardMax(box.maxHeight) : box.maxHeight * share),
+                  constraints: BoxConstraints(
+                      maxHeight: choiceRoom ? _choiceCardMax(box.maxHeight, chat: !typing) : box.maxHeight * share),
                   child: SingleChildScrollView(
                     key: const ValueKey('reveal-scroll'),
                     child: RevealCard(reveal: reveal, cover: game.revealCover, last: game.lastSong, language: c.language),
@@ -175,6 +206,8 @@ class _GameBodyState extends State<_GameBody> {
                 )
               else if (!choiceRoom && box.maxHeight >= _discRowMin)
                 _DiscRow(game: game, size: math.min(_discSize, box.maxHeight * 0.4))
+              else if (!headerShown)
+                const SizedBox.shrink()
               else if (choiceRoom && box.maxHeight >= _smallDiscMin)
                 Row(
                   children: [
@@ -185,25 +218,30 @@ class _GameBodyState extends State<_GameBody> {
                 )
               else
                 _Hint(game: game),
-              const SizedBox(height: 8),
+              if (headerShown) const SizedBox(height: 8),
               Expanded(
                 child: !choiceRoom
                     ? _LogBox(child: ChatLog(lines: game.log, me: me, padding: const EdgeInsets.fromLTRB(12, 8, 12, 8)))
                     : LayoutBuilder(
                         // The tiles in a box of 45 % of the middle (less when
-                        // the keyboard leaves no room for two chat lines);
-                        // the latest chat lines take all the rest.
+                        // the space leaves no room for two chat lines); the
+                        // latest chat lines take all the rest. With the
+                        // keyboard up, the same box as with it down, cut to
+                        // the space there is, and no chat lines.
                         builder: (context, rest) {
-                          final room = math.min(box.maxHeight * _tileShare, rest.maxHeight - 8 - chatBoxMinHeight);
-                          final grid = choices == null ? 0.0 : gridHeight(choices.length, rest.maxWidth, math.max(0, room));
+                          final room = math.min(tilesDown, rest.maxHeight + lifted - 8 - chatBoxMinHeight);
+                          final fit = typing ? math.min(room, rest.maxHeight) : room;
+                          final grid = choices == null ? 0.0 : gridHeight(count, rest.maxWidth, math.max(0, fit));
+                          final tiles = choices != null && grid >= _frameHeight;
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (choices != null && grid >= _frameHeight) ...[
+                              if (tiles)
                                 SizedBox(height: grid, child: ChoiceGrid(game: game, cover: (url) => c.rounds?.cover(url))),
-                                const SizedBox(height: 8),
+                              if (!typing) ...[
+                                if (tiles) const SizedBox(height: 8),
+                                Expanded(child: preview),
                               ],
-                              Expanded(child: preview),
                             ],
                           );
                         },
@@ -624,6 +662,16 @@ String hintText(AppLocalizations t, GameModel game) {
   }
   if (game.choices != null) return playing ? t.stageChoiceHint : t.stageChoiceSoon;
   return playing ? t.stageHint : t.stageSoon;
+}
+
+/// The height of a choice room's row of [_Hint] (beside the small disc when
+/// [disc]), from [_Hint]'s text styles: the hint line, and the line of the
+/// wrong pick and the pick count when it shows.
+double _hintRowHeight(GameModel game, TextScaler scaler, {required bool disc}) {
+  final second = game.choices != null &&
+      ((game.round != null && game.pickWrong && game.picked != null) || (game.pickShown && game.pickCount != null));
+  final hint = scaler.scale(18) * 1.3 + (second ? 2 + scaler.scale(13) * 1.5 : 0);
+  return disc ? math.max(_smallDisc, hint) : hint;
 }
 
 /// The hint before the reveal (GameScreen.jsx), in one line that shrinks
@@ -1318,11 +1366,7 @@ const double _frameHeight = 19;
 /// whichever gives the bigger tiles; the covers are 3:4 in their polaroid
 /// frames. The width is never negative (the grid scales down past that).
 ({int columns, double coverWidth}) tileLayout(int count, double width, double height) {
-  final options = {
-    math.min(2, math.max(1, count)),
-    if (count == 4 || count == 8) 4,
-    if (count == 6) 3,
-  };
+  final options = _columnOptions(count);
   var best = (columns: options.first, coverWidth: -1.0);
   for (final columns in options) {
     final rows = (count / columns).ceil();
@@ -1332,6 +1376,27 @@ const double _frameHeight = 19;
     if (cover > best.coverWidth) best = (columns: columns, coverWidth: cover);
   }
   return (columns: best.columns, coverWidth: math.max(0, best.coverWidth).floorToDouble());
+}
+
+// The column counts [tileLayout] picks from for [count] tiles.
+Set<int> _columnOptions(int count) => {
+      math.min(2, math.max(1, count)),
+      if (count == 4 || count == 8) 4,
+      if (count == 6) 3,
+    };
+
+/// The least height in which [tileLayout] gives [count] tiles in [width]
+/// covers at least [cover] wide; infinite when [width] is too narrow.
+double gridHeightAt(int count, double width, double cover) {
+  var least = double.infinity;
+  for (final columns in _columnOptions(count)) {
+    if ((width - _tileGap * (columns - 1)) / columns - _frameWidth < cover) continue;
+    final rows = (count / columns).ceil();
+    // Rounded up so the layout's own rounding down still reaches [cover].
+    final tile = (cover * 4 / 3).ceilToDouble() + _frameHeight;
+    least = math.min(least, rows * tile + _tileGap * (rows - 1));
+  }
+  return least;
 }
 
 /// The height of [count] tiles laid out by [tileLayout] in [width] x
