@@ -21,8 +21,13 @@ Flutter lives at `C:\src\flutter\bin` on the dev PC (not on PATH):
 cd packages/songrush_core && C:\src\flutter\bin\dart.bat test
 C:\src\flutter\bin\flutter.bat analyze
 C:\src\flutter\bin\flutter.bat test
-C:\src\flutter\bin\flutter.bat build web
+C:\src\flutter\bin\flutter.bat build web --release --base-href /m/ --no-web-resources-cdn
 ```
+
+The build flags match the `Dockerfile`: the site serves the build at `/m/`,
+and `--no-web-resources-cdn` bundles CanvasKit in `build/web/canvaskit/`
+rather than loading it from `www.gstatic.com` (cycle 155). In Git Bash, set
+`MSYS_NO_PATHCONV=1` first, or `/m/` is rewritten into a Windows path.
 
 `flutter test` needs the flutter_soloud native build hook, which does not run
 on the dev PC (no MSVC, cycle 147); the app tests run in CI on Linux. The
@@ -49,7 +54,7 @@ The app opens its socket at `/ws` on the page's own origin (`ws://` on http,
 connections from its own origin only, so the simplest local run serves the
 Flutter build from the backend itself:
 
-1. Build: `C:\src\flutter\bin\flutter.bat build web` (from `mobile/`). The output is `mobile/build/web/`.
+1. Build: `C:\src\flutter\bin\flutter.bat build web --no-web-resources-cdn` (from `mobile/`). The output is `mobile/build/web/`.
 2. Start the backend as usual, adding a static location for that folder (an absolute `file:` path ending in `/`), for example from `backend/`:
 
    ```

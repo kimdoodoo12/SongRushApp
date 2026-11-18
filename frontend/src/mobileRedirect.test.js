@@ -1,9 +1,11 @@
 // Cycle 154 (D-140): the phone redirect's decision. A phone is a coarse
 // pointer with a short screen side of at most 600 px; it goes from / to /m/
 // and from /r/<code> to /m/r/<code>, unless localStorage songrush.ui is "pc".
-// /admin and other paths never move; desktops and tablets stay.
+// /admin and other paths never move; desktops and tablets stay. Cycle 155: a
+// ui=pc query keeps any device here and ui=mobile sends any device on / or
+// /r/<code> to /m/; either is stored.
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { isPhone, mobilePath, redirectPhone, redirectTarget, storeUi, UI_KEY } from './mobileRedirect.js'
+import { isPhone, mobilePath, queryUi, redirectPhone, redirectTarget, storeUi, UI_KEY } from './mobileRedirect.js'
 
 // A fake window: `coarse` pointer, a `width` x `height` screen, the path, and
 // a Map-backed localStorage (or one that throws when `blocked`).
@@ -117,6 +119,47 @@ describe('redirectPhone', () => {
     const win = fakeWindow({ coarse: false, width: 1920, height: 1080 })
     expect(redirectPhone(win)).toBe(false)
     expect(win.location.replace).not.toHaveBeenCalled()
+  })
+})
+
+describe('the ui query', () => {
+  it('reads pc or mobile, and nothing else', () => {
+    expect(queryUi(fakeWindow({ search: '?ui=pc' }))).toBe('pc')
+    expect(queryUi(fakeWindow({ search: '?x=1&ui=mobile' }))).toBe('mobile')
+    expect(queryUi(fakeWindow({ search: '?ui=desktop' }))).toBe(null)
+    expect(queryUi(fakeWindow({ search: '' }))).toBe(null)
+  })
+
+  it('ui=pc keeps a phone here, stores pc, and works with a blocked storage', () => {
+    const win = fakeWindow({ pathname: '/r/ABCDE', search: '?ui=pc' })
+    expect(redirectPhone(win)).toBe(false)
+    expect(win.location.replace).not.toHaveBeenCalled()
+    expect(win.store.get(UI_KEY)).toBe('pc')
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const blocked = fakeWindow({ search: '?ui=pc', blocked: true })
+    expect(redirectPhone(blocked)).toBe(false)
+    expect(blocked.location.replace).not.toHaveBeenCalled()
+  })
+
+  it('ui=pc overrides a stored mobile', () => {
+    const win = fakeWindow({ search: '?ui=pc', ui: 'mobile' })
+    expect(redirectPhone(win)).toBe(false)
+    expect(win.store.get(UI_KEY)).toBe('pc')
+  })
+
+  it('ui=mobile sends any device to /m/, stores mobile, and drops the ui parameter', () => {
+    const desktop = fakeWindow({ coarse: false, width: 1920, height: 1080, search: '?ui=mobile', ui: 'pc' })
+    expect(redirectPhone(desktop)).toBe(true)
+    expect(desktop.location.replace).toHaveBeenCalledWith('/m/')
+    expect(desktop.store.get(UI_KEY)).toBe('mobile')
+    const room = fakeWindow({ pathname: '/r/ABCDE', search: '?x=1&ui=mobile', hash: '#h' })
+    expect(redirectTarget(room)).toBe('/m/r/ABCDE?x=1#h')
+  })
+
+  it('ui=mobile on a path with no /m/ match stores the choice but stays', () => {
+    const win = fakeWindow({ pathname: '/admin', search: '?ui=mobile' })
+    expect(redirectPhone(win)).toBe(false)
+    expect(win.store.get(UI_KEY)).toBe('mobile')
   })
 })
 

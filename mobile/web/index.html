@@ -44,7 +44,22 @@
   <title>SongRush</title>
   <link rel="manifest" href="manifest.json">
 </head>
-<body>
+<body style="margin:0;background:#1c0f1a">
+  <!--
+    Cycle 155: shown until Flutter draws its first frame, and left in place if
+    it never does (a failed download, an old browser), so a phone can always
+    reach the React web. ?ui=pc keeps it there even with blocked localStorage.
+  -->
+  <div id="loading" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1c0f1a;color:#fff1e6;font:16px/1.5 sans-serif;text-align:center;padding:16px">
+    <div>불러오는 중… / Loading…</div>
+    <a href="/?ui=pc" style="color:#ff8a4c">PC 버전으로 보기 / PC version</a>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var loading = document.getElementById('loading');
+      if (loading) loading.remove();
+    });
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader

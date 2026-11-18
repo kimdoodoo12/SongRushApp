@@ -5,6 +5,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 # The Flutter mobile web build, served at /m/ (cycle 154, D-140). Flutter is pinned by its git tag.
+# --no-web-resources-cdn bundles CanvasKit under /m/canvaskit/ instead of loading it from www.gstatic.com (cycle 155).
 FROM debian:bookworm-slim AS mobile
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl unzip xz-utils ca-certificates \
@@ -17,7 +18,7 @@ COPY mobile/pubspec.yaml mobile/pubspec.lock ./
 COPY mobile/packages/ ./packages/
 RUN flutter pub get
 COPY mobile/ ./
-RUN flutter build web --release --base-href /m/
+RUN flutter build web --release --base-href /m/ --no-web-resources-cdn
 FROM eclipse-temurin:17-jdk AS jar
 WORKDIR /src
 COPY backend/ ./

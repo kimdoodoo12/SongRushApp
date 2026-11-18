@@ -323,10 +323,11 @@ class AppController extends ChangeNotifier {
   bool get canSwitchToPc => _navigate != null;
 
   /// The React web's path for this screen: `/r/<code>` in a room (or while
-  /// rejoining one), `/` otherwise.
+  /// rejoining one), `/` otherwise, with `?ui=pc`, which keeps the phone on
+  /// the React web even when its localStorage is blocked (cycle 155).
   String get pcPath {
     final code = _state?.roomCode ?? _resumingCode;
-    return code == null || code.isEmpty ? '/' : '/r/$code';
+    return code == null || code.isEmpty ? '/?ui=pc' : '/r/$code?ui=pc';
   }
 
   /// The PC version link: stores the choice so the React web keeps this
