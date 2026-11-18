@@ -62,6 +62,57 @@
   </script>
 
   <!--
+    Cycle 158: the app no longer uses Flutter's service worker (see
+    flutter_bootstrap.js). Removes the one an earlier deploy installed under
+    /m/, and Flutter's caches, without holding up the start. The count shows
+    in the cycle-157 diagnostics.
+  -->
+  <script>
+    (function () {
+      function note(text) {
+        var diag = window.__srDiag;
+        if (!diag) return;
+        diag.push(text);
+        if (diag.length > 10) diag.shift();
+      }
+      function failed(what, e) {
+        note(what + ' failed: ' + String(e && e.message ? e.message : e).slice(0, 120));
+      }
+      if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+        navigator.serviceWorker.getRegistrations().then(function (registrations) {
+          var ours = registrations.filter(function (r) {
+            return String(r.scope).indexOf('/m/') !== -1;
+          });
+          return Promise.all(ours.map(function (r) {
+            return r.unregister().catch(function (e) {
+              failed('sw unregister', e);
+              return false;
+            });
+          }));
+        }).then(function (results) {
+          var count = results.filter(Boolean).length;
+          if (count > 0) note('sw unregistered: ' + count);
+        }).catch(function (e) {
+          failed('sw cleanup', e);
+        });
+      }
+      if (window.caches && caches.keys) {
+        caches.keys().then(function (names) {
+          var flutter = names.filter(function (n) {
+            return /^flutter-(app-cache|temp-cache|app-manifest)/.test(n);
+          });
+          return Promise.all(flutter.map(function (n) { return caches.delete(n); }));
+        }).then(function (results) {
+          var count = results.filter(Boolean).length;
+          if (count > 0) note('sw caches deleted: ' + count);
+        }).catch(function (e) {
+          failed('cache cleanup', e);
+        });
+      }
+    })();
+  </script>
+
+  <!--
     Uncomment the tag below to lay the app out underneath the parts of the
     screen that the device obstructs, such as a display cutout, the rounded
     corners of the screen, or a home indicator.
@@ -134,6 +185,43 @@
         return false;
       }
 
+      // Cycle 158: the app's big downloads so far, one line each. A browser
+      // adds a resource here only once it has finished (or failed), so the
+      // "missing" line names the ones not finished yet.
+      function resourceLines() {
+        if (!window.performance || !performance.getEntriesByType) return [];
+        var wanted = /main\.dart\.js|canvaskit|soloud|\.ttf|flutter_bootstrap/;
+        var lines = [];
+        var variant = 'none requested';
+        var seen = { bootstrap: false, main: false, ckJs: false, ckWasm: false };
+        performance.getEntriesByType('resource').forEach(function (r) {
+          var at = r.name.indexOf('/m/');
+          if (at === -1 || !wanted.test(r.name)) return;
+          var name = r.name.slice(at + 3).split('?')[0];
+          var ck = /^canvaskit\/(?:(chromium|webparagraph)\/)?canvaskit\.js$/.exec(name);
+          if (ck) variant = ck[1] || 'full';
+          if (name === 'flutter_bootstrap.js') seen.bootstrap = true;
+          if (name === 'main.dart.js') seen.main = true;
+          if (/canvaskit\.js$/.test(name)) seen.ckJs = true;
+          if (/canvaskit\.wasm$/.test(name)) seen.ckWasm = true;
+          // responseStatus 0 is a failed request; Chrome 109+ reports it.
+          var status = typeof r.responseStatus === 'number' && r.responseStatus !== 200
+            ? ' status ' + r.responseStatus : '';
+          lines.push('res: ' + name.replace(/^assets\/(packages\/|assets\/)?/, '').slice(-44) + ' ' +
+            Math.round(r.duration) + 'ms ' +
+            Math.round((r.transferSize || 0) / 1024) + '/' + Math.round((r.encodedBodySize || 0) / 1024) + 'KB' +
+            status + (r.responseEnd === 0 ? ' (loading)' : ''));
+        });
+        var missing = [];
+        if (!seen.bootstrap) missing.push('flutter_bootstrap.js');
+        if (!seen.main) missing.push('main.dart.js');
+        if (!seen.ckJs) missing.push('canvaskit.js');
+        if (!seen.ckWasm) missing.push('canvaskit.wasm');
+        lines.unshift('canvaskit variant: ' + variant);
+        if (missing.length) lines.push('missing: ' + missing.join(', '));
+        return lines;
+      }
+
       function showSlow() {
         document.getElementById('loading-text').textContent = '오래 걸리고 있어요… / Still loading…';
         var retry = document.getElementById('loading-retry');
@@ -144,13 +232,16 @@
         };
         var ua = String(navigator.userAgent).replace(/Mozilla\/5\.0 /, '').slice(0, 140);
         var diag = window.__srDiag || [];
+        var connection = navigator.connection && navigator.connection.effectiveType;
         var lines = [
           'UA: ' + ua,
+          'elapsed: ' + ((Date.now() - started) / 1000).toFixed(1) + 's' +
+            (connection ? ', network: ' + connection : ''),
           'flutter-view: ' + (document.querySelector('flutter-view') ? 'yes' : 'no'),
           'crossOriginIsolated: ' + String(window.crossOriginIsolated),
           '_flutter: ' + (window._flutter ? 'yes' : 'no'),
           diag.length ? diag.join('\n') : '오류 없음 / no errors'
-        ];
+        ].concat(resourceLines());
         var box = document.getElementById('loading-diag');
         box.textContent = lines.join('\n');
         box.style.display = 'block';
