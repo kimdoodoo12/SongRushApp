@@ -270,6 +270,75 @@
     sound engine starts (lib/platform/soloud_script_web.dart), so its 2 MB
     stay off the first load.
   -->
+  <!--
+    Cycle 162: with ?debug=1 in the URL, a small overlay of the viewport
+    and keyboard numbers (window.__srInset is the inset the app read,
+    window.__srMqInset the one it applied), for a phone with no dev tools.
+    Nothing is added without the query.
+  -->
+  <script>
+    (function () {
+      if (!/(?:^|[?&])debug=1(?:&|$)/.test(location.search)) return;
+      var box = document.createElement('div');
+      box.id = 'sr-debug';
+      box.style.cssText = 'position:fixed;top:0;right:0;z-index:2147483647;pointer-events:none;' +
+        'max-width:60vw;padding:4px 6px;background:rgba(0,0,0,0.6);color:#fff1e6;' +
+        'font:10px/1.3 monospace;white-space:pre-wrap;word-break:break-all';
+      document.body.appendChild(box);
+      var started = Date.now();
+      var log = [];
+      var lastVvH = null;
+
+      function num(v) {
+        return typeof v === 'number' ? String(Math.round(v * 10) / 10) : '-';
+      }
+      function value(v) {
+        return v === undefined || v === null ? '-' : num(v);
+      }
+
+      function refresh(reason) {
+        var vv = window.visualViewport;
+        var vvH = vv ? vv.height : null;
+        if (vvH !== lastVvH) {
+          log.push((Date.now() - started) + 'ms vvh ' + num(lastVvH) + '->' + num(vvH) +
+            (reason ? ' (' + reason + ')' : ''));
+          if (log.length > 6) log.shift();
+          lastVvH = vvH;
+        }
+        var view = document.querySelector('flutter-view');
+        var active = document.activeElement;
+        // Into an open shadow root, where Flutter may keep its input.
+        while (active && active.shadowRoot && active.shadowRoot.activeElement) {
+          active = active.shadowRoot.activeElement;
+        }
+        var activeText = active ? active.tagName + (active.type ? ' ' + active.type : '') : '-';
+        var lines = [
+          'inner ' + window.innerWidth + 'x' + window.innerHeight,
+          vv ? 'vv ' + num(vv.width) + 'x' + num(vv.height) + ' off(' + num(vv.offsetTop) + ',' +
+            num(vv.offsetLeft) + ') ' + num(vv.scale) : 'vv none',
+          'flutter-view h ' + (view ? num(view.getBoundingClientRect().height) : 'none'),
+          'scrollY ' + num(window.scrollY),
+          'active ' + activeText,
+          '__srInset ' + value(window.__srInset),
+          '__srMqInset ' + value(window.__srMqInset)
+        ].concat(log);
+        box.textContent = lines.join('\n');
+      }
+
+      function on(target, type) {
+        target.addEventListener(type, function () { refresh(type); });
+      }
+      if (window.visualViewport) {
+        on(window.visualViewport, 'resize');
+        on(window.visualViewport, 'scroll');
+      }
+      on(window, 'resize');
+      on(window, 'focusin');
+      on(window, 'focusout');
+      setInterval(function () { refresh(''); }, 250);
+      refresh('start');
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

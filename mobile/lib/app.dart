@@ -89,10 +89,15 @@ class _SongRushAppState extends State<SongRushApp> {
     return ValueListenableBuilder<double>(
       valueListenable: keyboard,
       child: app,
-      builder: (context, inset, app) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.only(bottom: inset)),
-        child: app!,
-      ),
+      builder: (context, inset, app) {
+        // Cycle 162: the applied inset, for the ?debug=1 overlay (web only),
+        // recorded after the frame so the build stays pure.
+        WidgetsBinding.instance.addPostFrameCallback((_) => reportAppliedKeyboardInset(inset));
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(viewInsets: EdgeInsets.only(bottom: inset)),
+          child: app!,
+        );
+      },
     );
   }
 
