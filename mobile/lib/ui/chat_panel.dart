@@ -259,12 +259,20 @@ class _ChatFormState extends State<ChatForm> {
             ),
           ),
           const SizedBox(width: 8),
-          RoomButton(
-            key: const ValueKey('chat-send'),
-            label: t.chatSend,
-            kind: ButtonKind.primary,
-            compact: true,
-            onPressed: _send,
+          // 보내기 counts as part of the field (cycle 163): on the web a
+          // touch outside a TextField unfocuses it on pointer down, which
+          // closed the text connection until the send refocused it; the
+          // keyboard's resize in that gap set Flutter's view to the
+          // keyboard-open height, and it stayed there once the keyboard
+          // went down (the screen squeezed to the top, the rest empty).
+          TextFieldTapRegion(
+            child: RoomButton(
+              key: const ValueKey('chat-send'),
+              label: t.chatSend,
+              kind: ButtonKind.primary,
+              compact: true,
+              onPressed: _send,
+            ),
           ),
         ],
       ),

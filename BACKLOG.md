@@ -449,6 +449,7 @@ Acceptance values come only from user decisions, external sources, raw fixtures 
 - [x] **F-M10** release fixes: escape to the PC web, no 모바일 버전 link mid-game, local CanvasKit, old upload path labelled (release check 2026-11-18)
 - [x] **F-M11** mobile game layout v2 (D-145)
 - [x] **F-M12** the mobile web follows the real keyboard (visualViewport), cycle 161
+- [x] **F-M13** sending a chat line keeps the text connection; a guard restores a stuck view (cycle 163)
 - [x] **I-012** serve the Flutter web build to phones: the build hosted beside the React web (a path such as `/m/`), phones sent there, a switch link both ways; the deployment change is the owner's (D-140)
 - [ ] **I-011** Android packaging and release APK signing, after the mobile web plays correctly (design 141 item 9, D-140; the Android SDK licences and the key are the owner's)
 ## Roadmap
