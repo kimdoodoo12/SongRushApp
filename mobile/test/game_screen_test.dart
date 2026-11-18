@@ -107,27 +107,47 @@ Map<String, Object?> revealFrame(
       'playUntil': ?playUntil,
     };
 
-/// The chat log's texts, in order.
+/// The chat log's texts, in order, without the names beside the lines
+/// (D-145).
 List<String> logTexts(WidgetTester tester) {
   final log = find.byKey(const ValueKey('chat-log'));
   return [
-    for (final w in tester.widgetList<Text>(find.descendant(of: log, matching: find.byType(Text)))) w.data ?? '',
+    for (final w in tester.widgetList<Text>(find.descendant(of: log, matching: find.byType(Text))))
+      if (w.key != const ValueKey('chat-name')) w.data ?? '',
   ];
 }
 
-/// The latest chat lines above the form (a choice room, the game over),
-/// oldest first; the oldest may be cut off at the box's top.
-List<String> previewTexts(WidgetTester tester) {
-  final preview = find.byKey(const ValueKey('chat-preview-lines'));
+/// The chat lines floating over a choice room's covers (D-145), oldest
+/// first, as plain text (a said line: the name, a space, the text).
+List<String> floatTexts(WidgetTester tester) {
+  final float = find.byKey(const ValueKey('chat-float'));
+  if (float.evaluate().isEmpty) return const [];
   return [
-    for (final w in tester.widgetList<Text>(find.descendant(of: preview, matching: find.byType(Text)))) w.data ?? '',
+    for (final w in tester.widgetList<Text>(find.descendant(of: float, matching: find.byType(Text))))
+      w.data ?? w.textSpan!.toPlainText(),
   ];
 }
 
-/// Opens the full chat from the latest lines.
+/// Opens a choice room's chat panel with the round 채팅 button.
 Future<void> openChat(WidgetTester tester, Harness h) async {
-  await tester.tap(find.byKey(const ValueKey('chat-preview')));
+  await tester.tap(find.byKey(const ValueKey('chat-open')));
   await h.settle(tester);
+}
+
+/// The scores sheet's row of [name] (D-145) as its texts joined by spaces;
+/// opens the sheet from 내 순위 and closes it again.
+Future<String> scoreRow(WidgetTester tester, Harness h, String name) async {
+  await tester.tap(find.byKey(const ValueKey('my-rank')));
+  await h.settle(tester);
+  final row = [
+    for (final w in tester.widgetList<Text>(
+      find.descendant(of: find.byKey(ValueKey('score-$name')), matching: find.byType(Text)),
+    ))
+      w.data ?? '',
+  ].join(' ');
+  await tester.tap(find.byKey(const ValueKey('scores-close')));
+  await h.settle(tester);
+  return row;
 }
 
 String textOf(WidgetTester tester, String key) {
@@ -178,8 +198,7 @@ void main() {
     await h.settle(tester);
     expect(logTexts(tester).sublist(3), ['진격의 거인', '✔ Aki 정답!']);
     expect(textOf(tester, 'hint'), 'Aki 정답!');
-    final seat = tester.widget<Text>(find.byKey(const ValueKey('seat-score-Aki')));
-    expect(seat.textSpan!.toPlainText(), '0점 정답!');
+    expect(await scoreRow(tester, h, 'Aki'), '1위 Aki 0점 정답!');
 
     h.receive(revealFrame(0, winner: 'Aki'));
     h.receive({
@@ -191,7 +210,8 @@ void main() {
     });
     await h.settle(tester);
     expect(textOf(tester, 'reveal-who'), '정답: Aki');
-    expect(tester.widget<Text>(find.byKey(const ValueKey('seat-score-Aki'))).textSpan!.toPlainText(), '1점 정답!');
+    expect(buttonText(tester, 'my-rank'), '내 순위 2위 · 0점 ▾');
+    expect(await scoreRow(tester, h, 'Aki'), '1위 Aki 1점 정답!');
     // After the reveal chat is ordinary chat.
     h.receive({'type': 'chat', 'name': 'Mina', 'text': 'gg'});
     await h.settle(tester);
@@ -235,8 +255,8 @@ void main() {
     h.receive({'type': 'chat', 'name': 'Mina', 'text': 'shingeki'});
     await h.settle(tester);
     expect(logTexts(tester).sublist(logTexts(tester).length - 3), ['✔ Aki 정답! (1등)', 'shingeki', '✔ Mina 정답! (2등)']);
-    expect(tester.widget<Text>(find.byKey(const ValueKey('seat-score-Aki'))).textSpan!.toPlainText(), '0점 정답!');
-    expect(tester.widget<Text>(find.byKey(const ValueKey('seat-score-Mina'))).textSpan!.toPlainText(), '0점 정답!');
+    expect(await scoreRow(tester, h, 'Aki'), '1위 Aki 0점 정답!');
+    expect(await scoreRow(tester, h, 'Mina'), '1위 Mina (나) 0점 정답!');
 
     h.receive(revealFrame(0, winner: 'Aki', ranking: [
       {'name': 'Aki', 'rank': 1, 'points': 3},
@@ -289,9 +309,9 @@ void main() {
     h.receive({'type': 'wrong', 'index': 0, 'name': 'Aki'});
     h.receive({'type': 'chat', 'name': 'Aki', 'text': '진격의 거인'});
     await h.settle(tester);
-    // A choice room shows the latest lines above the form (D-142); a tap
+    // A choice room floats the latest lines over the covers (D-145); 채팅
     // opens the full log.
-    expect(previewTexts(tester).sublist(previewTexts(tester).length - 2), ['✘ Aki 오답', '진격의 거인']);
+    expect(floatTexts(tester).sublist(floatTexts(tester).length - 2), ['✘ Aki 오답', 'Aki 진격의 거인']);
     await openChat(tester, h);
     expect(logTexts(tester).sublist(logTexts(tester).length - 2), ['✘ Aki 오답', '진격의 거인']);
     await tester.tap(find.byKey(const ValueKey('chat-close')));
@@ -378,7 +398,8 @@ void main() {
     await h.advance(tester, const Duration(seconds: 4));
     expect(textOf(tester, 'clock'), '');
     expect(find.byKey(const ValueKey('skip')), findsNothing);
-    expect(find.byKey(const ValueKey('reveal')), findsOneWidget);
+    // Past 3.5 s the card has folded into its strip (D-145).
+    expect(find.byKey(const ValueKey('reveal-strip')), findsOneWidget);
     await h.tearDown(tester);
   });
 
@@ -473,13 +494,14 @@ void main() {
     expect(find.text('5점 (나)'), findsOneWidget);
     expect(textOf(tester, 'final-score'), '최종 점수: 5점');
     // The ranking replaces the middle (D-142: the last card goes); no
-    // 나가기, no chat form; the latest lines open the full log.
+    // 나가기, no chat form; a chat room's log stays below it (D-145).
     expect(find.byKey(const ValueKey('reveal')), findsNothing);
+    expect(find.byKey(const ValueKey('reveal-strip')), findsNothing);
     expect(find.byKey(const ValueKey('game-leave')), findsNothing);
     expect(find.byKey(const ValueKey('chat-input')), findsNothing);
-    expect(previewTexts(tester).last, '게임 종료');
-    await openChat(tester, h);
     expect(logTexts(tester).last, '게임 종료');
+    expect(tester.getRect(find.byKey(const ValueKey('chat-log'))).top,
+        greaterThan(tester.getRect(find.byKey(const ValueKey('final'))).bottom));
     expect(find.byKey(const ValueKey('to-lobby')), findsNothing);
 
     h.receive({

@@ -168,5 +168,8 @@
   "offsetReset": "Reset",
   "offsetClose": "Close",
   "appPcVersion": "PC version",
-  "chatTalkPlaceholder": "Chat with everyone"
+  "chatTalkPlaceholder": "Chat with everyone",
+  "myRank": "Rank {rank} · {points} pt",
+  "revealMore": "More",
+  "revealLess": "Less"
 }

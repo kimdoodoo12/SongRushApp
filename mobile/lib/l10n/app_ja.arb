@@ -168,5 +168,8 @@
   "offsetReset": "リセット",
   "offsetClose": "閉じる",
   "appPcVersion": "PC版",
-  "chatTalkPlaceholder": "チャットで話そう"
+  "chatTalkPlaceholder": "チャットで話そう",
+  "myRank": "{rank}位 · {points}点",
+  "revealMore": "詳しく",
+  "revealLess": "閉じる"
 }
