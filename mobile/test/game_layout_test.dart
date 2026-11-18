@@ -305,7 +305,15 @@ void main() {
           expect(floatBackAlpha(tester, 'third'), greaterThan(floatBackAlpha(tester, 'second')));
           expect(floatBackAlpha(tester, 'second'), greaterThan(floatBackAlpha(tester, 'first')));
           final float = rectOf(tester, 'chat-float');
-          expect(float.left, closeTo(12, 1));
+          // Inset from the covers' left edge, so a bubble's rounded left
+          // end shows whole (cycle 164).
+          expect(float.left, closeTo(12 + floatInset, 1));
+          // Where the covers fill the width, the bubbles start inside their
+          // polaroid frames (5 px around 'tile-N'), not at their edge.
+          final frameLeft = tileRects(tester, count).map((r) => r.left - 5).reduce((a, b) => a < b ? a : b);
+          if (frameLeft - 12 <= 2) {
+            expect(float.left - frameLeft, greaterThanOrEqualTo(floatInset - 2), reason: 'inset into the covers');
+          }
           expect(float.right, lessThanOrEqualTo(button.left));
           expect(float.bottom, closeTo(button.bottom, 1));
           expect(find.ancestor(of: find.byKey(const ValueKey('chat-float')), matching: find.byType(IgnorePointer)),

@@ -670,7 +670,7 @@
   "@errorBadRoomTheme": {
     "description": "web: error.bad-room-theme"
   },
-  "errorBadSongCount": "곡 수는 5~30곡입니다.",
+  "errorBadSongCount": "곡 수는 5~100곡입니다.",
   "@errorBadSongCount": {
     "description": "web: error.bad-song-count"
   },
@@ -787,5 +787,13 @@
   "revealLess": "접기",
   "@revealLess": {
     "description": "app only: folds the full reveal card back into its strip"
+  },
+  "roomLeaveAsk": "방에서 나갈까요?",
+  "@roomLeaveAsk": {
+    "description": "app only: a back in the lobby or after the game asks this before leaving the room"
+  },
+  "exitAsk": "SongRush를 나갈까요?",
+  "@exitAsk": {
+    "description": "app only: a back on the start screen asks this before leaving the site"
   }
 }

@@ -111,6 +111,12 @@ class LostRoom {
 /// game the screen is kept awake through `keepAwake` (the Screen Wake Lock
 /// on the web). The manual sound offset is kept in the local prefs and used
 /// by the round controller from the next song.
+///
+/// The back button or gesture (cycle 164) reaches [handleBack]: it closes
+/// the top thing open (a confirm, the nickname dialog, the sound offset
+/// setting, the open screen's own overlays), else asks before leaving the
+/// room (the lobby and the game) or the site (the start screen); the
+/// rejoining and disconnected screens go back to the start screen.
 class AppController extends ChangeNotifier {
   AppController({
     required this._socketFactory,
@@ -121,6 +127,7 @@ class AppController extends ChangeNotifier {
     this._unlockSound,
     this._keepAwake,
     this._navigate,
+    this._exitApp,
     bool pageReloaded = false,
     List<Locale> deviceLocales = const [],
     String initialCode = '',
@@ -135,19 +142,21 @@ class AppController extends ChangeNotifier {
     _language = pickLanguage(stored: _prefs.read(languageKey), deviceLocales: deviceLocales);
     dialogName = _prefs.read(nicknameKey) ?? '';
     addListener(_syncAwake);
+    addListener(_syncScreen);
     // A reload takes the room back (App.jsx reloadPlan); any other start
     // drops the entry, as does a malformed one.
     final stored = _tokenStore.read();
     if (stored != null && pageReloaded) {
       _resume(stored);
-      return;
+    } else {
+      _tokenStore.clear();
+      // A share link opens the join dialog at once (App.jsx), once per
+      // load, not on a reload rejoin.
+      if (this.initialCode.length == codeLength) {
+        _dialog = NicknameDialogState(mode: DialogMode.join, code: this.initialCode);
+      }
     }
-    _tokenStore.clear();
-    // A share link opens the join dialog at once (App.jsx), once per load,
-    // not on a reload rejoin.
-    if (this.initialCode.length == codeLength) {
-      _dialog = NicknameDialogState(mode: DialogMode.join, code: this.initialCode);
-    }
+    _shownScreen = screen;
   }
 
   static void _log(String message) => developer.log(message, name: 'songrush.app');
@@ -163,6 +172,7 @@ class AppController extends ChangeNotifier {
   final Future<void> Function()? _unlockSound;
   final void Function(bool on)? _keepAwake;
   final void Function(String path)? _navigate;
+  final void Function()? _exitApp;
   final int Function() _now;
   final void Function(String message) _warn;
 
@@ -195,6 +205,14 @@ class AppController extends ChangeNotifier {
   String? _resumingCode;
   LostRoom? _lost;
   bool _offsetOpen = false;
+  // The confirms of a back (or of the game's 나가기): leaving the room, or
+  // leaving the site from the start screen. A new screen drops them.
+  bool _leaveAsked = false;
+  bool _exitAsked = false;
+  Screen? _shownScreen;
+  // The open screen's own overlays (the game's scores and chat panel):
+  // closes the top one and says whether one was open.
+  bool Function()? _screenBack;
   // The wake lock was last asked on.
   bool _awake = false;
 
@@ -309,6 +327,12 @@ class AppController extends ChangeNotifier {
 
   /// The sound offset setting is open.
   bool get offsetOpen => _offsetOpen;
+
+  /// The leave confirm is open (방에서 나갈까요? / 게임을 나갈까요?).
+  bool get leaveAsked => _leaveAsked;
+
+  /// The start screen's exit confirm is open (SongRush를 나갈까요?).
+  bool get exitAsked => _exitAsked;
 
   /// The manual sound offset in ms (positive plays later).
   int get manualOffsetMs => _rounds?.manualOffsetMs ?? clampManualOffset(_playback.readManualOffsetMs() ?? 0);
@@ -492,6 +516,72 @@ class AppController extends ChangeNotifier {
     if (_awake) _keepAwake?.call(true);
   }
 
+  /// The back button or gesture (the web's browser back, routed by the app's
+  /// PopScope). The top thing open closes: a confirm, the nickname dialog,
+  /// the sound offset setting, then the open screen's own overlays. With
+  /// none open: the start screen asks before leaving the site, the lobby
+  /// and the game (and its game-over) before leaving the room; the
+  /// rejoining screen gives the room up and the disconnected screen goes
+  /// back, both to the start screen.
+  void handleBack() {
+    if (_exitAsked) return cancelExit();
+    if (_leaveAsked) return cancelLeave();
+    if (_dialog != null) return cancelDialog();
+    if (_offsetOpen) return closeOffset();
+    if (_screenBack?.call() ?? false) return;
+    switch (screen) {
+      case Screen.start:
+        _exitAsked = true;
+        notifyListeners();
+      case Screen.lobby || Screen.game || Screen.over:
+        askLeave();
+      case Screen.rejoining:
+        leave();
+      case Screen.disconnected:
+        reset();
+    }
+  }
+
+  /// The open screen's own overlays for [handleBack]: [close] closes the
+  /// top one and returns true, or returns false when none is open. Null (or
+  /// [unregisterScreenBack] with the same function) removes it.
+  void registerScreenBack(bool Function()? close) => _screenBack = close;
+
+  void unregisterScreenBack(bool Function() close) {
+    // Tear-offs of one method are equal, not identical.
+    if (_screenBack == close) _screenBack = null;
+  }
+
+  /// Opens the leave confirm (the game's 나가기, or a back in a room).
+  void askLeave() {
+    if (_leaveAsked || _state?.roomCode == null) return;
+    _leaveAsked = true;
+    notifyListeners();
+  }
+
+  /// 취소 (or a back) on the leave confirm: stays in the room.
+  void cancelLeave() {
+    if (!_leaveAsked) return;
+    _leaveAsked = false;
+    notifyListeners();
+  }
+
+  /// 취소 (or a back) on the exit confirm: stays on the start screen.
+  void cancelExit() {
+    if (!_exitAsked) return;
+    _exitAsked = false;
+    notifyListeners();
+  }
+
+  /// 나가기 on the exit confirm: leaves the site (`exitApp`, the browser's
+  /// history back past the app's entry on the web).
+  void confirmExit() {
+    if (!_exitAsked) return;
+    _exitAsked = false;
+    notifyListeners();
+    _exitApp?.call();
+  }
+
   /// 나가기: tells the server and returns to the start screen.
   void leave() {
     final session = _session;
@@ -544,6 +634,16 @@ class AppController extends ChangeNotifier {
     _resumingCode = entry.code;
     _open((factory, now) => Session.resume(
         socketFactory: factory, tokenStore: _tokenStore, entry: entry, now: now, warn: _warn));
+  }
+
+  // A confirm belongs to the screen it was asked on: the game ending, the
+  // room lost or left, or a game starting from the lobby drops it.
+  void _syncScreen() {
+    final now = screen;
+    if (now == _shownScreen) return;
+    _shownScreen = now;
+    _leaveAsked = false;
+    _exitAsked = false;
   }
 
   // The screen is kept awake while a game is on screen (not its game-over).

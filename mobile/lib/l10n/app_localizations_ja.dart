@@ -503,7 +503,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get errorBadRoomTheme => '不明なテーマです。';
 
   @override
-  String get errorBadSongCount => '曲数は5〜30曲です。';
+  String get errorBadSongCount => '曲数は5〜100曲です。';
 
   @override
   String get errorInGame => 'ゲーム中です。終わってから参加してください。';
@@ -589,4 +589,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get revealLess => '閉じる';
+
+  @override
+  String get roomLeaveAsk => 'ルームを退出しますか？';
+
+  @override
+  String get exitAsk => 'SongRushを退出しますか？';
 }

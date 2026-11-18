@@ -34,6 +34,7 @@ class Harness {
       unlockSound: () async => unlocks++,
       keepAwake: awake.add,
       navigate: canNavigate ? navigations.add : null,
+      exitApp: () => exits++,
       pageReloaded: reloaded,
       deviceLocales: deviceLocales,
       initialCode: initialCode,
@@ -62,6 +63,10 @@ class Harness {
   /// Every page navigation (the PC version link), in order; only with
   /// `canNavigate` (the web build).
   final List<String> navigations = [];
+
+  /// How many times the app asked to leave the site (the start screen's
+  /// exit confirm, cycle 164).
+  int exits = 0;
 
   /// Every wake lock switch, in order.
   final List<bool> awake = [];

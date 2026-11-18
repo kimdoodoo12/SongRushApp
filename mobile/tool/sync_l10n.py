@@ -85,6 +85,20 @@ APP_KEYS = {
     ),
     "revealMore": ("자세히", "More", "詳しく", "expands the folded reveal strip into the full card"),
     "revealLess": ("접기", "Less", "閉じる", "folds the full reveal card back into its strip"),
+    # cycle 164: the back button's confirms (the buttons are game.leaveConfirm
+    # and game.leaveCancel).
+    "roomLeaveAsk": (
+        "방에서 나갈까요?",
+        "Leave the room?",
+        "ルームを退出しますか？",
+        "a back in the lobby or after the game asks this before leaving the room",
+    ),
+    "exitAsk": (
+        "SongRush를 나갈까요?",
+        "Leave SongRush?",
+        "SongRushを退出しますか？",
+        "a back on the start screen asks this before leaving the site",
+    ),
 }
 
 

@@ -503,7 +503,7 @@ class AppLocalizationsKo extends AppLocalizations {
   String get errorBadRoomTheme => '알 수 없는 분위기입니다.';
 
   @override
-  String get errorBadSongCount => '곡 수는 5~30곡입니다.';
+  String get errorBadSongCount => '곡 수는 5~100곡입니다.';
 
   @override
   String get errorInGame => '게임이 진행 중입니다. 끝난 뒤에 참가해 주세요.';
@@ -589,4 +589,10 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get revealLess => '접기';
+
+  @override
+  String get roomLeaveAsk => '방에서 나갈까요?';
+
+  @override
+  String get exitAsk => 'SongRush를 나갈까요?';
 }
