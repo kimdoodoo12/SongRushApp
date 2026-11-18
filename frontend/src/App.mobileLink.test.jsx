@@ -1,7 +1,8 @@
 // Cycle 154 (D-140): the shared footer has a 모바일 버전 link (app.mobileVersion,
 // ko/en/ja) to the matching /m/ path: /m/ on the start screen, /m/r/<code>
 // for a /r/<code> link and in a room. A click stores localStorage
-// songrush.ui = "mobile". Timer rule (cycle 039): real timers and waitFor.
+// songrush.ui = "mobile". Not on the game screen (cycle 155): leaving
+// mid-game loses the seat. Timer rule (cycle 039): real timers and waitFor.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act, cleanup, within } from '@testing-library/react'
 import App from './App.jsx'
@@ -95,5 +96,24 @@ describe('footer 모바일 버전 link', () => {
     act(() => socket.receive({ type: 'joined', code: 'QWERT', name: 'Kai' }))
     act(() => socket.receive({ type: 'roster', phase: 'lobby', players: [player('Kai', { host: true })] }))
     await waitFor(() => expect(mobileLink().getAttribute('href')).toBe('/m/r/QWERT'))
+  })
+
+  it('is absent on the game screen, while the rest of the footer stays', async () => {
+    const env = setup()
+    createRoomAs('Kai')
+    await waitFor(() => expect(env.sockets.sockets.length).toBe(1))
+    const socket = env.sockets.last
+    act(() => socket.open())
+    await waitFor(() => expect(socket.sentOfType('create')).toHaveLength(1))
+    act(() => socket.receive({ type: 'joined', code: 'QWERT', name: 'Kai' }))
+    act(() => socket.receive({ type: 'roster', phase: 'lobby', players: [player('Kai', { host: true })] }))
+    await waitFor(() => expect(mobileLink().getAttribute('href')).toBe('/m/r/QWERT'))
+    act(() => socket.receive({ type: 'roster', phase: 'playing', players: [player('Kai', { host: true })] }))
+    act(() => socket.receive({ type: 'prepare', index: 0, total: 5, audioUrl: '/audio/s0' }))
+    await waitFor(() => expect(socket.sentOfType('ready')).toHaveLength(1))
+    expect(screen.queryByRole('link', { name: ko.app.mobileVersion })).toBe(null)
+    const footer = screen.getByRole('group', { name: 'Language' }).closest('footer')
+    expect(footer).not.toBe(null)
+    expect(within(footer).getByRole('button', { name: ko.feedback.title })).toBeTruthy()
   })
 })

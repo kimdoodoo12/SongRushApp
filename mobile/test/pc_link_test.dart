@@ -6,8 +6,9 @@ import 'support/harness.dart';
 
 // Cycle 154 (D-140): on the web build the start screen's and the lobby's
 // footer has a PC 버전 link (ko/en/ja). It stores songrush.ui = "pc", so the
-// React web keeps this phone, and goes to / (or /r/<code> in a room). Off the
-// web (no page to leave) there is no link.
+// React web keeps this phone, and goes to /?ui=pc (or /r/<code>?ui=pc in a
+// room; the query keeps the phone there even with a blocked localStorage,
+// cycle 155). Off the web (no page to leave) there is no link.
 const pcVersion = {'ko': 'PC 버전', 'en': 'PC version', 'ja': 'PC版'};
 
 final Finder pcLink = find.byKey(const ValueKey('pc-version'));
@@ -29,13 +30,13 @@ void main() {
     });
   }
 
-  testWidgets('on the start screen it stores pc and goes to /', (tester) async {
+  testWidgets('on the start screen it stores pc and goes to /?ui=pc', (tester) async {
     final h = Harness(canNavigate: true);
     await h.pumpApp(tester);
     expect(h.prefs.read(uiKey), isNull);
     await tapPcLink(tester, h);
     expect(h.prefs.read(uiKey), 'pc');
-    expect(h.navigations, ['/']);
+    expect(h.navigations, ['/?ui=pc']);
     await h.tearDown(tester);
   });
 
@@ -50,7 +51,7 @@ void main() {
     expect(find.byKey(const ValueKey('ticket-code')), findsOneWidget);
     await tapPcLink(tester, h);
     expect(h.prefs.read(uiKey), 'pc');
-    expect(h.navigations, ['/r/K7XQM']);
+    expect(h.navigations, ['/r/K7XQM?ui=pc']);
     await h.tearDown(tester);
   });
 

@@ -54,10 +54,12 @@ ever becomes a primary family, change its kind to `"text"` in the script.
 JetBrains Mono (room codes, counters) keeps ASCII, Latin-1, general
 punctuation and the symbols; its `wght` axis is kept.
 
-A character a subset lacks falls back to the browser's fonts on the web
-build: Hangul syllables outside KS X 1001 (for example 똠, 햏) and Japanese
-kana and kanji, which these fonts mostly never had (of the ja ARB's kana and
-kanji, Gowun Dodum and IBM Plex Sans KR have 2 and Jua 1).
+A character a subset lacks is not drawn from the browser's own fonts: on the
+web build, Flutter (CanvasKit) fetches a fallback font for it from Google
+Fonts (`fonts.gstatic.com`) at runtime. This covers Hangul syllables outside
+KS X 1001 (for example 똠, 햏) and Japanese kana and kanji, which these fonts
+mostly never had (of the ja ARB's kana and kanji, Gowun Dodum and IBM Plex
+Sans KR have 2 and Jua 1).
 
 | File | Full | Subset |
 |---|---|---|

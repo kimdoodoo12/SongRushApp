@@ -639,8 +639,10 @@ function GameApp({
     </p>
   )
   // The footer's switch to the mobile build (D-140): the room's /m/r/<code>
-  // in a room, else the /m/ path matching this page.
+  // in a room, else the /m/ path matching this page. Only on the start screen
+  // and in the lobby: leaving mid-game would lose the seat (cycle 155).
   const mobileHref = inRoom ? `/m/r/${state.room.code}` : (mobilePath(window.location.pathname) ?? '/m/')
+  const showMobileLink = view === 'start' || view === 'lobby'
   const footer = (
     <footer className="mt-auto flex flex-col items-center gap-2 pt-8">
       <div className="flex flex-wrap items-center justify-center gap-2">
@@ -648,9 +650,11 @@ function GameApp({
         <button ref={feedbackButtonRef} type="button" className="btn" onClick={() => setFeedbackOpen(true)}>
           {t('feedback.title')}
         </button>
-        <a className="btn" href={mobileHref} onClick={() => storeUi(window, 'mobile')}>
-          {t('app.mobileVersion')}
-        </a>
+        {showMobileLink && (
+          <a className="btn" href={mobileHref} onClick={() => storeUi(window, 'mobile')}>
+            {t('app.mobileVersion')}
+          </a>
+        )}
       </div>
       <p className="credit text-center text-xs text-muted">{t('app.credit')}</p>
     </footer>

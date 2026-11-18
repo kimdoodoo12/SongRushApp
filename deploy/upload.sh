@@ -9,6 +9,11 @@
 # sftp batch does all of it; one ssh then swaps in the jar, restarts, and
 # waits for /health. On failure it prints the command that restores the last
 # jar that answered /health.
+#
+# OLD PATH (cycle 155): the live site deploys the Docker image (`Dockerfile`
+# at the repository root). This script does not build or upload the Flutter
+# mobile web build, so a server updated with it has no /m/ for the phones
+# the web redirects there.
 set -euo pipefail
 
 usage() {
@@ -26,6 +31,8 @@ if [ "$#" -lt 1 ] || [ "$#" -gt 2 ] || [ -z "$1" ] || [[ $1 == -* ]]; then
 fi
 host=$1
 key=${2:-}
+
+echo "upload.sh: warning: this old path does not ship the mobile web build (/m/); the live site deploys the Docker image (Dockerfile)" >&2
 
 # Builtins only up to here, so a missing tool is reported before anything runs.
 for tool in ssh sftp; do

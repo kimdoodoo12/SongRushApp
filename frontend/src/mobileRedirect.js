@@ -2,6 +2,9 @@
 // decision runs in main.jsx before React renders; the footer's "mobile
 // version" link and the mobile build's "PC version" link store the viewer's
 // choice under UI_KEY, and a stored "pc" keeps a phone on this site.
+// Cycle 155: a `ui=pc` or `ui=mobile` query (the mobile build's fallback
+// link and PC button use `/?ui=pc`) is stored and decides, so the escape
+// works even when localStorage is blocked.
 
 export const UI_KEY = 'songrush.ui'
 
@@ -45,21 +48,45 @@ export function storeUi(win, value) {
   }
 }
 
-// Where a viewer goes before React renders: the /m/ URL (with the query and
-// hash kept) for a phone on / or /r/<code> that did not choose the PC
-// version; null to stay.
+// The choice in the URL query's `ui` ('pc' or 'mobile'), or null for none
+// or any other value.
+export function queryUi(win) {
+  const value = new URLSearchParams(win.location.search).get('ui')
+  return value === 'pc' || value === 'mobile' ? value : null
+}
+
+// The query without its `ui` parameter ('' when nothing is left); unchanged
+// when it has none.
+function searchWithoutUi(search) {
+  const params = new URLSearchParams(search)
+  if (!params.has('ui')) return search
+  params.delete('ui')
+  const rest = params.toString()
+  return rest === '' ? '' : `?${rest}`
+}
+
+// Where a viewer goes before React renders: the /m/ URL (with the query, less
+// any `ui`, and the hash kept) for / or /r/<code>, when the query asks for
+// the mobile version, or for a phone that did not choose the PC version (in
+// the query or stored); null to stay.
 export function redirectTarget(win) {
   const target = mobilePath(win.location.pathname)
   if (target === null) return null
-  if (storedUi(win) === 'pc') return null
-  if (!isPhone(win)) return null
-  return target + win.location.search + win.location.hash
+  const asked = queryUi(win)
+  if (asked === 'pc') return null
+  if (asked !== 'mobile') {
+    if (storedUi(win) === 'pc') return null
+    if (!isPhone(win)) return null
+  }
+  return target + searchWithoutUi(win.location.search) + win.location.hash
 }
 
-// Sends a phone to /m/ (replacing this history entry, so Back does not bounce
-// it here again). Returns true when it navigated, so the caller skips the
-// render.
+// Stores a `ui` query's choice, then sends a phone to /m/ (replacing this
+// history entry, so Back does not bounce it here again). Returns true when it
+// navigated, so the caller skips the render.
 export function redirectPhone(win) {
+  const asked = queryUi(win)
+  if (asked !== null) storeUi(win, asked)
   const target = redirectTarget(win)
   if (target === null) return false
   win.location.replace(target)
