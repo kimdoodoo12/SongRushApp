@@ -33,6 +33,17 @@ import 'ui/start_screen.dart';
 /// keyboard was hidden. Every Scaffold's resizeToAvoidBottomInset and the
 /// game screen's keyboard rules read it. Off the web Flutter's own inset
 /// stays. [keyboardInset] replaces the browser's (the tests).
+///
+/// The back button (cycle 164) goes to [AppController.handleBack] through a
+/// PopScope on the one route. On the web the engine keeps an entry of its
+/// own on top of the page's history (flutter_web_sdk navigation/history.dart
+/// SingleEntryBrowserHistory, chosen by the Navigator of MaterialApp): the
+/// browser's back lands on the entry below, the engine pushes its entry
+/// again (the URL stays) and sends `popRoute`, which the Navigator offers
+/// to this PopScope. Leaving the site is [SystemNavigator.pop] (main.dart),
+/// which the engine turns into a history back past both entries. A route
+/// pushed over the screen (a dropdown's menu) is popped first by the
+/// Navigator itself.
 class SongRushApp extends StatefulWidget {
   const SongRushApp({super.key, required this.controller, this.keyboardInset});
 
@@ -77,7 +88,13 @@ class _SongRushAppState extends State<SongRushApp> {
         ],
         theme: songRushTheme(),
         builder: _withKeyboard,
-        home: _home(controller),
+        home: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) controller.handleBack();
+          },
+          child: _home(controller),
+        ),
       ),
     );
   }

@@ -169,7 +169,7 @@
   },
   "error": {
     "bad-nickname": "Enter a nickname of 1 to 16 characters.",
-    "bad-song-count": "A game has 5 to 30 songs.",
+    "bad-song-count": "A game has 5 to 100 songs.",
     "not-enough-songs": "There are not enough songs to play.",
     "too-long": "Chat messages can be up to 200 characters.",
     "room-not-found": "Room not found.",

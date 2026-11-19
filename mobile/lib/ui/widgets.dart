@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../app/language.dart';
@@ -391,6 +392,92 @@ class RoomHeader extends StatelessWidget {
           ),
           ?trailing,
         ],
+      ),
+    );
+  }
+}
+
+/// The leave confirmation (LeaveDialog.jsx, D-138): [ask] (the game's
+/// 게임을 나갈까요? when null) with 취소 (focused on open; also Escape or a
+/// tap outside the card) and 나가기, over a modal barrier. The lobby's
+/// 방에서 나갈까요? and the start screen's SongRush를 나갈까요? (a back,
+/// cycle 164) use it too.
+class LeaveDialog extends StatelessWidget {
+  const LeaveDialog({super.key, required this.onConfirm, required this.onCancel, this.ask});
+
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+  final String? ask;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final ask = this.ask ?? t.gameLeaveAsk;
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): onCancel},
+      child: FocusScope(
+        autofocus: true,
+        child: Stack(
+          children: [
+            ModalBarrier(
+              key: const ValueKey('leave-barrier'),
+              color: const Color(0x99000000),
+              onDismiss: onCancel,
+              semanticsLabel: t.gameLeaveCancel,
+            ),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 384),
+                  child: Material(
+                    key: const ValueKey('leave-dialog'),
+                    color: Palette.panel,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Palette.radius),
+                      side: const BorderSide(color: Palette.line),
+                    ),
+                    child: Semantics(
+                      scopesRoute: true,
+                      namesRoute: true,
+                      explicitChildNodes: true,
+                      label: ask,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Semantics(header: true, child: Text(ask, style: Fonts.displayStyle(size: 21))),
+                            const SizedBox(height: 18),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                RoomButton(
+                                  key: const ValueKey('leave-cancel'),
+                                  label: t.gameLeaveCancel,
+                                  autofocus: true,
+                                  onPressed: onCancel,
+                                ),
+                                const SizedBox(width: 8),
+                                RoomButton(
+                                  key: const ValueKey('leave-confirm'),
+                                  label: t.gameLeaveConfirm,
+                                  kind: ButtonKind.primary,
+                                  onPressed: onConfirm,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

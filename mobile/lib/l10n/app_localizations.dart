@@ -973,7 +973,7 @@ abstract class AppLocalizations {
   /// web: error.bad-song-count
   ///
   /// In ko, this message translates to:
-  /// **'곡 수는 5~30곡입니다.'**
+  /// **'곡 수는 5~100곡입니다.'**
   String get errorBadSongCount;
 
   /// web: error.in-game
@@ -1131,6 +1131,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'접기'**
   String get revealLess;
+
+  /// app only: a back in the lobby or after the game asks this before leaving the room
+  ///
+  /// In ko, this message translates to:
+  /// **'방에서 나갈까요?'**
+  String get roomLeaveAsk;
+
+  /// app only: a back on the start screen asks this before leaving the site
+  ///
+  /// In ko, this message translates to:
+  /// **'SongRush를 나갈까요?'**
+  String get exitAsk;
 }
 
 class _AppLocalizationsDelegate

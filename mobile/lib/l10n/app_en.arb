@@ -145,7 +145,7 @@
   "errorBadMessage": "The request was not valid.",
   "errorBadNickname": "Enter a nickname of 1 to 16 characters.",
   "errorBadRoomTheme": "Unknown theme.",
-  "errorBadSongCount": "A game has 5 to 30 songs.",
+  "errorBadSongCount": "A game has 5 to 100 songs.",
   "errorInGame": "A game is in progress. Please join after it ends.",
   "errorNoRoom": "You are not in a room.",
   "errorNotEnoughSongs": "There are not enough songs to play.",
@@ -171,5 +171,7 @@
   "chatTalkPlaceholder": "Chat with everyone",
   "myRank": "Rank {rank} · {points} pt",
   "revealMore": "More",
-  "revealLess": "Less"
+  "revealLess": "Less",
+  "roomLeaveAsk": "Leave the room?",
+  "exitAsk": "Leave SongRush?"
 }

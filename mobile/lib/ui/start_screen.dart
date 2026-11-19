@@ -12,6 +12,8 @@ import 'widgets.dart';
 /// then 방 코드 with 참가 (a full 5-character code; Enter in the field does
 /// what 참가 does), the last problem, and the footer. 방 만들기 and 참가 open
 /// the nickname dialog; a `/r/<CODE>` link prefills the code and opens it.
+/// A back asks SongRush를 나갈까요? first (cycle 164); its 나가기 leaves the
+/// site.
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key, required this.controller});
 
@@ -109,6 +111,8 @@ class _StartScreenState extends State<StartScreen> {
           ],
         ),
         if (c.dialog != null) NicknameDialog(controller: c),
+        if (c.exitAsked)
+          Positioned.fill(child: LeaveDialog(onConfirm: c.confirmExit, onCancel: c.cancelExit, ask: t.exitAsk)),
       ],
     );
   }

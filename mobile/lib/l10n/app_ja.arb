@@ -145,7 +145,7 @@
   "errorBadMessage": "不正なリクエストです。",
   "errorBadNickname": "ニックネームは1〜16文字で入力してください。",
   "errorBadRoomTheme": "不明なテーマです。",
-  "errorBadSongCount": "曲数は5〜30曲です。",
+  "errorBadSongCount": "曲数は5〜100曲です。",
   "errorInGame": "ゲーム中です。終わってから参加してください。",
   "errorNoRoom": "ルームに参加していません。",
   "errorNotEnoughSongs": "出題できる曲が足りません。",
@@ -171,5 +171,7 @@
   "chatTalkPlaceholder": "チャットで話そう",
   "myRank": "{rank}位 · {points}点",
   "revealMore": "詳しく",
-  "revealLess": "閉じる"
+  "revealLess": "閉じる",
+  "roomLeaveAsk": "ルームを退出しますか？",
+  "exitAsk": "SongRushを退出しますか？"
 }
