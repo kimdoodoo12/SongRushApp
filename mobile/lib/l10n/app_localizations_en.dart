@@ -606,4 +606,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exitAsk => 'Leave SongRush?';
+
+  @override
+  String chatSheetRevealSolved(Object name) {
+    return '$name got it! · Close to see the answer card';
+  }
+
+  @override
+  String get chatSheetReveal =>
+      'Answer revealed · Close to see the answer card';
 }

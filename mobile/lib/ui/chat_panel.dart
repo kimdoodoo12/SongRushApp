@@ -30,7 +30,8 @@ String noticeText(AppLocalizations t, NoticeLine line) => switch (line.kind) {
 /// The lobby chat (GameScreen.jsx Frame's aside.chat with ChatLog and
 /// ChatForm, the sunset look): 채팅 with the connected count, the log in a
 /// fixed height, and the form, absent without [onSend]. The game screen
-/// places [ChatLog], [FloatingChat] and [ChatForm] itself (D-142, D-145).
+/// places [ChatLog], [FloatingChat] and [ChatForm] itself (D-142, D-145,
+/// D-146).
 class ChatPanel extends StatelessWidget {
   const ChatPanel({
     super.key,
@@ -103,18 +104,21 @@ class LiveDot extends StatelessWidget {
 /// form, so a few lines sit at the bottom (cycle 153). It opens on the
 /// newest line, follows new lines while it is at the bottom (and always
 /// after an own line), and keeps the newest line in view when its height
-/// changes (the on-screen keyboard).
+/// changes (the on-screen keyboard). [extra] puts a widget of the screen's
+/// own after the first `at` lines (the chat sheet's reveal line, D-146).
 class ChatLog extends StatefulWidget {
   const ChatLog({
     super.key,
     required this.lines,
     required this.me,
     this.padding = const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+    this.extra,
   });
 
   final List<LogLine> lines;
   final String? me;
   final EdgeInsets padding;
+  final ({int at, Widget child})? extra;
 
   @override
   State<ChatLog> createState() => _ChatLogState();
@@ -135,6 +139,7 @@ class _ChatLogState extends State<ChatLog> {
   @override
   void didUpdateWidget(ChatLog old) {
     super.didUpdateWidget(old);
+    if ((widget.extra == null) != (old.extra == null) && _atEnd) _toEnd();
     if (widget.lines.length == old.lines.length) return;
     final last = widget.lines.isEmpty ? null : widget.lines.last;
     final mine = last is SaidLine && last.name == widget.me;
@@ -158,6 +163,9 @@ class _ChatLogState extends State<ChatLog> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
+    final lines = [for (final line in widget.lines) logLine(t, line, me: widget.me)];
+    final extra = widget.extra;
+    if (extra != null) lines.insert(extra.at.clamp(0, lines.length), extra.child);
     return NotificationListener<ScrollMetricsNotification>(
       // The viewport or the content changed size: stay on the newest line.
       onNotification: (_) {
@@ -180,9 +188,7 @@ class _ChatLogState extends State<ChatLog> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final line in widget.lines) logLine(t, line, me: widget.me),
-                ],
+                children: lines,
               ),
             ),
           ),
@@ -201,11 +207,16 @@ Widget logLine(AppLocalizations t, LogLine line, {required String? me}) => switc
       NoticeLine() => _SystemLine(text: noticeText(t, line)),
     };
 
+/// A line the game screen adds to a log (the chat sheet's reveal line,
+/// D-146): prominent as a correct answer's when [solved], else a system
+/// line.
+Widget noteLine(String text, {required bool solved}) => solved ? _CorrectLine(text: text) : _SystemLine(text: text);
+
 /// The chat form: the field (200 characters; a blank line is not sent) and
 /// 보내기. Sending keeps the focus in the field. [hint] replaces the field's
 /// 애니 제목을 입력하세요 (a choice room, where chat is only talk, D-135).
 /// [autofocus]: the field takes the focus when it shows (a choice room's
-/// chat panel, D-145).
+/// chat sheet, D-146).
 class ChatForm extends StatefulWidget {
   const ChatForm({super.key, required this.onSend, this.padding = EdgeInsets.zero, this.hint, this.autofocus = false});
 

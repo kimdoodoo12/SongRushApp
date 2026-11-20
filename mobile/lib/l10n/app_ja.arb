@@ -173,5 +173,7 @@
   "revealMore": "詳しく",
   "revealLess": "閉じる",
   "roomLeaveAsk": "ルームを退出しますか？",
-  "exitAsk": "SongRushを退出しますか？"
+  "exitAsk": "SongRushを退出しますか？",
+  "chatSheetRevealSolved": "{name} 正解！ · 閉じると正解カードが見られます",
+  "chatSheetReveal": "正解発表 · 閉じると正解カードが見られます"
 }

@@ -8,7 +8,8 @@ import 'lobby_screen_test.dart' show enterLobby;
 // chat app (the chat room's log, a choice room's box, the full chat, the
 // lobby chat); a choice room's input asks for talk, not a title (D-135).
 // Cycle 160 (D-145): a choice room's chat is the panel the 채팅 button
-// opens; its input shows only then.
+// opens; its input shows only then. Cycle 165 (D-146): the panel became a
+// full-screen sheet.
 
 /// [text]'s rect inside the chat log.
 Rect lineIn(WidgetTester tester, String text) =>
@@ -65,15 +66,18 @@ void main() {
     await h.tearDown(tester);
   });
 
-  testWidgets('choice room: the open chat panel stacks from the bottom', (tester) async {
+  testWidgets('choice room: the open chat sheet stacks from the bottom', (tester) async {
     final h = await enterGame(tester, options: {'answerMode': 'choice'});
     await prepare(tester, h, 0, choices: ['a', 'b', 'c', 'd']);
     await start(tester, h, 0);
     h.receive({'type': 'chat', 'name': 'Aki', 'text': 'hello'});
     await h.settle(tester);
     await openChat(tester, h);
-    expect(find.byKey(const ValueKey('chat-panel')), findsOneWidget);
-    expectBottomStacked(tester, '게임을 시작해요', 'hello', 'chat panel');
+    expect(find.byKey(const ValueKey('chat-sheet')), findsOneWidget);
+    expectBottomStacked(tester, '게임을 시작해요', 'hello', 'chat sheet');
+    // The input right under the log's box.
+    final input = tester.getRect(find.byKey(const ValueKey('chat-input')));
+    expect(input.top - tester.getRect(find.byKey(const ValueKey('chat-log'))).bottom, inInclusiveRange(0, 40));
     await h.tearDown(tester);
   });
 
@@ -97,7 +101,7 @@ void main() {
     testWidgets('a choice room\'s input asks for talk, not a title ($lang)', (tester) async {
       final h = await enterGame(tester, language: lang, options: {'answerMode': 'choice'});
       await prepare(tester, h, 0, choices: ['a', 'b', 'c', 'd']);
-      expect(find.byKey(const ValueKey('chat-input')), findsNothing, reason: 'no input until 채팅 opens the panel');
+      expect(find.byKey(const ValueKey('chat-input')), findsNothing, reason: 'no input until 채팅 opens the sheet');
       await openChat(tester, h);
       expect(hintOf(tester), talkHint[lang]);
       expect(find.text(titleHint[lang]!), findsNothing);

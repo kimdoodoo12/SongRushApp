@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:songrush_core/songrush_core.dart';
 import 'package:songrush_mobile/platform/stale_view_guard.dart';
 
-import 'game_layout_test.dart' show expectOneScreen, keyboard, rectOf, screenOf;
+import 'game_layout_test.dart' show expectOneScreen, expectSheet, keyboard, rectOf, screenOf;
 import 'game_screen_test.dart' show audio, coverOf, enterGame, logTexts, openChat, png, revealFrame, start;
 import 'reconnect_test.dart' show playingSnapshot, reloadInto;
 import 'support/harness.dart';
@@ -15,6 +15,8 @@ import 'support/harness.dart';
 // loading and the keyboard down again, the screen stayed at the
 // keyboard-open height (the top bar, the load line, the panel squeezed to
 // its input) with the rest of the page empty and untouchable.
+// Cycle 165 (D-146): the panel became a full-screen chat sheet; the same
+// sequences run with the sheet.
 //
 // The cause is the web engine's resize rule (flutter_web_sdk window.dart
 // _handleBrowserResize): a browser resize while text editing is on keeps the
@@ -79,29 +81,30 @@ class _WebView {
   }
 }
 
-/// The chat panel laid out in full (D-145): the view at the screen's full
-/// height; 채팅 and 닫기, the log and the input with 보내기 shown and
-/// tappable; the log a real part of the middle; the input at the bottom
-/// (above the keyboard by [inset]); the covers above the panel when the
-/// song has them; one screen with no overflow.
+/// The chat sheet laid out in full (D-146): the view at the screen's full
+/// height; the sheet whole ([expectSheet]: 채팅 and 닫기, the status line,
+/// the log and the input with 보내기 shown and tappable above the keyboard
+/// by [inset], nothing under it taking a tap); the log a real part of the
+/// sheet; the covers, when the song has them, under it.
 void expectPanel(WidgetTester tester, String state, {double inset = 0, bool covers = true, bool input = true}) {
   expect(screenOf(tester), _full, reason: '$state: the view keeps the screen\'s height');
-  expectOneScreen(tester, state, inset: inset);
-  for (final key in ['chat-panel', 'chat-close', 'chat-log', if (input) ...['chat-input', 'chat-send']]) {
-    expect(find.byKey(ValueKey(key)).hitTestable(), findsOneWidget, reason: '$state: $key shown and tappable');
-  }
+  expectSheet(tester, state, inset: inset, input: input);
   final log = rectOf(tester, 'chat-log');
   final bottom = _full.height - inset;
-  expect(log.height, greaterThan((bottom - 120) * 0.25), reason: '$state: the log $log fills the middle');
-  if (input) {
-    final field = rectOf(tester, 'chat-input');
-    expect(field.top, greaterThan(log.bottom - 0.5), reason: '$state: the input under the log');
-    expect(field.bottom, greaterThan(bottom - 70), reason: '$state: the input $field at the bottom');
-  }
+  expect(log.height, greaterThan((bottom - 120) * 0.25), reason: '$state: the log $log fills the sheet');
   if (covers) {
-    expect(find.byKey(const ValueKey('tile-0')).hitTestable(), findsOneWidget, reason: '$state: the covers row');
-    expect(rectOf(tester, 'tile-0').bottom, lessThanOrEqualTo(rectOf(tester, 'chat-panel').top + 0.5));
+    expect(find.byKey(const ValueKey('tile-0')), findsOneWidget, reason: '$state: the covers under the sheet');
+    expect(find.byKey(const ValueKey('tile-0')).hitTestable(), findsNothing, reason: '$state: the covers take no tap');
   }
+}
+
+/// Closes the sheet with 닫기 (it slides down) and checks the game screen
+/// whole under it.
+Future<void> closeSheet(WidgetTester tester, Harness h, String state) async {
+  await tester.tap(find.byKey(const ValueKey('chat-close')));
+  await h.settle(tester);
+  expect(find.byKey(const ValueKey('chat-sheet')), findsNothing, reason: '$state: 닫기');
+  expectOneScreen(tester, '$state, closed');
 }
 
 const List<String> _first = ['a', 'b', 'c', 'd'];
@@ -139,18 +142,19 @@ void main() {
   // before or after the keyboard goes down.
   for (final held in [false, true]) {
     for (final prepareFirst in [true, false]) {
-      testWidgets('sending in the panel after a reveal keeps the screen whole '
+      testWidgets('sending in the chat sheet after a reveal keeps the screen whole '
           '(held $held, prepare ${prepareFirst ? 'before' : 'after'} the keyboard goes down)', (tester) async {
         final (h, web, clock) = await _playing(tester);
         await openChat(tester, h);
         await web.keyboardUp();
-        expectPanel(tester, 'panel, keyboard', inset: keyboard);
+        expectPanel(tester, 'sheet, keyboard', inset: keyboard);
 
         h.receive(_reveal(playUntil: held ? clock.startAt + 40000 : null));
         await h.settle(tester);
         await h.advance(tester, const Duration(seconds: 4));
-        expect(find.byKey(const ValueKey('reveal-strip')), findsOneWidget);
-        expectPanel(tester, 'reveal strip, keyboard', inset: keyboard);
+        // The reveal is a line in the sheet; its card waits for 닫기.
+        expect(find.byKey(const ValueKey('sheet-reveal')), findsOneWidget);
+        expectPanel(tester, 'reveal line, keyboard', inset: keyboard);
 
         // Right after the reveal: type and tap 보내기.
         await tester.enterText(find.byKey(const ValueKey('chat-input')), 'hello');
@@ -177,11 +181,14 @@ void main() {
         expect(find.byKey(const ValueKey('my-rank')), findsOneWidget);
         expectPanel(tester, 'next song loading');
         expect(logTexts(tester).last, 'hello');
+        // The controls respond: the sheet's 닫기, then the screen's 나가기.
+        await closeSheet(tester, h, 'next song loading');
         await tester.tap(find.byKey(const ValueKey('game-leave')));
         await h.settle(tester);
         expect(find.byKey(const ValueKey('leave-dialog')), findsOneWidget, reason: 'the controls respond');
         await tester.tap(find.byKey(const ValueKey('leave-cancel')));
         await h.settle(tester);
+        await openChat(tester, h);
 
         h.fetcher.complete(audio(1));
         await h.settle(tester);
@@ -207,15 +214,13 @@ void main() {
     await h.tearDown(tester);
   });
 
-  // The panel in each state of a choice room's game, opened before the
+  // The sheet in each state of a choice room's game, opened before the
   // state and opened in it, with the keyboard up and down.
-  testWidgets('the chat panel lays out in every state of the game', (tester) async {
+  testWidgets('the chat sheet lays out in every state of the game', (tester) async {
     final (h, web, clock) = await _playing(tester);
     Future<void> each(String state, {bool covers = true, bool input = true}) async {
       expectPanel(tester, state, covers: covers, input: input);
-      await tester.tap(find.byKey(const ValueKey('chat-close')));
-      await h.settle(tester);
-      expect(find.byKey(const ValueKey('chat-panel')), findsNothing, reason: '$state: 닫기');
+      await closeSheet(tester, h, state);
       await openChat(tester, h);
       expectPanel(tester, '$state, opened in it', covers: covers, input: input);
       if (!input) return;
@@ -229,7 +234,7 @@ void main() {
     await each('playing');
     h.receive(_reveal(playUntil: clock.startAt + 60000));
     await h.settle(tester);
-    expect(find.byKey(const ValueKey('reveal-strip')), findsOneWidget, reason: 'the panel shows the strip');
+    expect(find.byKey(const ValueKey('sheet-reveal')), findsOneWidget, reason: 'the sheet shows the reveal line');
     await each('reveal');
     await h.advance(tester, const Duration(seconds: 4));
     await each('reveal folded');
@@ -258,7 +263,7 @@ void main() {
     await h.tearDown(tester);
   });
 
-  testWidgets('the chat panel with the sound prompt (a reload into a choice song)', (tester) async {
+  testWidgets('the chat sheet with the sound prompt (a reload into a choice song)', (tester) async {
     final h = await reloadInto(tester, (h) {
       final snapshot = playingSnapshot(h);
       final song = snapshot['song']! as Map<String, Object?>;
@@ -276,9 +281,12 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: keyboard * 3);
     await h.settle(tester);
     expectPanel(tester, 'sound prompt, keyboard', inset: keyboard);
-    expect(find.byKey(const ValueKey('unlock-sound')).hitTestable(), findsOneWidget);
+    // The prompt is the game screen's: under the sheet, back after 닫기.
+    expect(find.byKey(const ValueKey('unlock-sound')).hitTestable(), findsNothing);
     tester.view.resetViewInsets();
     await h.settle(tester);
+    await closeSheet(tester, h, 'sound prompt');
+    expect(find.byKey(const ValueKey('unlock-sound')).hitTestable(), findsOneWidget);
     await h.tearDown(tester);
   });
 

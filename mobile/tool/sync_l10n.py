@@ -99,6 +99,21 @@ APP_KEYS = {
         "SongRushを退出しますか？",
         "a back on the start screen asks this before leaving the site",
     ),
+    # cycle 165 (D-146): a reveal while a choice room's chat sheet is open
+    # adds one line to the sheet's log (the app puts the check mark before
+    # the solved one).
+    "chatSheetRevealSolved": (
+        "{name} 정답! · 닫으면 정답 카드가 보여요",
+        "{name} got it! · Close to see the answer card",
+        "{name} 正解！ · 閉じると正解カードが見られます",
+        "the chat sheet's line for a reveal while it is open, with the solvers (a comma list)",
+    ),
+    "chatSheetReveal": (
+        "정답 공개 · 닫으면 정답 카드가 보여요",
+        "Answer revealed · Close to see the answer card",
+        "正解発表 · 閉じると正解カードが見られます",
+        "the chat sheet's line for a reveal nobody solved, while it is open",
+    ),
 }
 
 
