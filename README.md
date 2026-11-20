@@ -67,41 +67,7 @@ PC는 React 웹으로, 휴대폰은 Flutter로 만든 모바일 전용 웹(`/m/`
 
 ## 시스템 구성
 
-```mermaid
-flowchart TB
-    subgraph Client["브라우저"]
-        PC["PC: React 웹"]
-        Phone["휴대폰: Flutter 웹 /m/"]
-    end
-
-    subgraph EC2["AWS EC2 (시드니) · Docker"]
-        Nginx["Nginx + certbot (HTTPS)"]
-        App["Spring Boot 게임 서버<br/>WebSocket /ws · 방은 메모리에 (DB 없음)<br/>React·Flutter 빌드도 함께 제공<br/>/audio, /cover → 302 (60초 서명 주소)"]
-        Nginx --> App
-    end
-
-    subgraph Media["음원 · 표지"]
-        CF["CloudFront<br/>(인천 엣지, 캐시 끔)"]
-        S3[("S3 비공개 버킷<br/>음원 2,998곡 · 표지 846개")]
-        CF --> S3
-    end
-
-    Client -- "https / wss" --> Nginx
-    Client -- "302로 받은 서명 주소<br/>(호스트만 CloudFront)" --> CF
-
-    subgraph CICD["CI/CD"]
-        GHA["GitHub Actions<br/>테스트 · 이미지 빌드"] --> GHCR["GHCR"]
-    end
-    GHA -- "main 병합 시 SSM 명령" --> EC2
-    GHCR -. "docker compose pull" .-> EC2
-
-    subgraph Data["데이터 파이프라인 (Python, 개발 PC)"]
-        Src["AnimeThemes · AniList ·<br/>anime-offline-database ·<br/>AniDB · Wikidata"] --> Build["catalog.json<br/>(곡 목록 · 정답 제목)"]
-        Src --> Files["음원(.ogg) · 표지"]
-    end
-    Build --> App
-    Files -- "무작위 이름으로 업로드" --> S3
-```
+![SongRush 시스템 구성도](docs/images/architecture.png)
 
 - **게임 서버** (`backend/`): 방, 라운드 시계, 정답 판정, 점수를 모두 서버가 관리합니다. 방 상태는 메모리에만 있고 DB는 쓰지 않습니다. React 빌드와 Flutter 웹 빌드(`/m/`)도 같은 서버가 정적 파일로 내려 줍니다(`Dockerfile`의 3단계 빌드).
 - **음원 전달** (`backend/src/main/java/com/songrush/audio/`): 클라이언트는 `/audio/<무작위 토큰>`만 받습니다. 서버는 이 요청에 60초짜리 S3 서명 주소로 302 응답을 하는데, 주소의 호스트만 CloudFront 도메인으로 바꿉니다(`CdnUrls.java`, `S3AudioLinks.java`). 서명 검사는 S3가 그대로 하고, 주소마다 서명이 달라 CloudFront 캐시는 끄고 가까운 엣지 연결만 씁니다.
@@ -119,21 +85,17 @@ flowchart TB
   - Flutter 앱은 같은 계산을 Dart로 옮기고 웹의 테스트 값도 그대로 옮겨 결과가 같은지 확인했습니다(`mobile/packages/songrush_core/lib/src/sync/`). 재생 중에는 1초마다 위치를 확인해 40ms 넘게 어긋나면 바로잡습니다.
 - **결과** 시험 측정에서 오디오 엔진 예약은 시작 오차 2.5ms, 타이머 방식은 18.9ms였습니다. 에뮬레이터 소리를 직접 녹음해 PC와 비교했을 때 시작 시각을 300ms 옮기면 실제 소리도 약 300ms 옮겨져, 시작이 노린 시각에 떨어지는 것을 확인했습니다(`docs/cycles/142-audio-spike.md`).
 
-### 2. 정답 유출 막기와 공정성
+### 2. 정답 유출 막기와 동시 정답 판정
 - **문제** 브라우저 개발자 도구만 열어도 받은 데이터가 다 보입니다. 음원 주소나 곡 id 하나로도 정답을 알아낼 수 있습니다.
 - **해결**
   - 정답, 라운드 시계, 점수는 서버만 가집니다. 정답 공개 전까지 곡 이름, 가수, AnimeThemes의 애니·곡 id는 클라이언트로 보내지 않습니다.
   - 음원 주소는 곡마다 새로 만드는 무작위 토큰(`/audio/<token>`)이고, S3의 파일 이름도 무작위입니다.
   - 객관식 방의 보기 표지는 섞어서 보내고 정답 표시는 넣지 않습니다.
   - **허용한 단 하나의 예외**: 곡 사이 대기를 줄이려고 정답 공개 화면(5초) 동안 다음 곡을 미리 받습니다. 조작한 클라이언트라면 그 5초만큼 먼저 들을 수 있으므로, 이 동안 다음 곡 정답과 같은 채팅은 **보낸 사람에게만** 보이게 했습니다(D-119, D-120). 정답 공개 전에 먼저 친 정답 채팅도 같은 방식으로 처리합니다.
+- **동시 정답**: 방마다 전용 스레드 하나에서 그 방의 모든 메시지와 타이머를 처리해, 거의 동시에 들어온 정답도 **서버 도착 순서**로 한 명만 득점합니다(D-016, `RankedSocketTest`·`ChoiceSocketTest`의 동시 정답 테스트).
 - **결과** 이 규칙들은 `contracts/protocol.md`에 메시지별로 적혀 있고, 공정성 버그(한 사람만 먼저 듣는 문제)는 리뷰에서 가장 높은 등급으로 다룹니다.
 
-### 3. 동시에 들어온 정답 판정
-- **문제** 두 사람이 거의 동시에 정답을 치면 서로 다른 스레드에서 처리되어 둘 다 득점하거나, 화면마다 승자가 다르게 보일 수 있습니다.
-- **해결** 방마다 전용 스레드 하나(`ExecutorGameScheduler`, 단일 스레드 `ScheduledExecutorService`)를 두고, 그 방으로 들어오는 모든 메시지와 타이머를 이 스레드에서만 처리합니다. `Room`은 락 없이 이 스레드에서만 호출되므로, 먼저 큐에 들어온 정답이 곡을 끝내고 나중 정답은 이미 공개 단계에서 일반 채팅이 됩니다. 지연 보정은 하지 않고 **서버 도착 순서**만 기준으로 삼았습니다(D-016).
-- **결과** 실제 소켓으로 두 클라이언트가 같은 정답을 동시에 보내는 테스트에서 승자는 한 명이고, 모든 클라이언트가 같은 순서를 봅니다(`RankedSocketTest.concurrentCorrectChatsAreRankedByArrival`, `ChoiceSocketTest.concurrentCorrectPicksHaveOneWinner`).
-
-### 4. 곡 준비 대기 줄이기
+### 3. 곡 준비 대기 줄이기
 - **문제** 곡마다 "음원을 불러오는 중"에서 5~10초, 회선이 나쁘면 20초 넘게 기다렸습니다. 측정해 보니 곡당 3.6MB 음원을 시드니 S3에서 한국으로 직접 받는 속도(0.2~0.6MB/s)가 원인이었습니다.
 - **해결** 측정 스크립트로 실제 사이트에서 전후를 각 3회 재며 한 단계씩 고쳤습니다(`docs/performance.md`).
   1. **CloudFront 경유**: 서명 주소의 호스트만 CloudFront로 바꿔 인천 엣지에 접속하게 했습니다. 서버 코드 한 곳과 설정 한 줄로 켜고 끌 수 있게 해 같은 날 번갈아 쟀습니다.
@@ -147,22 +109,6 @@ flowchart TB
 | CloudFront 전후 | 미리 받기 전후 |
 | --- | --- |
 | ![1단계: 음원 다운로드 완료 9.7초 → 2.4초](docs/perf/step1/compare-step1.png) | ![2단계: 곡 사이 대기 11.3초 → 8.0초](docs/perf/step2/compare-step2.png) |
-
-### 5. React 웹과 Flutter 앱이 같은 서버 쓰기
-- **문제** 휴대폰용 Flutter 앱을 새로 만들면서 서버는 그대로 두기로 했습니다. 웹의 `session.js`를 읽어 가며 맞추면 메시지 하나가 바뀔 때 두 클라이언트가 조용히 어긋납니다.
-- **해결**
-  - WebSocket 프로토콜을 `contracts/protocol.md`에 계약으로 정리했습니다. 클라이언트 메시지 12종, 서버 메시지 20종의 필드, 보내는 시점, 받는 사람, 공개 전에 숨기는 정보까지 적었습니다.
-  - 서버 메시지 예시는 손으로 쓰지 않고, 백엔드 소켓 테스트가 실제로 주고받은 프레임을 캡처해 `contracts/messages/`에 저장했습니다.
-  - `ProtocolContractTest`가 문서의 메시지 목록, 예시 파일, 서버 코드가 처리하고 보내는 메시지 종류가 서로 같은지 검사합니다. 메시지를 추가하고 문서를 고치지 않으면 테스트가 실패합니다.
-- **결과** Flutter 앱은 이 계약을 기준으로 만들었고, 게임 프로토콜을 하나도 바꾸지 않고 PC 웹과 같은 방에서 플레이합니다(`docs/cycles/144-protocol-contract.md`).
-
-### 6. 모바일 웹의 키보드 버그
-- **문제** 실제 휴대폰(Chrome)으로 플레이하던 중, 객관식 방 채팅에서 메시지를 보내고 키보드를 내리면 화면이 키보드 높이만큼 줄어든 채로 멈추는 문제를 발견했습니다. 에뮬레이터에서는 재현이 달라 첫 수정(`161`)은 휴대폰에서 효과가 없었습니다.
-- **해결**
-  - 휴대폰의 실제 값을 보려고 `?debug=1`에서만 뜨는 진단 표시(뷰포트 크기, Flutter 화면 높이, 포커스 등)를 넣었습니다(`162`).
-  - Flutter 3.50 웹 엔진 소스에서 원인을 찾았습니다. 엔진은 **텍스트 입력 중이면 브라우저 크기 변화를 무시하고, 입력 중이 아니면 보이는 영역 높이를 따릅니다.** 그런데 보내기 버튼이 입력칸 바깥에 있어서, 누르는 순간 입력이 잠깐 풀렸다 다시 잡히고, 그 틈에 키보드가 움직이면서 키보드가 열린 높이가 화면 크기로 굳어졌습니다.
-  - 보내기 버튼을 입력칸의 `TextFieldTapRegion` 안에 넣어 입력 연결이 끊기지 않게 했습니다(`mobile/lib/ui/chat_panel.dart`). 키보드가 내려간 지 300ms가 지나도 화면이 창보다 작으면 엔진이 다시 재게 하는 보호 장치도 넣었습니다(`mobile/lib/platform/stale_view_guard.dart`).
-- **결과** 엔진 규칙을 흉내 낸 위젯 테스트에서, 같은 순서를 재현하면 수정 전에는 화면이 844px 대신 544px로 남고 수정 후에는 844px로 돌아옵니다(`docs/cycles/163-send-keeps-focus.md`). 실제 휴대폰에서의 재확인은 아직 남아 있습니다.
 
 ## 기술 스택
 
