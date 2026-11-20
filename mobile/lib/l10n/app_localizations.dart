@@ -1143,6 +1143,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'SongRush를 나갈까요?'**
   String get exitAsk;
+
+  /// app only: the chat sheet's line for a reveal while it is open, with the solvers (a comma list)
+  ///
+  /// In ko, this message translates to:
+  /// **'{name} 정답! · 닫으면 정답 카드가 보여요'**
+  String chatSheetRevealSolved(Object name);
+
+  /// app only: the chat sheet's line for a reveal nobody solved, while it is open
+  ///
+  /// In ko, this message translates to:
+  /// **'정답 공개 · 닫으면 정답 카드가 보여요'**
+  String get chatSheetReveal;
 }
 
 class _AppLocalizationsDelegate

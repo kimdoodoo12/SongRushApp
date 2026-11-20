@@ -40,17 +40,23 @@ const double _revealShareChat = 0.6;
 const double _revealShareChoice = 0.55;
 
 // After the game, the share of the middle the final ranking may take above
-// the chat log (a chat room) or above the open chat panel (a choice room).
+// a chat room's log.
 const double _finalShareChat = 0.55;
-const double _finalShareTalk = 0.35;
 
-// A choice room's one row of tiles while its chat panel is open takes at
-// most this share of the middle.
-const double _talkTileShare = 0.34;
+/// How long a choice room's chat sheet takes to slide up or down (D-146).
+const Duration sheetDuration = Duration(milliseconds: 200);
 
-// The least middle height that keeps the reveal strip above an open chat
-// panel.
-const double _talkStripMin = 260;
+// The dimmed strip of the game screen left above the open chat sheet
+// (V3ChatSheet).
+const double _sheetGap = 40;
+
+// A swipe down on the sheet's handle or header closes it past this speed
+// (logical px/s), or when it is let go below this share of its height.
+const double _sheetFlingSpeed = 400;
+const double _sheetKeepShare = 0.7;
+
+// The mark before a solver's line (U+2714).
+final String _check = String.fromCharCode(0x2714);
 
 // The side padding of the screen's parts.
 const double _side = 12;
@@ -74,9 +80,15 @@ const double floatInset = 6;
 /// at the bottom and lifted by the on-screen keyboard. A choice room: the
 /// hint, the reveal, and the covers filling the rest; the latest chat lines
 /// float over their bottom left and fade ([FloatingChat]); a round 채팅
-/// button with the unread count opens the chat panel, which shrinks the
-/// covers to one row (still tappable) and brings the input (focused); 닫기
-/// closes it. Without the panel a choice room has no input.
+/// button with the unread count opens the chat sheet (D-146), and the
+/// screen itself has no input. The sheet slides up over the whole screen
+/// (a dimmed strip of it left at the top): 채팅 and 닫기 ▾, a thin line with
+/// the small disc, song n / N, the time bar, the seconds and the pick
+/// count, the whole log, and the input (focused) above the keyboard; none
+/// after the game. The game runs on under it, and the covers cannot be
+/// picked while it is open. 닫기, a back or a swipe down on its handle or
+/// header closes it. A reveal while it is open adds one line to its log;
+/// the card shows in full once it closes.
 ///
 /// The reveal shows as the full card for [revealFoldDelay], then folds into
 /// a one-line strip (small cover, title, OP1 · song — artists, the winner)
@@ -109,16 +121,24 @@ class _GameBody extends StatefulWidget {
   State<_GameBody> createState() => _GameBodyState();
 }
 
-// The scores, the chat panel and the reveal's fold live in this screen, so
+// The scores, the chat sheet and the reveal's fold live in this screen, so
 // they go with the screen when it ends; a back closes the scores, then the
-// chat panel ([AppController.registerScreenBack]). The leave dialog (as
+// chat sheet ([AppController.registerScreenBack]). The leave dialog (as
 // LeaveDialog inside GameScreen on the web) is the controller's, which a
 // back opens too.
-class _GameBodyState extends State<_GameBody> {
+class _GameBodyState extends State<_GameBody> with SingleTickerProviderStateMixin {
   bool _scoresOpen = false;
-  bool _chatOpen = false;
   final FocusNode _leaveButton = FocusNode();
   final FocusNode _rankButton = FocusNode();
+
+  // A choice room's chat sheet: open or not, and its slide (0 down, 1 up);
+  // it stays built while it slides down, and goes in the frame it reaches
+  // the bottom.
+  bool _chatOpen = false;
+  late final AnimationController _sheet = AnimationController(vsync: this, duration: sheetDuration)
+    ..addListener(() {
+      if (!_chatOpen && _sheet.value == 0 && mounted) setState(() {});
+    });
 
   // The reveal on screen, whether its card has folded into the strip, and
   // whether the strip was opened again (자세히).
@@ -127,7 +147,12 @@ class _GameBodyState extends State<_GameBody> {
   bool _detailed = false;
   Timer? _fold;
 
-  // A choice room's lines read in the chat panel (the unread count is the
+  // A reveal that came while the chat sheet was open: its line in the
+  // sheet's log, after the first [at] lines. Its card shows in full (and
+  // then folds) once the sheet closes.
+  ({RevealMessage reveal, int at})? _sheetReveal;
+
+  // A choice room's lines read in the chat sheet (the unread count is the
   // rest), and the lines no longer floating over the covers.
   final Set<LogLine> _read = Set.identity();
   final Set<LogLine> _gone = Set.identity();
@@ -150,13 +175,15 @@ class _GameBodyState extends State<_GameBody> {
   void dispose() {
     widget.controller.unregisterScreenBack(_back);
     _fold?.cancel();
+    _sheet.dispose();
     _leaveButton.dispose();
     _rankButton.dispose();
     super.dispose();
   }
 
-  // A new reveal shows in full, then folds; a cleared one (the next song's
-  // prepare) takes the strip with it.
+  // A new reveal shows in full, then folds (with the chat sheet open, it
+  // gets the sheet's line and waits for the sheet to close); a cleared one
+  // (the next song's prepare) takes the strip and the line with it.
   void _syncReveal() {
     final reveal = widget.game.reveal;
     if (identical(reveal, _revealOf)) return;
@@ -165,11 +192,20 @@ class _GameBodyState extends State<_GameBody> {
     _fold = null;
     _folded = false;
     _detailed = false;
-    if (reveal != null) {
-      _fold = Timer(revealFoldDelay, () {
-        if (mounted) setState(() => _folded = true);
-      });
+    _sheetReveal = null;
+    if (reveal == null) return;
+    if (_chatOpen) {
+      _sheetReveal = (reveal: reveal, at: widget.game.log.length);
+    } else {
+      _startFold();
     }
+  }
+
+  void _startFold() {
+    _fold?.cancel();
+    _fold = Timer(revealFoldDelay, () {
+      if (mounted) setState(() => _folded = true);
+    });
   }
 
   void _foldNow() => setState(() {
@@ -184,14 +220,14 @@ class _GameBodyState extends State<_GameBody> {
     if (_leaveButton.context != null) _leaveButton.requestFocus();
   }
 
-  // A back: the scores close first, then the chat panel.
+  // A back: the scores close first, then the chat sheet.
   bool _back() {
     if (_scoresOpen) {
       _closeScores();
       return true;
     }
     if (_chatOpen) {
-      _toggleChat();
+      _closeChat();
       return true;
     }
     return false;
@@ -202,13 +238,53 @@ class _GameBodyState extends State<_GameBody> {
     _rankButton.requestFocus();
   }
 
-  // Opening or closing the chat panel reads every line so far, and ends
+  // Opening or closing the chat sheet reads every line so far, and ends
   // their floating.
-  void _toggleChat() => setState(() {
-        _read.addAll(widget.game.log);
-        _gone.addAll(widget.game.log);
-        _chatOpen = !_chatOpen;
-      });
+  void _readAll() {
+    _read.addAll(widget.game.log);
+    _gone.addAll(widget.game.log);
+  }
+
+  void _openChat() {
+    setState(() {
+      _readAll();
+      _chatOpen = true;
+    });
+    _sheet.forward();
+  }
+
+  void _closeChat() {
+    if (!_chatOpen) return;
+    setState(() {
+      _readAll();
+      _chatOpen = false;
+      // The reveal that came while it was open: its card now, then the fold.
+      final pending = _sheetReveal;
+      _sheetReveal = null;
+      if (pending != null && identical(pending.reveal, widget.game.reveal)) {
+        _folded = false;
+        _detailed = false;
+        _startFold();
+      }
+    });
+    _sheet.reverse();
+  }
+
+  // A drag on the sheet's handle or header moves it with the finger; let
+  // go fast downwards or low, it closes, else it slides back up.
+  void _dragSheet(double delta, double height) {
+    if (!_chatOpen || height <= 0) return;
+    _sheet.value -= delta / height;
+  }
+
+  void _dragSheetEnd(double velocity) {
+    if (!_chatOpen) return;
+    if (velocity > _sheetFlingSpeed || _sheet.value < _sheetKeepShare) {
+      _closeChat();
+    } else {
+      _sheet.forward();
+    }
+  }
 
   void _floatGone(LogLine line) {
     if (mounted) setState(() => _gone.add(line));
@@ -224,25 +300,20 @@ class _GameBodyState extends State<_GameBody> {
     final over = game.view == GameView.over;
     final settings = game.settings;
     final choiceRoom = game.choices != null || settings?.answerMode == 'choice';
-    final talking = choiceRoom && _chatOpen;
-    // The Scaffold below takes the keyboard out of its body's MediaQuery,
-    // so it is read here: with the chat panel open and the keyboard up the
-    // top bar keeps only its first line (the V2ChoiceTalk board).
-    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
     final scores = scoreList(state.players, game);
     final mine = scores.where((s) => s.name == me).firstOrNull;
     final unread = game.log.where((l) => !_read.contains(l)).length;
+    final sheetReveal = _sheetReveal;
 
     final Widget middle = LayoutBuilder(
-      builder: (context, box) {
-        if (!choiceRoom) return _chatMiddle(game, me, box, over);
-        return talking ? _talkMiddle(game, me, box, over) : _choiceMiddle(game, me, over, unread);
-      },
+      builder: (context, box) => choiceRoom ? _choiceMiddle(game, me, over, unread) : _chatMiddle(game, me, box, over),
     );
 
     final page = Scaffold(
       backgroundColor: Palette.bg,
-      resizeToAvoidBottomInset: true,
+      // A choice room's screen has no input: the chat sheet over it takes
+      // the keyboard.
+      resizeToAvoidBottomInset: !choiceRoom,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -255,7 +326,6 @@ class _GameBodyState extends State<_GameBody> {
                   standing: mine == null ? null : (rank: rankIn(scores, mine.score), points: mine.score),
                   rankFocus: _rankButton,
                   onRank: () => setState(() => _scoresOpen = true),
-                  second: !(talking && typing),
                   trailing: over
                       ? null
                       : RoomButton(
@@ -268,22 +338,14 @@ class _GameBodyState extends State<_GameBody> {
                 ),
                 _Notices(controller: c, game: game, over: over),
                 Expanded(child: middle),
-                if (!over && (!choiceRoom || talking))
+                if (!over && !choiceRoom)
                   Container(
-                    margin: talking ? const EdgeInsets.symmetric(horizontal: _side) : EdgeInsets.zero,
-                    padding: EdgeInsets.fromLTRB(talking ? 10 : _side, 10, talking ? 10 : _side, 12),
-                    decoration: BoxDecoration(
-                      color: talking ? Palette.panel : Palette.bg,
-                      border: talking
-                          ? const Border.symmetric(vertical: BorderSide(color: Palette.line))
-                          : const Border(top: BorderSide(color: Palette.line)),
+                    padding: const EdgeInsets.fromLTRB(_side, 10, _side, 12),
+                    decoration: const BoxDecoration(
+                      color: Palette.bg,
+                      border: Border(top: BorderSide(color: Palette.line)),
                     ),
-                    child: ChatForm(
-                      key: const ValueKey('chat-form'),
-                      onSend: c.sendChat,
-                      hint: choiceRoom ? t.chatTalkPlaceholder : null,
-                      autofocus: talking,
-                    ),
+                    child: ChatForm(key: const ValueKey('chat-form'), onSend: c.sendChat),
                   )
                 else if (over && game.lobbyOpen)
                   Padding(
@@ -309,6 +371,28 @@ class _GameBodyState extends State<_GameBody> {
     return Stack(
       children: [
         page,
+        if (choiceRoom && (_chatOpen || _sheet.value > 0))
+          Positioned.fill(
+            child: _ChatSheet(
+              game: game,
+              me: me,
+              slide: _sheet,
+              open: _chatOpen,
+              // After the game the sheet only reads (the game-over screen
+              // has no input either).
+              onSend: over ? null : c.sendChat,
+              revealLine: sheetReveal == null
+                  ? null
+                  : (
+                      at: sheetReveal.at,
+                      text: sheetRevealText(t, sheetReveal.reveal),
+                      solved: revealWho(t, sheetReveal.reveal) != null,
+                    ),
+              onClose: _closeChat,
+              onDrag: _dragSheet,
+              onDragEnd: _dragSheetEnd,
+            ),
+          ),
         if (_scoresOpen)
           Positioned.fill(
             child: _ScoresSheet(scores: scores, me: me, solvers: _solvers(game), onClose: _closeScores),
@@ -370,9 +454,9 @@ class _GameBodyState extends State<_GameBody> {
     );
   }
 
-  // A choice room with its chat panel closed: the hint, the reveal and the
-  // covers filling the rest (after the game the final ranking), the latest
-  // lines floating over their bottom left, and the round 채팅 button.
+  // A choice room: the hint, the reveal and the covers filling the rest
+  // (after the game the final ranking), the latest lines floating over
+  // their bottom left, and the round 채팅 button that opens the chat sheet.
   Widget _choiceMiddle(GameModel game, String? me, bool over, int unread) {
     final reveal = game.reveal;
     final choices = game.choices;
@@ -412,57 +496,10 @@ class _GameBodyState extends State<_GameBody> {
           Positioned(
             right: _side,
             bottom: 12,
-            child: _ChatButton(unread: unread, onTap: _toggleChat),
+            child: _ChatButton(unread: unread, onTap: _openChat),
           ),
         ],
       ),
-    );
-  }
-
-  // A choice room with its chat panel open: the covers in one row (still
-  // tappable; after the game the final ranking in short), the strip of the
-  // reveal while there is room, and the chat panel; its input is the
-  // screen's bottom.
-  Widget _talkMiddle(GameModel game, String? me, BoxConstraints box, bool over) {
-    final choices = game.choices;
-    final width = box.maxWidth - 2 * _side;
-    final row = over || choices == null
-        ? 0.0
-        : gridHeight(choices.length, width, box.maxHeight * _talkTileShare, columns: choices.length);
-    final strip = !over && game.reveal != null && box.maxHeight >= _talkStripMin;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (over)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(_side, 8, _side, 0),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: box.maxHeight * _finalShareTalk),
-              child: _FinalCard(game: game, me: me),
-            ),
-          )
-        else if (choices != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(_side, 8, _side, 0),
-            child: SizedBox(
-              height: row,
-              child: ChoiceGrid(game: game, cover: (url) => widget.controller.rounds?.cover(url), oneRow: true),
-            ),
-          ),
-        if (strip)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(_side, 8, _side, 0),
-            child: _RevealStrip(
-              reveal: game.reveal!,
-              cover: game.revealCover,
-              language: widget.controller.language,
-            ),
-          ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _TalkPanel(lines: game.log, me: me, onClose: _toggleChat, open: !over),
-        ),
-      ],
     );
   }
 
@@ -533,7 +570,7 @@ int rankIn(List<ScoreLine> scores, int score) => 1 + scores.where((s) => s.score
 
 /// The top bar (D-145). First line: the small disc (spinning while the
 /// song is audible), song n / N, the time bar and the seconds left. Second
-/// line, unless [second] is false: 내 순위 ▾ ([standing]; [onRank] opens
+/// line: 내 순위 ▾ ([standing]; [onRank] opens
 /// the scores), a choice song's pick count, 스킵 (or 스킵 취소) with the
 /// vote count, and [trailing] (나가기, none at game over).
 class _TopBar extends StatelessWidget {
@@ -542,7 +579,6 @@ class _TopBar extends StatelessWidget {
     required this.standing,
     required this.rankFocus,
     required this.onRank,
-    required this.second,
     this.trailing,
   });
 
@@ -550,7 +586,6 @@ class _TopBar extends StatelessWidget {
   final ({int rank, int points})? standing;
   final FocusNode rankFocus;
   final VoidCallback onRank;
-  final bool second;
   final Widget? trailing;
 
   @override
@@ -597,65 +632,64 @@ class _TopBar extends StatelessWidget {
             ),
           ),
         ),
-        if (second)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(_side, 8, _side, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (own != null)
-                            RoomButton(
-                              key: const ValueKey('my-rank'),
-                              label: '${t.myRank(own.rank, own.points)} ▾',
-                              compact: true,
-                              focusNode: rankFocus,
-                              onPressed: onRank,
-                            ),
-                          if (game.pickShown && picks != null) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              t.stagePickCount(picks.picked, picks.total),
-                              key: const ValueKey('pick-count'),
-                              style: Fonts.bodyStyle(size: 13, color: Palette.dim),
-                            ),
-                          ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(_side, 8, _side, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (own != null)
+                          RoomButton(
+                            key: const ValueKey('my-rank'),
+                            label: '${t.myRank(own.rank, own.points)} ▾',
+                            compact: true,
+                            focusNode: rankFocus,
+                            onPressed: onRank,
+                          ),
+                        if (game.pickShown && picks != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            t.stagePickCount(picks.picked, picks.total),
+                            key: const ValueKey('pick-count'),
+                            style: Fonts.bodyStyle(size: 13, color: Palette.dim),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
-                if (game.canSkip) ...[
-                  const SizedBox(width: 6),
-                  RoomButton(
-                    key: const ValueKey('skip'),
-                    label: game.skipVoted ? t.stageSkipCancel : t.stageSkip,
-                    kind: game.skipVoted ? ButtonKind.primary : ButtonKind.plain,
-                    compact: true,
-                    onPressed: game.skipVote,
+              ),
+              if (game.canSkip) ...[
+                const SizedBox(width: 6),
+                RoomButton(
+                  key: const ValueKey('skip'),
+                  label: game.skipVoted ? t.stageSkipCancel : t.stageSkip,
+                  kind: game.skipVoted ? ButtonKind.primary : ButtonKind.plain,
+                  compact: true,
+                  onPressed: game.skipVote,
+                ),
+                if (count != null) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    t.stageSkipCount(count.votes, count.needed),
+                    key: const ValueKey('skip-count'),
+                    style: Fonts.monoStyle(size: 11, letterSpacingEm: 0),
                   ),
-                  if (count != null) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      t.stageSkipCount(count.votes, count.needed),
-                      key: const ValueKey('skip-count'),
-                      style: Fonts.monoStyle(size: 11, letterSpacingEm: 0),
-                    ),
-                  ],
-                ],
-                if (trailing != null) ...[
-                  const SizedBox(width: 6),
-                  trailing!,
                 ],
               ],
-            ),
+              if (trailing != null) ...[
+                const SizedBox(width: 6),
+                trailing!,
+              ],
+            ],
           ),
+        ),
       ],
     );
   }
@@ -681,11 +715,14 @@ class _TopBar extends StatelessWidget {
 }
 
 /// `.timebar`: the fill shrinks from the right as the song's time runs out;
-/// a progress bar only while the song has a clock.
+/// a progress bar only while the song has a clock. [height] thin in the chat
+/// sheet's line, whose fill has its own [fillKey].
 class _TimeBar extends StatelessWidget {
-  const _TimeBar({required this.timer});
+  const _TimeBar({required this.timer, this.height = 6, this.fillKey = const ValueKey('timebar-fill')});
 
   final GameTimer? timer;
+  final double height;
+  final Key fillKey;
 
   @override
   Widget build(BuildContext context) {
@@ -693,12 +730,12 @@ class _TimeBar extends StatelessWidget {
     final timer = this.timer;
     final ratio = timer == null || timer.maxMs <= 0 ? 0.0 : (timer.remainingMs / timer.maxMs).clamp(0.0, 1.0);
     final bar = Container(
-      height: 6,
-      decoration: BoxDecoration(color: Palette.panel2, borderRadius: BorderRadius.circular(3)),
+      height: height,
+      decoration: BoxDecoration(color: Palette.panel2, borderRadius: BorderRadius.circular(height / 2)),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.centerLeft,
       child: FractionallySizedBox(
-        key: const ValueKey('timebar-fill'),
+        key: fillKey,
         widthFactor: timer == null ? 1 : ratio,
         heightFactor: 1,
         child: const DecoratedBox(
@@ -922,7 +959,7 @@ class _RevealStrip extends StatelessWidget {
 }
 
 /// A choice room's round 채팅 button (D-145) with the count of lines since
-/// the chat panel was last closed.
+/// the chat sheet was last closed; it opens the sheet (D-146).
 class _ChatButton extends StatelessWidget {
   const _ChatButton({required this.unread, required this.onTap});
 
@@ -968,51 +1005,240 @@ class _ChatButton extends StatelessWidget {
   }
 }
 
-/// A choice room's open chat panel (D-145): 채팅 and 닫기 ▾, and the log;
-/// the input sits under it ([open]: it closes back to the covers).
-class _TalkPanel extends StatelessWidget {
-  const _TalkPanel({required this.lines, required this.me, required this.onClose, required this.open});
+/// The chat sheet's line for a reveal that came while it was open (D-146):
+/// ✔ and the solvers (every ranked one, or the first-come winner) with 정답!,
+/// else 정답 공개; then that closing the sheet shows the answer card.
+String sheetRevealText(AppLocalizations t, RevealMessage reveal) {
+  final ranking = reveal.ranking;
+  final names = ranking != null ? [for (final row in ranking) row.name] : [?reveal.winner];
+  return names.isEmpty ? t.chatSheetReveal : '$_check ${t.chatSheetRevealSolved(names.join(', '))}';
+}
 
-  final List<LogLine> lines;
+/// A choice room's chat sheet (D-146, V3ChatSheet) over the whole game
+/// screen, sliding up from the bottom with [slide]: a dimmed strip of the
+/// screen above it (a tap closes it), the handle, 채팅 and 닫기 ▾ (a swipe
+/// down on the strip, the handle or the header moves it: [onDrag], then
+/// [onDragEnd] with the speed), the thin status line, the whole log with
+/// [revealLine] after its first `at` lines, and the input above the
+/// keyboard ([onSend]; none after the game). Escape closes it. It covers
+/// the screen, so nothing under it takes a tap; while it slides down
+/// ([open] false) it takes no tap and nothing in it keeps the focus.
+class _ChatSheet extends StatelessWidget {
+  const _ChatSheet({
+    required this.game,
+    required this.me,
+    required this.slide,
+    required this.open,
+    required this.onSend,
+    required this.revealLine,
+    required this.onClose,
+    required this.onDrag,
+    required this.onDragEnd,
+  });
+
+  final GameModel game;
   final String? me;
-  final VoidCallback onClose;
+  final Animation<double> slide;
   final bool open;
+  final ValueChanged<String>? onSend;
+  final ({int at, String text, bool solved})? revealLine;
+  final VoidCallback onClose;
+  final void Function(double delta, double height) onDrag;
+  final ValueChanged<double> onDragEnd;
 
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context);
-    const top = Radius.circular(14);
-    return Container(
-      key: const ValueKey('chat-panel'),
-      margin: const EdgeInsets.symmetric(horizontal: _side),
-      decoration: BoxDecoration(
-        color: Palette.panel,
-        border: open
-            ? const Border(
-                top: BorderSide(color: Palette.line),
-                left: BorderSide(color: Palette.line),
-                right: BorderSide(color: Palette.line),
-              )
-            : Border.all(color: Palette.line),
-        borderRadius: open ? const BorderRadius.vertical(top: top) : const BorderRadius.all(top),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Semantics(
-        label: t.chatLabel,
-        container: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
-              child: Row(
+    final media = MediaQuery.of(context);
+    final keyboard = media.viewInsets.bottom;
+    final top = media.padding.top + _sheetGap;
+    final send = onSend;
+    final note = revealLine;
+    return LayoutBuilder(
+      builder: (context, box) {
+        final height = math.max(0.0, box.maxHeight - top);
+        Widget dragArea({required Widget child, VoidCallback? onTap}) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              onVerticalDragUpdate: (d) => onDrag(d.primaryDelta ?? 0, height),
+              onVerticalDragEnd: (d) => onDragEnd(d.primaryVelocity ?? 0),
+              child: child,
+            );
+        final sheet = Material(
+          key: const ValueKey('chat-sheet'),
+          color: Palette.panel,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            side: BorderSide(color: Palette.line),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Semantics(
+            scopesRoute: true,
+            namesRoute: true,
+            explicitChildNodes: true,
+            label: t.chatLabel,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: keyboard > 0 ? keyboard : media.padding.bottom),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: Text(t.chatLabel, style: Fonts.bodyStyle(size: 12.5, color: Palette.dim))),
-                  _SmallButton(key: const ValueKey('chat-close'), label: '${t.offsetClose} ▾', onTap: onClose),
+                  dragArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Center(
+                            child: Container(
+                              key: const ValueKey('chat-sheet-handle'),
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(color: Palette.line, borderRadius: BorderRadius.circular(2)),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Semantics(
+                                  header: true,
+                                  child: Text(t.chatLabel, key: const ValueKey('chat-sheet-title'), style: Fonts.displayStyle(size: 20)),
+                                ),
+                              ),
+                              RoomButton(
+                                key: const ValueKey('chat-close'),
+                                label: '${t.offsetClose} ▾',
+                                compact: true,
+                                onPressed: onClose,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _SheetStatus(game: game),
+                  Expanded(
+                    child: ChatLog(
+                      lines: game.log,
+                      me: me,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      extra: note == null
+                          ? null
+                          : (
+                              at: note.at,
+                              child: KeyedSubtree(
+                                key: const ValueKey('sheet-reveal'),
+                                child: noteLine(note.text, solved: note.solved),
+                              ),
+                            ),
+                    ),
+                  ),
+                  if (send != null)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Palette.line))),
+                      child: ChatForm(
+                        key: const ValueKey('chat-form'),
+                        onSend: send,
+                        hint: t.chatTalkPlaceholder,
+                        autofocus: true,
+                      ),
+                    ),
                 ],
               ),
             ),
-            Expanded(child: ChatLog(lines: lines, me: me, padding: const EdgeInsets.fromLTRB(12, 4, 12, 6))),
+          ),
+        );
+        return CallbackShortcuts(
+          bindings: {const SingleActivator(LogicalKeyboardKey.escape): onClose},
+          child: ExcludeFocus(
+            excluding: !open,
+            child: IgnorePointer(
+              ignoring: !open,
+              child: BlockSemantics(
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: FadeTransition(
+                        opacity: slide,
+                        child: dragArea(
+                          onTap: onClose,
+                          child: const ColoredBox(key: ValueKey('chat-sheet-dim'), color: Color(0x99000000)),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: top,
+                      bottom: 0,
+                      child: SlideTransition(
+                        position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(slide),
+                        child: Center(
+                          child: SizedBox(width: math.min(box.maxWidth, contentMaxWidth), height: height, child: sheet),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The chat sheet's thin status line (V3ChatSheet): the small disc
+/// (spinning while the song is audible), song n / N, a thin time bar, the
+/// seconds left and · the pick count.
+class _SheetStatus extends StatelessWidget {
+  const _SheetStatus({required this.game});
+
+  final GameModel game;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context);
+    final round = game.round;
+    final timer = game.timer;
+    final seconds = timer == null ? null : (timer.remainingMs / 1000).ceil();
+    final picks = game.pickCount;
+    final style = Fonts.bodyStyle(size: 12, color: Palette.dim);
+    return Container(
+      key: const ValueKey('sheet-status'),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Palette.line))),
+      child: SizedBox(
+        height: 24,
+        child: Row(
+          children: [
+            Container(
+              key: const ValueKey('sheet-disc'),
+              padding: const EdgeInsets.all(1.5),
+              decoration: const BoxDecoration(color: Palette.a1, shape: BoxShape.circle),
+              child: Disc(size: 19, spinning: game.audible),
+            ),
+            const SizedBox(width: 10),
+            if (round != null) ...[
+              Text('${round.index + 1} / ${round.total}', key: const ValueKey('sheet-round'), style: style),
+              const SizedBox(width: 10),
+            ],
+            Expanded(child: _TimeBar(timer: timer, height: 4, fillKey: const ValueKey('sheet-timebar-fill'))),
+            const SizedBox(width: 10),
+            Text(
+              seconds == null ? '' : t.stageSeconds(seconds),
+              key: const ValueKey('sheet-clock'),
+              style: seconds != null && seconds <= _lowSeconds ? style.copyWith(color: Palette.a3) : style,
+            ),
+            if (game.pickShown && picks != null) ...[
+              const SizedBox(width: 6),
+              Text('· ${t.stagePickCount(picks.picked, picks.total)}', key: const ValueKey('sheet-picks'), style: style),
+            ],
           ],
         ),
       ),
@@ -1683,12 +1909,11 @@ const double _frameHeight = 19;
 
 /// The columns and the cover width that fit [count] tiles in [width] x
 /// [height] (D-142, D-145): 2, 3 or 4 columns (no more than the tiles),
-/// whichever gives the biggest covers, the fewest columns on a tie; or
-/// exactly [columns] when given (a choice room's one row while its chat is
-/// open). The covers are 3:4 in their polaroid frames. The width is never
-/// negative (the grid scales down past that).
-({int columns, double coverWidth}) tileLayout(int count, double width, double height, {int? columns}) {
-  final options = columns == null ? _columnOptions(count) : {math.max(1, columns)};
+/// whichever gives the biggest covers, the fewest columns on a tie. The
+/// covers are 3:4 in their polaroid frames. The width is never negative
+/// (the grid scales down past that).
+({int columns, double coverWidth}) tileLayout(int count, double width, double height) {
+  final options = _columnOptions(count);
   var best = (columns: options.first, coverWidth: -1.0);
   for (final cols in options) {
     final rows = (count / cols).ceil();
@@ -1707,36 +1932,23 @@ Set<int> _columnOptions(int count) => {
         if (columns <= count) columns,
     };
 
-/// The height of [count] tiles laid out by [tileLayout] in [width] x
-/// [height] (in exactly [columns] when given): at most [height] (past that
-/// the grid scales down).
-double gridHeight(int count, double width, double height, {int? columns}) {
-  final layout = tileLayout(count, width, height, columns: columns);
-  final rows = (count / layout.columns).ceil();
-  final tile = (layout.coverWidth * 4 / 3).floorToDouble() + _frameHeight;
-  return math.min(height, rows * tile + _tileGap * (rows - 1));
-}
-
 /// A choice room's cover tiles (ChoiceGrid.jsx, D-111) filling the space
-/// they are given (D-142, [tileLayout]; all in one row with [oneRow],
-/// D-145); each tile its cover (from the round controller's bytes; an
+/// they are given (D-142, D-145, [tileLayout]); each tile its cover (from the round controller's bytes; an
 /// empty frame until loaded), its number, and after the reveal or the own
 /// pick its translated mark (cycle 138). Nothing marks the correct tile
 /// before the reveal (A9).
 class ChoiceGrid extends StatelessWidget {
-  const ChoiceGrid({super.key, required this.game, required this.cover, this.oneRow = false});
+  const ChoiceGrid({super.key, required this.game, required this.cover});
 
   final GameModel game;
   final Uint8List? Function(String url) cover;
-  final bool oneRow;
 
   @override
   Widget build(BuildContext context) {
     final choices = game.choices!;
     return LayoutBuilder(
       builder: (context, box) {
-        final layout =
-            tileLayout(choices.length, box.maxWidth, box.maxHeight, columns: oneRow ? choices.length : null);
+        final layout = tileLayout(choices.length, box.maxWidth, box.maxHeight);
         final cols = layout.columns;
         final tileWidth = layout.coverWidth + _frameWidth;
         final tileHeight = (layout.coverWidth * 4 / 3).floorToDouble() + _frameHeight;

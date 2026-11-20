@@ -795,5 +795,16 @@
   "exitAsk": "SongRush를 나갈까요?",
   "@exitAsk": {
     "description": "app only: a back on the start screen asks this before leaving the site"
+  },
+  "chatSheetRevealSolved": "{name} 정답! · 닫으면 정답 카드가 보여요",
+  "@chatSheetRevealSolved": {
+    "description": "app only: the chat sheet's line for a reveal while it is open, with the solvers (a comma list)",
+    "placeholders": {
+      "name": {}
+    }
+  },
+  "chatSheetReveal": "정답 공개 · 닫으면 정답 카드가 보여요",
+  "@chatSheetReveal": {
+    "description": "app only: the chat sheet's line for a reveal nobody solved, while it is open"
   }
 }

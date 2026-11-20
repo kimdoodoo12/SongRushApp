@@ -130,7 +130,7 @@ List<String> floatTexts(WidgetTester tester) {
   ];
 }
 
-/// Opens a choice room's chat panel with the round 채팅 button.
+/// Opens a choice room's chat sheet (D-146) with the round 채팅 button.
 Future<void> openChat(WidgetTester tester, Harness h) async {
   await tester.tap(find.byKey(const ValueKey('chat-open')));
   await h.settle(tester);
