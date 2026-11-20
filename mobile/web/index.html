@@ -123,6 +123,13 @@
     which is what `SafeArea` is for.
   -->
   <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"> -->
+  <!--
+    Cycle 166: lays the loading screen out at the phone's width before Flutter
+    starts (without it a phone uses a 980px layout and the text is tiny). It is
+    the same content Flutter's engine writes when it replaces this tag, with no
+    viewport-fit, so the app's own viewport is unchanged.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -142,11 +149,26 @@
     it never does (a failed download, an old browser), so a phone can always
     reach the React web. ?ui=pc keeps it there even with blocked localStorage.
   -->
-  <div id="loading" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1c0f1a;color:#fff1e6;font:16px/1.5 sans-serif;text-align:center;padding:16px">
-    <div id="loading-text">불러오는 중… / Loading…</div>
-    <div>
-      <a href="/?ui=pc" style="color:#ff8a4c">PC 버전으로 보기 / PC version</a>
-      <a id="loading-retry" href="#" style="color:#ff8a4c;margin-left:16px;display:none">다시 시도 / Retry</a>
+  <!--
+    Cycle 166: one language (from navigator.language), friendlier lines that
+    change with the elapsed time (0 / 5 / 15 / 30 s), a progress bar driven
+    by the startup files' bytes, and a rotating tip. The PC link is visible
+    in the markup and the script hides it until 15 s, so a browser where the
+    script fails still has it.
+  -->
+  <div id="loading" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#1c0f1a;color:#fff1e6;font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Apple SD Gothic Neo','Malgun Gothic','Hiragino Sans','Noto Sans KR','Noto Sans JP',sans-serif;text-align:center;padding:24px;box-sizing:border-box;overflow-y:auto">
+    <div id="loading-title" style="font-size:20px;font-weight:bold;line-height:1.4">🎵 무대 준비 중…</div>
+    <div id="loading-sub" style="font-size:14px;color:#c4a3a8;max-width:320px">처음 한 번만 조금 오래 걸려요</div>
+    <div style="width:100%;max-width:280px;margin-top:8px">
+      <div style="height:6px;background:#3a1f30;border-radius:3px;overflow:hidden">
+        <div id="loading-bar" style="height:100%;width:0;background:#ff8a4c;border-radius:3px;transition:width .3s linear"></div>
+      </div>
+      <div id="loading-pct" style="font-size:12px;color:#c4a3a8;margin-top:4px">0%</div>
+    </div>
+    <div id="loading-tip" style="font-size:13px;color:#c4a3a8;max-width:320px;min-height:40px"></div>
+    <div id="loading-links">
+      <a id="loading-pc" href="/?ui=pc" style="color:#ff8a4c">PC 버전으로 보기</a>
+      <a id="loading-retry" href="#" style="color:#ff8a4c;margin-left:16px;display:none">다시 시도</a>
     </div>
     <div id="loading-diag" style="display:none;max-width:100%;color:#c4a3a8;font:11px/1.4 monospace;text-align:left;white-space:pre-wrap;word-break:break-all"></div>
   </div>
@@ -223,7 +245,6 @@
       }
 
       function showSlow() {
-        document.getElementById('loading-text').textContent = '오래 걸리고 있어요… / Still loading…';
         var retry = document.getElementById('loading-retry');
         retry.style.display = 'inline';
         retry.onclick = function (e) {
@@ -247,13 +268,159 @@
         box.style.display = 'block';
       }
 
-      window.addEventListener('flutter-first-frame', hide);
-      timer = setInterval(function () {
+      // Cycle 166: the copy, in the browser's language (ko, ja, else en).
+      var lang = String(navigator.language || '').toLowerCase();
+      lang = lang.indexOf('ko') === 0 ? 'ko' : lang.indexOf('ja') === 0 ? 'ja' : 'en';
+      var COPY = {
+        ko: {
+          stages: [
+            ['🎵 무대 준비 중…', '처음 한 번만 조금 오래 걸려요'],
+            ['거의 다 왔어요', '게임 엔진을 내려받는 중이에요. 다음부터는 금방 열려요'],
+            ['조금만 더 기다려 주세요', '인터넷이 느리면 시간이 더 걸릴 수 있어요'],
+            ['오래 걸리고 있어요', '인터넷이 느리면 시간이 더 걸릴 수 있어요']
+          ],
+          pc: 'PC 버전으로 보기',
+          retry: '다시 시도',
+          tips: [
+            '띄어쓰기와 문장부호는 몰라도 정답이에요',
+            '한국어·영어·일본어·로마자 제목 모두 정답이에요',
+            '객관식에서는 표지를 한 번만 고를 수 있어요',
+            '스킵은 과반이 누르면 넘어가요',
+            '방 링크를 보내면 친구가 바로 들어와요'
+          ]
+        },
+        en: {
+          stages: [
+            ['🎵 Setting the stage…', 'Only the first visit takes a little while'],
+            ['Almost there', 'Downloading the game engine. Next time it opens quickly'],
+            ['Just a moment more', 'A slow connection can take longer'],
+            ['This is taking a while', 'A slow connection can take longer']
+          ],
+          pc: 'PC version',
+          retry: 'Retry',
+          tips: [
+            'Spaces and punctuation don\'t matter in an answer',
+            'Korean, English, Japanese and romaji titles all count',
+            'In multiple choice you can pick a cover only once',
+            'A skip passes when most players vote for it',
+            'Send the room link and friends join right away'
+          ]
+        },
+        ja: {
+          stages: [
+            ['🎵 ステージ準備中…', '初回だけ少し時間がかかります'],
+            ['もうすぐです', 'ゲームエンジンをダウンロード中です。次回からはすぐ開きます'],
+            ['もう少しお待ちください', '回線が遅いと時間がかかることがあります'],
+            ['時間がかかっています', '回線が遅いと時間がかかることがあります']
+          ],
+          pc: 'PC版で見る',
+          retry: '再読み込み',
+          tips: [
+            'スペースや句読点は気にしなくても正解になります',
+            '韓国語・英語・日本語・ローマ字のタイトルがすべて正解です',
+            '選択式ではジャケットを一度だけ選べます',
+            'スキップは過半数が押すと次の曲へ進みます',
+            'ルームのリンクを送れば友だちがすぐ参加できます'
+          ]
+        }
+      }[lang];
+
+      // Cycle 166: the big startup files with their approximate compressed
+      // sizes, the bar's denominator. A finished file counts with its real
+      // bytes (transferSize, else encodedBodySize), or with its estimate when
+      // the browser reports 0 (a cached file); an unfinished one counts with
+      // its estimate. Entries appear only when a file has finished, so the
+      // bar also creeps on its own between them, never past 95%.
+      var KB = 1024;
+      var FILES = [
+        { re: /^flutter_bootstrap\.js$/, size: 10 * KB },
+        { re: /^main\.dart\.js$/, size: 900 * KB },
+        { re: /canvaskit\.js$/, size: 90 * KB },
+        { re: /canvaskit\.wasm$/, size: 2000 * KB },
+        { re: /\.(?:ttf|otf)$/, size: 700 * KB, group: true }
+      ];
+      var CAP = 0.95;
+      var shown = 0;
+      var lastStage = -1;
+      var lastTip = -1;
+      var tipOffset = Math.floor(Math.random() * COPY.tips.length);
+
+      function byteFraction() {
+        if (!window.performance || !performance.getEntriesByType) return 0;
+        var done = [];
+        for (var i = 0; i < FILES.length; i++) done.push(0);
+        var counted = {};
+        performance.getEntriesByType('resource').forEach(function (r) {
+          var at = r.name.indexOf('/m/');
+          if (at === -1 || !(r.responseEnd > 0)) return;
+          var name = r.name.slice(at + 3).split('?')[0];
+          for (var i = 0; i < FILES.length; i++) {
+            if (!FILES[i].re.test(name)) continue;
+            // Only one canvaskit variant (and one bootstrap) is loaded; a
+            // repeat entry for the same file would count twice.
+            if (!FILES[i].group && counted[i]) break;
+            counted[i] = true;
+            var bytes = r.transferSize || r.encodedBodySize || 0;
+            done[i] += bytes > 0 ? bytes : FILES[i].size;
+            break;
+          }
+        });
+        var finished = 0;
+        var total = 0;
+        for (var j = 0; j < FILES.length; j++) {
+          finished += done[j];
+          // The font group is finished once it reaches its estimate.
+          total += FILES[j].group
+            ? Math.max(done[j], FILES[j].size)
+            : (counted[j] ? done[j] : FILES[j].size);
+        }
+        return total > 0 ? finished / total : 0;
+      }
+
+      function setProgress() {
+        var real = Math.min(byteFraction(), CAP);
+        // Creep toward a share of the remaining work on every tick: 2% of
+        // the gap, at least 0.05 points (0.2%/s), never past the target.
+        var target = Math.min(CAP, real + (1 - real) * 0.6);
+        shown = Math.max(shown, real);
+        if (shown < target) {
+          shown = Math.min(target, shown + Math.max((target - shown) * 0.02, 0.0005));
+        }
+        var pct = Math.floor(shown * 100);
+        document.getElementById('loading-bar').style.width = (shown * 100).toFixed(1) + '%';
+        document.getElementById('loading-pct').textContent = pct + '%';
+      }
+
+      function setStage(elapsed) {
+        var stage = elapsed >= 30000 ? 3 : elapsed >= 15000 ? 2 : elapsed >= 5000 ? 1 : 0;
+        if (stage !== lastStage) {
+          lastStage = stage;
+          document.getElementById('loading-title').textContent = COPY.stages[stage][0];
+          document.getElementById('loading-sub').textContent = COPY.stages[stage][1];
+          document.getElementById('loading-pc').style.display = stage >= 2 ? 'inline' : 'none';
+        }
+        var tip = (tipOffset + Math.floor(elapsed / 5000)) % COPY.tips.length;
+        if (tip !== lastTip) {
+          lastTip = tip;
+          document.getElementById('loading-tip').textContent = COPY.tips[tip];
+        }
+        // Refreshed on every tick so later diagnostics show up too.
+        if (stage === 3) showSlow();
+      }
+
+      function tick() {
         if (!document.getElementById('loading')) return hide();
         if (flutterDrawn()) return hide();
-        // Refreshed on every tick so later diagnostics show up too.
-        if (Date.now() - started >= 10000) showSlow();
-      }, 500);
+        setStage(Date.now() - started);
+        setProgress();
+      }
+
+      document.documentElement.lang = lang;
+      document.getElementById('loading-pc').textContent = COPY.pc;
+      document.getElementById('loading-retry').textContent = COPY.retry;
+      window.addEventListener('flutter-first-frame', hide);
+      timer = setInterval(tick, 250);
+      tick();
     })();
   </script>
   <!--
