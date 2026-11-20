@@ -18,6 +18,8 @@ import 'support/harness.dart';
 // in place of the players' line; a chat room's log fills the middle; a
 // choice room's covers fill it, the chat floating over them, and the chat
 // panel opens from a round 채팅 button; the reveal card folds into a strip.
+// Cycle 165 (D-146): the choice room's chat panel became a full-screen
+// sheet over the game screen; the screen itself has no input.
 
 const List<Size> sizes = [Size(360, 640), Size(390, 844), Size(430, 932)];
 const List<String> langs = ['ko', 'en', 'ja'];
@@ -105,6 +107,71 @@ void expectOneScreen(WidgetTester tester, String state, {double inset = 0}) {
   final card = find.byKey(const ValueKey('reveal'));
   if (card.evaluate().isNotEmpty) {
     expect(tester.getRect(card).top, lessThan(visible.bottom), reason: '$state: the card is off screen');
+  }
+}
+
+/// The chat sheet (D-146) laid out whole over the game screen: no
+/// overflow; the sheet from a 40 px dimmed strip at the top down to the
+/// screen's bottom, as wide as the screen's content; its handle, 채팅, 닫기,
+/// status line and log (and with [input] the field and 보내기) shown,
+/// tappable and above the keyboard ([inset]); the log a real part of it;
+/// the input at its bottom right above the keyboard; and nothing of the
+/// game screen under it taking a tap.
+void expectSheet(WidgetTester tester, String state, {double inset = 0, bool input = true}) {
+  final error = tester.takeException();
+  expect(error, isNull, reason: '$state: ${error is FlutterError ? error.toStringDeep() : error}');
+  final screen = screenOf(tester);
+  final visible = Rect.fromLTWH(0, 0, screen.width, screen.height - inset);
+  final sheet = rectOf(tester, 'chat-sheet');
+  expect(sheet.top, closeTo(40, 0.5), reason: '$state: the sheet $sheet under the dimmed strip');
+  expect(sheet.bottom, closeTo(screen.height, 0.5), reason: '$state: the sheet down to the bottom');
+  final width = screen.width < 480 ? screen.width : 480.0;
+  expect(sheet.width, closeTo(width, 0.5), reason: '$state: the sheet across the screen');
+  expect(sheet.center.dx, closeTo(screen.width / 2, 0.5));
+  for (final key in [
+    'chat-sheet-handle',
+    'chat-sheet-title',
+    'chat-close',
+    'sheet-status',
+    'sheet-disc',
+    'chat-log',
+    if (input) ...['chat-input', 'chat-send'],
+  ]) {
+    final found = find.byKey(ValueKey(key));
+    expect(found.hitTestable(), findsOneWidget, reason: '$state: $key shown and tappable');
+    final rect = tester.getRect(found);
+    expect(rect.top >= visible.top - 0.5 && rect.bottom <= visible.bottom + 0.5, isTrue,
+        reason: '$state: $key at $rect, outside $visible');
+    expect(rect.left >= sheet.left - 0.5 && rect.right <= sheet.right + 0.5, isTrue, reason: '$state: $key at $rect');
+  }
+  for (final key in ['sheet-round', 'sheet-clock', 'sheet-picks']) {
+    final found = find.byKey(ValueKey(key));
+    if (found.evaluate().isEmpty) continue;
+    final rect = tester.getRect(found);
+    expect(rect.bottom <= visible.bottom + 0.5 && rect.right <= sheet.right + 0.5, isTrue, reason: '$state: $key at $rect');
+  }
+  if (!input) expect(find.byKey(const ValueKey('chat-input')), findsNothing, reason: '$state: no input');
+  final log = rectOf(tester, 'chat-log');
+  expect(log.height, greaterThan(80), reason: '$state: the log $log a real part of the sheet');
+  expect(log.top, greaterThan(rectOf(tester, 'sheet-status').bottom - 0.5), reason: '$state: the log under the status line');
+  if (input) {
+    final field = rectOf(tester, 'chat-input');
+    expect(field.top, greaterThan(log.bottom - 0.5), reason: '$state: the input under the log');
+    expect(field.bottom, greaterThan(visible.bottom - 70), reason: '$state: the input $field right above the keyboard');
+  }
+  // The game screen under it takes no tap.
+  for (final key in [
+    'chat-open',
+    'my-rank',
+    'game-leave',
+    'skip',
+    'to-lobby',
+    'unlock-sound',
+    'reveal-strip',
+    'reveal-less',
+    for (var i = 0; i < 8; i++) 'tile-$i',
+  ]) {
+    expect(find.byKey(ValueKey(key)).hitTestable(), findsNothing, reason: '$state: $key under the sheet takes a tap');
   }
 }
 
@@ -268,7 +335,7 @@ void main() {
       });
 
       for (final count in [4, 6, 8]) {
-        testWidgets('choice room v2 with $count tiles at $where: covers fill, floating chat, chat panel, reveal',
+        testWidgets('choice room v2 with $count tiles at $where: covers fill, floating chat, chat sheet, reveal',
             (tester) async {
           final h = await enterGame(tester, language: lang, options: {'answerMode': 'choice', 'gameMode': 'ranked'});
           await resize(tester, h, size);
@@ -352,37 +419,30 @@ void main() {
           }
           final picked = h.sent.whereType<PickRequest>().length;
 
-          // 채팅 opens the panel: one row of tiles, the log, the input
-          // (focused); the bubbles and the button go.
+          // 채팅 opens the sheet over the whole screen: the log, the input
+          // (focused); the bubbles go, and the covers and the button take
+          // no tap.
           final before = tileRects(tester, count);
           await openChat(tester, h);
-          expect(find.byKey(const ValueKey('chat-panel')), findsOneWidget);
-          expect(find.byKey(const ValueKey('chat-open')), findsNothing);
-          expect(find.byKey(const ValueKey('chat-float')), findsNothing);
+          expect(find.byKey(const ValueKey('chat-sheet')), findsOneWidget);
+          expect(find.byKey(const ValueKey('chat-open')).hitTestable(), findsNothing);
+          expect(floatTexts(tester), isEmpty);
           expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
-          final row = tileRects(tester, count);
-          expect({for (final r in row) r.top.round()}.length, 1, reason: 'one row');
-          expect(row.first.bottom, lessThanOrEqualTo(rectOf(tester, 'chat-panel').top));
           expect(rectOf(tester, 'chat-input').top, greaterThan(rectOf(tester, 'chat-log').top));
           expect(logTexts(tester).last, 'over a tile');
-          expectOneScreen(tester, 'choice, panel');
+          expectSheet(tester, 'choice, sheet');
           await keyboardUp(tester, h);
-          expectOneScreen(tester, 'choice, panel, keyboard', inset: keyboard);
-          for (var i = 0; i < count; i++) {
-            expect(find.byKey(ValueKey('tile-$i')).hitTestable(), findsOneWidget, reason: 'tile $i tappable');
-          }
+          expectSheet(tester, 'choice, sheet, keyboard', inset: keyboard);
           expect(rectOf(tester, 'chat-input').bottom, lessThanOrEqualTo(screenOf(tester).height - keyboard));
-          // A pick works with the panel open (when none went through above).
-          if (picked == 0) {
-            await tester.tap(find.byKey(ValueKey('tile-${count - 1}')));
-            await h.settle(tester);
-            expect(h.lastSent<PickRequest>().choice, count - 1);
-          }
+          // A tap where a cover lies (above the keyboard) picks nothing.
+          await tester.tapAt(tileRects(tester, count).first.center);
+          await h.settle(tester);
+          expect(h.sent.whereType<PickRequest>().length, picked, reason: 'no pick through the sheet');
           await keyboardDown(tester, h);
           // 닫기 brings the covers back; nothing unread.
           await tester.tap(find.byKey(const ValueKey('chat-close')));
           await h.settle(tester);
-          expect(find.byKey(const ValueKey('chat-panel')), findsNothing);
+          expect(find.byKey(const ValueKey('chat-sheet')), findsNothing);
           expect(find.byKey(const ValueKey('chat-input')), findsNothing);
           expect(find.byKey(const ValueKey('chat-unread')), findsNothing);
           expect(floatTexts(tester), isEmpty);
@@ -410,11 +470,11 @@ void main() {
           await h.settle(tester);
           expect(find.byKey(const ValueKey('reveal')), findsOneWidget);
           expectOneScreen(tester, 'choice reveal, opened again');
-          // The panel during the reveal.
+          // The sheet during the reveal.
           await openChat(tester, h);
-          expectOneScreen(tester, 'choice reveal, panel');
+          expectSheet(tester, 'choice reveal, sheet');
           await keyboardUp(tester, h);
-          expectOneScreen(tester, 'choice reveal, panel, keyboard', inset: keyboard);
+          expectSheet(tester, 'choice reveal, sheet, keyboard', inset: keyboard);
           await keyboardDown(tester, h);
           await tester.tap(find.byKey(const ValueKey('chat-close')));
           await h.settle(tester);
@@ -431,7 +491,7 @@ void main() {
           expect(find.byKey(const ValueKey('final')), findsOneWidget);
           expect(find.byKey(const ValueKey('chat-open')), findsOneWidget);
           await openChat(tester, h);
-          expectOneScreen(tester, 'choice game over, panel');
+          expectSheet(tester, 'choice game over, sheet', input: false);
           expect(find.byKey(const ValueKey('chat-input')), findsNothing);
           await tester.tap(find.byKey(const ValueKey('chat-close')));
           await h.settle(tester);
@@ -465,61 +525,77 @@ void main() {
   }
 
   for (final count in [4, 8]) {
-    testWidgets('a pick works with the chat panel open ($count tiles)', (tester) async {
+    testWidgets('the covers take no pick while the chat sheet is open ($count tiles); after 닫기 they do', (tester) async {
       final h = await enterGame(tester, options: {'answerMode': 'choice'});
       await prepare(tester, h, 0, choices: [for (var i = 0; i < count; i++) 'c$i']);
       await start(tester, h, 0);
+      final tiles = tileRects(tester, count);
       await openChat(tester, h);
       await keyboardUp(tester, h);
       expect(find.byKey(const ValueKey('chat-input')).hitTestable(), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('tile-2')));
-      await h.settle(tester);
-      final pick = h.lastSent<PickRequest>();
-      expect((pick.index, pick.choice), (0, 2));
-      // The panel stays open; the talk goes on.
-      expect(find.byKey(const ValueKey('chat-panel')), findsOneWidget);
+      for (var i = 0; i < count; i++) {
+        expect(find.byKey(ValueKey('tile-$i')).hitTestable(), findsNothing, reason: 'tile $i under the sheet');
+      }
+      for (final r in tiles) {
+        await tester.tapAt(r.center);
+        await h.settle(tester);
+      }
+      expect(h.sent.whereType<PickRequest>(), isEmpty, reason: 'no pick through the sheet');
+      expect(h.controller.game!.canPick, isTrue);
+      // The sheet stays open; the talk goes on.
+      expect(find.byKey(const ValueKey('chat-sheet')), findsOneWidget);
       await tester.enterText(find.byKey(const ValueKey('chat-input')), 'hello');
       await tester.tap(find.byKey(const ValueKey('chat-send')));
       await h.settle(tester);
       expect(h.lastSent<ChatRequest>().text, 'hello');
       await keyboardDown(tester, h);
+      await tester.tap(find.byKey(const ValueKey('chat-close')));
+      await h.settle(tester);
+      await tester.tap(find.byKey(const ValueKey('tile-2')));
+      await h.settle(tester);
+      final pick = h.lastSent<PickRequest>();
+      expect((pick.index, pick.choice), (0, 2));
       await h.tearDown(tester);
     });
   }
 
   // Cycle 161: Chrome on Android hides the keyboard without the page
   // resizing; the browser's keyboard inset (in place of Flutter's) going
-  // back to 0 brings back the top bar's second line and the panel's height.
-  testWidgets('a choice room with the chat panel: the keyboard going 300 -> 0 restores the layout', (tester) async {
+  // back to 0 gives the sheet its full height back.
+  testWidgets('a choice room with the chat sheet: the keyboard going 300 -> 0 restores the layout', (tester) async {
     final inset = ValueNotifier<double>(0);
     final h = await enterGame(tester, options: {'answerMode': 'choice'}, keyboardInset: inset);
     await prepare(tester, h, 0, choices: ['a', 'b', 'c', 'd']);
     await start(tester, h, 0);
+    final leave = rectOf(tester, 'game-leave');
+    final tiles = tileRects(tester, 4);
     await openChat(tester, h);
-    final panel = rectOf(tester, 'chat-panel');
+    final sheet = rectOf(tester, 'chat-sheet');
+    final log = rectOf(tester, 'chat-log');
     final input = rectOf(tester, 'chat-input');
-    expect(shown('my-rank'), isTrue);
-    expect(shown('skip'), isTrue);
-    expect(shown('game-leave'), isTrue);
+    expectSheet(tester, 'sheet');
 
     inset.value = keyboard;
     await h.settle(tester);
-    expect(shown('my-rank'), isFalse, reason: 'typing in the panel: the first line only');
-    expect(shown('game-leave'), isFalse);
     expect(rectOf(tester, 'chat-input').bottom, lessThanOrEqualTo(phone.height - keyboard));
-    expectOneScreen(tester, 'panel, keyboard', inset: keyboard);
+    expect(rectOf(tester, 'chat-log').height, lessThan(log.height), reason: 'the log shrinks above the keyboard');
+    expectSheet(tester, 'sheet, keyboard', inset: keyboard);
+    // The game screen under it keeps its layout (it has no input).
+    expect(rectOf(tester, 'game-leave'), leave);
+    expect(tileRects(tester, 4), tiles);
 
     // Hidden while the field keeps the focus.
     inset.value = 0;
     await h.settle(tester);
     expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
-    expect(shown('my-rank'), isTrue);
-    expect(shown('skip'), isTrue);
-    expect(shown('game-leave'), isTrue);
-    expect(rectOf(tester, 'chat-panel'), panel);
+    expect(rectOf(tester, 'chat-sheet'), sheet);
+    expect(rectOf(tester, 'chat-log'), log);
     expect(rectOf(tester, 'chat-input'), input);
+    expectSheet(tester, 'sheet, keyboard hidden');
+    await tester.tap(find.byKey(const ValueKey('chat-close')));
+    await h.settle(tester);
     expect(find.byKey(const ValueKey('game-leave')).hitTestable(), findsOneWidget);
-    expectOneScreen(tester, 'panel, keyboard hidden');
+    expectOneScreen(tester, 'sheet closed');
     await h.tearDown(tester);
   });
 
@@ -652,7 +728,7 @@ void main() {
     await h.tearDown(tester);
   });
 
-  test('tile layout: 2, 3 or 4 columns, whichever gives the biggest covers; or the columns asked for', () {
+  test('tile layout: 2, 3 or 4 columns, whichever gives the biggest covers', () {
     expect(tileLayout(4, 336, 300).columns, 2);
     expect(tileLayout(6, 336, 300).columns, 3);
     expect(tileLayout(6, 336, 900).columns, 2);
@@ -669,9 +745,6 @@ void main() {
     // Never more columns than tiles; the fewest columns on a tie.
     expect(tileLayout(2, 336, 100).columns, 2);
     expect(tileLayout(4, 336, 520).columns, 2);
-    // One row when asked.
-    expect(tileLayout(8, 336, 900, columns: 8).columns, 8);
-    expect(gridHeight(4, 336, 900, columns: 4), (tileLayout(4, 336, 900, columns: 4).coverWidth * 4 / 3).floor() + 19);
     // The grid fits the space it is given.
     for (final (n, w, h) in [(4, 336.0, 300.0), (6, 366.0, 500.0), (8, 406.0, 250.0), (8, 336.0, 40.0), (8, 336.0, 0.0)]) {
       final l = tileLayout(n, w, h);

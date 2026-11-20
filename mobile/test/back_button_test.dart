@@ -148,32 +148,91 @@ void main() {
     await h.tearDown(tester);
   });
 
-  testWidgets('choice game: a back closes the scores, then the chat panel, then asks', (tester) async {
+  testWidgets('choice game: a back closes the chat sheet, the scores, then asks', (tester) async {
     final h = await enterGame(tester, options: {'answerMode': 'choice'});
     await prepare(tester, h, 0, choices: ['c0', 'c1', 'c2', 'c3']);
     await start(tester, h, 0);
 
+    // The chat sheet (D-146): a back closes it, nothing else.
     await tester.tap(find.byKey(const ValueKey('chat-open')));
     await h.settle(tester);
-    expect(shown('chat-close'), isTrue);
+    expect(shown('chat-sheet'), isTrue);
+    await back(tester, h);
+    expect(shown('chat-sheet'), isFalse);
+    expect(find.byKey(const ValueKey('chat-open')).hitTestable(), findsOneWidget);
+    expect(find.text(gameAsk), findsNothing);
+
+    // The scores the same.
     await tester.tap(find.byKey(const ValueKey('my-rank')));
     await h.settle(tester);
     expect(shown('scores'), isTrue);
-
     await back(tester, h);
     expect(shown('scores'), isFalse);
-    expect(shown('chat-close'), isTrue);
     expect(find.text(gameAsk), findsNothing);
 
+    // The two never open together: each covers the other's button.
+    await tester.tap(find.byKey(const ValueKey('chat-open')));
+    await h.settle(tester);
+    expect(find.byKey(const ValueKey('my-rank')).hitTestable(), findsNothing);
     await back(tester, h);
-    expect(shown('chat-close'), isFalse);
-    expect(shown('chat-open'), isTrue);
-    expect(find.text(gameAsk), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('my-rank')));
+    await h.settle(tester);
+    expect(find.byKey(const ValueKey('chat-open')).hitTestable(), findsNothing);
+    await back(tester, h);
+    expect(shown('scores'), isFalse);
+    expect(shown('chat-sheet'), isFalse);
 
     await back(tester, h);
     expect(find.text(gameAsk), findsOneWidget);
     expect(h.sent.whereType<LeaveRequest>(), isEmpty);
     expect(h.controller.screen, Screen.game);
+    await h.tearDown(tester);
+  });
+
+  testWidgets('choice game: the leave dialog over the chat sheet closes first, then the sheet', (tester) async {
+    final h = await enterGame(tester, options: {'answerMode': 'choice'});
+    await prepare(tester, h, 0, choices: ['c0', 'c1', 'c2', 'c3']);
+    await start(tester, h, 0);
+    await tester.tap(find.byKey(const ValueKey('chat-open')));
+    await h.settle(tester);
+    h.controller.askLeave();
+    await h.settle(tester);
+    expect(find.text(gameAsk), findsOneWidget);
+    expect(find.byKey(const ValueKey('leave-cancel')).hitTestable(), findsOneWidget, reason: 'the dialog over the sheet');
+
+    await back(tester, h);
+    expect(find.text(gameAsk), findsNothing);
+    expect(shown('chat-sheet'), isTrue);
+    await back(tester, h);
+    expect(shown('chat-sheet'), isFalse);
+    expect(find.text(gameAsk), findsNothing);
+    await back(tester, h);
+    expect(find.text(gameAsk), findsOneWidget);
+    await h.tearDown(tester);
+  });
+
+  testWidgets('choice game over: a back closes the chat sheet, then asks about the room', (tester) async {
+    final h = await enterGame(tester, options: {'answerMode': 'choice'});
+    await prepare(tester, h, 0, total: 1, choices: ['c0', 'c1', 'c2', 'c3']);
+    await start(tester, h, 0);
+    h.receive(revealFrame(0, correctChoice: 1));
+    h.receive({
+      'type': 'gameOver',
+      'ranking': [
+        {'rank': 1, 'name': 'Aki', 'score': 10},
+        {'rank': 2, 'name': 'Mina', 'score': 5},
+      ],
+    });
+    await h.settle(tester);
+    expect(h.controller.screen, Screen.over);
+    await tester.tap(find.byKey(const ValueKey('chat-open')));
+    await h.settle(tester);
+    expect(shown('chat-sheet'), isTrue);
+    await back(tester, h);
+    expect(shown('chat-sheet'), isFalse);
+    expect(find.text(roomAsk), findsNothing);
+    await back(tester, h);
+    expect(find.text(roomAsk), findsOneWidget);
     await h.tearDown(tester);
   });
 

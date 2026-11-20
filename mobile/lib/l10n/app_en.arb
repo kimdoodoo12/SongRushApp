@@ -173,5 +173,7 @@
   "revealMore": "More",
   "revealLess": "Less",
   "roomLeaveAsk": "Leave the room?",
-  "exitAsk": "Leave SongRush?"
+  "exitAsk": "Leave SongRush?",
+  "chatSheetRevealSolved": "{name} got it! · Close to see the answer card",
+  "chatSheetReveal": "Answer revealed · Close to see the answer card"
 }

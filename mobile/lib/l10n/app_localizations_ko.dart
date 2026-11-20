@@ -595,4 +595,12 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get exitAsk => 'SongRush를 나갈까요?';
+
+  @override
+  String chatSheetRevealSolved(Object name) {
+    return '$name 정답! · 닫으면 정답 카드가 보여요';
+  }
+
+  @override
+  String get chatSheetReveal => '정답 공개 · 닫으면 정답 카드가 보여요';
 }

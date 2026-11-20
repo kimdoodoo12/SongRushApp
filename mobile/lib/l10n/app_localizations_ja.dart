@@ -595,4 +595,12 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get exitAsk => 'SongRushを退出しますか？';
+
+  @override
+  String chatSheetRevealSolved(Object name) {
+    return '$name 正解！ · 閉じると正解カードが見られます';
+  }
+
+  @override
+  String get chatSheetReveal => '正解発表 · 閉じると正解カードが見られます';
 }
